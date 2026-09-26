@@ -109,7 +109,7 @@ impl<'a> CompilerSignature<'a> {
             .iter()
             .map(|parameter| {
                 let name = parameter.default_name.clone();
-                let declaration = c_parameter!(name : { parameter.c_type.clone() });
+                let declaration = c_parameter!({ name } : { parameter.c_type.clone() });
                 if definition && parameter.is_context {
                     declaration.maybe_unused()
                 } else {

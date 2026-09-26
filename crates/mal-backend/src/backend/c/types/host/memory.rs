@@ -58,7 +58,7 @@ impl TypeRegistry {
             c_expr!(id "value")
         };
         let read_body = c_block!(
-            (var (host_type.clone()) ("value")),
+            (var "value": { host_type.clone() }),
             (call "memcpy";
                 (address (id "value")),
                 (id "source"),
@@ -124,7 +124,7 @@ impl TypeRegistry {
                     let field_reads = elements.iter().zip(fields).enumerate().map(
                         |(field, (element, layout))| {
                             c_statement!(expr (assign
-                                (field (id "value"); format!("field_{field}"));
+                                (field (id "value"); { format!("field_{field}") });
                                 { self.memory_read_value(
                                 element,
                                 c_expr!(id "call"),
@@ -134,7 +134,7 @@ impl TypeRegistry {
                         },
                     );
                     c_block!(
-                        (var (host_type.clone()) ("value")),
+                        (var "value": { host_type.clone() }),
                         {{ field_reads }},
                         (return (id "value")),
                     )
@@ -165,7 +165,7 @@ impl TypeRegistry {
                                         element,
                                         c_expr!(id "call"),
                                         offset(c_expr!(id "destination"), layout.offset),
-                                        c_expr!(field (id "value"); format!("field_{field}")),
+                                        c_expr!(field (id "value"); { format!("field_{field}") }),
                                     )
                                 },
                             )
@@ -195,10 +195,10 @@ impl TypeRegistry {
             .iter()
             .enumerate()
             .map(|(variant, member)| {
-                c_switch_case!(case (number variant); [
-                    (return (compound self.host_value_c_type(ty, None);
-                        (field "tag"; (call "UINT32_C"; (number variant))),
-                        (path ["payload".into(), format!("variant_{variant}")];
+                c_switch_case!(case (number { variant }); [
+                    (return (compound { self.host_value_c_type(ty, None) };
+                        (field "tag"; (call "UINT32_C"; (number { variant }))),
+                        (path { ["payload".into(), format!("variant_{variant}")] };
                             { self.memory_read_value(
                                 member,
                                 c_expr!(id "call"),
@@ -233,14 +233,14 @@ impl TypeRegistry {
             .iter()
             .enumerate()
             .map(|(variant, member)| {
-                let tag_value = c_expr!(cast self.host_value_c_type(&tag_type, None);
+                let tag_value = c_expr!(cast { self.host_value_c_type(&tag_type, None) };
                     (field (id "value"); "tag")
                 );
                 let payload = c_expr!(field
                     (field (id "value"); "payload");
-                    format!("variant_{variant}")
+                    { format!("variant_{variant}") }
                 );
-                c_switch_case!(case (call "UINT32_C"; (number variant)); [
+                c_switch_case!(case (call "UINT32_C"; (number { variant })); [
                     { self.memory_write_statement(
                         &tag_type,
                         c_expr!(id "call"),
@@ -277,8 +277,8 @@ impl TypeRegistry {
             .expect("checker-approved memory alias has a layout")
             .stride;
         let source = offset(
-            c_expr!(cast c_type!(ptr(const(named("uint8_t")))); (id "address")),
-            c_expr!(multiply (id "index"); (number stride)),
+            c_expr!(cast { c_type!(ptr(const(named("uint8_t")))) }; (id "address")),
+            c_expr!(multiply (id "index"); (number { stride })),
         );
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
         let read_value = self.memory_read_value(&alias.ty, c_expr!(id "call"), source);
@@ -293,13 +293,13 @@ impl TypeRegistry {
                 "call": ptr(named("mal_call_t")),
                 "address": named("mal_Address_t"),
                 "index": named("mal_USize_t"),
-            ) -> named(format!("mal_{}_t", alias.name))),
+            ) -> named({ format!("mal_{}_t", alias.name) })),
             read_body,
         );
 
         let destination = offset(
-            c_expr!(cast c_type!(ptr(named("uint8_t"))); (id "address")),
-            c_expr!(multiply (id "index"); (number stride)),
+            c_expr!(cast { c_type!(ptr(named("uint8_t"))) }; (id "address")),
+            c_expr!(multiply (id "index"); (number { stride })),
         );
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
         let write_value = self.memory_write_statement(
@@ -319,7 +319,7 @@ impl TypeRegistry {
                 "call": ptr(named("mal_call_t")),
                 "address": named("mal_Address_t"),
                 "index": named("mal_USize_t"),
-                "value": named(format!("mal_{}_t", alias.name)),
+                "value": named({ format!("mal_{}_t", alias.name) }),
             ) -> named("void")),
             write_body,
         );
@@ -328,11 +328,11 @@ impl TypeRegistry {
     fn memory_read_value(&self, ty: &Type, call: Expr, source: Expr) -> Expr {
         match ty {
             Type::Unit => c_expr!(compound "mal_Unit_t"; (positional (number 0))),
-            Type::Product(_) | Type::Sum(_) if !is_bool(ty) => c_expr!(call
-                format!("mal_detail_memory_read_{}", self.index(ty));
+            Type::Product(_) | Type::Sum(_) if !is_bool(ty) => c_expr!(call {
+                format!("mal_detail_memory_read_{}", self.index(ty)) };
                 { call }, { source }
             ),
-            _ => c_expr!(call format!("mal_detail_memory_read_{}", scalar_name(ty));
+            _ => c_expr!(call { format!("mal_detail_memory_read_{}", scalar_name(ty)) };
                 { call }, { source }
             ),
         }
@@ -352,7 +352,7 @@ impl TypeRegistry {
             Type::Product(_) | Type::Sum(_) if !is_bool(ty) => self.index(ty).to_string(),
             _ => scalar_name(ty).into(),
         };
-        c_statement!(call format!("mal_detail_memory_write_{name}");
+        c_statement!(call { format!("mal_detail_memory_write_{name}") };
             { call },
             { destination },
             { value },
@@ -419,7 +419,7 @@ struct Offset(Expr);
 
 impl From<usize> for Offset {
     fn from(value: usize) -> Self {
-        Self(c_expr!(number value))
+        Self(c_expr!(number { value }))
     }
 }
 

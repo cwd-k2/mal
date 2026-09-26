@@ -17,12 +17,13 @@ impl FunctionEmitter<'_> {
             {
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.store(
-                    value_type.llvm,
-                    value.representation.as_str(),
-                    format!("%mal_slot_{}", slot.index),
-                    value_type.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    store { value_type.llvm },
+                    { value.representation.as_str() },
+                    { format!("%mal_slot_{}", slot.index) },
+                    { value_type.alignment },
+                    []
                 );
             }
             Pattern::Product { elements, ty, .. } if value.ty == *ty => {
@@ -37,11 +38,11 @@ impl FunctionEmitter<'_> {
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
-                    self.extract_value(
-                        register.clone(),
-                        aggregate_type.llvm.clone(),
-                        value.representation.clone(),
-                        [index],
+                    emit_instruction!(
+                        self;
+                        extract_value { register.clone() };
+                        { aggregate_type.llvm.clone() } => { value.representation.clone() },
+                        [{ index }]
                     );
                     self.store_self_tail_pattern(
                         element,
@@ -118,12 +119,13 @@ impl FunctionEmitter<'_> {
                 self.retain_if_borrowed(&mut value)?;
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.store(
-                    value_type.llvm,
-                    value.representation.as_str(),
-                    format!("%mal_slot_{}", slot.index),
-                    value_type.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    store { value_type.llvm },
+                    { value.representation.as_str() },
+                    { format!("%mal_slot_{}", slot.index) },
+                    { value_type.alignment },
+                    []
                 );
             }
             Pattern::Binding { id, ty }
@@ -140,12 +142,13 @@ impl FunctionEmitter<'_> {
                 }
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.store(
-                    value_type.llvm,
-                    value.representation.as_str(),
-                    format!("%mal_slot_{}", slot.index),
-                    value_type.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    store { value_type.llvm },
+                    { value.representation.as_str() },
+                    { format!("%mal_slot_{}", slot.index) },
+                    { value_type.alignment },
+                    []
                 );
             }
             Pattern::Binding { id, ty }
@@ -161,12 +164,13 @@ impl FunctionEmitter<'_> {
                 }
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.store(
-                    value_type.llvm,
-                    value.representation.as_str(),
-                    format!("%mal_slot_{}", slot.index),
-                    value_type.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    store { value_type.llvm },
+                    { value.representation.as_str() },
+                    { format!("%mal_slot_{}", slot.index) },
+                    { value_type.alignment },
+                    []
                 );
             }
             Pattern::Product { elements, ty, .. } => {
@@ -190,11 +194,11 @@ impl FunctionEmitter<'_> {
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
-                    self.extract_value(
-                        register.clone(),
-                        aggregate_type.llvm.clone(),
-                        value.representation.clone(),
-                        [index],
+                    emit_instruction!(
+                        self;
+                        extract_value { register.clone() };
+                        { aggregate_type.llvm.clone() } => { value.representation.clone() },
+                        [{ index }]
                     );
                     self.store_pattern_to_destination(
                         element,

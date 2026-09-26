@@ -6,7 +6,7 @@
 //! is used up. A native activation keeps its live values in its own slots and touches no control arena, so the
 //! optimizer sees an ordinary recursive function whose only extra work is one stack check per activation.
 
-use crate::backend::llvm::syntax::llvm_type;
+use crate::backend::llvm::syntax::{ComparisonKind, ComparisonPredicate, llvm_type};
 use crate::closure::ast::Atom;
 use crate::control::ast::{StateId, Terminator};
 use mal_frontend::check::ast::Type;
@@ -91,7 +91,14 @@ impl FunctionEmitter<'_> {
         let result_llvm = self.types.value(&result_type)?.llvm;
         let name = super::super::function_name(self.function.id);
         let register = self.register();
-        self.direct_call(Some(register.clone()), false, result_llvm, name, arguments);
+        emit_instruction!(
+            self;
+            call { Some(register.clone()) },
+            false,
+            { result_llvm },
+            direct { name },
+            {{ arguments }}
+        );
         if let Some(value) = handed_over {
             self.release_value(&value.ty, &value.representation)?;
         }
@@ -101,7 +108,7 @@ impl FunctionEmitter<'_> {
             representation: register,
         };
         self.store_input_pattern(resume, Some(&result))?;
-        self.branch(format!("mal_state_{}", resume.0));
+        emit_terminator!(self; branch { format!("mal_state_{}", resume.0) });
         Some(())
     }
 }
@@ -121,44 +128,52 @@ impl FunctionEmitter<'_> {
         let result_llvm = self.types.value(&self.result_type)?.llvm;
         let name = super::super::function_name(self.function.id);
         let flag = self.register();
-        self.direct_call(
-            Some(flag.clone()),
+        emit_instruction!(
+            self;
+            call { Some(flag.clone()) },
             false,
-            llvm_type!(int(8_u16)),
-            "mal_native_stack_is_deep",
-            [(llvm_type!(ptr), "%mal_context".into())],
+            (int(8_u16)),
+            direct "mal_native_stack_is_deep";
+            [
+                (typed (ptr) => "%mal_context"),
+            ]
         );
         let deep = self.register();
-        self.compare(
-            deep.clone(),
-            crate::backend::llvm::syntax::ComparisonKind::Integer,
-            crate::backend::llvm::syntax::ComparisonPredicate::Ne,
-            llvm_type!(int(8_u16)),
-            flag,
-            "0",
+        emit_instruction!(
+            self;
+            compare { deep.clone() },
+            { ComparisonKind::Integer },
+            { ComparisonPredicate::Ne },
+            (int(8_u16)),
+            { flag },
+            "0"
         );
         let expected = self.register();
-        self.direct_call(
-            Some(expected.clone()),
+        emit_instruction!(
+            self;
+            call { Some(expected.clone()) },
             false,
-            llvm_type!(int(1_u16)),
-            "llvm.expect.i1",
+            (int(1_u16)),
+            direct "llvm.expect.i1";
             [
-                (llvm_type!(int(1_u16)), deep),
-                (llvm_type!(int(1_u16)), "false".into()),
-            ],
+                (typed (int(1_u16)) => { deep }),
+                (typed (int(1_u16)) => "false"),
+            ]
         );
-        self.conditional_branch(expected, "mal_deep_entry", "mal_native_entry");
+        emit_terminator!(self; conditional
+            { expected } => "mal_deep_entry", "mal_native_entry"
+        );
         self.block("mal_deep_entry");
         let continued = self.register();
-        self.direct_call(
-            Some(continued.clone()),
+        emit_instruction!(
+            self;
+            call { Some(continued.clone()) },
             false,
-            result_llvm.clone(),
-            format!("{name}_frames"),
-            parameters,
+            { result_llvm.clone() },
+            direct { format!("{name}_frames") },
+            {{ parameters }}
         );
-        self.return_value(result_llvm, continued);
+        emit_terminator!(self; return { result_llvm } => { continued });
         self.block("mal_native_entry");
         Some(())
     }

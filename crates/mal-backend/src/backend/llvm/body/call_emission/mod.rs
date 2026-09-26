@@ -1,5 +1,5 @@
 use super::*;
-use crate::backend::llvm::syntax::{llvm_instruction, llvm_terminator, llvm_type};
+use crate::backend::llvm::syntax::{llvm_instruction, llvm_type};
 
 mod environment;
 mod parameter;
@@ -50,12 +50,13 @@ impl FunctionEmitter<'_> {
         let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
         self.sync_control_top()?;
-        self.direct_call(
-            Some(register.clone()),
-            tail,
-            result_value_type.llvm,
-            function_name(target.id),
-            arguments,
+        emit_instruction!(
+            self;
+            call { Some(register.clone()) },
+            { tail },
+            { result_value_type.llvm },
+            direct { function_name(target.id) },
+            {{ arguments }}
         );
         if self.optimizations.localizes_control_storage(target.id) {
             self.refresh_control_storage();
@@ -92,18 +93,18 @@ impl FunctionEmitter<'_> {
         };
         let closure_type = self.types.value(&callee.ty)?;
         let code = self.register();
-        self.extract_value(
-            code.clone(),
-            closure_type.llvm.clone(),
-            callee.representation.clone(),
-            [0],
+        emit_instruction!(
+            self;
+            extract_value { code.clone() };
+            { closure_type.llvm.clone() } => { callee.representation.clone() },
+            [0]
         );
         let environment = self.register();
-        self.extract_value(
-            environment.clone(),
-            closure_type.llvm,
-            callee.representation,
-            [1],
+        emit_instruction!(
+            self;
+            extract_value { environment.clone() };
+            { closure_type.llvm } => { callee.representation },
+            [1]
         );
         let mut arguments = vec![
             (llvm_type!(ptr), "%mal_context".into()),
@@ -125,12 +126,13 @@ impl FunctionEmitter<'_> {
         let result_type = self.types.value(result)?;
         let register = self.register();
         self.sync_control_top()?;
-        self.indirect_call(
-            Some(register.clone()),
-            tail,
-            result_type.llvm,
-            code,
-            arguments,
+        emit_instruction!(
+            self;
+            call { Some(register.clone()) },
+            { tail },
+            { result_type.llvm },
+            indirect { code },
+            {{ arguments }}
         );
         if self
             .optimizations
@@ -202,8 +204,9 @@ impl FunctionEmitter<'_> {
             self.emission_failed = true;
             return storage;
         };
-        let Some(instruction) = llvm_instruction!(alloca storage.clone(), llvm.clone(), alignment)
-        else {
+        let Some(instruction) = llvm_instruction!(
+            alloca { storage.clone() }, { llvm.clone() }, { alignment }
+        ) else {
             self.emission_failed = true;
             return storage;
         };
@@ -240,160 +243,6 @@ impl FunctionEmitter<'_> {
         self.emission_failed |= !function.structured_instruction(instruction);
     }
 
-    pub(super) fn load(
-        &mut self,
-        result: impl Into<String>,
-        ty: super::super::syntax::Type,
-        pointer: impl Into<String>,
-        alignment: usize,
-        metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
-    ) {
-        self.structured_instruction(llvm_instruction!(load
-            result, ty, pointer, alignment, metadata,
-        ));
-    }
-
-    pub(super) fn store(
-        &mut self,
-        ty: super::super::syntax::Type,
-        value: impl Into<String>,
-        pointer: impl Into<String>,
-        alignment: usize,
-        metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
-    ) {
-        self.structured_instruction(llvm_instruction!(store
-            ty, value, pointer, alignment, metadata,
-        ));
-    }
-
-    pub(super) fn direct_call(
-        &mut self,
-        result: Option<String>,
-        tail: bool,
-        result_type: super::super::syntax::Type,
-        callee: impl Into<String>,
-        arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
-    ) {
-        self.structured_instruction(llvm_instruction!(
-            call result, tail, result_type, direct callee, arguments
-        ));
-    }
-
-    pub(super) fn indirect_call(
-        &mut self,
-        result: Option<String>,
-        tail: bool,
-        result_type: super::super::syntax::Type,
-        callee: impl Into<String>,
-        arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
-    ) {
-        self.structured_instruction(llvm_instruction!(
-            call result, tail, result_type, indirect callee, arguments
-        ));
-    }
-
-    pub(super) fn unary(
-        &mut self,
-        result: impl Into<String>,
-        operator: super::super::syntax::UnaryOperator,
-        ty: super::super::syntax::Type,
-        value: impl Into<String>,
-    ) {
-        self.structured_instruction(llvm_instruction!(
-            unary result, operator; ty => value
-        ));
-    }
-
-    pub(super) fn binary(
-        &mut self,
-        result: impl Into<String>,
-        operator: super::super::syntax::BinaryOperator,
-        ty: super::super::syntax::Type,
-        left: impl Into<String>,
-        right: impl Into<String>,
-    ) {
-        self.structured_instruction(llvm_instruction!(binary
-            result, operator, ty, left, right,
-        ));
-    }
-
-    pub(super) fn compare(
-        &mut self,
-        result: impl Into<String>,
-        kind: super::super::syntax::ComparisonKind,
-        predicate: super::super::syntax::ComparisonPredicate,
-        ty: super::super::syntax::Type,
-        left: impl Into<String>,
-        right: impl Into<String>,
-    ) {
-        self.structured_instruction(llvm_instruction!(compare
-            result, kind, predicate, ty, left, right,
-        ));
-    }
-
-    pub(super) fn cast(
-        &mut self,
-        result: impl Into<String>,
-        operator: super::super::syntax::CastOperator,
-        source_type: super::super::syntax::Type,
-        source: impl Into<String>,
-        target: super::super::syntax::Type,
-    ) {
-        self.structured_instruction(llvm_instruction!(
-            cast result, operator; source_type => source, target
-        ));
-    }
-
-    pub(super) fn get_element_ptr(
-        &mut self,
-        result: impl Into<String>,
-        inbounds: bool,
-        element_type: super::super::syntax::Type,
-        pointer: impl Into<String>,
-        indices: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
-    ) {
-        self.structured_instruction(llvm_instruction!(
-            get_element_ptr result, inbounds, element_type, pointer, indices
-        ));
-    }
-
-    pub(super) fn extract_value(
-        &mut self,
-        result: impl Into<String>,
-        aggregate_type: super::super::syntax::Type,
-        aggregate: impl Into<String>,
-        indices: impl IntoIterator<Item = usize>,
-    ) {
-        self.structured_instruction(llvm_instruction!(
-            extract_value result; aggregate_type => aggregate, indices
-        ));
-    }
-
-    pub(super) fn insert_value(
-        &mut self,
-        result: impl Into<String>,
-        aggregate_type: super::super::syntax::Type,
-        aggregate: impl Into<String>,
-        element_type: super::super::syntax::Type,
-        element: impl Into<String>,
-        indices: impl IntoIterator<Item = usize>,
-    ) {
-        self.structured_instruction(llvm_instruction!(insert_value
-            result; aggregate_type => aggregate, element_type => element, indices
-        ));
-    }
-
-    pub(super) fn phi(
-        &mut self,
-        result: impl Into<String>,
-        ty: super::super::syntax::Type,
-        incoming: impl IntoIterator<Item = (String, String)>,
-    ) {
-        self.structured_instruction(llvm_instruction!(phi
-            result, ty, incoming
-        ));
-    }
-
     pub(super) fn terminate(&mut self, terminator: Option<super::super::syntax::Terminator>) {
         let Some(terminator) = terminator else {
             self.emission_failed = true;
@@ -404,37 +253,6 @@ impl FunctionEmitter<'_> {
             return;
         };
         self.emission_failed |= !function.terminate(terminator);
-    }
-
-    pub(super) fn unreachable(&mut self) {
-        self.terminate(llvm_terminator!(unreachable));
-    }
-
-    pub(super) fn return_void(&mut self) {
-        self.terminate(llvm_terminator!(return_void));
-    }
-
-    pub(super) fn branch(&mut self, target: impl Into<String>) {
-        self.terminate(llvm_terminator!(branch target));
-    }
-
-    pub(super) fn conditional_branch(
-        &mut self,
-        condition: impl Into<String>,
-        then_target: impl Into<String>,
-        else_target: impl Into<String>,
-    ) {
-        self.terminate(llvm_terminator!(conditional
-            condition => then_target, else_target
-        ));
-    }
-
-    pub(super) fn return_value(
-        &mut self,
-        ty: super::super::syntax::Type,
-        value: impl Into<String>,
-    ) {
-        self.terminate(llvm_terminator!(return ty => value));
     }
 
     pub(super) fn begin_function(&mut self, signature: super::super::syntax::FunctionSignature) {

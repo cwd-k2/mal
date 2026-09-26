@@ -110,7 +110,7 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
         super::c_block!((return (number 2))),
     )];
     let body = super::c_block!(
-        (var ("int") ("value") = (number 0)),
+        (var "value": named("int") = (number 0)),
         {{ statements }},
         (if (equal (id "value"); (number 0)); [
             (switch (id "value"); [

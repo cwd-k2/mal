@@ -1,4 +1,4 @@
-use crate::backend::llvm::syntax::{llvm_terminator, llvm_type};
+use crate::backend::llvm::syntax::{BinaryOperator, ComparisonKind, ComparisonPredicate};
 use crate::control::ast::StateId;
 
 use super::layout::FrameLayout;
@@ -14,60 +14,68 @@ impl FunctionEmitter<'_> {
         if frame_sites.is_empty() {
             if self.common_region.is_some() {
                 let environment = self.active_environment();
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(void),
-                    "mal_runtime_environment_release",
-                    [(llvm_type!(ptr), environment)],
+                    (void),
+                    direct "mal_runtime_environment_release";
+                    [
+                        (typed (ptr) => { environment }),
+                    ]
                 );
             }
             if result.ty != self.result_type {
                 return None;
             }
             let result_type = self.types.value(&self.result_type)?;
-            self.return_value(result_type.llvm, result.representation.as_str());
+            emit_terminator!(self; return { result_type.llvm } => { result.representation.as_str() });
             return Some(());
         }
         let top = self.register();
-        self.load(
-            top.clone(),
-            self.types.index_llvm_type(),
-            self.control_top_pointer(),
-            self.types.index_alignment(),
-            [],
+        emit_instruction!(
+            self;
+            load { top.clone() },
+            { self.types.index_llvm_type() },
+            { self.control_top_pointer() },
+            { self.types.index_alignment() },
+            []
         );
         let finished = self.register();
-        self.compare(
-            finished.clone(),
-            crate::backend::llvm::syntax::ComparisonKind::Integer,
-            crate::backend::llvm::syntax::ComparisonPredicate::Eq,
-            self.types.index_llvm_type(),
-            top.clone(),
-            "%mal_control_base",
+        emit_instruction!(
+            self;
+            compare { finished.clone() },
+            { ComparisonKind::Integer },
+            { ComparisonPredicate::Eq },
+            { self.types.index_llvm_type() },
+            { top.clone() },
+            "%mal_control_base"
         );
-        self.conditional_branch(
-            finished,
-            format!("mal_return_done_{}", site.0),
-            format!("mal_return_pop_{}", site.0),
+        emit_terminator!(self; conditional
+            { finished } =>
+            { format!("mal_return_done_{}", site.0) },
+            { format!("mal_return_pop_{}", site.0) }
         );
         self.block(format!("mal_return_done_{}", site.0));
         self.sync_control_top()?;
         if self.common_region.is_some() {
             let environment = self.active_environment();
-            self.direct_call(
-                None,
+            emit_instruction!(
+                self;
+                call None,
                 false,
-                llvm_type!(void),
-                "mal_runtime_environment_release",
-                [(llvm_type!(ptr), environment)],
+                (void),
+                direct "mal_runtime_environment_release";
+                [
+                    (typed (ptr) => { environment }),
+                ]
             );
         }
         if result.ty == self.result_type {
             let result_type = self.types.value(&self.result_type)?;
-            self.return_value(result_type.llvm, result.representation.as_str());
+            emit_terminator!(self; return { result_type.llvm } => { result.representation.as_str() });
         } else {
-            self.unreachable();
+            emit_terminator!(self; unreachable);
         }
         self.block(format!("mal_return_pop_{}", site.0));
         let storage = self.current_control_storage();
@@ -76,97 +84,118 @@ impl FunctionEmitter<'_> {
             let pass_through = self.physical_frame_pass_through(&frame);
             let layout = FrameLayout::new(&frame, self.types.clone(), false, &pass_through)?;
             let previous_top = self.register();
-            self.binary(
-                previous_top.clone(),
-                crate::backend::llvm::syntax::BinaryOperator::Sub,
-                self.types.index_llvm_type(),
-                top.clone(),
-                layout.size.to_string(),
+            emit_instruction!(
+                self;
+                binary { previous_top.clone() },
+                { BinaryOperator::Sub },
+                { self.types.index_llvm_type() },
+                { top.clone() },
+                { layout.size.to_string() }
             );
-            self.store(
-                self.types.index_llvm_type(),
-                previous_top.as_str(),
-                self.control_top_pointer(),
-                self.types.index_alignment(),
-                [],
+            emit_instruction!(
+                self;
+                store { self.types.index_llvm_type() },
+                { previous_top.as_str() },
+                { self.control_top_pointer() },
+                { self.types.index_alignment() },
+                []
             );
             let frame_pointer = self.register();
-            self.get_element_ptr(
-                frame_pointer.clone(),
+            emit_instruction!(
+                self;
+                get_element_ptr { frame_pointer.clone() },
                 false,
-                llvm_type!(int(8_u16)),
-                storage,
-                [(self.types.index_llvm_type(), previous_top)],
+                (int(8_u16)),
+                { storage };
+                [
+                    (typed { self.types.index_llvm_type() } => { previous_top }),
+                ]
             );
             if self.common_region.is_some() {
                 let active = self.active_environment();
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(void),
-                    "mal_runtime_environment_release",
-                    [(llvm_type!(ptr), active)],
+                    (void),
+                    direct "mal_runtime_environment_release";
+                    [
+                        (typed (ptr) => { active }),
+                    ]
                 );
             }
-            self.branch(format!("mal_frame_{}_from_{}", frame_site.0, site.0));
+            emit_terminator!(self; branch { format!("mal_frame_{}_from_{}", frame_site.0, site.0) });
             return self.emit_frame_resume(site, *frame_site, result, &frame_pointer, false);
         }
         let footer_offset = self.register();
-        self.binary(
-            footer_offset.clone(),
-            crate::backend::llvm::syntax::BinaryOperator::Sub,
-            self.types.index_llvm_type(),
-            top,
-            self.types.index_size().to_string(),
+        emit_instruction!(
+            self;
+            binary { footer_offset.clone() },
+            { BinaryOperator::Sub },
+            { self.types.index_llvm_type() },
+            { top },
+            { self.types.index_size().to_string() }
         );
         let footer = self.register();
-        self.get_element_ptr(
-            footer.clone(),
+        emit_instruction!(
+            self;
+            get_element_ptr { footer.clone() },
             false,
-            llvm_type!(int(8_u16)),
-            storage.clone(),
-            [(self.types.index_llvm_type(), footer_offset)],
+            (int(8_u16)),
+            { storage.clone() };
+            [
+                (typed { self.types.index_llvm_type() } => { footer_offset }),
+            ]
         );
         let previous_top = self.register();
-        self.load(
-            previous_top.clone(),
-            self.types.index_llvm_type(),
-            footer,
-            self.types.index_alignment(),
-            [],
+        emit_instruction!(
+            self;
+            load { previous_top.clone() },
+            { self.types.index_llvm_type() },
+            { footer },
+            { self.types.index_alignment() },
+            []
         );
-        self.store(
-            self.types.index_llvm_type(),
-            previous_top.as_str(),
-            self.control_top_pointer(),
-            self.types.index_alignment(),
-            [],
+        emit_instruction!(
+            self;
+            store { self.types.index_llvm_type() },
+            { previous_top.as_str() },
+            { self.control_top_pointer() },
+            { self.types.index_alignment() },
+            []
         );
         let frame_pointer = self.register();
-        self.get_element_ptr(
-            frame_pointer.clone(),
+        emit_instruction!(
+            self;
+            get_element_ptr { frame_pointer.clone() },
             false,
-            llvm_type!(int(8_u16)),
-            storage,
-            [(self.types.index_llvm_type(), previous_top)],
+            (int(8_u16)),
+            { storage };
+            [
+                (typed { self.types.index_llvm_type() } => { previous_top }),
+            ]
         );
         if self.common_region.is_some() {
             let active = self.active_environment();
-            self.direct_call(
-                None,
+            emit_instruction!(
+                self;
+                call None,
                 false,
-                llvm_type!(void),
-                "mal_runtime_environment_release",
-                [(llvm_type!(ptr), active)],
+                (void),
+                direct "mal_runtime_environment_release";
+                [
+                    (typed (ptr) => { active }),
+                ]
             );
         }
         let tag = self.register();
-        self.load(
-            tag.clone(),
-            llvm_type!(int(32_u16)),
-            frame_pointer.as_str(),
+        emit_instruction!(
+            self;
+            load { tag.clone() },
+            (int(32_u16)),
+            { frame_pointer.as_str() },
             4,
-            [],
+            []
         );
         let cases = frame_sites
             .iter()
@@ -180,13 +209,13 @@ impl FunctionEmitter<'_> {
                 })
             })
             .collect::<Option<Vec<_>>>()?;
-        self.terminate(llvm_terminator!(switch
-            llvm_type!(int(32_u16)) => tag;
-            default format!("mal_invalid_frame_{}", site.0);
+        emit_terminator!(self; switch
+            (int(32_u16)) => { tag };
+            default { format!("mal_invalid_frame_{}", site.0) };
             [{{ cases }}]
-        ));
+        );
         self.block(format!("mal_invalid_frame_{}", site.0));
-        self.unreachable();
+        emit_terminator!(self; unreachable);
         for frame_site in frame_sites {
             self.emit_frame_resume(site, frame_site, result, &frame_pointer, true)?;
         }
@@ -212,65 +241,75 @@ impl FunctionEmitter<'_> {
         {
             crate::execution::FrameResume::Resume => {}
             crate::execution::FrameResume::Unreachable => {
-                self.unreachable();
+                emit_terminator!(self; unreachable);
                 return Some(());
             }
         }
         for layout in &layout.fields {
             let field = frame.fields.get(layout.index)?;
             let pointer = self.register();
-            self.get_element_ptr(
-                pointer.clone(),
+            emit_instruction!(
+                self;
+                get_element_ptr { pointer.clone() },
                 false,
-                llvm_type!(int(8_u16)),
-                frame_pointer,
-                [(llvm_type!(int(64_u16)), layout.offset.to_string())],
+                (int(8_u16)),
+                { frame_pointer };
+                [
+                    (typed (int(64_u16)) => { layout.offset.to_string() }),
+                ]
             );
             let value = self.register();
-            self.load(
-                value.clone(),
-                layout.value_type.llvm.clone(),
-                pointer,
-                layout.value_type.alignment,
-                [],
+            emit_instruction!(
+                self;
+                load { value.clone() },
+                { layout.value_type.llvm.clone() },
+                { pointer },
+                { layout.value_type.alignment },
+                []
             );
             let slot = self.slots.get(&field.id)?.clone();
-            self.store(
-                layout.value_type.llvm.clone(),
-                value,
-                format!("%mal_slot_{}", slot.index),
-                layout.value_type.alignment,
-                [],
+            emit_instruction!(
+                self;
+                store { layout.value_type.llvm.clone() },
+                { value },
+                { format!("%mal_slot_{}", slot.index) },
+                { layout.value_type.alignment },
+                []
             );
         }
         if self.common_region.is_some() {
             let environment = if let Some(offset) = layout.environment {
                 let pointer = self.register();
-                self.get_element_ptr(
-                    pointer.clone(),
+                emit_instruction!(
+                    self;
+                    get_element_ptr { pointer.clone() },
                     false,
-                    llvm_type!(int(8_u16)),
-                    frame_pointer,
-                    [(llvm_type!(int(64_u16)), offset.to_string())],
+                    (int(8_u16)),
+                    { frame_pointer };
+                    [
+                        (typed (int(64_u16)) => { offset.to_string() }),
+                    ]
                 );
                 let environment = self.register();
-                self.load(
-                    environment.clone(),
-                    llvm_type!(ptr),
-                    pointer,
-                    self.types.pointer_alignment(),
-                    [],
+                emit_instruction!(
+                    self;
+                    load { environment.clone() },
+                    (ptr),
+                    { pointer },
+                    { self.types.pointer_alignment() },
+                    []
                 );
                 environment
             } else {
                 "null".into()
             };
-            self.store(
-                llvm_type!(ptr),
-                environment,
+            emit_instruction!(
+                self;
+                store (ptr),
+                { environment },
                 "%mal_active_environment",
-                self.types.pointer_alignment(),
-                [],
+                { self.types.pointer_alignment() },
+                []
             );
         }
         self.store_input_pattern(
@@ -281,7 +320,7 @@ impl FunctionEmitter<'_> {
                 owned: true,
             }),
         )?;
-        self.branch(format!("mal_state_{}", frame.resume.0));
+        emit_terminator!(self; branch { format!("mal_state_{}", frame.resume.0) });
         Some(())
     }
 }

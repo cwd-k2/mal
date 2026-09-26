@@ -1,4 +1,4 @@
-use crate::backend::llvm::syntax::llvm_type;
+use crate::backend::llvm::syntax::{BinaryOperator, ComparisonKind, ComparisonPredicate};
 
 use super::FunctionEmitter;
 
@@ -14,54 +14,66 @@ impl FunctionEmitter<'_> {
             return;
         }
         let storage = self.register();
-        self.direct_call(
-            Some(storage.clone()),
+        emit_instruction!(
+            self;
+            call { Some(storage.clone()) },
             false,
-            llvm_type!(ptr),
-            "mal_control_storage",
-            [(llvm_type!(ptr), "%mal_context".into())],
+            (ptr),
+            direct "mal_control_storage";
+            [
+                (typed (ptr) => "%mal_context"),
+            ]
         );
-        self.store(
-            llvm_type!(ptr),
-            storage,
+        emit_instruction!(
+            self;
+            store (ptr),
+            { storage },
             "%mal_local_control_storage",
-            self.types.pointer_alignment(),
-            [],
+            { self.types.pointer_alignment() },
+            []
         );
         let capacity = self.register();
-        self.direct_call(
-            Some(capacity.clone()),
+        emit_instruction!(
+            self;
+            call { Some(capacity.clone()) },
             false,
-            self.types.index_llvm_type(),
-            "mal_control_capacity",
-            [(llvm_type!(ptr), "%mal_context".into())],
+            { self.types.index_llvm_type() },
+            direct "mal_control_capacity";
+            [
+                (typed (ptr) => "%mal_context"),
+            ]
         );
-        self.store(
-            self.types.index_llvm_type(),
-            capacity,
+        emit_instruction!(
+            self;
+            store { self.types.index_llvm_type() },
+            { capacity },
             "%mal_local_control_capacity",
-            self.types.index_alignment(),
-            [],
+            { self.types.index_alignment() },
+            []
         );
     }
 
     pub(super) fn current_control_storage(&mut self) -> String {
         let storage = self.register();
         if self.local_control_storage {
-            self.load(
-                storage.clone(),
-                llvm_type!(ptr),
+            emit_instruction!(
+                self;
+                load { storage.clone() },
+                (ptr),
                 "%mal_local_control_storage",
-                self.types.pointer_alignment(),
-                [],
+                { self.types.pointer_alignment() },
+                []
             );
         } else {
-            self.direct_call(
-                Some(storage.clone()),
+            emit_instruction!(
+                self;
+                call { Some(storage.clone()) },
                 false,
-                llvm_type!(ptr),
-                "mal_control_storage",
-                [(llvm_type!(ptr), "%mal_context".into())],
+                (ptr),
+                direct "mal_control_storage";
+                [
+                    (typed (ptr) => "%mal_context"),
+                ]
             );
         }
         storage
@@ -73,20 +85,22 @@ impl FunctionEmitter<'_> {
         replacement: bool,
     ) -> Option<ControlReservation> {
         let top = self.register();
-        self.load(
-            top.clone(),
-            self.types.index_llvm_type(),
-            self.control_top_pointer(),
-            self.types.index_alignment(),
-            [],
+        emit_instruction!(
+            self;
+            load { top.clone() },
+            { self.types.index_llvm_type() },
+            { self.control_top_pointer() },
+            { self.types.index_alignment() },
+            []
         );
         let next_top = self.register();
-        self.binary(
-            next_top.clone(),
-            crate::backend::llvm::syntax::BinaryOperator::Add,
-            self.types.index_llvm_type(),
-            top.clone(),
-            frame_size.to_string(),
+        emit_instruction!(
+            self;
+            binary { next_top.clone() },
+            { BinaryOperator::Add },
+            { self.types.index_llvm_type() },
+            { top.clone() },
+            { frame_size.to_string() }
         );
         if replacement {
             let storage = self.current_control_storage();
@@ -98,16 +112,17 @@ impl FunctionEmitter<'_> {
         }
         if !self.local_control_storage {
             let storage = self.register();
-            self.direct_call(
-                Some(storage.clone()),
+            emit_instruction!(
+                self;
+                call { Some(storage.clone()) },
                 false,
-                llvm_type!(ptr),
-                "mal_control_reserve_frame",
+                (ptr),
+                direct "mal_control_reserve_frame";
                 [
-                    (llvm_type!(ptr), "%mal_context".into()),
-                    (self.types.index_llvm_type(), top.clone()),
-                    (self.types.index_llvm_type(), frame_size.to_string()),
-                ],
+                    (typed (ptr) => "%mal_context"),
+                    (typed { self.types.index_llvm_type() } => { top.clone() }),
+                    (typed { self.types.index_llvm_type() } => { frame_size.to_string() }),
+                ]
             );
             return Some(ControlReservation {
                 top,
@@ -118,12 +133,13 @@ impl FunctionEmitter<'_> {
 
         let cached_storage = self.current_control_storage();
         let capacity = self.register();
-        self.load(
-            capacity.clone(),
-            self.types.index_llvm_type(),
+        emit_instruction!(
+            self;
+            load { capacity.clone() },
+            { self.types.index_llvm_type() },
             "%mal_local_control_capacity",
-            self.types.index_alignment(),
-            [],
+            { self.types.index_alignment() },
+            []
         );
         let no_overflow = self.register();
         let frame_size = u64::try_from(frame_size).ok()?;
@@ -134,84 +150,94 @@ impl FunctionEmitter<'_> {
             8 => u64::MAX.checked_sub(frame_size)?,
             _ => unreachable!("target layout admits only supported index widths"),
         };
-        self.compare(
-            no_overflow.clone(),
-            crate::backend::llvm::syntax::ComparisonKind::Integer,
-            crate::backend::llvm::syntax::ComparisonPredicate::Ule,
-            self.types.index_llvm_type(),
-            top.clone(),
-            maximum_top.to_string(),
+        emit_instruction!(
+            self;
+            compare { no_overflow.clone() },
+            { ComparisonKind::Integer },
+            { ComparisonPredicate::Ule },
+            { self.types.index_llvm_type() },
+            { top.clone() },
+            { maximum_top.to_string() }
         );
         let within_capacity = self.register();
-        self.compare(
-            within_capacity.clone(),
-            crate::backend::llvm::syntax::ComparisonKind::Integer,
-            crate::backend::llvm::syntax::ComparisonPredicate::Ule,
-            self.types.index_llvm_type(),
-            next_top.clone(),
-            capacity,
+        emit_instruction!(
+            self;
+            compare { within_capacity.clone() },
+            { ComparisonKind::Integer },
+            { ComparisonPredicate::Ule },
+            { self.types.index_llvm_type() },
+            { next_top.clone() },
+            { capacity }
         );
         let fast = self.register();
-        self.binary(
-            fast.clone(),
-            crate::backend::llvm::syntax::BinaryOperator::And,
-            llvm_type!(int(1_u16)),
-            no_overflow,
-            within_capacity,
+        emit_instruction!(
+            self;
+            binary { fast.clone() },
+            { BinaryOperator::And },
+            (int(1_u16)),
+            { no_overflow },
+            { within_capacity }
         );
         let label = self.label_id();
-        self.conditional_branch(
-            fast,
-            format!("mal_control_fast_{label}"),
-            format!("mal_control_slow_{label}"),
+        emit_terminator!(self; conditional
+            { fast } =>
+            { format!("mal_control_fast_{label}") },
+            { format!("mal_control_slow_{label}") }
         );
         self.block(format!("mal_control_fast_{label}"));
-        self.branch(format!("mal_control_ready_{label}"));
+        emit_terminator!(self; branch { format!("mal_control_ready_{label}") });
         self.block(format!("mal_control_slow_{label}"));
         let grown = self.register();
-        self.direct_call(
-            Some(grown.clone()),
+        emit_instruction!(
+            self;
+            call { Some(grown.clone()) },
             false,
-            llvm_type!(ptr),
-            "mal_control_reserve_frame",
+            (ptr),
+            direct "mal_control_reserve_frame";
             [
-                (llvm_type!(ptr), "%mal_context".into()),
-                (self.types.index_llvm_type(), top.clone()),
-                (self.types.index_llvm_type(), frame_size.to_string()),
-            ],
+                (typed (ptr) => "%mal_context"),
+                (typed { self.types.index_llvm_type() } => { top.clone() }),
+                (typed { self.types.index_llvm_type() } => { frame_size.to_string() }),
+            ]
         );
-        self.store(
-            llvm_type!(ptr),
-            grown.as_str(),
+        emit_instruction!(
+            self;
+            store (ptr),
+            { grown.as_str() },
             "%mal_local_control_storage",
-            self.types.pointer_alignment(),
-            [],
+            { self.types.pointer_alignment() },
+            []
         );
         let grown_capacity = self.register();
-        self.direct_call(
-            Some(grown_capacity.clone()),
+        emit_instruction!(
+            self;
+            call { Some(grown_capacity.clone()) },
             false,
-            self.types.index_llvm_type(),
-            "mal_control_capacity",
-            [(llvm_type!(ptr), "%mal_context".into())],
+            { self.types.index_llvm_type() },
+            direct "mal_control_capacity";
+            [
+                (typed (ptr) => "%mal_context"),
+            ]
         );
-        self.store(
-            self.types.index_llvm_type(),
-            grown_capacity,
+        emit_instruction!(
+            self;
+            store { self.types.index_llvm_type() },
+            { grown_capacity },
             "%mal_local_control_capacity",
-            self.types.index_alignment(),
-            [],
+            { self.types.index_alignment() },
+            []
         );
-        self.branch(format!("mal_control_ready_{label}"));
+        emit_terminator!(self; branch { format!("mal_control_ready_{label}") });
         self.block(format!("mal_control_ready_{label}"));
         let storage = self.register();
-        self.phi(
-            storage.clone(),
-            llvm_type!(ptr),
-            [
+        emit_instruction!(
+            self;
+            phi { storage.clone() },
+            (ptr),
+            {{ [
                 (cached_storage, format!("mal_control_fast_{label}")),
                 (grown, format!("mal_control_slow_{label}")),
-            ],
+            ] }}
         );
         Some(ControlReservation {
             top,

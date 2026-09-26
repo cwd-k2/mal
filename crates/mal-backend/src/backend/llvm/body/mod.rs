@@ -6,6 +6,22 @@ use crate::control::ast::{Operation, Program, StateId, Terminator};
 use crate::execution::{ControlCallMode, ControlRegionId, ParameterDestination};
 use mal_frontend::check::ast::Type;
 
+macro_rules! emit_instruction {
+    ($emitter:expr; $($instruction:tt)*) => {
+        $emitter.structured_instruction(
+            $crate::backend::llvm::syntax::llvm_instruction!($($instruction)*)
+        )
+    };
+}
+
+macro_rules! emit_terminator {
+    ($emitter:expr; $($terminator:tt)*) => {
+        $emitter.terminate(
+            $crate::backend::llvm::syntax::llvm_terminator!($($terminator)*)
+        )
+    };
+}
+
 mod admission;
 mod aggregate;
 mod bridge;

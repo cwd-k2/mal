@@ -1,4 +1,3 @@
-use crate::backend::llvm::syntax::llvm_type;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
@@ -19,12 +18,15 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let count = self.register();
-        self.direct_call(
-            Some(count.clone()),
+        emit_instruction!(
+            self;
+            call { Some(count.clone()) },
             false,
-            self.types.index_llvm_type(),
-            "mal_runtime_buffer_count",
-            [(llvm_type!(ptr), buffer.representation.clone())],
+            { self.types.index_llvm_type() },
+            direct "mal_runtime_buffer_count";
+            [
+                (typed (ptr) => { buffer.representation.clone() }),
+            ]
         );
         Some(EmittedValue {
             ty: Type::USize,
@@ -43,32 +45,39 @@ impl FunctionEmitter<'_> {
         }
         let data = self.active_buffer_data(buffer);
         let count = self.register();
-        self.direct_call(
-            Some(count.clone()),
+        emit_instruction!(
+            self;
+            call { Some(count.clone()) },
             false,
-            self.types.index_llvm_type(),
-            "mal_runtime_buffer_count",
-            [(llvm_type!(ptr), buffer.representation.clone())],
+            { self.types.index_llvm_type() },
+            direct "mal_runtime_buffer_count";
+            [
+                (typed (ptr) => { buffer.representation.clone() }),
+            ]
         );
         let owner = self.register();
-        self.direct_call(
-            Some(owner.clone()),
+        emit_instruction!(
+            self;
+            call { Some(owner.clone()) },
             false,
-            llvm_type!(ptr),
-            "mal_runtime_bytes_read",
+            (ptr),
+            direct "mal_runtime_bytes_read";
             [
-                (llvm_type!(ptr), "%mal_context".into()),
-                (llvm_type!(ptr), data),
-                (self.types.index_llvm_type(), count.clone()),
-            ],
+                (typed (ptr) => "%mal_context"),
+                (typed (ptr) => { data }),
+                (typed { self.types.index_llvm_type() } => { count.clone() }),
+            ]
         );
         let copied_data = self.register();
-        self.direct_call(
-            Some(copied_data.clone()),
+        emit_instruction!(
+            self;
+            call { Some(copied_data.clone()) },
             false,
-            llvm_type!(ptr),
-            "mal_runtime_bytes_data",
-            [(llvm_type!(ptr), owner.clone())],
+            (ptr),
+            direct "mal_runtime_bytes_data";
+            [
+                (typed (ptr) => { owner.clone() }),
+            ]
         );
         self.make_byte_view(&Type::Symbol, &owner, &copied_data, &count, true)
     }
@@ -83,18 +92,19 @@ impl FunctionEmitter<'_> {
         }
         let fields = self.byte_view_fields(symbol)?;
         let buffer = self.register();
-        self.direct_call(
-            Some(buffer.clone()),
+        emit_instruction!(
+            self;
+            call { Some(buffer.clone()) },
             false,
-            llvm_type!(ptr),
-            "mal_runtime_buffer_from",
+            (ptr),
+            direct "mal_runtime_buffer_from";
             [
-                (llvm_type!(ptr), "%mal_context".into()),
-                (llvm_type!(ptr), fields.data),
-                (self.types.index_llvm_type(), "0".into()),
-                (self.types.index_llvm_type(), fields.count),
-                (self.types.index_llvm_type(), "1".into()),
-            ],
+                (typed (ptr) => "%mal_context"),
+                (typed (ptr) => { fields.data }),
+                (typed { self.types.index_llvm_type() } => "0"),
+                (typed { self.types.index_llvm_type() } => { fields.count }),
+                (typed { self.types.index_llvm_type() } => "1"),
+            ]
         );
         Some(EmittedValue {
             ty: result_type.clone(),
@@ -113,11 +123,11 @@ impl FunctionEmitter<'_> {
         let runtime = self.types.value(&value.ty)?;
         let [owner, data, count] = std::array::from_fn(|index| {
             let field = self.register();
-            self.extract_value(
-                field.clone(),
-                runtime.llvm.clone(),
-                value.representation.clone(),
-                [index],
+            emit_instruction!(
+                self;
+                extract_value { field.clone() };
+                { runtime.llvm.clone() } => { value.representation.clone() },
+                [{ index }]
             );
             field
         });
@@ -137,31 +147,28 @@ impl FunctionEmitter<'_> {
         }
         let runtime = self.types.value(ty)?;
         let with_owner = self.register();
-        self.insert_value(
-            with_owner.clone(),
-            runtime.llvm.clone(),
-            "poison",
-            llvm_type!(ptr),
-            owner,
-            [0],
+        emit_instruction!(
+            self;
+            insert_value { with_owner.clone() };
+            { runtime.llvm.clone() } => "poison",
+            (ptr) => { owner },
+            [0]
         );
         let with_data = self.register();
-        self.insert_value(
-            with_data.clone(),
-            runtime.llvm.clone(),
-            with_owner,
-            llvm_type!(ptr),
-            data,
-            [1],
+        emit_instruction!(
+            self;
+            insert_value { with_data.clone() };
+            { runtime.llvm.clone() } => { with_owner },
+            (ptr) => { data },
+            [1]
         );
         let result = self.register();
-        self.insert_value(
-            result.clone(),
-            runtime.llvm,
-            with_data,
-            self.types.index_llvm_type(),
-            count,
-            [2],
+        emit_instruction!(
+            self;
+            insert_value { result.clone() };
+            { runtime.llvm } => { with_data },
+            { self.types.index_llvm_type() } => { count },
+            [2]
         );
         Some(EmittedValue {
             ty: ty.clone(),

@@ -42,7 +42,7 @@ macro_rules! c_statement {
             $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
-    (call $name:expr; $($argument:tt),* $(,)?) => {
+    (call $name:tt; $($argument:tt),* $(,)?) => {
         $crate::backend::c::syntax::Statement::expression($crate::backend::c::syntax::c_expr!(
             call $name; $($argument),*
         ))
@@ -52,24 +52,39 @@ macro_rules! c_statement {
             invoke $callee; $($argument),*
         ))
     };
-    (var ($ty:expr) ($name:expr)) => {
+    (var $name:tt : { $($ty:tt)* }) => {
         $crate::backend::c::syntax::Statement::variable_declaration(
-            $crate::backend::c::syntax::c_variable!($name : { $ty }),
+            $crate::backend::c::syntax::c_variable!($name : { $($ty)* }),
             None,
         )
     };
-    (var ($ty:expr) ($name:expr) = $value:tt) => {
+    (var $name:tt : $kind:ident($($ty:tt)*)) => {
         $crate::backend::c::syntax::Statement::variable_declaration(
-            $crate::backend::c::syntax::c_variable!($name : { $ty }),
+            $crate::backend::c::syntax::c_variable!($name : $kind($($ty)*)),
+            None,
+        )
+    };
+    (var $name:tt : { $($ty:tt)* } = $value:tt) => {
+        $crate::backend::c::syntax::Statement::variable_declaration(
+            $crate::backend::c::syntax::c_variable!($name : { $($ty)* }),
             Some($crate::backend::c::syntax::c_expr_child!($value)),
         )
     };
-    (declaration ($declaration:expr)) => {
-        $crate::backend::c::syntax::Statement::variable_declaration($declaration, None)
-    };
-    (declaration ($declaration:expr) = $value:tt) => {
+    (var $name:tt : $kind:ident($($ty:tt)*) = $value:tt) => {
         $crate::backend::c::syntax::Statement::variable_declaration(
-            $declaration,
+            $crate::backend::c::syntax::c_variable!($name : $kind($($ty)*)),
+            Some($crate::backend::c::syntax::c_expr_child!($value)),
+        )
+    };
+    (declaration { $($declaration:tt)* }) => {
+        $crate::backend::c::syntax::Statement::variable_declaration(
+            { $($declaration)* },
+            None,
+        )
+    };
+    (declaration { $($declaration:tt)* } = $value:tt) => {
+        $crate::backend::c::syntax::Statement::variable_declaration(
+            { $($declaration)* },
             Some($crate::backend::c::syntax::c_expr_child!($value)),
         )
     };

@@ -1,5 +1,5 @@
 use super::*;
-use crate::backend::llvm::syntax::llvm_type;
+use crate::backend::llvm::syntax::{ComparisonKind, ComparisonPredicate};
 impl FunctionEmitter<'_> {
     pub(super) fn emit_state(&mut self, site: StateId) -> Option<()> {
         self.current_function = self.function_for_state(site)?;
@@ -33,7 +33,7 @@ impl FunctionEmitter<'_> {
                 .is_some_and(|parameter| parameter.binding_count == binding_index + 1)
             {
                 let label = self_tail_entry_label(self.current_function);
-                self.branch(label.clone());
+                emit_terminator!(self; branch { label.clone() });
                 self.block(label);
             }
         }
@@ -59,7 +59,7 @@ impl FunctionEmitter<'_> {
             }
             Terminator::Goto(target) => {
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                self.branch(format!("mal_state_{}", target.0));
+                emit_terminator!(self; branch { format!("mal_state_{}", target.0) });
             }
             Terminator::Jump { target, value } => {
                 let effect = self.ownership.terminator_operand_use(
@@ -71,7 +71,7 @@ impl FunctionEmitter<'_> {
                 self.commit_consumes(&value)?;
                 self.store_input_pattern(*target, Some(&value.value))?;
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                self.branch(format!("mal_state_{}", target.0));
+                emit_terminator!(self; branch { format!("mal_state_{}", target.0) });
             }
             Terminator::PrimitiveBranch {
                 operator,
@@ -100,64 +100,60 @@ impl FunctionEmitter<'_> {
                     let left = self.byte_view_fields(&left)?;
                     let right = self.byte_view_fields(&right)?;
                     let equality = self.register();
-                    self.direct_call(
-                        Some(equality.clone()),
+                    emit_instruction!(
+                        self;
+                        call { Some(equality.clone()) },
                         false,
-                        llvm_type!(int(8_u16)),
-                        "mal_runtime_symbol_equal",
+                        (int(8_u16)),
+                        direct "mal_runtime_symbol_equal";
                         [
-                            (llvm_type!(ptr), left.data),
-                            (self.types.index_llvm_type(), left.count),
-                            (llvm_type!(ptr), right.data),
-                            (self.types.index_llvm_type(), right.count),
-                        ],
+                            (typed (ptr) => { left.data }),
+                            (typed { self.types.index_llvm_type() } => { left.count }),
+                            (typed (ptr) => { right.data }),
+                            (typed { self.types.index_llvm_type() } => { right.count }),
+                        ]
                     );
                     let predicate = match operator {
-                        crate::core::ast::BinaryPrimitive::Equal => {
-                            crate::backend::llvm::syntax::ComparisonPredicate::Ne
-                        }
-                        crate::core::ast::BinaryPrimitive::NotEqual => {
-                            crate::backend::llvm::syntax::ComparisonPredicate::Eq
-                        }
+                        crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Ne,
+                        crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Eq,
                         _ => return None,
                     };
-                    self.compare(
-                        condition.clone(),
-                        crate::backend::llvm::syntax::ComparisonKind::Integer,
-                        predicate,
-                        llvm_type!(int(8_u16)),
-                        equality,
-                        "0",
+                    emit_instruction!(
+                        self;
+                        compare { condition.clone() },
+                        { ComparisonKind::Integer },
+                        { predicate },
+                        (int(8_u16)),
+                        { equality },
+                        "0"
                     );
                 } else if is_bool(&left.ty) {
                     let predicate = match operator {
-                        crate::core::ast::BinaryPrimitive::Equal => {
-                            crate::backend::llvm::syntax::ComparisonPredicate::Eq
-                        }
-                        crate::core::ast::BinaryPrimitive::NotEqual => {
-                            crate::backend::llvm::syntax::ComparisonPredicate::Ne
-                        }
+                        crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Eq,
+                        crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Ne,
                         _ => return None,
                     };
-                    self.compare(
-                        condition.clone(),
-                        crate::backend::llvm::syntax::ComparisonKind::Integer,
-                        predicate,
-                        llvm_type!(int(1_u16)),
-                        left.representation,
-                        right.representation,
+                    emit_instruction!(
+                        self;
+                        compare { condition.clone() },
+                        { ComparisonKind::Integer },
+                        { predicate },
+                        (int(1_u16)),
+                        { left.representation },
+                        { right.representation }
                     );
                 } else {
                     let predicate = comparison_predicate(*operator)?;
                     let scalar = scalar_type(&left.ty, self.types.index_size())?;
                     let (kind, predicate) = predicate.for_scalar(scalar);
-                    self.compare(
-                        condition.clone(),
-                        kind,
-                        predicate,
-                        scalar.llvm_type(),
-                        left.representation,
-                        right.representation,
+                    emit_instruction!(
+                        self;
+                        compare { condition.clone() },
+                        { kind },
+                        { predicate },
+                        { scalar.llvm_type() },
+                        { left.representation },
+                        { right.representation }
                     );
                 }
                 let then_drops = !self
@@ -181,14 +177,16 @@ impl FunctionEmitter<'_> {
                 } else {
                     format!("mal_state_{}", otherwise.0)
                 };
-                self.conditional_branch(condition, then_label, otherwise_label);
+                emit_terminator!(self; conditional
+                    { condition } => { then_label }, { otherwise_label }
+                );
                 if then_drops {
                     self.block(format!("mal_edge_{}_then", site.0));
                     self.emit_edge_drops(
                         site,
                         crate::execution::ownership::ControlPath::BranchThen,
                     )?;
-                    self.branch(format!("mal_state_{}", then.0));
+                    emit_terminator!(self; branch { format!("mal_state_{}", then.0) });
                 }
                 if otherwise_drops {
                     self.block(format!("mal_edge_{}_otherwise", site.0));
@@ -196,7 +194,7 @@ impl FunctionEmitter<'_> {
                         site,
                         crate::execution::ownership::ControlPath::BranchOtherwise,
                     )?;
-                    self.branch(format!("mal_state_{}", otherwise.0));
+                    emit_terminator!(self; branch { format!("mal_state_{}", otherwise.0) });
                 }
             }
             Terminator::Call {
@@ -208,7 +206,7 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_call(site, target, callee, argument, false)?;
                     self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    self.branch(format!("mal_state_{}", resume.0));
+                    emit_terminator!(self; branch { format!("mal_state_{}", resume.0) });
                 }
                 ControlCallMode::DirectRegion(_) if self.mode == EmissionMode::Native => {
                     self.emit_native_self_call(site, callee, argument)?;
@@ -230,7 +228,7 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_indirect_call(site, callee, argument, false)?;
                     self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    self.branch(format!("mal_state_{}", resume.0));
+                    emit_terminator!(self; branch { format!("mal_state_{}", resume.0) });
                 }
                 ControlCallMode::DirectSelfTail => return None,
                 ControlCallMode::DirectRegion(_) => return None,
@@ -278,7 +276,7 @@ impl FunctionEmitter<'_> {
                         } else {
                             format!("mal_state_{}", function.entry.0)
                         };
-                        self.branch(target);
+                        emit_terminator!(self; branch { target });
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(site, target, callee, argument, true)?;

@@ -24,7 +24,7 @@ impl FunctionDeclaration {
         }
     }
 
-    pub(in crate::backend::llvm) fn with_attributes(
+    pub(in crate::backend) fn with_attributes(
         mut self,
         attributes: impl IntoIterator<Item = FunctionAttribute>,
     ) -> Self {

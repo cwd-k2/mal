@@ -79,12 +79,13 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let value_type = self.types.value(&slot.ty)?;
-        self.store(
-            value_type.llvm,
-            value.representation.as_str(),
-            format!("%mal_slot_{}", slot.index),
-            value_type.alignment,
-            [],
+        emit_instruction!(
+            self;
+            store { value_type.llvm },
+            { value.representation.as_str() },
+            { format!("%mal_slot_{}", slot.index) },
+            { value_type.alignment },
+            []
         );
         Some(())
     }

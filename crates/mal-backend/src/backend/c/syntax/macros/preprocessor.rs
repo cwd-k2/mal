@@ -1,40 +1,50 @@
 macro_rules! c_preprocessor_expr {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (defined($name:expr)) => {
-        $crate::backend::c::syntax::PreprocessorExpr::defined($name)
+    (defined($name:tt)) => {
+        $crate::backend::c::syntax::PreprocessorExpr::defined(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
 }
 
 macro_rules! c_directive {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (include(system $path:expr)) => {
-        $crate::backend::c::syntax::Directive::include_system($path)
+    (include(system $path:tt)) => {
+        $crate::backend::c::syntax::Directive::include_system(
+            $crate::backend::c::syntax::c_scalar!($path),
+        )
     };
-    (include(quoted $path:expr)) => {
-        $crate::backend::c::syntax::Directive::include_quoted($path)
+    (include(quoted $path:tt)) => {
+        $crate::backend::c::syntax::Directive::include_quoted(
+            $crate::backend::c::syntax::c_scalar!($path),
+        )
     };
     (define $name:tt = unused) => {
         $crate::backend::c::syntax::Directive::define_attribute(
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::Attribute::Unused,
         )
     };
     (define $name:tt = $value:tt) => {
         $crate::backend::c::syntax::Directive::define_expr(
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
-    (define $name:expr) => {
-        $crate::backend::c::syntax::Directive::define_empty($name)
+    (define $name:tt) => {
+        $crate::backend::c::syntax::Directive::define_empty(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
     (if $condition:tt) => {
         $crate::backend::c::syntax::Directive::If(
             $crate::backend::c::syntax::c_preprocessor_expr! $condition,
         )
     };
-    (ifndef $name:expr) => {
-        $crate::backend::c::syntax::Directive::Ifndef($name.into())
+    (ifndef $name:tt) => {
+        $crate::backend::c::syntax::Directive::Ifndef(
+            $crate::backend::c::syntax::c_scalar!($name).into(),
+        )
     };
     (else) => {
         $crate::backend::c::syntax::Directive::Else
@@ -42,26 +52,27 @@ macro_rules! c_directive {
     (endif) => {
         $crate::backend::c::syntax::Directive::Endif
     };
-    (define_items $name:tt($parameters:expr);
-        declarations { $declarations:expr };
-        definitions { $definitions:expr };
-        trailing { $trailing:expr }
+    (define_items $name:tt;
+        parameters { $($parameters:tt)* };
+        declarations { $($declarations:tt)* };
+        definitions { $($definitions:tt)* };
+        trailing { $($trailing:tt)* }
     ) => {
         $crate::backend::c::syntax::Directive::function_items_define(
-            $name,
-            $parameters,
-            $declarations,
-            $definitions,
-            $trailing,
+            $crate::backend::c::syntax::c_scalar!($name),
+            { $($parameters)* },
+            { $($declarations)* },
+            { $($definitions)* },
+            { $($trailing)* },
         )
     };
 }
 
 macro_rules! c_macro_invocation {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    ($name:expr; [$($argument:tt),* $(,)?]) => {
+    ($name:tt; [$($argument:tt),* $(,)?]) => {
         $crate::backend::c::syntax::MacroInvocation::new(
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_exprs!($($argument),*),
         )
     };

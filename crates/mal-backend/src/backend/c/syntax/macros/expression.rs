@@ -14,15 +14,15 @@ macro_rules! c_initializer {
             $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
-    (field $name:expr; $value:tt) => {
+    (field $name:tt; $value:tt) => {
         $crate::backend::c::syntax::Initializer::designated(
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
-    (path $path:expr; $value:tt) => {
+    (path $path:tt; $value:tt) => {
         $crate::backend::c::syntax::Initializer::designated_path(
-            $path,
+            $crate::backend::c::syntax::c_scalar!($path),
             $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
@@ -74,14 +74,20 @@ macro_rules! c_exprs_item {
 
 macro_rules! c_expr {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (id $name:expr) => {
-        $crate::backend::c::syntax::Expr::identifier($name)
+    (id $name:tt) => {
+        $crate::backend::c::syntax::Expr::identifier(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
-    (number $value:expr) => {
-        $crate::backend::c::syntax::Expr::number($value.to_string())
+    (number $value:tt) => {
+        $crate::backend::c::syntax::Expr::number(
+            $crate::backend::c::syntax::c_scalar!($value).to_string(),
+        )
     };
-    (string $value:expr) => {
-        $crate::backend::c::syntax::Expr::string($value)
+    (string $value:tt) => {
+        $crate::backend::c::syntax::Expr::string(
+            $crate::backend::c::syntax::c_scalar!($value),
+        )
     };
     (address $value:tt) => {
         $crate::backend::c::syntax::Expr::address_of($crate::backend::c::syntax::c_expr_child!($value))
@@ -89,21 +95,34 @@ macro_rules! c_expr {
     (dereference $value:tt) => {
         $crate::backend::c::syntax::Expr::dereference($crate::backend::c::syntax::c_expr_child!($value))
     };
-    (field $value:tt; $name:expr) => {
-        ($crate::backend::c::syntax::c_expr_child!($value)).field($name)
+    (field $value:tt; $name:tt) => {
+        ($crate::backend::c::syntax::c_expr_child!($value)).field(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
-    (pointer_field $value:tt; $name:expr) => {
-        ($crate::backend::c::syntax::c_expr_child!($value)).pointer_field($name)
+    (pointer_field $value:tt; $name:tt) => {
+        ($crate::backend::c::syntax::c_expr_child!($value)).pointer_field(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
     (sizeof $value:tt) => {
         $crate::backend::c::syntax::Expr::sizeof_value($crate::backend::c::syntax::c_expr_child!($value))
     };
-    (cast $ty:expr; $value:tt) => {
-        $crate::backend::c::syntax::Expr::cast($ty, $crate::backend::c::syntax::c_expr_child!($value))
+    (cast { $($ty:tt)* }; $value:tt) => {
+        $crate::backend::c::syntax::Expr::cast(
+            { $($ty)* },
+            $crate::backend::c::syntax::c_expr_child!($value),
+        )
     };
-    (call $name:expr; $($argument:tt),* $(,)?) => {
+    (cast $ty:literal; $value:tt) => {
+        $crate::backend::c::syntax::Expr::cast(
+            $ty,
+            $crate::backend::c::syntax::c_expr_child!($value),
+        )
+    };
+    (call $name:tt; $($argument:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::named_call(
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_exprs!($($argument),*),
         )
     };
@@ -173,7 +192,13 @@ macro_rules! c_expr {
             $crate::backend::c::syntax::c_exprs!($($element),*)
         )
     };
-    (compound $ty:expr; $($initializer:tt),* $(,)?) => {
+    (compound { $($ty:tt)* }; $($initializer:tt),* $(,)?) => {
+        $crate::backend::c::syntax::Expr::compound_literal(
+            { $($ty)* },
+            $crate::backend::c::syntax::c_initializers!($($initializer),*),
+        )
+    };
+    (compound $ty:literal; $($initializer:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::compound_literal(
             $ty,
             $crate::backend::c::syntax::c_initializers!($($initializer),*),

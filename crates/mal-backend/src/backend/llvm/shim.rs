@@ -1,5 +1,5 @@
 use crate::backend::c::syntax::{
-    Expr, FunctionDefinition, c_block, c_expr, c_function, c_type, c_variable,
+    Expr, FunctionDefinition, c_block, c_expr, c_function, c_variable,
 };
 use mal_frontend::check::ast::Type;
 
@@ -26,9 +26,9 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 fn unit_main(entry: &str) -> FunctionDefinition {
     c_function!(fn "main"() -> named("int")
         block [
-            (var ("MalContext") ("context") = { zero_initializer() }),
-            (var ("int32_t") ("result")),
-            (call entry;
+            (var "context": named("MalContext") = { zero_initializer() }),
+            (var "result": named("int32_t")),
+            (call { entry };
                 (address (id "context")),
                 (id "NULL"),
                 (address (id "result")),
@@ -59,31 +59,31 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let value = types.value(parameter)?;
 
     let body = c_block!(
-        (var ("MalContext") ("context") = { zero_initializer() }),
-        (var ("size_t") ("argument_count") = (conditional
+        (var "context": named("MalContext") = { zero_initializer() }),
+        (var "argument_count": named("size_t") = (conditional
                 (greater (id "mal_argc"); (number 1));
                 (cast "size_t"; (subtract (id "mal_argc"); (number 1)));
                 (number 0)
         )),
-        (declaration (
+        (declaration {
             c_variable!(array "argument": named("uint8_t"); size { number(value.size) })
                 .aligned(number(value.alignment))
-        ) = { zero_initializer() }),
-        (var (c_type!(ptr(named("void")))) ("arguments") = (call "mal_runtime_buffer_from_arguments";
+        } = { zero_initializer() }),
+        (var "arguments": ptr(named("void")) = (call "mal_runtime_buffer_from_arguments";
                 (address (id "context")),
                 (add (id "mal_argv"); (number 1)),
                 (id "argument_count"),
-                (number stride),
-                (number data_offset),
-                (number length_offset),
+                (number { stride }),
+                (number { data_offset }),
+                (number { length_offset }),
         )),
         (call "memcpy";
             (id "argument"),
             (address (id "arguments")),
             (sizeof (id "arguments")),
         ),
-        (var ("int32_t") ("result")),
-        (call entry;
+        (var "result": named("int32_t")),
+        (call { entry };
             (address (id "context")),
             (id "argument"),
             (address (id "result")),
@@ -103,7 +103,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
 }
 
 fn number(value: impl ToString) -> Expr {
-    c_expr!(number value)
+    c_expr!(number { value })
 }
 
 fn zero_initializer() -> Expr {

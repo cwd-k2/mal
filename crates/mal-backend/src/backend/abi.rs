@@ -46,66 +46,61 @@ impl Function {
     }
 
     pub(in crate::backend) fn c_signature(&self) -> crate::backend::c::syntax::FunctionSignature {
-        use crate::backend::c::syntax::{FunctionSignature, Parameter, TypeName};
+        use crate::backend::c::syntax::{c_parameter, c_signature, c_type};
 
         let parameters = self
             .parameters
             .iter()
             .map(|parameter| {
                 let ty = match parameter.access {
-                    PointerAccess::ReadOnly => TypeName::const_named("void").pointer(),
-                    PointerAccess::ReadWrite => TypeName::named("void").pointer(),
+                    PointerAccess::ReadOnly => c_type!(ptr(const(named("void")))),
+                    PointerAccess::ReadWrite => c_type!(ptr(named("void"))),
                 };
-                Parameter::named(ty, format!("mal_{}", parameter.name))
+                c_parameter!({ format!("mal_{}", parameter.name) } : { ty })
             })
             .collect::<Vec<_>>();
-        FunctionSignature::new("void", self.name.clone(), parameters)
+        c_signature!(fn { self.name.clone() }(
+            {{ parameters }}
+        ) -> named("void"))
     }
 
-    pub(in crate::backend) fn llvm_call(
-        &self,
-        arguments: [String; 3],
-    ) -> Option<crate::backend::llvm::syntax::Instruction> {
-        use crate::backend::llvm::syntax::{Callee, Instruction, Type, TypedValue};
+    fn llvm_parameters(&self) -> Vec<crate::backend::llvm::syntax::Parameter> {
+        use crate::backend::llvm::syntax::llvm_parameter;
 
-        Instruction::call(
-            None::<String>,
-            false,
-            Type::Void,
-            Callee::direct(self.name.clone())?,
-            arguments
-                .into_iter()
-                .map(|argument| TypedValue::new(Type::Pointer, argument))
-                .collect::<Option<Vec<_>>>()?,
-        )
+        self.parameters
+            .iter()
+            .map(|parameter| llvm_parameter!({ format!("%mal_{}", parameter.name) } : ptr))
+            .collect()
+    }
+
+    fn llvm_unnamed_parameters(&self) -> Vec<crate::backend::llvm::syntax::Parameter> {
+        use crate::backend::llvm::syntax::llvm_parameter;
+
+        self.parameters
+            .iter()
+            .map(|_| llvm_parameter!(_ : ptr))
+            .collect()
     }
 
     pub(in crate::backend) fn llvm_definition_signature(
         &self,
     ) -> crate::backend::llvm::syntax::FunctionSignature {
-        crate::backend::llvm::syntax::FunctionSignature::new(
-            crate::backend::llvm::syntax::Type::Void,
-            self.name.clone(),
-            self.parameters.iter().map(|parameter| {
-                crate::backend::llvm::syntax::Parameter::named(
-                    crate::backend::llvm::syntax::Type::Pointer,
-                    format!("%mal_{}", parameter.name),
-                )
-            }),
-        )
+        use crate::backend::llvm::syntax::llvm_signature;
+
+        let parameters = self.llvm_parameters();
+        llvm_signature!(fn { self.name.clone() }(
+            {{ parameters }}
+        ) -> void; attributes [])
     }
 
     pub(in crate::backend) fn llvm_declaration(
         &self,
     ) -> crate::backend::llvm::syntax::FunctionDeclaration {
-        crate::backend::llvm::syntax::FunctionDeclaration::new(
-            crate::backend::llvm::syntax::Type::Void,
-            self.name.clone(),
-            self.parameters.iter().map(|_| {
-                crate::backend::llvm::syntax::Parameter::unnamed(
-                    crate::backend::llvm::syntax::Type::Pointer,
-                )
-            }),
-        )
+        use crate::backend::llvm::syntax::llvm_declaration;
+
+        let parameters = self.llvm_unnamed_parameters();
+        llvm_declaration!(fn { self.name.clone() }(
+            {{ parameters }}
+        ) -> void; attributes [])
     }
 }

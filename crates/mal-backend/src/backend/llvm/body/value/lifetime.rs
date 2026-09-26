@@ -1,4 +1,3 @@
-use crate::backend::llvm::syntax::{llvm_terminator, llvm_type};
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
@@ -44,20 +43,22 @@ impl FunctionEmitter<'_> {
     fn release_slot(&mut self, slot: &super::super::Slot) -> Option<()> {
         let value_type = self.types.value(&slot.ty)?;
         let value = self.register();
-        self.load(
-            value.clone(),
-            value_type.llvm.clone(),
-            format!("%mal_slot_{}", slot.index),
-            value_type.alignment,
-            [],
+        emit_instruction!(
+            self;
+            load { value.clone() },
+            { value_type.llvm.clone() },
+            { format!("%mal_slot_{}", slot.index) },
+            { value_type.alignment },
+            []
         );
         self.release_value(&slot.ty, &value)?;
-        self.store(
-            value_type.llvm,
+        emit_instruction!(
+            self;
+            store { value_type.llvm },
             "zeroinitializer",
-            format!("%mal_slot_{}", slot.index),
-            value_type.alignment,
-            [],
+            { format!("%mal_slot_{}", slot.index) },
+            { value_type.alignment },
+            []
         );
         Some(())
     }
@@ -71,45 +72,58 @@ impl FunctionEmitter<'_> {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
-                self.extract_value(owner.clone(), value_type.llvm, value, [0]);
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    extract_value { owner.clone() };
+                    { value_type.llvm } => { value },
+                    [0]
+                );
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(ptr),
-                    "mal_runtime_bytes_retain",
+                    (ptr),
+                    direct "mal_runtime_bytes_retain";
                     [
-                        (llvm_type!(ptr), "%mal_context".into()),
-                        (llvm_type!(ptr), owner),
-                    ],
+                        (typed (ptr) => "%mal_context"),
+                        (typed (ptr) => { owner }),
+                    ]
                 );
                 Some(value.into())
             }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
-                self.extract_value(environment.clone(), value_type.llvm, value, [1]);
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    extract_value { environment.clone() };
+                    { value_type.llvm } => { value },
+                    [1]
+                );
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(ptr),
-                    "mal_runtime_environment_retain",
+                    (ptr),
+                    direct "mal_runtime_environment_retain";
                     [
-                        (llvm_type!(ptr), "%mal_context".into()),
-                        (llvm_type!(ptr), environment),
-                    ],
+                        (typed (ptr) => "%mal_context"),
+                        (typed (ptr) => { environment }),
+                    ]
                 );
                 Some(value.into())
             }
             Type::Buffer(_) => {
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(ptr),
-                    "mal_runtime_environment_retain",
+                    (ptr),
+                    direct "mal_runtime_environment_retain";
                     [
-                        (llvm_type!(ptr), "%mal_context".into()),
-                        (llvm_type!(ptr), value.into()),
-                    ],
+                        (typed (ptr) => "%mal_context"),
+                        (typed (ptr) => { value }),
+                    ]
                 );
                 Some(value.into())
             }
@@ -120,7 +134,12 @@ impl FunctionEmitter<'_> {
                         continue;
                     }
                     let field = self.register();
-                    self.extract_value(field.clone(), aggregate_type.llvm.clone(), value, [index]);
+                    emit_instruction!(
+                        self;
+                        extract_value { field.clone() };
+                        { aggregate_type.llvm.clone() } => { value },
+                        [{ index }]
+                    );
                     self.retain_value(element, &field)?;
                 }
                 Some(value.into())
@@ -143,34 +162,55 @@ impl FunctionEmitter<'_> {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
-                self.extract_value(owner.clone(), value_type.llvm, value, [0]);
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    extract_value { owner.clone() };
+                    { value_type.llvm } => { value },
+                    [0]
+                );
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(void),
-                    "mal_runtime_bytes_release",
-                    [(llvm_type!(ptr), owner)],
+                    (void),
+                    direct "mal_runtime_bytes_release";
+                    [
+                        (typed (ptr) => { owner }),
+                    ]
                 );
             }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
-                self.extract_value(environment.clone(), value_type.llvm, value, [1]);
-                self.direct_call(
-                    None,
+                emit_instruction!(
+                    self;
+                    extract_value { environment.clone() };
+                    { value_type.llvm } => { value },
+                    [1]
+                );
+                emit_instruction!(
+                    self;
+                    call None,
                     false,
-                    llvm_type!(void),
-                    "mal_runtime_environment_release",
-                    [(llvm_type!(ptr), environment)],
+                    (void),
+                    direct "mal_runtime_environment_release";
+                    [
+                        (typed (ptr) => { environment }),
+                    ]
                 )
             }
-            Type::Buffer(_) => self.direct_call(
-                None,
-                false,
-                llvm_type!(void),
-                "mal_runtime_environment_release",
-                [(llvm_type!(ptr), value.into())],
-            ),
+            Type::Buffer(_) => {
+                emit_instruction!(
+                    self;
+                    call None,
+                    false,
+                    (void),
+                    direct "mal_runtime_environment_release";
+                    [
+                        (typed (ptr) => { value }),
+                    ]
+                )
+            }
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
                 for (index, element) in elements.iter().enumerate() {
@@ -178,7 +218,12 @@ impl FunctionEmitter<'_> {
                         continue;
                     }
                     let field = self.register();
-                    self.extract_value(field.clone(), aggregate_type.llvm.clone(), value, [index]);
+                    emit_instruction!(
+                        self;
+                        extract_value { field.clone() };
+                        { aggregate_type.llvm.clone() } => { value },
+                        [{ index }]
+                    );
                     self.release_value(element, &field)?;
                 }
             }
@@ -200,18 +245,23 @@ impl FunctionEmitter<'_> {
         let id = self.label_id();
         let operation = if retain { "retain" } else { "release" };
         let tag = self.register();
-        self.extract_value(tag.clone(), sum_type.llvm, value, [0]);
+        emit_instruction!(
+            self;
+            extract_value { tag.clone() };
+            { sum_type.llvm } => { value },
+            [0]
+        );
         let cases = members
             .iter()
             .enumerate()
             .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
-        self.terminate(llvm_terminator!(switch
-            llvm_type!(int(32_u16)) => tag;
-            default format!("mal_{operation}_{id}_invalid");
+        emit_terminator!(self; switch
+            (int(32_u16)) => { tag };
+            default { format!("mal_{operation}_{id}_invalid") };
             [{{ cases }}]
-        ));
+        );
         self.block(format!("mal_{operation}_{id}_invalid"));
-        self.unreachable();
+        emit_terminator!(self; unreachable);
         for (index, member) in members.iter().enumerate() {
             self.block(format!("mal_{operation}_{id}_{index}"));
             if crate::execution::ownership::is_managed(member) {
@@ -222,7 +272,7 @@ impl FunctionEmitter<'_> {
                     self.release_value(member, &payload)?;
                 }
             }
-            self.branch(format!("mal_{operation}_{id}_done"));
+            emit_terminator!(self; branch { format!("mal_{operation}_{id}_done") });
         }
         self.block(format!("mal_{operation}_{id}_done"));
         Some(())

@@ -5,8 +5,11 @@ macro_rules! llvm_switch_cases_item {
     ($cases:ident; { $($rust:tt)* }) => {
         $cases.push({ $($rust)* })
     };
-    ($cases:ident; (case $value:expr => $target:expr)) => {
-        $cases.push(($value.to_string(), $target.to_string()))
+    ($cases:ident; (case $value:tt => $target:tt)) => {
+        $cases.push((
+            $crate::backend::llvm::syntax::llvm_scalar!($value).to_string(),
+            $crate::backend::llvm::syntax::llvm_scalar!($target).to_string(),
+        ))
     };
 }
 
@@ -24,27 +27,32 @@ macro_rules! llvm_terminator {
     ({ $($rust:tt)* }) => {
         Some({ $($rust)* })
     };
-    (branch $target:expr) => {
-        $crate::backend::llvm::syntax::Terminator::branch($target)
+    (branch $target:tt) => {
+        $crate::backend::llvm::syntax::Terminator::branch(
+            $crate::backend::llvm::syntax::llvm_scalar!($target),
+        )
     };
-    (conditional $condition:expr => $then_target:expr, $else_target:expr) => {
+    (conditional $condition:tt => $then_target:tt, $else_target:tt) => {
         $crate::backend::llvm::syntax::Terminator::conditional_branch(
-            $condition,
-            $then_target,
-            $else_target,
+            $crate::backend::llvm::syntax::llvm_scalar!($condition),
+            $crate::backend::llvm::syntax::llvm_scalar!($then_target),
+            $crate::backend::llvm::syntax::llvm_scalar!($else_target),
         )
     };
     (return_void) => {
         Some($crate::backend::llvm::syntax::Terminator::return_void())
     };
-    (return $ty:expr => $value:expr) => {
-        $crate::backend::llvm::syntax::Terminator::return_value($ty, $value)
+    (return $ty:tt => $value:tt) => {
+        $crate::backend::llvm::syntax::Terminator::return_value(
+            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
+            $crate::backend::llvm::syntax::llvm_scalar!($value),
+        )
     };
-    (switch $ty:expr => $value:expr; default $default:expr; [$($case:tt),* $(,)?]) => {
+    (switch $ty:tt => $value:tt; default $default:tt; [$($case:tt),* $(,)?]) => {
         $crate::backend::llvm::syntax::Terminator::switch(
-            $ty,
-            $value,
-            $default,
+            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
+            $crate::backend::llvm::syntax::llvm_scalar!($value),
+            $crate::backend::llvm::syntax::llvm_scalar!($default),
             $crate::backend::llvm::syntax::llvm_switch_cases!($($case),*),
         )
     };
@@ -53,4 +61,4 @@ macro_rules! llvm_terminator {
     };
 }
 
-pub(in crate::backend::llvm) use {llvm_switch_cases, llvm_switch_cases_item, llvm_terminator};
+pub(in crate::backend) use {llvm_switch_cases, llvm_switch_cases_item, llvm_terminator};

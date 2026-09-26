@@ -1,7 +1,7 @@
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
-use crate::backend::llvm::syntax::{MetadataAttachment, llvm_terminator, llvm_type};
+use crate::backend::llvm::syntax::{CastOperator, MetadataAttachment, llvm_type};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_aligned_buffer_load_at(
@@ -45,13 +45,12 @@ impl FunctionEmitter<'_> {
                 )?;
                 let llvm_type = self.types.value(field_type)?;
                 let inserted = self.register();
-                self.insert_value(
-                    inserted.clone(),
-                    product_type.llvm.clone(),
-                    product,
-                    llvm_type.llvm,
-                    field_value.representation,
-                    [index],
+                emit_instruction!(
+                    self;
+                    insert_value { inserted.clone() };
+                    { product_type.llvm.clone() } => { product },
+                    { llvm_type.llvm } => { field_value.representation },
+                    [{ index }]
                 );
                 product = inserted;
             }
@@ -69,21 +68,22 @@ impl FunctionEmitter<'_> {
             } else {
                 1
             };
-            self.load(
-                source_tag.clone(),
-                llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
-                pointer,
-                alignment,
-                metadata.iter().copied(),
+            emit_instruction!(
+                self;
+                load { source_tag.clone() },
+                { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
+                { pointer },
+                { alignment },
+                {{ metadata.iter().copied() }}
             );
             if super::super::types::is_bool(element) {
                 let value = self.register();
-                self.cast(
-                    value.clone(),
-                    crate::backend::llvm::syntax::CastOperator::Trunc,
-                    llvm_type!(int(8_u16)),
-                    source_tag,
-                    llvm_type!(int(1_u16)),
+                emit_instruction!(
+                    self;
+                    cast { value.clone() },
+                    { CastOperator::Trunc };
+                    (int(8_u16)) => { source_tag },
+                    (int(1_u16))
                 );
                 return Some(EmittedValue {
                     ty: element.clone(),
@@ -95,22 +95,22 @@ impl FunctionEmitter<'_> {
                 source_tag
             } else if layout.tag_bits < 32 {
                 let extended = self.register();
-                self.cast(
-                    extended.clone(),
-                    crate::backend::llvm::syntax::CastOperator::ZExt,
-                    llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
-                    source_tag,
-                    llvm_type!(int(32_u16)),
+                emit_instruction!(
+                    self;
+                    cast { extended.clone() },
+                    { CastOperator::ZExt };
+                    { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) } => { source_tag },
+                    (int(32_u16))
                 );
                 extended
             } else {
                 let narrowed = self.register();
-                self.cast(
-                    narrowed.clone(),
-                    crate::backend::llvm::syntax::CastOperator::Trunc,
-                    llvm_type!(int(64_u16)),
-                    source_tag,
-                    llvm_type!(int(32_u16)),
+                emit_instruction!(
+                    self;
+                    cast { narrowed.clone() },
+                    { CastOperator::Trunc };
+                    (int(64_u16)) => { source_tag },
+                    (int(32_u16))
                 );
                 narrowed
             };
@@ -123,13 +123,13 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            self.terminate(llvm_terminator!(switch
-                llvm_type!(int(32_u16)) => tag;
-                default format!("{stem}_invalid");
+            emit_terminator!(self; switch
+                (int(32_u16)) => { tag };
+                default { format!("{stem}_invalid") };
                 [{{ cases }}]
-            ));
+            );
             self.block(format!("{stem}_invalid"));
-            self.unreachable();
+            emit_terminator!(self; unreachable);
             for (index, variant) in variants.iter().enumerate() {
                 self.block(format!("{stem}_variant_{index}"));
                 let payload = self.emit_source_load_at_with_alignment(
@@ -139,18 +139,26 @@ impl FunctionEmitter<'_> {
                     metadata,
                 )?;
                 let sum = self.emit_sum_value(index, payload, element, false)?;
-                self.store(
-                    runtime.llvm.clone(),
-                    sum.representation,
-                    storage.as_str(),
-                    runtime.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    store { runtime.llvm.clone() },
+                    { sum.representation },
+                    { storage.as_str() },
+                    { runtime.alignment },
+                    []
                 );
-                self.branch(format!("{stem}_loaded"));
+                emit_terminator!(self; branch { format!("{stem}_loaded") });
             }
             self.block(format!("{stem}_loaded"));
             let result = self.register();
-            self.load(result.clone(), runtime.llvm, storage, runtime.alignment, []);
+            emit_instruction!(
+                self;
+                load { result.clone() },
+                { runtime.llvm },
+                { storage },
+                { runtime.alignment },
+                []
+            );
             return Some(EmittedValue {
                 ty: element.clone(),
                 representation: result,
@@ -182,12 +190,13 @@ impl FunctionEmitter<'_> {
             1
         };
         let value = self.register();
-        self.load(
-            value.clone(),
-            value_type.llvm,
-            pointer,
-            alignment,
-            metadata.iter().copied(),
+        emit_instruction!(
+            self;
+            load { value.clone() },
+            { value_type.llvm },
+            { pointer },
+            { alignment },
+            {{ metadata.iter().copied() }}
         );
         Some(EmittedValue {
             ty: element.clone(),
@@ -232,11 +241,11 @@ impl FunctionEmitter<'_> {
             let runtime = self.types.value(&value.ty)?;
             for (index, (field, field_type)) in fields.iter().zip(elements.iter()).enumerate() {
                 let field_value = self.register();
-                self.extract_value(
-                    field_value.clone(),
-                    runtime.llvm.clone(),
-                    value.representation.clone(),
-                    [index],
+                emit_instruction!(
+                    self;
+                    extract_value { field_value.clone() };
+                    { runtime.llvm.clone() } => { value.representation.clone() },
+                    [{ index }]
                 );
                 let field_pointer = self.source_pointer_offset(pointer, field.offset);
                 self.emit_source_store_at_with_alignment(
@@ -256,45 +265,51 @@ impl FunctionEmitter<'_> {
             let layout = self.source_layouts.sum(&value.ty)?;
             if super::super::types::is_bool(&value.ty) {
                 let tag = self.register();
-                self.cast(
-                    tag.clone(),
-                    crate::backend::llvm::syntax::CastOperator::ZExt,
-                    llvm_type!(int(1_u16)),
-                    value.representation.clone(),
-                    llvm_type!(int(8_u16)),
+                emit_instruction!(
+                    self;
+                    cast { tag.clone() },
+                    { CastOperator::ZExt };
+                    (int(1_u16)) => { value.representation.clone() },
+                    (int(8_u16))
                 );
-                self.store(
-                    llvm_type!(int(8_u16)),
-                    &tag,
-                    pointer,
+                emit_instruction!(
+                    self;
+                    store (int(8_u16)),
+                    { &tag },
+                    { pointer },
                     1,
-                    metadata.iter().copied(),
+                    {{ metadata.iter().copied() }}
                 );
                 return Some(());
             }
             let runtime = self.types.value(&value.ty)?;
             let tag = self.register();
-            self.extract_value(tag.clone(), runtime.llvm, value.representation.clone(), [0]);
+            emit_instruction!(
+                self;
+                extract_value { tag.clone() };
+                { runtime.llvm } => { value.representation.clone() },
+                [0]
+            );
             let source_tag = if layout.tag_bits == 32 {
                 tag.clone()
             } else if layout.tag_bits < 32 {
                 let narrowed = self.register();
-                self.cast(
-                    narrowed.clone(),
-                    crate::backend::llvm::syntax::CastOperator::Trunc,
-                    llvm_type!(int(32_u16)),
-                    &tag,
-                    llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
+                emit_instruction!(
+                    self;
+                    cast { narrowed.clone() },
+                    { CastOperator::Trunc };
+                    (int(32_u16)) => { &tag },
+                    { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }
                 );
                 narrowed
             } else {
                 let extended = self.register();
-                self.cast(
-                    extended.clone(),
-                    crate::backend::llvm::syntax::CastOperator::ZExt,
-                    llvm_type!(int(32_u16)),
-                    &tag,
-                    llvm_type!(int(64_u16)),
+                emit_instruction!(
+                    self;
+                    cast { extended.clone() },
+                    { CastOperator::ZExt };
+                    (int(32_u16)) => { &tag },
+                    (int(64_u16))
                 );
                 extended
             };
@@ -303,12 +318,13 @@ impl FunctionEmitter<'_> {
             } else {
                 1
             };
-            self.store(
-                llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
-                source_tag,
-                pointer,
-                alignment,
-                metadata.iter().copied(),
+            emit_instruction!(
+                self;
+                store { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
+                { source_tag },
+                { pointer },
+                { alignment },
+                {{ metadata.iter().copied() }}
             );
             let stem = self.register();
             let stem = stem.trim_start_matches('%').to_string();
@@ -317,13 +333,13 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            self.terminate(llvm_terminator!(switch
-                llvm_type!(int(32_u16)) => tag;
-                default format!("{stem}_invalid");
+            emit_terminator!(self; switch
+                (int(32_u16)) => { tag };
+                default { format!("{stem}_invalid") };
                 [{{ cases }}]
-            ));
+            );
             self.block(format!("{stem}_invalid"));
-            self.unreachable();
+            emit_terminator!(self; unreachable);
             for (index, variant) in variants.iter().enumerate() {
                 self.block(format!("{stem}_variant_{index}"));
                 let payload = self.emit_sum_payload(&value.ty, variant, &value.representation)?;
@@ -337,7 +353,7 @@ impl FunctionEmitter<'_> {
                     aligned,
                     metadata,
                 )?;
-                self.branch(format!("{stem}_stored"));
+                emit_terminator!(self; branch { format!("{stem}_stored") });
             }
             self.block(format!("{stem}_stored"));
             return Some(());
@@ -366,12 +382,13 @@ impl FunctionEmitter<'_> {
         } else {
             1
         };
-        self.store(
-            value_type.llvm,
-            value.representation.as_str(),
-            pointer,
-            alignment,
-            metadata.iter().copied(),
+        emit_instruction!(
+            self;
+            store { value_type.llvm },
+            { value.representation.as_str() },
+            { pointer },
+            { alignment },
+            {{ metadata.iter().copied() }}
         );
         Some(())
     }
@@ -381,12 +398,15 @@ impl FunctionEmitter<'_> {
             return pointer.to_string();
         }
         let field = self.register();
-        self.get_element_ptr(
-            field.clone(),
+        emit_instruction!(
+            self;
+            get_element_ptr { field.clone() },
             false,
-            llvm_type!(int(8_u16)),
-            pointer,
-            [(self.types.index_llvm_type(), offset.to_string())],
+            (int(8_u16)),
+            { pointer };
+            [
+                (typed { self.types.index_llvm_type() } => { offset.to_string() }),
+            ]
         );
         field
     }

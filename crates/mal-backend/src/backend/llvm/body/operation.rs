@@ -1,4 +1,6 @@
-use crate::backend::llvm::syntax::llvm_type;
+use crate::backend::llvm::syntax::{
+    BinaryOperator, CastOperator, ComparisonKind, ComparisonPredicate, UnaryOperator,
+};
 use crate::control::ast::Operation;
 use crate::core::ast::UnaryPrimitive;
 use mal_frontend::check::ast::Type;
@@ -38,13 +40,12 @@ impl FunctionEmitter<'_> {
                 };
                 let closure_type = self.types.value(&result_type)?;
                 let with_code = self.register();
-                self.insert_value(
-                    with_code.clone(),
-                    closure_type.llvm.clone(),
-                    "zeroinitializer",
-                    llvm_type!(ptr),
-                    format!("@{}", super::function_name(*function)),
-                    [0],
+                emit_instruction!(
+                    self;
+                    insert_value { with_code.clone() };
+                    { closure_type.llvm.clone() } => "zeroinitializer",
+                    (ptr) => { format!("@{}", super::function_name(*function)) },
+                    [0]
                 );
                 let target = *self.index.lowered_functions.get(function)?;
                 let environment = &target.captures;
@@ -77,42 +78,37 @@ impl FunctionEmitter<'_> {
                         self.emit_product(captures, &environment_type, &effects)?;
                     let environment_layout = self.types.value(&environment_type)?;
                     let environment = self.register();
-                    self.direct_call(
-                        Some(environment.clone()),
+                    emit_instruction!(
+                        self;
+                        call { Some(environment.clone()) },
                         false,
-                        llvm_type!(ptr),
-                        "mal_runtime_environment_allocate",
+                        (ptr),
+                        direct "mal_runtime_environment_allocate";
                         [
-                            (llvm_type!(ptr), "%mal_context".into()),
-                            (
-                                self.types.index_llvm_type(),
-                                environment_layout.size.to_string(),
-                            ),
-                            (
-                                llvm_type!(ptr),
-                                format!(
-                                    "@mal_destroy_environment_{}",
-                                    super::function_number(*function)
-                                ),
-                            ),
-                        ],
+                            (typed (ptr) => "%mal_context"),
+                            (typed { self.types.index_llvm_type() } => { environment_layout.size.to_string() }),
+                            (typed (ptr) => { format!(
+                                                            "@mal_destroy_environment_{}",
+                                                            super::function_number(*function)
+                                                        ) }),
+                        ]
                     );
-                    self.store(
-                        environment_layout.llvm,
-                        environment_value.value.representation.as_str(),
-                        environment.as_str(),
-                        environment_layout.alignment,
-                        [],
+                    emit_instruction!(
+                        self;
+                        store { environment_layout.llvm },
+                        { environment_value.value.representation.as_str() },
+                        { environment.as_str() },
+                        { environment_layout.alignment },
+                        []
                     );
                     self.commit_consumes(&environment_value)?;
                     let closure = self.register();
-                    self.insert_value(
-                        closure.clone(),
-                        closure_type.llvm,
-                        with_code,
-                        llvm_type!(ptr),
-                        environment,
-                        [1],
+                    emit_instruction!(
+                        self;
+                        insert_value { closure.clone() };
+                        { closure_type.llvm } => { with_code },
+                        (ptr) => { environment },
+                        [1]
                     );
                     closure
                 };
@@ -129,29 +125,31 @@ impl FunctionEmitter<'_> {
                 let register = self.register();
                 match operator {
                     UnaryPrimitive::Negate if scalar.floating => {
-                        self.unary(
-                            register.clone(),
-                            crate::backend::llvm::syntax::UnaryOperator::FNeg,
-                            scalar.llvm_type(),
-                            operand.representation,
+                        emit_instruction!(
+                            self;
+                            unary { register.clone() },
+                            { UnaryOperator::FNeg };
+                            { scalar.llvm_type() } => { operand.representation }
                         );
                     }
                     UnaryPrimitive::Negate => {
-                        self.binary(
-                            register.clone(),
-                            crate::backend::llvm::syntax::BinaryOperator::Sub,
-                            scalar.llvm_type(),
+                        emit_instruction!(
+                            self;
+                            binary { register.clone() },
+                            { BinaryOperator::Sub },
+                            { scalar.llvm_type() },
                             "0",
-                            operand.representation,
+                            { operand.representation }
                         );
                     }
                     UnaryPrimitive::BitwiseNot if !scalar.floating => {
-                        self.binary(
-                            register.clone(),
-                            crate::backend::llvm::syntax::BinaryOperator::Xor,
-                            scalar.llvm_type(),
-                            operand.representation,
-                            "-1",
+                        emit_instruction!(
+                            self;
+                            binary { register.clone() },
+                            { BinaryOperator::Xor },
+                            { scalar.llvm_type() },
+                            { operand.representation },
+                            "-1"
                         );
                     }
                     UnaryPrimitive::BitwiseNot => return None,
@@ -186,24 +184,28 @@ impl FunctionEmitter<'_> {
                         crate::core::ast::BinaryPrimitive::Add => right.representation,
                         crate::core::ast::BinaryPrimitive::Subtract => {
                             let negated = self.register();
-                            self.binary(
-                                negated.clone(),
-                                crate::backend::llvm::syntax::BinaryOperator::Sub,
-                                self.types.index_llvm_type(),
+                            emit_instruction!(
+                                self;
+                                binary { negated.clone() },
+                                { BinaryOperator::Sub },
+                                { self.types.index_llvm_type() },
                                 "0",
-                                right.representation,
+                                { right.representation }
                             );
                             negated
                         }
                         _ => return None,
                     };
                     let register = self.register();
-                    self.get_element_ptr(
-                        register.clone(),
+                    emit_instruction!(
+                        self;
+                        get_element_ptr { register.clone() },
                         false,
-                        llvm_type!(int(8_u16)),
-                        left.representation,
-                        [(self.types.index_llvm_type(), offset)],
+                        (int(8_u16)),
+                        { left.representation };
+                        [
+                            (typed { self.types.index_llvm_type() } => { offset }),
+                        ]
                     );
                     return Some(Some(EmittedValue {
                         ty: Type::Address,
@@ -225,64 +227,60 @@ impl FunctionEmitter<'_> {
                         let left = self.byte_view_fields(&left)?;
                         let right = self.byte_view_fields(&right)?;
                         let equality = self.register();
-                        self.direct_call(
-                            Some(equality.clone()),
+                        emit_instruction!(
+                            self;
+                            call { Some(equality.clone()) },
                             false,
-                            llvm_type!(int(8_u16)),
-                            "mal_runtime_symbol_equal",
+                            (int(8_u16)),
+                            direct "mal_runtime_symbol_equal";
                             [
-                                (llvm_type!(ptr), left.data),
-                                (self.types.index_llvm_type(), left.count),
-                                (llvm_type!(ptr), right.data),
-                                (self.types.index_llvm_type(), right.count),
-                            ],
+                                (typed (ptr) => { left.data }),
+                                (typed { self.types.index_llvm_type() } => { left.count }),
+                                (typed (ptr) => { right.data }),
+                                (typed { self.types.index_llvm_type() } => { right.count }),
+                            ]
                         );
                         let predicate = match operator {
-                            crate::core::ast::BinaryPrimitive::Equal => {
-                                crate::backend::llvm::syntax::ComparisonPredicate::Ne
-                            }
-                            crate::core::ast::BinaryPrimitive::NotEqual => {
-                                crate::backend::llvm::syntax::ComparisonPredicate::Eq
-                            }
+                            crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Ne,
+                            crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Eq,
                             _ => return None,
                         };
-                        self.compare(
-                            register.clone(),
-                            crate::backend::llvm::syntax::ComparisonKind::Integer,
-                            predicate,
-                            llvm_type!(int(8_u16)),
-                            equality,
-                            "0",
+                        emit_instruction!(
+                            self;
+                            compare { register.clone() },
+                            { ComparisonKind::Integer },
+                            { predicate },
+                            (int(8_u16)),
+                            { equality },
+                            "0"
                         );
                     } else if super::types::is_bool(&left.ty) {
                         let predicate = match operator {
-                            crate::core::ast::BinaryPrimitive::Equal => {
-                                crate::backend::llvm::syntax::ComparisonPredicate::Eq
-                            }
-                            crate::core::ast::BinaryPrimitive::NotEqual => {
-                                crate::backend::llvm::syntax::ComparisonPredicate::Ne
-                            }
+                            crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Eq,
+                            crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Ne,
                             _ => return None,
                         };
-                        self.compare(
-                            register.clone(),
-                            crate::backend::llvm::syntax::ComparisonKind::Integer,
-                            predicate,
-                            llvm_type!(int(1_u16)),
-                            left.representation,
-                            right.representation,
+                        emit_instruction!(
+                            self;
+                            compare { register.clone() },
+                            { ComparisonKind::Integer },
+                            { predicate },
+                            (int(1_u16)),
+                            { left.representation },
+                            { right.representation }
                         );
                     } else {
                         let scalar = scalar_type(&left.ty, self.types.index_size())?;
                         let (kind, predicate) =
                             super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
-                        self.compare(
-                            register.clone(),
-                            kind,
-                            predicate,
-                            scalar.llvm_type(),
-                            left.representation,
-                            right.representation,
+                        emit_instruction!(
+                            self;
+                            compare { register.clone() },
+                            { kind },
+                            { predicate },
+                            { scalar.llvm_type() },
+                            { left.representation },
+                            { right.representation }
                         );
                     }
                     return Some(Some(EmittedValue {
@@ -294,12 +292,13 @@ impl FunctionEmitter<'_> {
                 let scalar = scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = arithmetic_instruction(*operator, scalar)?;
                 let register = self.register();
-                self.binary(
-                    register.clone(),
-                    instruction,
-                    scalar.llvm_type(),
-                    left.representation,
-                    right.representation,
+                emit_instruction!(
+                    self;
+                    binary { register.clone() },
+                    { instruction },
+                    { scalar.llvm_type() },
+                    { left.representation },
+                    { right.representation }
                 );
                 Some(Some(EmittedValue {
                     ty: result_type.cloned().unwrap_or(left.ty),
@@ -327,36 +326,36 @@ impl FunctionEmitter<'_> {
                 }
                 let instruction = if source.floating && target.floating {
                     if source.bits > target.bits {
-                        crate::backend::llvm::syntax::CastOperator::FPTrunc
+                        CastOperator::FPTrunc
                     } else {
-                        crate::backend::llvm::syntax::CastOperator::FPExt
+                        CastOperator::FPExt
                     }
                 } else if source.floating {
                     if target.signed {
-                        crate::backend::llvm::syntax::CastOperator::FPToSI
+                        CastOperator::FPToSI
                     } else {
-                        crate::backend::llvm::syntax::CastOperator::FPToUI
+                        CastOperator::FPToUI
                     }
                 } else if target.floating {
                     if source.signed {
-                        crate::backend::llvm::syntax::CastOperator::SIToFP
+                        CastOperator::SIToFP
                     } else {
-                        crate::backend::llvm::syntax::CastOperator::UIToFP
+                        CastOperator::UIToFP
                     }
                 } else if source.bits > target.bits {
-                    crate::backend::llvm::syntax::CastOperator::Trunc
+                    CastOperator::Trunc
                 } else if source.signed {
-                    crate::backend::llvm::syntax::CastOperator::SExt
+                    CastOperator::SExt
                 } else {
-                    crate::backend::llvm::syntax::CastOperator::ZExt
+                    CastOperator::ZExt
                 };
                 let register = self.register();
-                self.cast(
-                    register.clone(),
-                    instruction,
-                    source.llvm_type(),
-                    operand.representation,
-                    target.llvm_type(),
+                emit_instruction!(
+                    self;
+                    cast { register.clone() },
+                    { instruction };
+                    { source.llvm_type() } => { operand.representation },
+                    { target.llvm_type() }
                 );
                 Some(Some(EmittedValue {
                     ty: result_type,

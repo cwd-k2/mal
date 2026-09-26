@@ -1,6 +1,6 @@
 use super::*;
 use crate::backend::llvm::syntax::{
-    llvm_function_attributes, llvm_instruction, llvm_parameters, llvm_signature, llvm_type,
+    llvm_function_attributes, llvm_parameters, llvm_signature, llvm_type,
 };
 impl<'a> FunctionEmitter<'a> {
     pub(super) fn new(
@@ -231,38 +231,43 @@ impl<'a> FunctionEmitter<'a> {
         ));
         self.block("entry");
         if !self.frame_sites.is_empty() {
-            self.load(
-                "%mal_control_base",
-                self.types.index_llvm_type(),
+            emit_instruction!(
+                self;
+                load "%mal_control_base",
+                { self.types.index_llvm_type() },
                 "%mal_control_top",
-                self.types.index_alignment(),
-                [],
+                { self.types.index_alignment() },
+                []
             );
             if self.local_control_top {
-                self.structured_instruction(llvm_instruction!(alloca
-                    "%mal_local_control_top",
-                    self.types.index_llvm_type(),
-                    self.types.index_alignment(),
-                ));
-                self.store(
-                    self.types.index_llvm_type(),
+                emit_instruction!(
+                    self;
+                    alloca "%mal_local_control_top",
+                    { self.types.index_llvm_type() },
+                    { self.types.index_alignment() }
+                );
+                emit_instruction!(
+                    self;
+                    store { self.types.index_llvm_type() },
                     "%mal_control_base",
                     "%mal_local_control_top",
-                    self.types.index_alignment(),
-                    [],
+                    { self.types.index_alignment() },
+                    []
                 );
             }
             if self.local_control_storage {
-                self.structured_instruction(llvm_instruction!(alloca
-                    "%mal_local_control_storage",
-                    llvm_type!(ptr),
-                    self.types.pointer_alignment(),
-                ));
-                self.structured_instruction(llvm_instruction!(alloca
-                    "%mal_local_control_capacity",
-                    self.types.index_llvm_type(),
-                    self.types.index_alignment(),
-                ));
+                emit_instruction!(
+                    self;
+                    alloca "%mal_local_control_storage",
+                    (ptr),
+                    { self.types.pointer_alignment() }
+                );
+                emit_instruction!(
+                    self;
+                    alloca "%mal_local_control_capacity",
+                    { self.types.index_llvm_type() },
+                    { self.types.index_alignment() }
+                );
                 self.refresh_control_storage();
             }
         }
@@ -270,73 +275,82 @@ impl<'a> FunctionEmitter<'a> {
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
             let value_type = self.types.value(&slot.ty)?;
-            self.structured_instruction(llvm_instruction!(alloca
-                format!("%mal_slot_{}", slot.index),
-                value_type.llvm.clone(),
-                value_type.alignment,
-            ));
+            emit_instruction!(
+                self;
+                alloca { format!("%mal_slot_{}", slot.index) },
+                { value_type.llvm.clone() },
+                { value_type.alignment }
+            );
             if crate::execution::ownership::is_managed(&slot.ty) {
-                self.store(
-                    value_type.llvm,
+                emit_instruction!(
+                    self;
+                    store { value_type.llvm },
                     "zeroinitializer",
-                    format!("%mal_slot_{}", slot.index),
-                    value_type.alignment,
-                    [],
+                    { format!("%mal_slot_{}", slot.index) },
+                    { value_type.alignment },
+                    []
                 );
             }
         }
         if self.common_region.is_some() {
-            self.structured_instruction(llvm_instruction!(alloca
-                "%mal_active_environment",
-                llvm_type!(ptr),
-                self.types.pointer_alignment(),
-            ));
-            let environment = self.register();
-            self.direct_call(
-                Some(environment.clone()),
-                false,
-                llvm_type!(ptr),
-                "mal_runtime_environment_retain",
-                [
-                    (llvm_type!(ptr), "%mal_context".into()),
-                    (llvm_type!(ptr), "%mal_environment".into()),
-                ],
+            emit_instruction!(
+                self;
+                alloca "%mal_active_environment",
+                (ptr),
+                { self.types.pointer_alignment() }
             );
-            self.store(
-                llvm_type!(ptr),
-                environment,
+            let environment = self.register();
+            emit_instruction!(
+                self;
+                call { Some(environment.clone()) },
+                false,
+                (ptr),
+                direct "mal_runtime_environment_retain";
+                [
+                    (typed (ptr) => "%mal_context"),
+                    (typed (ptr) => "%mal_environment"),
+                ]
+            );
+            emit_instruction!(
+                self;
+                store (ptr),
+                { environment },
                 "%mal_active_environment",
-                self.types.pointer_alignment(),
-                [],
+                { self.types.pointer_alignment() },
+                []
             );
         }
         if let Some((size, alignment)) = self.external_storage {
-            let storage_type = llvm_type!(array(size, int(8)));
-            self.structured_instruction(llvm_instruction!(alloca
-                "%mal_bridge_argument",
-                storage_type.clone(),
-                alignment,
-            ));
-            self.structured_instruction(llvm_instruction!(alloca
-                "%mal_bridge_result",
-                storage_type,
-                alignment,
-            ));
+            let storage_type = llvm_type!(array({ size }, int(8)));
+            emit_instruction!(
+                self;
+                alloca "%mal_bridge_argument",
+                { storage_type.clone() },
+                { alignment }
+            );
+            emit_instruction!(
+                self;
+                alloca "%mal_bridge_result",
+                { storage_type },
+                { alignment }
+            );
         }
         if self.needs_symbol_result_slot {
             let symbol = self.types.value(&Type::Symbol)?;
-            self.structured_instruction(llvm_instruction!(alloca
-                "%mal_symbol_result",
-                symbol.llvm,
-                symbol.alignment,
-            ));
+            emit_instruction!(
+                self;
+                alloca "%mal_symbol_result",
+                { symbol.llvm },
+                { symbol.alignment }
+            );
         }
         if let Some((size, alignment)) = self.buffer_value_storage {
-            self.structured_instruction(llvm_instruction!(alloca
-                "%mal_buffer_value",
-                llvm_type!(array(size, int(8_u16))),
-                alignment,
-            ));
+            emit_instruction!(
+                self;
+                alloca "%mal_buffer_value",
+                { llvm_type!(array({ size }, int(8_u16))) },
+                { alignment }
+            );
         }
         if self.mode == EmissionMode::Native {
             self.emit_native_entry_guard()?;
@@ -357,7 +371,7 @@ impl<'a> FunctionEmitter<'a> {
             };
             self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
         }
-        self.branch(format!("mal_state_{}", self.function.entry.0));
+        emit_terminator!(self; branch { format!("mal_state_{}", self.function.entry.0) });
 
         for site in self.states.clone() {
             self.emit_state(site)?;

@@ -75,7 +75,7 @@ pub(super) fn emit_host(
     types: &TypeRegistry,
     header_name: &str,
 ) -> String {
-    let mut output = TranslationUnit::new([c_directive!(include(quoted header_name)).into()]);
+    let mut output = TranslationUnit::new([c_directive!(include(quoted { header_name })).into()]);
     for external in &interface.externals {
         let signatures = ExternalSignatures::new(external, types);
         let signature = &signatures.host_body;
@@ -84,15 +84,15 @@ pub(super) fn emit_host(
             .parameter_names()
             .into_iter()
             .skip(1)
-            .map(|name| c_statement!(expr (cast "void"; (id name))));
+            .map(|name| c_statement!(expr (cast "void"; (id { name }))));
         let body = c_block!(
             {{ unused_parameters }},
             (call "mal_call_trap";
                 (id "call"),
-                (string format!(
+                (string { format!(
                     "external operation `{}` is not implemented",
                     signatures.host_body.operation_name
-                )),
+                ) }),
             ),
         );
         output.push(c_function!(macro { host_macro_invocation(signature) }; body { body }));
@@ -102,7 +102,7 @@ pub(super) fn emit_host(
 
 fn begin_section(output: &mut TranslationUnit, title: &str) {
     output.blank_line();
-    output.push(c_comment!(title));
+    output.push(c_comment!({ title }));
     output.blank_line();
 }
 
@@ -118,11 +118,10 @@ fn emit_definition_macro(
 ) {
     let signature = &signatures.compiler;
     let presence_name = format!("MAL_HAS_EXTERN_{}", signature.operation_name);
-    output.push(c_directive!(define presence_name = (number 1)));
+    output.push(c_directive!(define { presence_name } = (number 1)));
     let definition_name = format!("MAL_DEFINE_{}", signature.operation_name);
-    output.push(c_directive!(define_items definition_name(
-        signatures.host_body.parameter_names()
-    );
+    output.push(c_directive!(define_items { definition_name };
+        parameters { signatures.host_body.parameter_names() };
         declarations { [signatures.host_body.signature()] };
         definitions { [wrapper_definition(signatures, external, types)] };
         trailing { signatures.host_body.signature() }
@@ -140,11 +139,11 @@ fn wrapper_definition(
         mal_frontend::check::ast::Type::Unit => {}
         mal_frontend::check::ast::Type::Product(elements) => {
             let initializers = elements.iter().enumerate().map(|(field, _)| {
-                c_initializer!(field format!("field_{field}");
-                    (id format!("argument_{field}"))
+                c_initializer!(field { format!("field_{field}") };
+                    (id { format!("argument_{field}") })
                 )
             });
-            let raw = c_expr!(compound types.c_type(&external.parameter);
+            let raw = c_expr!(compound { types.c_type(&external.parameter) };
                 {{ initializers }},
             );
             arguments.push(types.raw_to_host_value(
@@ -161,14 +160,14 @@ fn wrapper_definition(
             c_expr!(id "value"),
         )),
     }
-    let call = c_expr!(call format!("mal_detail_{}", external.name); {{ arguments }});
+    let call = c_expr!(call { format!("mal_detail_{}", external.name) }; {{ arguments }});
     let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
         c_statement!(expr { call })
     } else {
         c_statement!(return { call })
     };
     let body = c_block!(
-        (var ("mal_call_t") ("call") = (compound "mal_call_t";
+        (var "call": named("mal_call_t") = (compound "mal_call_t";
             (field "mal_detail_context"; (id "context")),
         )),
         { terminal },
@@ -182,8 +181,8 @@ fn host_macro_invocation(
     let arguments = signature
         .parameter_names()
         .into_iter()
-        .map(|name| c_expr!(id name));
-    c_macro_invocation!(format!("MAL_DEFINE_{}", signature.operation_name); [
+        .map(|name| c_expr!(id { name }));
+    c_macro_invocation!({ format!("MAL_DEFINE_{}", signature.operation_name) }; [
         {{ arguments }},
     ])
 }

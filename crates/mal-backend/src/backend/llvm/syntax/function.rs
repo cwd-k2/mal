@@ -25,12 +25,12 @@ pub(in crate::backend) struct Parameter {
 }
 
 #[derive(Clone, Copy)]
-pub(in crate::backend::llvm) enum Linkage {
+pub(in crate::backend) enum Linkage {
     Internal,
 }
 
 #[derive(Clone, Copy)]
-pub(in crate::backend::llvm) enum FunctionAttribute {
+pub(in crate::backend) enum FunctionAttribute {
     NoFree,
     NoInline,
     NoUnwind,
@@ -40,7 +40,7 @@ pub(in crate::backend::llvm) enum FunctionAttribute {
 }
 
 #[derive(Clone, Copy)]
-pub(in crate::backend::llvm) enum ParameterAttribute {
+pub(in crate::backend) enum ParameterAttribute {
     ImmArg,
 }
 
@@ -59,12 +59,12 @@ impl FunctionSignature {
         }
     }
 
-    pub(in crate::backend::llvm) fn with_linkage(mut self, linkage: Linkage) -> Self {
+    pub(in crate::backend) fn with_linkage(mut self, linkage: Linkage) -> Self {
         self.linkage = Some(linkage);
         self
     }
 
-    pub(in crate::backend::llvm) fn with_attributes(
+    pub(in crate::backend) fn with_attributes(
         mut self,
         attributes: impl IntoIterator<Item = FunctionAttribute>,
     ) -> Self {

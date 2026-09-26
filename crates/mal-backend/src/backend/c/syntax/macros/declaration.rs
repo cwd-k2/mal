@@ -1,19 +1,30 @@
+macro_rules! c_scalar {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    ($literal:literal) => { $literal };
+}
+
 macro_rules! c_comment {
-    ($text:expr) => {
-        $crate::backend::c::syntax::Comment::new($text)
+    ($text:tt) => {
+        $crate::backend::c::syntax::Comment::new($crate::backend::c::syntax::c_scalar!($text))
     };
 }
 
 macro_rules! c_type {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (named($name:expr)) => {
-        $crate::backend::c::syntax::TypeName::named($name)
+    (named($name:tt)) => {
+        $crate::backend::c::syntax::TypeName::named(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
-    (struct($name:expr)) => {
-        $crate::backend::c::syntax::TypeName::structure($name)
+    (struct($name:tt)) => {
+        $crate::backend::c::syntax::TypeName::structure(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
-    (const(named($name:expr))) => {
-        $crate::backend::c::syntax::TypeName::const_named($name)
+    (const(named($name:tt))) => {
+        $crate::backend::c::syntax::TypeName::const_named(
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
     (ptr($($inner:tt)+)) => {
         ($crate::backend::c::syntax::c_type!($($inner)+)).pointer()
@@ -25,23 +36,26 @@ macro_rules! c_variable {
     ($name:tt : $kind:ident($($ty:tt)*)) => {
         $crate::backend::c::syntax::VariableDeclaration::new(
             $crate::backend::c::syntax::c_type!($kind($($ty)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
         )
     };
     ($name:tt : { $($ty:tt)* }) => {
-        $crate::backend::c::syntax::VariableDeclaration::new({ $($ty)* }, $name)
+        $crate::backend::c::syntax::VariableDeclaration::new(
+            { $($ty)* },
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
     (array $name:tt : $kind:ident($($ty:tt)*); size $size:tt) => {
         $crate::backend::c::syntax::VariableDeclaration::array(
             $crate::backend::c::syntax::c_type!($kind($($ty)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_expr_child!($size),
         )
     };
     (array $name:tt : { $($ty:tt)* }; size $size:tt) => {
         $crate::backend::c::syntax::VariableDeclaration::array(
             { $($ty)* },
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_expr_child!($size),
         )
     };
@@ -52,23 +66,26 @@ macro_rules! c_aggregate_field {
     ($name:tt : $kind:ident($($ty:tt)*)) => {
         $crate::backend::c::syntax::AggregateField::variable(
             $crate::backend::c::syntax::c_type!($kind($($ty)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
         )
     };
     ($name:tt : { $($ty:tt)* }) => {
-        $crate::backend::c::syntax::AggregateField::variable({ $($ty)* }, $name)
+        $crate::backend::c::syntax::AggregateField::variable(
+            { $($ty)* },
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
     (fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*)) => {
         $crate::backend::c::syntax::AggregateField::function_pointer(
             $crate::backend::c::syntax::c_type!($kind($($result)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_parameters!($($parameter)*),
         )
     };
     (fn $name:tt($($parameter:tt)*) -> { $($result:tt)* }) => {
         $crate::backend::c::syntax::AggregateField::function_pointer(
             { $($result)* },
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_parameters!($($parameter)*),
         )
     };
@@ -76,14 +93,14 @@ macro_rules! c_aggregate_field {
         $crate::backend::c::syntax::AggregateField::aggregate(
             $crate::backend::c::syntax::AggregateKind::Struct,
             $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
         )
     };
     (union $name:tt; [$($field:tt),* $(,)?]) => {
         $crate::backend::c::syntax::AggregateField::aggregate(
             $crate::backend::c::syntax::AggregateKind::Union,
             $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
         )
     };
 }
@@ -115,28 +132,28 @@ macro_rules! c_aggregate {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
     (struct $tag:tt => [$($field:tt),* $(,)?]) => {
         $crate::backend::c::syntax::AggregateDefinition::structure(
-            $tag,
+            $crate::backend::c::syntax::c_scalar!($tag),
             $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
         )
     };
     (struct $tag:tt; [$($field:tt),* $(,)?]) => {
         $crate::backend::c::syntax::AggregateDefinition::structure(
-            $tag,
+            $crate::backend::c::syntax::c_scalar!($tag),
             $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
         )
     };
     (typedef struct $tag:tt => $alias:tt; [$($field:tt),* $(,)?]) => {
         $crate::backend::c::syntax::AggregateDefinition::typedef_structure(
-            Some($tag.to_string()),
+            Some($crate::backend::c::syntax::c_scalar!($tag).to_string()),
             $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
-            $alias,
+            $crate::backend::c::syntax::c_scalar!($alias),
         )
     };
     (typedef struct => $alias:tt; [$($field:tt),* $(,)?]) => {
         $crate::backend::c::syntax::AggregateDefinition::typedef_structure(
             None,
             $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
-            $alias,
+            $crate::backend::c::syntax::c_scalar!($alias),
         )
     };
 }
@@ -149,16 +166,19 @@ macro_rules! c_declaration {
     (type $alias:tt = $kind:ident($($source:tt)*)) => {
         $crate::backend::c::syntax::Declaration::type_alias(
             $crate::backend::c::syntax::c_type!($kind($($source)*)),
-            $alias,
+            $crate::backend::c::syntax::c_scalar!($alias),
         )
     };
     (type $alias:tt = { $($source:tt)* }) => {
-        $crate::backend::c::syntax::Declaration::type_alias({ $($source)* }, $alias)
+        $crate::backend::c::syntax::Declaration::type_alias(
+            { $($source)* },
+            $crate::backend::c::syntax::c_scalar!($alias),
+        )
     };
-    (static_assert $condition:tt => $message:expr) => {
+    (static_assert $condition:tt => $message:tt) => {
         $crate::backend::c::syntax::Declaration::static_assert(
             $crate::backend::c::syntax::c_expr_child!($condition),
-            $message,
+            $crate::backend::c::syntax::c_scalar!($message),
         )
     };
 }
@@ -184,24 +204,30 @@ macro_rules! c_parameter {
     ($name:tt : $kind:ident($($type:tt)*) [$($attribute:ident),* $(,)?]) => {{
         let mut parameter = $crate::backend::c::syntax::Parameter::named(
             $crate::backend::c::syntax::c_type!($kind($($type)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
         );
         $crate::backend::c::syntax::c_parameter_attributes!(parameter; $($attribute),*);
         parameter
     }};
     ($name:tt : { $($type:tt)* } [$($attribute:ident),* $(,)?]) => {{
-        let mut parameter = $crate::backend::c::syntax::Parameter::named({ $($type)* }, $name);
+        let mut parameter = $crate::backend::c::syntax::Parameter::named(
+            { $($type)* },
+            $crate::backend::c::syntax::c_scalar!($name),
+        );
         $crate::backend::c::syntax::c_parameter_attributes!(parameter; $($attribute),*);
         parameter
     }};
     ($name:tt : $kind:ident($($type:tt)*)) => {
         $crate::backend::c::syntax::Parameter::named(
             $crate::backend::c::syntax::c_type!($kind($($type)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
         )
     };
     ($name:tt : { $($type:tt)* }) => {
-        $crate::backend::c::syntax::Parameter::named({ $($type)* }, $name)
+        $crate::backend::c::syntax::Parameter::named(
+            { $($type)* },
+            $crate::backend::c::syntax::c_scalar!($name),
+        )
     };
 }
 
@@ -266,14 +292,14 @@ macro_rules! c_signature_from_parts {
     ($constructor:ident; $name:tt; [$($parameter:tt)*]; $kind:ident($($result:tt)*)) => {
         $crate::backend::c::syntax::FunctionSignature::$constructor(
             $crate::backend::c::syntax::c_type!($kind($($result)*)),
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_parameters!($($parameter)*),
         )
     };
     ($constructor:ident; $name:tt; [$($parameter:tt)*]; { $($result:tt)* }) => {
         $crate::backend::c::syntax::FunctionSignature::$constructor(
             { $($result)* },
-            $name,
+            $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_parameters!($($parameter)*),
         )
     };
@@ -315,6 +341,6 @@ macro_rules! c_signature {
 
 pub(in crate::backend) use {
     c_aggregate, c_aggregate_field, c_aggregate_fields, c_aggregate_fields_item, c_comment,
-    c_declaration, c_parameter, c_parameter_attributes, c_parameters, c_parameters_items,
+    c_declaration, c_parameter, c_parameter_attributes, c_parameters, c_parameters_items, c_scalar,
     c_signature, c_signature_from_parts, c_type, c_variable,
 };

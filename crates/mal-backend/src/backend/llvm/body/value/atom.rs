@@ -1,4 +1,3 @@
-use crate::backend::llvm::syntax::llvm_type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use mal_frontend::check::ast::Type;
 
@@ -42,15 +41,15 @@ impl FunctionEmitter<'_> {
                 self.globals
                     .push(super::super::symbol::literal_definition(&name, bytes)?);
                 let data = self.register();
-                self.get_element_ptr(
-                    data.clone(),
+                emit_instruction!(
+                    self;
+                    get_element_ptr { data.clone() },
                     false,
-                    llvm_type!(int(8_u16)),
-                    format!("@{name}"),
-                    [(
-                        llvm_type!(int(64_u16)),
-                        super::super::symbol::STATIC_OWNER_DATA_OFFSET.to_string(),
-                    )],
+                    (int(8_u16)),
+                    { format!("@{name}") };
+                    [
+                        (typed (int(64_u16)) => { super::super::symbol::STATIC_OWNER_DATA_OFFSET.to_string() }),
+                    ]
                 );
                 self.make_byte_view(
                     &Type::Symbol,
@@ -63,23 +62,21 @@ impl FunctionEmitter<'_> {
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
                 let value_type = self.types.value(&atom.ty)?;
                 let with_code = self.register();
-                self.insert_value(
-                    with_code.clone(),
-                    value_type.llvm.clone(),
-                    "zeroinitializer",
-                    llvm_type!(ptr),
-                    format!("@{}", super::super::function_name(*function)),
-                    [0],
+                emit_instruction!(
+                    self;
+                    insert_value { with_code.clone() };
+                    { value_type.llvm.clone() } => "zeroinitializer",
+                    (ptr) => { format!("@{}", super::super::function_name(*function)) },
+                    [0]
                 );
                 let environment = self.active_environment();
                 let closure = self.register();
-                self.insert_value(
-                    closure.clone(),
-                    value_type.llvm,
-                    with_code,
-                    llvm_type!(ptr),
-                    environment,
-                    [1],
+                emit_instruction!(
+                    self;
+                    insert_value { closure.clone() };
+                    { value_type.llvm } => { with_code },
+                    (ptr) => { environment },
+                    [1]
                 );
                 Some(EmittedValue {
                     ty: atom.ty.clone(),
@@ -91,12 +88,13 @@ impl FunctionEmitter<'_> {
                 let pointer = self.capture_pointer(*index, ty)?;
                 let value_type = self.types.value(ty)?;
                 let value = self.register();
-                self.load(
-                    value.clone(),
-                    value_type.llvm,
-                    pointer,
-                    value_type.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    load { value.clone() },
+                    { value_type.llvm },
+                    { pointer },
+                    { value_type.alignment },
+                    []
                 );
                 Some(EmittedValue {
                     ty: ty.clone(),
@@ -118,12 +116,13 @@ impl FunctionEmitter<'_> {
                 }
                 let value_type = self.types.value(ty)?;
                 let register = self.register();
-                self.load(
-                    register.clone(),
-                    value_type.llvm,
-                    format!("%mal_slot_{}", slot.index),
-                    value_type.alignment,
-                    [],
+                emit_instruction!(
+                    self;
+                    load { register.clone() },
+                    { value_type.llvm },
+                    { format!("%mal_slot_{}", slot.index) },
+                    { value_type.alignment },
+                    []
                 );
                 Some(EmittedValue {
                     ty: ty.clone(),
@@ -157,12 +156,15 @@ impl FunctionEmitter<'_> {
         let offset = fields.get(index)?.offset;
         let environment = self.active_environment();
         let pointer = self.register();
-        self.get_element_ptr(
-            pointer.clone(),
+        emit_instruction!(
+            self;
+            get_element_ptr { pointer.clone() },
             false,
-            llvm_type!(int(8_u16)),
-            environment,
-            [(llvm_type!(int(64_u16)), offset.to_string())],
+            (int(8_u16)),
+            { environment };
+            [
+                (typed (int(64_u16)) => { offset.to_string() }),
+            ]
         );
         Some(pointer)
     }
@@ -191,13 +193,12 @@ impl FunctionEmitter<'_> {
                 }
                 let element_type = self.types.value(expected)?;
                 let register = self.register();
-                self.insert_value(
-                    register.clone(),
-                    aggregate_type.llvm.clone(),
-                    aggregate,
-                    element_type.llvm,
-                    element.representation,
-                    [index],
+                emit_instruction!(
+                    self;
+                    insert_value { register.clone() };
+                    { aggregate_type.llvm.clone() } => { aggregate },
+                    { element_type.llvm } => { element.representation },
+                    [{ index }]
                 );
                 aggregate = register;
             }

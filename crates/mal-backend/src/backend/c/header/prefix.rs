@@ -49,20 +49,20 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ("size_t", "MalType_ByteSize"),
         ("size_t", "MalType_USize"),
     ] {
-        output.push(c_declaration!(type alias = { c_type!(named(source)) }));
+        output.push(c_declaration!(type { alias } = { c_type!(named({ source })) }));
     }
     output.push(c_declaration!(type "MalType_Address" = ptr(named("void"))));
     output.push(c_declaration!(static_assert (equal
             (multiply (sizeof (cast "size_t"; (number 0))); (id "CHAR_BIT"));
-            (number index_bits)
+            (number { index_bits })
         ) => "size_t does not match the mal target pointer index width"));
     let width_of = |ty: &str, bits: u32| {
         c_expr!(equal
-            (multiply (sizeof (cast ty; (number 0))); (id "CHAR_BIT"));
-            (number bits)
+            (multiply (sizeof (cast { ty }; (number 0))); (id "CHAR_BIT"));
+            (number { bits })
         )
     };
-    let macro_equals = |name: &str, value: &str| c_expr!(equal (id name); (number value));
+    let macro_equals = |name: &str, value: &str| c_expr!(equal (id { name }); (number { value }));
     for (condition, message) in [
         (
             c_expr!(logical_and
@@ -90,7 +90,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
             "floating-point expressions are evaluated with extra precision",
         ),
     ] {
-        output.push(c_declaration!(static_assert { condition } => message));
+        output.push(c_declaration!(static_assert { condition } => { message }));
     }
     for (source, alias) in [
         ("MalType_Unit", "mal_Unit_t"),
@@ -109,7 +109,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ("MalType_ByteSize", "mal_ByteSize_t"),
         ("MalType_USize", "mal_USize_t"),
     ] {
-        output.push(c_declaration!(type alias = { c_type!(named(source)) }));
+        output.push(c_declaration!(type { alias } = { c_type!(named({ source })) }));
     }
     output.push(c_aggregate!(typedef struct => "mal_call_t"; [
         ("mal_detail_context": ptr(named("MalContext"))),
@@ -168,8 +168,8 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         output.push(c_function!(
             static inline fn { format!("mal_{name}_return") }(
                 "call": ptr(named("mal_call_t")) [maybe_unused],
-                "value": named(host),
-            ) -> named(raw)
+                "value": named({ host }),
+            ) -> named({ raw })
             block [(return (id "value"))]
         ));
     }

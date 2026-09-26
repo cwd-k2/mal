@@ -1,4 +1,4 @@
-use crate::backend::llvm::syntax::llvm_type;
+use crate::backend::llvm::syntax::{ComparisonKind, ComparisonPredicate, llvm_type};
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
 use mal_frontend::check::ast::Type;
@@ -50,21 +50,25 @@ impl FunctionEmitter<'_> {
             .is_some_and(|retired| layout.size <= retired.size);
         let reservation = self.reserve_control_frame(layout.size, replacement)?;
         let frame_pointer = self.register();
-        self.get_element_ptr(
-            frame_pointer.clone(),
+        emit_instruction!(
+            self;
+            get_element_ptr { frame_pointer.clone() },
             false,
-            llvm_type!(int(8_u16)),
-            reservation.storage,
-            [(self.types.index_llvm_type(), reservation.top.clone())],
+            (int(8_u16)),
+            { reservation.storage };
+            [
+                (typed { self.types.index_llvm_type() } => { reservation.top.clone() }),
+            ]
         );
         if tagged {
             let tag = self.frame_tags.get(&site)?;
-            self.store(
-                llvm_type!(int(32_u16)),
-                tag.to_string(),
-                frame_pointer.as_str(),
+            emit_instruction!(
+                self;
+                store (int(32_u16)),
+                { tag.to_string() },
+                { frame_pointer.as_str() },
                 4,
-                [],
+                []
             );
         }
         let prepared_fields = frame
@@ -85,62 +89,75 @@ impl FunctionEmitter<'_> {
         for layout in &layout.fields {
             let value = prepared_fields.get(layout.index)?;
             let pointer = self.register();
-            self.get_element_ptr(
-                pointer.clone(),
+            emit_instruction!(
+                self;
+                get_element_ptr { pointer.clone() },
                 false,
-                llvm_type!(int(8_u16)),
-                frame_pointer.as_str(),
-                [(llvm_type!(int(64_u16)), layout.offset.to_string())],
+                (int(8_u16)),
+                { frame_pointer.as_str() };
+                [
+                    (typed (int(64_u16)) => { layout.offset.to_string() }),
+                ]
             );
-            self.store(
-                layout.value_type.llvm.clone(),
-                value.value.representation.as_str(),
-                pointer,
-                layout.value_type.alignment,
-                [],
+            emit_instruction!(
+                self;
+                store { layout.value_type.llvm.clone() },
+                { value.value.representation.as_str() },
+                { pointer },
+                { layout.value_type.alignment },
+                []
             );
         }
         if let Some(offset) = layout.environment {
             let environment = self.active_environment();
             let pointer = self.register();
-            self.get_element_ptr(
-                pointer.clone(),
+            emit_instruction!(
+                self;
+                get_element_ptr { pointer.clone() },
                 false,
-                llvm_type!(int(8_u16)),
-                frame_pointer.as_str(),
-                [(llvm_type!(int(64_u16)), offset.to_string())],
+                (int(8_u16)),
+                { frame_pointer.as_str() };
+                [
+                    (typed (int(64_u16)) => { offset.to_string() }),
+                ]
             );
-            self.store(
-                llvm_type!(ptr),
-                environment,
-                pointer,
-                self.types.pointer_alignment(),
-                [],
+            emit_instruction!(
+                self;
+                store (ptr),
+                { environment },
+                { pointer },
+                { self.types.pointer_alignment() },
+                []
             );
         }
         if let Some(offset) = layout.footer {
             let footer = self.register();
-            self.get_element_ptr(
-                footer.clone(),
+            emit_instruction!(
+                self;
+                get_element_ptr { footer.clone() },
                 false,
-                llvm_type!(int(8_u16)),
-                frame_pointer,
-                [(llvm_type!(int(64_u16)), offset.to_string())],
+                (int(8_u16)),
+                { frame_pointer };
+                [
+                    (typed (int(64_u16)) => { offset.to_string() }),
+                ]
             );
-            self.store(
-                self.types.index_llvm_type(),
-                reservation.top.as_str(),
-                footer,
-                self.types.index_alignment(),
-                [],
+            emit_instruction!(
+                self;
+                store { self.types.index_llvm_type() },
+                { reservation.top.as_str() },
+                { footer },
+                { self.types.index_alignment() },
+                []
             );
         }
-        self.store(
-            self.types.index_llvm_type(),
-            reservation.next_top.as_str(),
-            self.control_top_pointer(),
-            self.types.index_alignment(),
-            [],
+        emit_instruction!(
+            self;
+            store { self.types.index_llvm_type() },
+            { reservation.next_top.as_str() },
+            { self.control_top_pointer() },
+            { self.types.index_alignment() },
+            []
         );
         if self.common_region.is_some() {
             self.emit_region_transition(
@@ -170,7 +187,7 @@ impl FunctionEmitter<'_> {
                 crate::execution::ownership::ParameterEntry::OwnedHandoff,
             )?;
             self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-            self.branch(format!("mal_state_{}", self.function.entry.0));
+            emit_terminator!(self; branch { format!("mal_state_{}", self.function.entry.0) });
             Some(())
         }
     }
@@ -218,11 +235,11 @@ impl FunctionEmitter<'_> {
         let code = if direct_target.is_none() {
             let closure_type = self.types.value(&callee.value.ty)?;
             let code = self.register();
-            self.extract_value(
-                code.clone(),
-                closure_type.llvm,
-                callee.value.representation.clone(),
-                [0],
+            emit_instruction!(
+                self;
+                extract_value { code.clone() };
+                { closure_type.llvm } => { callee.value.representation.clone() },
+                [0]
             );
             Some(code)
         } else {
@@ -253,20 +270,24 @@ impl FunctionEmitter<'_> {
         self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
         if !preserve_environment {
             let previous = self.active_environment();
-            self.direct_call(
-                None,
+            emit_instruction!(
+                self;
+                call None,
                 false,
-                llvm_type!(void),
-                "mal_runtime_environment_release",
-                [(llvm_type!(ptr), previous)],
+                (void),
+                direct "mal_runtime_environment_release";
+                [
+                    (typed (ptr) => { previous }),
+                ]
             );
         }
-        self.store(
-            llvm_type!(ptr),
-            environment.as_str(),
+        emit_instruction!(
+            self;
+            store (ptr),
+            { environment.as_str() },
             "%mal_active_environment",
-            self.types.pointer_alignment(),
-            [],
+            { self.types.pointer_alignment() },
+            []
         );
         let targets = self
             .execution
@@ -300,19 +321,20 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         for (index, target) in targets.iter().enumerate() {
             let matched = self.register();
-            self.compare(
-                matched.clone(),
-                crate::backend::llvm::syntax::ComparisonKind::Integer,
-                crate::backend::llvm::syntax::ComparisonPredicate::Eq,
-                llvm_type!(ptr),
-                code,
-                format!("@{}", super::function_name(*target)),
+            emit_instruction!(
+                self;
+                compare { matched.clone() },
+                { ComparisonKind::Integer },
+                { ComparisonPredicate::Eq },
+                (ptr),
+                { code },
+                { format!("@{}", super::function_name(*target)) }
             );
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
-            self.conditional_branch(
-                matched,
-                format!("mal_region_target_{}_{index}", site.0),
-                next.clone(),
+            emit_terminator!(self; conditional
+                { matched } =>
+                { format!("mal_region_target_{}_{index}", site.0) },
+                { next.clone() }
             );
             self.block(next);
         }
@@ -335,12 +357,13 @@ impl FunctionEmitter<'_> {
             }
             let returned = self.register();
             self.sync_control_top()?;
-            self.indirect_call(
-                Some(returned.clone()),
+            emit_instruction!(
+                self;
+                call { Some(returned.clone()) },
                 false,
-                result_type.llvm,
-                code,
-                arguments,
+                { result_type.llvm },
+                indirect { code },
+                {{ arguments }}
             );
             if self
                 .optimizations
@@ -360,7 +383,7 @@ impl FunctionEmitter<'_> {
                 },
             )?;
         } else {
-            self.unreachable();
+            emit_terminator!(self; unreachable);
         }
         for (index, target) in targets.iter().enumerate() {
             self.block(format!("mal_region_target_{}_{index}", site.0));
@@ -377,7 +400,7 @@ impl FunctionEmitter<'_> {
             argument,
             crate::execution::ownership::ParameterEntry::OwnedHandoff,
         )?;
-        self.branch(format!("mal_state_{}", entry.0));
+        emit_terminator!(self; branch { format!("mal_state_{}", entry.0) });
         Some(())
     }
 }

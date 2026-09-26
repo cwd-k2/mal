@@ -1,8 +1,7 @@
 use super::super::body;
 use super::super::function_name;
 use super::super::syntax::{
-    FunctionBuilder, FunctionDefinition, Instruction, Type, llvm_instruction, llvm_terminator,
-    llvm_type,
+    FunctionBuilder, FunctionDefinition, llvm_instruction, llvm_terminator, llvm_type,
 };
 use crate::backend::abi::Function as AbiFunction;
 
@@ -17,25 +16,28 @@ pub(super) fn definition(
         function
             .structured_instruction(llvm_instruction!(alloca
                 "%mal_control_top",
-                types.index_llvm_type(),
-                types.index_alignment(),
+                { types.index_llvm_type() },
+                { types.index_alignment() },
             )?)
             .then_some(())?;
         function
             .structured_instruction(llvm_instruction!(store
-                types.index_llvm_type(),
+                { types.index_llvm_type() },
                 "0",
                 "%mal_control_top",
-                types.index_alignment(),
+                { types.index_alignment() },
                 [],
             )?)
             .then_some(())?;
         function
-            .structured_instruction(direct_call(
-                None,
-                llvm_type!(void),
-                "mal_native_stack_begin",
-                [(llvm_type!(ptr), "%mal_context".into())],
+            .structured_instruction(llvm_instruction!(
+                call None,
+                false,
+                (void),
+                direct "mal_native_stack_begin";
+                [
+                    (typed (ptr) => "%mal_context"),
+                ]
             )?)
             .then_some(())?;
         "%mal_control_top"
@@ -54,9 +56,9 @@ pub(super) fn definition(
             function
                 .structured_instruction(llvm_instruction!(load
                     "%mal_entry_argument",
-                    value.llvm.clone(),
+                    { value.llvm.clone() },
                     "%mal_argument",
-                    value.alignment,
+                    { value.alignment },
                     [],
                 )?)
                 .then_some(())?;
@@ -64,16 +66,17 @@ pub(super) fn definition(
         }
     }
     function
-        .structured_instruction(direct_call(
-            Some("%mal_entry_result".into()),
-            llvm_type!(int(32_u16)),
-            function_name(body.main),
-            arguments,
+        .structured_instruction(llvm_instruction!(
+            call { Some("%mal_entry_result".into()) },
+            false,
+            (int(32_u16)),
+            direct { function_name(body.main) },
+            {{ arguments }}
         )?)
         .then_some(())?;
     function
-        .structured_instruction(llvm_instruction!(store
-            llvm_type!(int(32_u16)),
+        .structured_instruction(llvm_instruction!(
+            store(int(32_u16)),
             "%mal_entry_result",
             "%mal_result",
             4,
@@ -84,15 +87,4 @@ pub(super) fn definition(
         .terminate(llvm_terminator!(return_void)?)
         .then_some(())?;
     function.finish()
-}
-
-fn direct_call(
-    result: Option<String>,
-    result_type: Type,
-    callee: impl Into<String>,
-    arguments: impl IntoIterator<Item = (Type, String)>,
-) -> Option<Instruction> {
-    llvm_instruction!(
-        call result, false, result_type, direct callee, arguments
-    )
 }

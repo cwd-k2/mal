@@ -1,4 +1,4 @@
-use crate::backend::llvm::syntax::llvm_type;
+use crate::backend::llvm::syntax::CastOperator;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::execution::ownership::UseEffect;
 
@@ -39,12 +39,13 @@ impl FunctionEmitter<'_> {
         let slot = self.slots.get(&id)?.clone();
         let value_type = self.types.value(&slot.ty)?;
         let register = self.register();
-        self.load(
-            register.clone(),
-            value_type.llvm,
-            format!("%mal_slot_{}", slot.index),
-            value_type.alignment,
-            [],
+        emit_instruction!(
+            self;
+            load { register.clone() },
+            { value_type.llvm },
+            { format!("%mal_slot_{}", slot.index) },
+            { value_type.alignment },
+            []
         );
         let mut value = EmittedValue {
             ty: slot.ty.clone(),
@@ -105,41 +106,45 @@ impl FunctionEmitter<'_> {
         let mut value = self.atom(atom)?;
         let environment = self.active_environment();
         let unique = self.register();
-        self.direct_call(
-            Some(unique.clone()),
+        emit_instruction!(
+            self;
+            call { Some(unique.clone()) },
             false,
-            llvm_type!(int(8_u16)),
-            "mal_runtime_environment_is_unique",
-            [(llvm_type!(ptr), environment)],
+            (int(8_u16)),
+            direct "mal_runtime_environment_is_unique";
+            [
+                (typed (ptr) => { environment }),
+            ]
         );
         let condition = self.register();
-        self.cast(
-            condition.clone(),
-            crate::backend::llvm::syntax::CastOperator::Trunc,
-            llvm_type!(int(8_u16)),
-            unique,
-            llvm_type!(int(1_u16)),
+        emit_instruction!(
+            self;
+            cast { condition.clone() },
+            { CastOperator::Trunc };
+            (int(8_u16)) => { unique },
+            (int(1_u16))
         );
         let label = self.label_id();
-        self.conditional_branch(
-            condition,
-            format!("mal_capture_take_{label}"),
-            format!("mal_capture_share_{label}"),
+        emit_terminator!(self; conditional
+            { condition } =>
+            { format!("mal_capture_take_{label}") },
+            { format!("mal_capture_share_{label}") }
         );
         self.block(format!("mal_capture_take_{label}"));
         let pointer = self.capture_pointer(index, &atom.ty)?;
         let value_type = self.types.value(&atom.ty)?;
-        self.store(
-            value_type.llvm,
+        emit_instruction!(
+            self;
+            store { value_type.llvm },
             "zeroinitializer",
-            pointer,
-            value_type.alignment,
-            [],
+            { pointer },
+            { value_type.alignment },
+            []
         );
-        self.branch(format!("mal_capture_ready_{label}"));
+        emit_terminator!(self; branch { format!("mal_capture_ready_{label}") });
         self.block(format!("mal_capture_share_{label}"));
         self.retain_if_borrowed(&mut value)?;
-        self.branch(format!("mal_capture_ready_{label}"));
+        emit_terminator!(self; branch { format!("mal_capture_ready_{label}") });
         self.block(format!("mal_capture_ready_{label}"));
         value.owned = true;
         Some(PreparedValue {
@@ -154,12 +159,13 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         for slot in &prepared.consumed_slots {
             let value_type = self.types.value(&slot.ty)?;
-            self.store(
-                value_type.llvm,
+            emit_instruction!(
+                self;
+                store { value_type.llvm },
                 "zeroinitializer",
-                format!("%mal_slot_{}", slot.index),
-                value_type.alignment,
-                [],
+                { format!("%mal_slot_{}", slot.index) },
+                { value_type.alignment },
+                []
             );
         }
         Some(())

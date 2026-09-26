@@ -19,26 +19,35 @@ impl FunctionEmitter<'_> {
         let argument_type = self.types.value(&argument.ty)?;
         let result_type = result_type.clone();
         let result_value_type = self.types.value(&result_type)?;
-        self.store(
-            argument_type.llvm,
-            argument.representation.as_str(),
+        emit_instruction!(
+            self;
+            store { argument_type.llvm },
+            { argument.representation.as_str() },
             "%mal_bridge_argument",
-            argument_type.alignment,
-            [],
+            { argument_type.alignment },
+            []
         );
         let bridge = crate::backend::abi::Function::external_bridge(id);
-        self.structured_instruction(bridge.llvm_call([
-            "%mal_context".into(),
-            "%mal_bridge_argument".into(),
-            "%mal_bridge_result".into(),
-        ]));
+        emit_instruction!(
+            self;
+            call None,
+            false,
+            (void),
+            direct { bridge.name() };
+            [
+                (typed (ptr) => "%mal_context"),
+                (typed (ptr) => "%mal_bridge_argument"),
+                (typed (ptr) => "%mal_bridge_result"),
+            ]
+        );
         let register = self.register();
-        self.load(
-            register.clone(),
-            result_value_type.llvm,
+        emit_instruction!(
+            self;
+            load { register.clone() },
+            { result_value_type.llvm },
             "%mal_bridge_result",
-            result_value_type.alignment,
-            [],
+            { result_value_type.alignment },
+            []
         );
         Some(EmittedValue {
             owned: false,

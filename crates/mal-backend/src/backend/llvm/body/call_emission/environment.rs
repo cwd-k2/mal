@@ -1,4 +1,4 @@
-use crate::backend::llvm::syntax::{llvm_signature, llvm_type};
+use crate::backend::llvm::syntax::llvm_signature;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter, function_number};
@@ -23,15 +23,16 @@ impl FunctionEmitter<'_> {
         ));
         self.block("entry");
         let environment = self.register();
-        self.load(
-            environment.clone(),
-            value_type.llvm,
+        emit_instruction!(
+            self;
+            load { environment.clone() },
+            { value_type.llvm },
             "%mal_environment",
-            value_type.alignment,
-            [],
+            { value_type.alignment },
+            []
         );
         self.release_value(&environment_type, &environment)?;
-        self.return_void();
+        emit_terminator!(self; return_void);
         self.finish_function()?;
         self.next_register = 0;
         Some(())
@@ -43,11 +44,11 @@ impl FunctionEmitter<'_> {
     ) -> Option<String> {
         let closure_type = self.types.value(&closure.ty)?;
         let environment = self.register();
-        self.extract_value(
-            environment.clone(),
-            closure_type.llvm,
-            closure.representation.clone(),
-            [1],
+        emit_instruction!(
+            self;
+            extract_value { environment.clone() };
+            { closure_type.llvm } => { closure.representation.clone() },
+            [1]
         );
         Some(environment)
     }
@@ -57,12 +58,13 @@ impl FunctionEmitter<'_> {
             return "%mal_environment".into();
         }
         let environment = self.register();
-        self.load(
-            environment.clone(),
-            llvm_type!(ptr),
+        emit_instruction!(
+            self;
+            load { environment.clone() },
+            (ptr),
             "%mal_active_environment",
-            self.types.pointer_alignment(),
-            [],
+            { self.types.pointer_alignment() },
+            []
         );
         environment
     }

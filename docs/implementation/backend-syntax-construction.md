@@ -23,7 +23,7 @@ checked interface / execution plan
       v                v
  typed C nodes      typed LLVM nodes
       |                |
- TranslationUnit   Module + FunctionBuilder
+ TranslationUnit   emit_* + FunctionBuilder
       |                |
       +-------+--------+
               |
@@ -34,7 +34,9 @@ checked interface / execution plan
 `TranslationUnit`、`Module`、`FunctionBuilder`はstateful rootである。順序、section間の空行、symbol重複、
 basic blockの一意性、terminator、entry prefixを所有するため、通常のRust control flowで操作する。その内側の
 type、declaration、signature、parameter、aggregate、expression、statement、constant、instruction、terminator、
-global、metadataはmacroから構築できる。
+global、metadataはmacroから構築できる。LLVM function bodyでは`emit_instruction!`と`emit_terminator!`が、構築した
+nodeを現在の`FunctionBuilder`へ登録する。entry blockの先頭へ遅延挿入する`entry_alloca`のように配置semanticsを
+持つ操作だけは通常のemit経路と分ける。
 backendのproduction call siteはstateful root以外をmacroから構築する。動的policyは`{}`と`{{}}`で構築済みnodeを
 渡し、call siteでconstructorを直接組み合わせない。既存nodeのconstructorはmacro展開先とsyntax自身の検証で使う。
 
@@ -50,16 +52,19 @@ backendのproduction call siteはstateful root以外をmacroから構築する�
 | `{ rust_expression }` | 構築済みnodeを一個挿入 |
 | `{{ rust_iterator }}` | 構築済みnode列をその位置へsplice |
 
-`{}`と`{{}}`の中だけが明示的なRust interpolationである。`rust`、`extend`、`typed_extend`という補助keywordは
-使わない。補間は一度だけ評価し、列のspliceはiterator順を保存する。
+文字列や数値など静的なscalarはliteralのまま書く。`{}`と`{{}}`の中だけが明示的なRust interpolationである。
+`{}`は単一値、`{{}}`は列に限定し、`rust`、`extend`、`typed_extend`という補助keywordは使わない。補間は一度だけ
+評価し、列のspliceはiterator順を保存する。macro定義は裸のRust expressionを受ける`expr` matcherを持たないため、
+動的な値から`{}`を省略するとcompile errorになる。
 
 再帰nodeは一個のtoken treeとして子macroへ渡せるよう、静的な子を`(...)`で囲む。これはCやLLVMの
-出力上の括弧を表すものではなく、`macro_rules!`が任意のRust expressionと再帰DSLを曖昧なく分離する境界である。
-constructor名と引数の見通しを悪くするだけの括弧は追加しない。
+出力上の括弧でもRust expressionの囲みでもなく、内部DSLの子構文である。したがって`(number 0)`や`(ptr)`は
+静的syntax、`{ computed_value }`はRustから渡す動的nodeまたはscalarとなる。constructor名と引数の見通しを
+悪くするだけの括弧は追加しない。
 
 ```rust
 let body = c_block!(
-    (var (c_type!(named("size_t"))) ("count") = (number 0)),
+    (var "count": named("size_t") = (number 0)),
     {{ generated_statements }},
     (if (greater (id "count"); (number 0)); [
         (return { dynamic_result }),
@@ -71,12 +76,16 @@ let signature = llvm_signature!(internal fn { name }(
     {{ generated_parameters }},
 ) -> int(32); attributes [nounwind]);
 
-let call = llvm_instruction!(call
-    Some("%result"), false, int_type, direct callee; [
-        (typed pointer_type => "%context"),
+emit_instruction!(self;
+    call { Some(result) }, false, { result_type }, direct { callee }; [
+        (typed (ptr) => "%context"),
         { dynamic_argument },
         {{ generated_arguments }},
     ]
+);
+
+emit_terminator!(self; conditional
+    { condition } => "done", { fallback_label }
 );
 ```
 
@@ -101,7 +110,7 @@ let call = llvm_instruction!(call
 | type、parameter、signature、attribute | `llvm_type!`、`llvm_parameter!`、`llvm_signature!` | declarationとdefinitionで共有 |
 | function declaration | `llvm_declaration!` | `Module::declare`へ渡す |
 | typed value、constant | `llvm_value!`、`llvm_constant!`、`llvm_typed_constant!` | instruction operandまたはglobal plan |
-| instruction、terminator、switch case | `llvm_instruction!`、`llvm_terminator!` | `FunctionBuilder`へ渡す |
+| instruction、terminator、switch case | `llvm_instruction!`、`llvm_terminator!` | function bodyでは`emit_instruction!`、`emit_terminator!`を介して`FunctionBuilder`へ渡す |
 | byte-owner global | `llvm_global!` | `Module::add_global`へ渡す |
 | metadata nodeとoperand | `llvm_metadata!`、`llvm_metadata_operand!` | `Module::add_metadata`へ渡す |
 | basic block、function definition | なし | block/terminator invariantを`FunctionBuilder`が所有 |
@@ -126,8 +135,10 @@ optimization passはtyped syntax構築より前の`execution` decision、また�
 
 - call siteから生成される構造とsource順が読める。
 - CとLLVMで型、列、補間、対応関係の記法が同じ意味を持つ。
+- 動的な単一値は`{}`、動的な列は`{{}}`にだけ現れ、`()`の中に裸のRust expressionを置かない。
 - macroとbuilderのどちらを通っても同じtyped constructorとvalidationへ到達する。
 - renderer以外に`format!`やline assemblyによるC/LLVM source構築を置かない。
 - stateful invariantをmacro展開へ隠さず、root builderを唯一のownerに保つ。
 - 静的構文のためにRustのconstructor chainを反復せず、動的policyのためにDSL内へ独自control flowを増やさない。
 - production call siteでstateful root以外のsyntax constructorを直接呼ばない。
+- function bodyでinstructionとterminatorの1対1 forwarding methodを作らず、共通の`emit_*`境界を使う。

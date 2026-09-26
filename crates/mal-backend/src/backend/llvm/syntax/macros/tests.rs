@@ -17,7 +17,8 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     let mut function = FunctionBuilder::new(signature);
     assert!(function.start_block("entry"));
     assert!(
-        function.terminate(super::llvm_terminator!(return Type::integer(32_u16) => "0").unwrap())
+        function
+            .terminate(super::llvm_terminator!(return { Type::integer(32_u16) } => "0").unwrap())
     );
     assert_eq!(
         function.finish().unwrap().render(),
@@ -80,8 +81,8 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
         .unwrap();
     let trailing = [TypedValue::new(Type::integer(8_u16), "7").unwrap()];
     let instruction = super::llvm_instruction!(
-        call Some("%result"), false, Type::integer(32_u16), direct "work"; [
-            (typed Type::integer(32_u16) => "1"),
+        call { Some("%result".into()) }, false, (int(32_u16)), direct "work"; [
+            (typed (int(32_u16)) => "1"),
             { dynamic() },
             {{ pairs }},
             {{ trailing }},
@@ -101,11 +102,12 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
 
 #[test]
 fn composes_nested_constants_and_dynamic_fields() {
-    let trailing = [super::llvm_typed_constant!(typed Type::integer(8_u16) => (atom 7)).unwrap()];
+    let trailing =
+        [super::llvm_typed_constant!(typed { Type::integer(8_u16) } => (atom 7)).unwrap()];
     let constant = super::llvm_constant!(structure [
-        (typed Type::integer(32_u16) => (binary BinaryOperator::Add;
-            (typed Type::integer(32_u16) => (atom 1));
-            (typed Type::integer(32_u16) => (atom 2))
+        (typed { Type::integer(32_u16) } => (binary { BinaryOperator::Add };
+            (typed { Type::integer(32_u16) } => (atom 1));
+            (typed { Type::integer(32_u16) } => (atom 2))
         )),
         {{ trailing }},
     ])
@@ -121,7 +123,7 @@ fn composes_switch_cases_and_finishes_the_function() {
     assert!(function.start_block("entry"));
     assert!(
         function.terminate(
-            super::llvm_terminator!(switch Type::integer(8_u16) => "%tag";
+            super::llvm_terminator!(switch { Type::integer(8_u16) } => "%tag";
                 default "other";
                 [
                     (case 0 => "zero"),
