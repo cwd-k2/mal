@@ -3,7 +3,9 @@ use mal_frontend::check::ast::Type;
 
 use super::{
     TypeRegistry,
-    syntax::{FunctionSignature, Parameter, TypeName},
+    syntax::{
+        FunctionSignature, Parameter, TypeName, c_parameter, c_parameters, c_signature, c_type,
+    },
 };
 
 pub(super) struct ExternalSignatures<'a> {
@@ -50,12 +52,12 @@ impl<'a> ExternalSignatures<'a> {
 impl<'a> CompilerSignature<'a> {
     fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
         let result_type = if external.result == Type::Unit {
-            TypeName::named("void")
+            c_type!(named("void"))
         } else {
             types.header_c_type(&external.result, external.result_alias.as_deref())
         };
         let mut parameters = vec![CompilerParameter {
-            c_type: TypeName::named("MalContext").pointer(),
+            c_type: c_type!(ptr(named("MalContext"))),
             default_name: "context".into(),
             is_context: true,
         }];
@@ -106,8 +108,8 @@ impl<'a> CompilerSignature<'a> {
         self.parameters
             .iter()
             .map(|parameter| {
-                let declaration =
-                    Parameter::named(parameter.c_type.clone(), parameter.default_name.clone());
+                let name = parameter.default_name.clone();
+                let declaration = c_parameter!(name : { parameter.c_type.clone() });
                 if definition && parameter.is_context {
                     declaration.maybe_unused()
                 } else {
@@ -134,7 +136,7 @@ impl<'a> HostBodySignature<'a> {
                     .host_value_c_type(&external.parameter, external.parameter_alias.as_deref()),
             }),
             raw_result_type: if external.result == Type::Unit {
-                TypeName::named("MalType_Unit")
+                c_type!(named("MalType_Unit"))
             } else {
                 types.header_c_type(&external.result, external.result_alias.as_deref())
             },
@@ -150,18 +152,13 @@ impl<'a> HostBodySignature<'a> {
     }
 
     pub(super) fn signature(&self) -> FunctionSignature {
-        let mut parameters = vec![Parameter::named(
-            TypeName::named("mal_call_t").pointer(),
-            "call",
-        )];
+        let mut parameters = c_parameters!("call": ptr(named("mal_call_t")));
         if let Some(parameter) = &self.parameter {
-            parameters.push(Parameter::named(parameter.c_type.clone(), "value"));
+            parameters.push(c_parameter!("value": { parameter.c_type.clone() }));
         }
-        FunctionSignature::static_function(
-            self.raw_result_type.clone(),
-            format!("mal_detail_{}", self.operation_name),
-            parameters,
-        )
+        c_signature!(static fn { format!("mal_detail_{}", self.operation_name) }(
+            {{ parameters }},
+        ) -> { self.raw_result_type.clone() })
     }
 
     fn represents(&self, external: &ExternalOperation, types: &TypeRegistry) -> bool {

@@ -5,8 +5,9 @@ use super::{
     host_signature::{CompilerSignature, ExternalSignatures},
 };
 use crate::backend::c::syntax::{
-    Comment, Declaration, Directive, FunctionDefinition, FunctionSignature, MacroInvocation,
-    TranslationUnit, c_block, c_expr, c_function, c_initializer, c_macro_invocation, c_statement,
+    FunctionDefinition, FunctionSignature, MacroInvocation, TranslationUnit, c_block, c_comment,
+    c_declaration, c_directive, c_expr, c_function, c_initializer, c_macro_invocation, c_signature,
+    c_statement,
 };
 
 mod prefix;
@@ -65,7 +66,7 @@ pub(super) fn emit(
             emit_definition_macro(&mut output, signatures, external, types);
         }
     }
-    output.push(Directive::Endif);
+    output.push(c_directive!(endif));
     output.render()
 }
 
@@ -74,7 +75,7 @@ pub(super) fn emit_host(
     types: &TypeRegistry,
     header_name: &str,
 ) -> String {
-    let mut output = TranslationUnit::new([Directive::include_quoted(header_name).into()]);
+    let mut output = TranslationUnit::new([c_directive!(include(quoted header_name)).into()]);
     for external in &interface.externals {
         let signatures = ExternalSignatures::new(external, types);
         let signature = &signatures.host_body;
@@ -101,12 +102,12 @@ pub(super) fn emit_host(
 
 fn begin_section(output: &mut TranslationUnit, title: &str) {
     output.blank_line();
-    output.push(Comment::new(title));
+    output.push(c_comment!(title));
     output.blank_line();
 }
 
 fn emit_external_declaration(output: &mut TranslationUnit, signature: &CompilerSignature<'_>) {
-    output.push(Declaration::function(external_signature(signature, false)));
+    output.push(c_declaration!(fn { external_signature(signature, false) }));
 }
 
 fn emit_definition_macro(
@@ -116,16 +117,15 @@ fn emit_definition_macro(
     types: &TypeRegistry,
 ) {
     let signature = &signatures.compiler;
-    output.push(Directive::define_expr(
-        format!("MAL_HAS_EXTERN_{}", signature.operation_name),
-        c_expr!(number 1),
-    ));
-    output.push(Directive::function_items_define(
-        format!("MAL_DEFINE_{}", signature.operation_name),
-        signatures.host_body.parameter_names(),
-        [signatures.host_body.signature()],
-        [wrapper_definition(signatures, external, types)],
-        signatures.host_body.signature(),
+    let presence_name = format!("MAL_HAS_EXTERN_{}", signature.operation_name);
+    output.push(c_directive!(define presence_name = (number 1)));
+    let definition_name = format!("MAL_DEFINE_{}", signature.operation_name);
+    output.push(c_directive!(define_items definition_name(
+        signatures.host_body.parameter_names()
+    );
+        declarations { [signatures.host_body.signature()] };
+        definitions { [wrapper_definition(signatures, external, types)] };
+        trailing { signatures.host_body.signature() }
     ));
     output.blank_line();
 }
@@ -189,13 +189,12 @@ fn host_macro_invocation(
 }
 
 fn external_signature(signature: &CompilerSignature<'_>, definition: bool) -> FunctionSignature {
-    FunctionSignature::new(
-        signature.result_type.clone(),
-        format!("mal_ext_{}", signature.operation_name),
-        if definition {
-            signature.definition_parameters()
-        } else {
-            signature.parameters()
-        },
-    )
+    let parameters = if definition {
+        signature.definition_parameters()
+    } else {
+        signature.parameters()
+    };
+    c_signature!(fn { format!("mal_ext_{}", signature.operation_name) }(
+        {{ parameters }},
+    ) -> { signature.result_type.clone() })
 }
