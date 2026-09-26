@@ -60,7 +60,7 @@ impl FunctionSignature {
     }
 
     pub(in crate::backend::llvm) fn with_linkage(mut self, linkage: Linkage) -> Self {
-        self.linkage = Some(linkage.into());
+        self.linkage = Some(linkage);
         self
     }
 

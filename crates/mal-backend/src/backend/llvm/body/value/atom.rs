@@ -173,7 +173,7 @@ impl FunctionEmitter<'_> {
         if let Some(value) = constant.value() {
             return Some(EmittedValue {
                 ty: constant.ty.clone(),
-                representation: value.into(),
+                representation: value,
                 owned: false,
             });
         }
