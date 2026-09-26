@@ -79,12 +79,13 @@ impl FunctionEmitter<'_> {
                         environment_layout.size,
                         super::function_number(*function)
                     ));
-                    self.line(format!(
-                        "  store {} {}, ptr {environment}, align {}",
+                    self.store(
                         environment_layout.llvm,
-                        environment_value.value.representation,
-                        environment_layout.alignment
-                    ));
+                        environment_value.value.representation.as_str(),
+                        environment.as_str(),
+                        environment_layout.alignment,
+                        [],
+                    );
                     self.commit_consumes(&environment_value)?;
                     let closure = self.register();
                     self.line(format!(

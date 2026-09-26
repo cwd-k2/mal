@@ -79,10 +79,13 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let value_type = self.types.value(&slot.ty)?;
-        self.line(format!(
-            "  store {} {}, ptr %mal_slot_{}, align {}",
-            value_type.llvm, value.representation, slot.index, value_type.alignment
-        ));
+        self.store(
+            value_type.llvm,
+            value.representation.as_str(),
+            format!("%mal_slot_{}", slot.index),
+            value_type.alignment,
+            [],
+        );
         Some(())
     }
 }

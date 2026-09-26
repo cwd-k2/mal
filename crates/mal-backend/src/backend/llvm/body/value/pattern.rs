@@ -17,10 +17,13 @@ impl FunctionEmitter<'_> {
             {
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, value.representation, slot.index, value_type.alignment
-                ));
+                self.store(
+                    value_type.llvm,
+                    value.representation.as_str(),
+                    format!("%mal_slot_{}", slot.index),
+                    value_type.alignment,
+                    [],
+                );
             }
             Pattern::Product { elements, ty, .. } if value.ty == *ty => {
                 let Type::Product(element_types) = ty else {
@@ -113,10 +116,13 @@ impl FunctionEmitter<'_> {
                 self.retain_if_borrowed(&mut value)?;
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, value.representation, slot.index, value_type.alignment
-                ));
+                self.store(
+                    value_type.llvm,
+                    value.representation.as_str(),
+                    format!("%mal_slot_{}", slot.index),
+                    value_type.alignment,
+                    [],
+                );
             }
             Pattern::Binding { id, ty }
                 if crate::execution::ownership::is_managed(ty)
@@ -132,10 +138,13 @@ impl FunctionEmitter<'_> {
                 }
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, value.representation, slot.index, value_type.alignment
-                ));
+                self.store(
+                    value_type.llvm,
+                    value.representation.as_str(),
+                    format!("%mal_slot_{}", slot.index),
+                    value_type.alignment,
+                    [],
+                );
             }
             Pattern::Binding { id, ty }
                 if self.types.value(ty).is_some()
@@ -150,10 +159,13 @@ impl FunctionEmitter<'_> {
                 }
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, value.representation, slot.index, value_type.alignment
-                ));
+                self.store(
+                    value_type.llvm,
+                    value.representation.as_str(),
+                    format!("%mal_slot_{}", slot.index),
+                    value_type.alignment,
+                    [],
+                );
             }
             Pattern::Product { elements, ty, .. } => {
                 let value = value?;

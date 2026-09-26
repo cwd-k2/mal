@@ -232,22 +232,26 @@ impl<'a> FunctionEmitter<'a> {
         );
         self.block("entry");
         if !self.frame_sites.is_empty() {
-            self.line(format!(
-                "  %mal_control_base = load {}, ptr %mal_control_top, align {}",
-                self.types.index_integer(),
-                self.types.index_alignment()
-            ));
+            self.load(
+                "%mal_control_base",
+                self.types.index_llvm_type(),
+                "%mal_control_top",
+                self.types.index_alignment(),
+                [],
+            );
             if self.local_control_top {
                 self.structured_instruction(super::super::syntax::Instruction::alloca(
                     "%mal_local_control_top",
                     self.types.index_llvm_type(),
                     self.types.index_alignment(),
                 ));
-                self.line(format!(
-                    "  store {} %mal_control_base, ptr %mal_local_control_top, align {}",
-                    self.types.index_integer(),
-                    self.types.index_alignment()
-                ));
+                self.store(
+                    self.types.index_llvm_type(),
+                    "%mal_control_base",
+                    "%mal_local_control_top",
+                    self.types.index_alignment(),
+                    [],
+                );
             }
             if self.local_control_storage {
                 self.structured_instruction(super::super::syntax::Instruction::alloca(
@@ -273,10 +277,13 @@ impl<'a> FunctionEmitter<'a> {
                 value_type.alignment,
             ));
             if crate::execution::ownership::is_managed(&slot.ty) {
-                self.line(format!(
-                    "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, slot.index, value_type.alignment
-                ));
+                self.store(
+                    value_type.llvm,
+                    "zeroinitializer",
+                    format!("%mal_slot_{}", slot.index),
+                    value_type.alignment,
+                    [],
+                );
             }
         }
         if self.common_region.is_some() {
@@ -289,10 +296,13 @@ impl<'a> FunctionEmitter<'a> {
             self.line(format!(
                 "  {environment} = call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr %mal_environment)"
             ));
-            self.line(format!(
-                "  store ptr {environment}, ptr %mal_active_environment, align {}",
-                self.types.pointer_alignment()
-            ));
+            self.store(
+                super::super::syntax::Type::Pointer,
+                environment,
+                "%mal_active_environment",
+                self.types.pointer_alignment(),
+                [],
+            );
         }
         if let Some((size, alignment)) = self.external_storage {
             let storage_type =

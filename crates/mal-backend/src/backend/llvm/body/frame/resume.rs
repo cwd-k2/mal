@@ -26,11 +26,13 @@ impl FunctionEmitter<'_> {
         }
         let index_type = self.types.index_integer();
         let top = self.register();
-        self.line(format!(
-            "  {top} = load {index_type}, ptr {}, align {}",
+        self.load(
+            top.clone(),
+            self.types.index_llvm_type(),
             self.control_top_pointer(),
-            self.types.index_alignment()
-        ));
+            self.types.index_alignment(),
+            [],
+        );
         let finished = self.register();
         self.line(format!(
             "  {finished} = icmp eq {index_type} {top}, %mal_control_base"
@@ -65,11 +67,13 @@ impl FunctionEmitter<'_> {
                 "  {previous_top} = sub {index_type} {top}, {}",
                 layout.size
             ));
-            self.line(format!(
-                "  store {index_type} {previous_top}, ptr {}, align {}",
+            self.store(
+                self.types.index_llvm_type(),
+                previous_top.as_str(),
                 self.control_top_pointer(),
-                self.types.index_alignment()
-            ));
+                self.types.index_alignment(),
+                [],
+            );
             let frame_pointer = self.register();
             self.line(format!(
                 "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {previous_top}"
@@ -93,15 +97,20 @@ impl FunctionEmitter<'_> {
             "  {footer} = getelementptr i8, ptr {storage}, {index_type} {footer_offset}"
         ));
         let previous_top = self.register();
-        self.line(format!(
-            "  {previous_top} = load {index_type}, ptr {footer}, align {}",
-            self.types.index_alignment()
-        ));
-        self.line(format!(
-            "  store {index_type} {previous_top}, ptr {}, align {}",
+        self.load(
+            previous_top.clone(),
+            self.types.index_llvm_type(),
+            footer,
+            self.types.index_alignment(),
+            [],
+        );
+        self.store(
+            self.types.index_llvm_type(),
+            previous_top.as_str(),
             self.control_top_pointer(),
-            self.types.index_alignment()
-        ));
+            self.types.index_alignment(),
+            [],
+        );
         let frame_pointer = self.register();
         self.line(format!(
             "  {frame_pointer} = getelementptr i8, ptr {storage}, {index_type} {previous_top}"
@@ -113,7 +122,13 @@ impl FunctionEmitter<'_> {
             ));
         }
         let tag = self.register();
-        self.line(format!("  {tag} = load i32, ptr {frame_pointer}, align 4"));
+        self.load(
+            tag.clone(),
+            crate::backend::llvm::syntax::Type::integer(32_u16),
+            frame_pointer.as_str(),
+            4,
+            [],
+        );
         let cases = frame_sites
             .iter()
             .enumerate()
@@ -174,15 +189,21 @@ impl FunctionEmitter<'_> {
                 layout.offset
             ));
             let value = self.register();
-            self.line(format!(
-                "  {value} = load {}, ptr {pointer}, align {}",
-                layout.value_type.llvm, layout.value_type.alignment
-            ));
+            self.load(
+                value.clone(),
+                layout.value_type.llvm.clone(),
+                pointer,
+                layout.value_type.alignment,
+                [],
+            );
             let slot = self.slots.get(&field.id)?.clone();
-            self.line(format!(
-                "  store {} {value}, ptr %mal_slot_{}, align {}",
-                layout.value_type.llvm, slot.index, layout.value_type.alignment
-            ));
+            self.store(
+                layout.value_type.llvm.clone(),
+                value,
+                format!("%mal_slot_{}", slot.index),
+                layout.value_type.alignment,
+                [],
+            );
         }
         if self.common_region.is_some() {
             let environment = if let Some(offset) = layout.environment {
@@ -191,18 +212,24 @@ impl FunctionEmitter<'_> {
                     "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
                 ));
                 let environment = self.register();
-                self.line(format!(
-                    "  {environment} = load ptr, ptr {pointer}, align {}",
-                    self.types.pointer_alignment()
-                ));
+                self.load(
+                    environment.clone(),
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    pointer,
+                    self.types.pointer_alignment(),
+                    [],
+                );
                 environment
             } else {
                 "null".into()
             };
-            self.line(format!(
-                "  store ptr {environment}, ptr %mal_active_environment, align {}",
-                self.types.pointer_alignment()
-            ));
+            self.store(
+                crate::backend::llvm::syntax::Type::Pointer,
+                environment,
+                "%mal_active_environment",
+                self.types.pointer_alignment(),
+                [],
+            );
         }
         self.store_input_pattern(
             frame.resume,

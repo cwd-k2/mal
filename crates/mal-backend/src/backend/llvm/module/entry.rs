@@ -40,10 +40,13 @@ pub(super) fn definition(
         ty => {
             let value = types.value(ty)?;
             function
-                .instruction(format!(
-                    "%mal_entry_argument = load {}, ptr %mal_argument, align {}",
-                    value.llvm, value.alignment
-                ))
+                .structured_instruction(Instruction::load(
+                    "%mal_entry_argument",
+                    value.llvm.clone(),
+                    "%mal_argument",
+                    value.alignment,
+                    [],
+                )?)
                 .then_some(())?;
             format!(
                 "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null, {} %mal_entry_argument)",

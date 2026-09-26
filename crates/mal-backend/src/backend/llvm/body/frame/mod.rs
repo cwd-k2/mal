@@ -56,7 +56,13 @@ impl FunctionEmitter<'_> {
         ));
         if tagged {
             let tag = self.frame_tags.get(&site)?;
-            self.line(format!("  store i32 {tag}, ptr {frame_pointer}, align 4"));
+            self.store(
+                crate::backend::llvm::syntax::Type::integer(32_u16),
+                tag.to_string(),
+                frame_pointer.as_str(),
+                4,
+                [],
+            );
         }
         let prepared_fields = frame
             .fields
@@ -80,10 +86,13 @@ impl FunctionEmitter<'_> {
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {}",
                 layout.offset
             ));
-            self.line(format!(
-                "  store {} {}, ptr {pointer}, align {}",
-                layout.value_type.llvm, value.value.representation, layout.value_type.alignment
-            ));
+            self.store(
+                layout.value_type.llvm.clone(),
+                value.value.representation.as_str(),
+                pointer,
+                layout.value_type.alignment,
+                [],
+            );
         }
         if let Some(offset) = layout.environment {
             let environment = self.active_environment();
@@ -91,28 +100,34 @@ impl FunctionEmitter<'_> {
             self.line(format!(
                 "  {pointer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
             ));
-            self.line(format!(
-                "  store ptr {environment}, ptr {pointer}, align {}",
-                self.types.pointer_alignment()
-            ));
+            self.store(
+                crate::backend::llvm::syntax::Type::Pointer,
+                environment,
+                pointer,
+                self.types.pointer_alignment(),
+                [],
+            );
         }
         if let Some(offset) = layout.footer {
             let footer = self.register();
             self.line(format!(
                 "  {footer} = getelementptr i8, ptr {frame_pointer}, i64 {offset}"
             ));
-            self.line(format!(
-                "  store {index_type} {}, ptr {footer}, align {}",
-                reservation.top,
-                self.types.index_alignment()
-            ));
+            self.store(
+                self.types.index_llvm_type(),
+                reservation.top.as_str(),
+                footer,
+                self.types.index_alignment(),
+                [],
+            );
         }
-        self.line(format!(
-            "  store {index_type} {}, ptr {}, align {}",
-            reservation.next_top,
+        self.store(
+            self.types.index_llvm_type(),
+            reservation.next_top.as_str(),
             self.control_top_pointer(),
-            self.types.index_alignment()
-        ));
+            self.types.index_alignment(),
+            [],
+        );
         if self.common_region.is_some() {
             self.emit_region_transition(
                 site,
@@ -226,10 +241,13 @@ impl FunctionEmitter<'_> {
                 "  call void @mal_runtime_environment_release(ptr {previous})"
             ));
         }
-        self.line(format!(
-            "  store ptr {environment}, ptr %mal_active_environment, align {}",
-            self.types.pointer_alignment()
-        ));
+        self.store(
+            crate::backend::llvm::syntax::Type::Pointer,
+            environment.as_str(),
+            "%mal_active_environment",
+            self.types.pointer_alignment(),
+            [],
+        );
         let targets = self
             .execution
             .control_regions

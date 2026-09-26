@@ -1,6 +1,7 @@
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
+use crate::backend::llvm::syntax::{MetadataAttachment, Type as LlvmType};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_aligned_buffer_load_at(
@@ -8,7 +9,12 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
     ) -> Option<EmittedValue> {
-        self.emit_source_load_at_with_alignment(pointer, element, true, ", !tbaa !3, !noalias !6")
+        self.emit_source_load_at_with_alignment(
+            pointer,
+            element,
+            true,
+            &[MetadataAttachment::Tbaa(3), MetadataAttachment::NoAlias(6)],
+        )
     }
 
     fn emit_source_load_at_with_alignment(
@@ -16,7 +22,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
         aligned: bool,
-        metadata: &str,
+        metadata: &[MetadataAttachment],
     ) -> Option<EmittedValue> {
         if *element == Type::Unit {
             return Some(EmittedValue {
@@ -59,10 +65,13 @@ impl FunctionEmitter<'_> {
             } else {
                 1
             };
-            self.line(format!(
-                "  {source_tag} = load i{}, ptr {pointer}, align {alignment}{metadata}",
-                layout.tag_bits,
-            ));
+            self.load(
+                source_tag.clone(),
+                LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                pointer,
+                alignment,
+                metadata.iter().copied(),
+            );
             if super::super::types::is_bool(element) {
                 let value = self.register();
                 self.line(format!("  {value} = trunc i8 {source_tag} to i1"));
@@ -112,18 +121,18 @@ impl FunctionEmitter<'_> {
                     metadata,
                 )?;
                 let sum = self.emit_sum_value(index, payload, element, false)?;
-                self.line(format!(
-                    "  store {} {}, ptr {storage}, align {}",
-                    runtime.llvm, sum.representation, runtime.alignment
-                ));
+                self.store(
+                    runtime.llvm.clone(),
+                    sum.representation,
+                    storage.as_str(),
+                    runtime.alignment,
+                    [],
+                );
                 self.branch(format!("{stem}_loaded"));
             }
             self.block(format!("{stem}_loaded"));
             let result = self.register();
-            self.line(format!(
-                "  {result} = load {}, ptr {storage}, align {}",
-                runtime.llvm, runtime.alignment
-            ));
+            self.load(result.clone(), runtime.llvm, storage, runtime.alignment, []);
             return Some(EmittedValue {
                 ty: element.clone(),
                 representation: result,
@@ -155,10 +164,13 @@ impl FunctionEmitter<'_> {
             1
         };
         let value = self.register();
-        self.line(format!(
-            "  {value} = load {}, ptr {pointer}, align {alignment}{metadata}",
+        self.load(
+            value.clone(),
             value_type.llvm,
-        ));
+            pointer,
+            alignment,
+            metadata.iter().copied(),
+        );
         Some(EmittedValue {
             ty: element.clone(),
             representation: value,
@@ -171,7 +183,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
     ) -> Option<()> {
-        self.emit_source_store_at_with_alignment(pointer, value, true, "")
+        self.emit_source_store_at_with_alignment(pointer, value, true, &[])
     }
 
     pub(in crate::backend::llvm::body) fn emit_aligned_buffer_store_at(
@@ -179,7 +191,12 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
     ) -> Option<()> {
-        self.emit_source_store_at_with_alignment(pointer, value, true, ", !tbaa !3, !noalias !6")
+        self.emit_source_store_at_with_alignment(
+            pointer,
+            value,
+            true,
+            &[MetadataAttachment::Tbaa(3), MetadataAttachment::NoAlias(6)],
+        )
     }
 
     fn emit_source_store_at_with_alignment(
@@ -187,7 +204,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
         aligned: bool,
-        metadata: &str,
+        metadata: &[MetadataAttachment],
     ) -> Option<()> {
         if value.ty == Type::Unit {
             return Some(());
@@ -220,9 +237,13 @@ impl FunctionEmitter<'_> {
             if super::super::types::is_bool(&value.ty) {
                 let tag = self.register();
                 self.line(format!("  {tag} = zext i1 {} to i8", value.representation));
-                self.line(format!(
-                    "  store i8 {tag}, ptr {pointer}, align 1{metadata}"
-                ));
+                self.store(
+                    LlvmType::integer(8_u16),
+                    tag,
+                    pointer,
+                    1,
+                    metadata.iter().copied(),
+                );
                 return Some(());
             }
             let runtime = self.types.value(&value.ty)?;
@@ -250,10 +271,13 @@ impl FunctionEmitter<'_> {
             } else {
                 1
             };
-            self.line(format!(
-                "  store i{} {source_tag}, ptr {pointer}, align {alignment}{metadata}",
-                layout.tag_bits,
-            ));
+            self.store(
+                LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                source_tag,
+                pointer,
+                alignment,
+                metadata.iter().copied(),
+            );
             let stem = self.register();
             let stem = stem.trim_start_matches('%').to_string();
             let payload_pointer = self.source_pointer_offset(pointer, layout.payload_offset);
@@ -311,10 +335,13 @@ impl FunctionEmitter<'_> {
         } else {
             1
         };
-        self.line(format!(
-            "  store {} {}, ptr {pointer}, align {alignment}{metadata}",
-            value_type.llvm, value.representation
-        ));
+        self.store(
+            value_type.llvm,
+            value.representation.as_str(),
+            pointer,
+            alignment,
+            metadata.iter().copied(),
+        );
         Some(())
     }
 

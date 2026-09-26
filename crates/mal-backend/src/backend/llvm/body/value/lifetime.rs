@@ -43,15 +43,21 @@ impl FunctionEmitter<'_> {
     fn release_slot(&mut self, slot: &super::super::Slot) -> Option<()> {
         let value_type = self.types.value(&slot.ty)?;
         let value = self.register();
-        self.line(format!(
-            "  {value} = load {}, ptr %mal_slot_{}, align {}",
-            value_type.llvm, slot.index, value_type.alignment
-        ));
+        self.load(
+            value.clone(),
+            value_type.llvm.clone(),
+            format!("%mal_slot_{}", slot.index),
+            value_type.alignment,
+            [],
+        );
         self.release_value(&slot.ty, &value)?;
-        self.line(format!(
-            "  store {} zeroinitializer, ptr %mal_slot_{}, align {}",
-            value_type.llvm, slot.index, value_type.alignment
-        ));
+        self.store(
+            value_type.llvm,
+            "zeroinitializer",
+            format!("%mal_slot_{}", slot.index),
+            value_type.alignment,
+            [],
+        );
         Some(())
     }
 

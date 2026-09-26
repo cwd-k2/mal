@@ -246,6 +246,32 @@ impl FunctionEmitter<'_> {
         self.emission_failed |= !function.structured_instruction(instruction);
     }
 
+    pub(super) fn load(
+        &mut self,
+        result: impl Into<String>,
+        ty: super::super::syntax::Type,
+        pointer: impl Into<String>,
+        alignment: usize,
+        metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
+    ) {
+        self.structured_instruction(super::super::syntax::Instruction::load(
+            result, ty, pointer, alignment, metadata,
+        ));
+    }
+
+    pub(super) fn store(
+        &mut self,
+        ty: super::super::syntax::Type,
+        value: impl Into<String>,
+        pointer: impl Into<String>,
+        alignment: usize,
+        metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
+    ) {
+        self.structured_instruction(super::super::syntax::Instruction::store(
+            ty, value, pointer, alignment, metadata,
+        ));
+    }
+
     pub(super) fn terminate(&mut self, terminator: Option<super::super::syntax::Terminator>) {
         let Some(terminator) = terminator else {
             self.emission_failed = true;

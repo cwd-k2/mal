@@ -3,9 +3,11 @@ mod instruction;
 mod module;
 mod ty;
 
+#[cfg(test)]
+pub(super) use function::BasicBlock;
 pub(in crate::backend) use function::FunctionSignature;
-pub(super) use function::{BasicBlock, FunctionBuilder, FunctionDefinition, Terminator};
-pub(super) use instruction::Instruction;
+pub(super) use function::{FunctionBuilder, FunctionDefinition, Terminator};
+pub(super) use instruction::{Instruction, MetadataAttachment};
 pub(in crate::backend) use module::FunctionDeclaration;
 pub(super) use module::GlobalDefinition;
 pub(super) use module::Module;

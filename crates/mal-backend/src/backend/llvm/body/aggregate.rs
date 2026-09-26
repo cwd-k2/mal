@@ -109,24 +109,27 @@ impl FunctionEmitter<'_> {
             sum_type.llvm
         ));
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
-        self.line(format!(
-            "  store {} {tag}, ptr {storage}, align {}",
-            sum_type.llvm, sum_type.alignment
-        ));
+        self.store(
+            sum_type.llvm.clone(),
+            tag,
+            storage.as_str(),
+            sum_type.alignment,
+            [],
+        );
         let payload = self.register();
         self.line(format!(
             "  {payload} = getelementptr inbounds {}, ptr {storage}, i32 0, i32 1",
             sum_type.llvm
         ));
-        self.line(format!(
-            "  store {} {}, ptr {payload}, align 1",
-            member_type.llvm, value.representation
-        ));
+        self.store(member_type.llvm, value.representation, payload, 1, []);
         let result = self.register();
-        self.line(format!(
-            "  {result} = load {}, ptr {storage}, align {}",
-            sum_type.llvm, sum_type.alignment
-        ));
+        self.load(
+            result.clone(),
+            sum_type.llvm.clone(),
+            storage,
+            sum_type.alignment,
+            [],
+        );
         let owned = value.owned;
         Some(EmittedValue {
             ty: result_type.clone(),
@@ -247,20 +250,20 @@ impl FunctionEmitter<'_> {
         let sum_type = self.types.value(sum)?;
         let member_type = self.types.value(member)?;
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
-        self.line(format!(
-            "  store {} {value}, ptr {storage}, align {}",
-            sum_type.llvm, sum_type.alignment
-        ));
+        self.store(
+            sum_type.llvm.clone(),
+            value,
+            storage.as_str(),
+            sum_type.alignment,
+            [],
+        );
         let pointer = self.register();
         self.line(format!(
             "  {pointer} = getelementptr inbounds {}, ptr {storage}, i32 0, i32 1",
             sum_type.llvm
         ));
         let payload = self.register();
-        self.line(format!(
-            "  {payload} = load {}, ptr {pointer}, align 1",
-            member_type.llvm
-        ));
+        self.load(payload.clone(), member_type.llvm, pointer, 1, []);
         Some(payload)
     }
 }

@@ -116,10 +116,13 @@ impl FunctionEmitter<'_> {
             self.types.index_integer()
         ));
         let result = self.register();
-        self.line(format!(
-            "  {result} = load {}, ptr {result_storage}, align {}",
-            result_type.llvm, result_type.alignment
-        ));
+        self.load(
+            result.clone(),
+            result_type.llvm,
+            result_storage,
+            result_type.alignment,
+            [],
+        );
         Some(EmittedValue {
             ty: Type::Symbol,
             representation: result,
@@ -142,10 +145,13 @@ impl FunctionEmitter<'_> {
         let slot_index = slot.index;
         let value = self.atom(atom)?;
         let value_type = self.types.value(&Type::Symbol)?;
-        self.line(format!(
-            "  store {} zeroinitializer, ptr %mal_slot_{slot_index}, align {}",
-            value_type.llvm, value_type.alignment
-        ));
+        self.store(
+            value_type.llvm,
+            "zeroinitializer",
+            format!("%mal_slot_{slot_index}"),
+            value_type.alignment,
+            [],
+        );
         Some(EmittedValue {
             owned: true,
             ..value

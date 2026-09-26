@@ -13,16 +13,21 @@ impl FunctionEmitter<'_> {
         if !self.local_control_top {
             return Some(());
         }
-        let index_type = self.types.index_integer();
         let top = self.register();
-        self.line(format!(
-            "  {top} = load {index_type}, ptr %mal_local_control_top, align {}",
-            self.types.index_alignment()
-        ));
-        self.line(format!(
-            "  store {index_type} {top}, ptr %mal_control_top, align {}",
-            self.types.index_alignment()
-        ));
+        self.load(
+            top.clone(),
+            self.types.index_llvm_type(),
+            "%mal_local_control_top",
+            self.types.index_alignment(),
+            [],
+        );
+        self.store(
+            self.types.index_llvm_type(),
+            top,
+            "%mal_control_top",
+            self.types.index_alignment(),
+            [],
+        );
         Some(())
     }
 }

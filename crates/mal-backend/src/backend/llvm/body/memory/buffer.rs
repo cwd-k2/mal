@@ -296,10 +296,16 @@ impl FunctionEmitter<'_> {
             buffer.representation
         ));
         let data = self.register();
-        self.line(format!(
-            "  {data} = load ptr, ptr {slot}, align {}, !tbaa !8, !alias.scope !6",
-            self.types.pointer_alignment()
-        ));
+        self.load(
+            data.clone(),
+            crate::backend::llvm::syntax::Type::Pointer,
+            slot,
+            self.types.pointer_alignment(),
+            [
+                crate::backend::llvm::syntax::MetadataAttachment::Tbaa(8),
+                crate::backend::llvm::syntax::MetadataAttachment::AliasScope(6),
+            ],
+        );
         data
     }
 
@@ -334,18 +340,27 @@ impl FunctionEmitter<'_> {
         match element_storage {
             ElementStorage::Canonical { stride } => {
                 let layout = self.source_layouts.layout(&value.ty)?;
-                self.line(format!(
-                    "  store [{stride} x i8] zeroinitializer, ptr {storage}, align {}",
-                    layout.alignment
-                ));
+                self.store(
+                    crate::backend::llvm::syntax::Type::array(
+                        stride,
+                        crate::backend::llvm::syntax::Type::integer(8_u16),
+                    ),
+                    "zeroinitializer",
+                    storage,
+                    layout.alignment,
+                    [],
+                );
                 self.emit_aligned_source_store_at(storage, value)?;
             }
             ElementStorage::Managed { alignment, .. } => {
                 let value_type = self.types.value(&value.ty)?;
-                self.line(format!(
-                    "  store {} {}, ptr {storage}, align {alignment}",
-                    value_type.llvm, value.representation
-                ));
+                self.store(
+                    value_type.llvm,
+                    value.representation.as_str(),
+                    storage,
+                    alignment,
+                    [],
+                );
             }
         }
         Some(storage.into())
@@ -361,10 +376,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<EmittedValue> {
         let value_type = self.types.value(element)?;
         let loaded = self.register();
-        self.line(format!(
-            "  {loaded} = load {}, ptr {pointer}, align {alignment}",
-            value_type.llvm
-        ));
+        self.load(loaded.clone(), value_type.llvm, pointer, alignment, []);
         self.retain_value(element, &loaded)?;
         Some(EmittedValue {
             ty: element.clone(),
@@ -384,15 +396,21 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&value.ty)?;
         self.retain_value(&value.ty, &value.representation)?;
         let previous = self.register();
-        self.line(format!(
-            "  {previous} = load {}, ptr {pointer}, align {alignment}",
-            value_type.llvm
-        ));
+        self.load(
+            previous.clone(),
+            value_type.llvm.clone(),
+            pointer,
+            alignment,
+            [],
+        );
         self.release_value(&value.ty, &previous)?;
-        self.line(format!(
-            "  store {} {}, ptr {pointer}, align {alignment}",
-            value_type.llvm, value.representation
-        ));
+        self.store(
+            value_type.llvm,
+            value.representation.as_str(),
+            pointer,
+            alignment,
+            [],
+        );
         Some(())
     }
 
@@ -434,10 +452,13 @@ impl FunctionEmitter<'_> {
         self.begin_function(signature.with_linkage("internal"));
         self.block("entry");
         let value = self.register();
-        self.line(format!(
-            "  {value} = load {}, ptr %mal_element, align {}",
-            value_type.llvm, value_type.alignment
-        ));
+        self.load(
+            value.clone(),
+            value_type.llvm,
+            "%mal_element",
+            value_type.alignment,
+            [],
+        );
         if retain {
             self.retain_value(element, &value)?;
         } else {

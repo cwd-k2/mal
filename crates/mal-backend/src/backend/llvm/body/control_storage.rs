@@ -15,28 +15,37 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
         ));
-        self.line(format!(
-            "  store ptr {storage}, ptr %mal_local_control_storage, align {}",
-            self.types.pointer_alignment()
-        ));
+        self.store(
+            crate::backend::llvm::syntax::Type::Pointer,
+            storage,
+            "%mal_local_control_storage",
+            self.types.pointer_alignment(),
+            [],
+        );
         let index_type = self.types.index_integer();
         let capacity = self.register();
         self.line(format!(
             "  {capacity} = call {index_type} @mal_control_capacity(ptr %mal_context)"
         ));
-        self.line(format!(
-            "  store {index_type} {capacity}, ptr %mal_local_control_capacity, align {}",
-            self.types.index_alignment()
-        ));
+        self.store(
+            self.types.index_llvm_type(),
+            capacity,
+            "%mal_local_control_capacity",
+            self.types.index_alignment(),
+            [],
+        );
     }
 
     pub(super) fn current_control_storage(&mut self) -> String {
         let storage = self.register();
         if self.local_control_storage {
-            self.line(format!(
-                "  {storage} = load ptr, ptr %mal_local_control_storage, align {}",
-                self.types.pointer_alignment()
-            ));
+            self.load(
+                storage.clone(),
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_local_control_storage",
+                self.types.pointer_alignment(),
+                [],
+            );
         } else {
             self.line(format!(
                 "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
@@ -52,11 +61,13 @@ impl FunctionEmitter<'_> {
     ) -> Option<ControlReservation> {
         let index_type = self.types.index_integer();
         let top = self.register();
-        self.line(format!(
-            "  {top} = load {index_type}, ptr {}, align {}",
+        self.load(
+            top.clone(),
+            self.types.index_llvm_type(),
             self.control_top_pointer(),
-            self.types.index_alignment()
-        ));
+            self.types.index_alignment(),
+            [],
+        );
         let next_top = self.register();
         self.line(format!(
             "  {next_top} = add {index_type} {top}, {frame_size}"
@@ -83,10 +94,13 @@ impl FunctionEmitter<'_> {
 
         let cached_storage = self.current_control_storage();
         let capacity = self.register();
-        self.line(format!(
-            "  {capacity} = load {index_type}, ptr %mal_local_control_capacity, align {}",
-            self.types.index_alignment()
-        ));
+        self.load(
+            capacity.clone(),
+            self.types.index_llvm_type(),
+            "%mal_local_control_capacity",
+            self.types.index_alignment(),
+            [],
+        );
         let no_overflow = self.register();
         let frame_size = u64::try_from(frame_size).ok()?;
         let maximum_top = match self.types.index_size() {
@@ -120,18 +134,24 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {grown} = call ptr @mal_control_reserve_frame(ptr %mal_context, {index_type} {top}, {index_type} {frame_size})"
         ));
-        self.line(format!(
-            "  store ptr {grown}, ptr %mal_local_control_storage, align {}",
-            self.types.pointer_alignment()
-        ));
+        self.store(
+            crate::backend::llvm::syntax::Type::Pointer,
+            grown.as_str(),
+            "%mal_local_control_storage",
+            self.types.pointer_alignment(),
+            [],
+        );
         let grown_capacity = self.register();
         self.line(format!(
             "  {grown_capacity} = call {index_type} @mal_control_capacity(ptr %mal_context)"
         ));
-        self.line(format!(
-            "  store {index_type} {grown_capacity}, ptr %mal_local_control_capacity, align {}",
-            self.types.index_alignment()
-        ));
+        self.store(
+            self.types.index_llvm_type(),
+            grown_capacity,
+            "%mal_local_control_capacity",
+            self.types.index_alignment(),
+            [],
+        );
         self.branch(format!("mal_control_ready_{label}"));
         self.block(format!("mal_control_ready_{label}"));
         let storage = self.register();

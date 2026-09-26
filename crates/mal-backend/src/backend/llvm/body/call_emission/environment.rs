@@ -25,10 +25,13 @@ impl FunctionEmitter<'_> {
         );
         self.block("entry");
         let environment = self.register();
-        self.line(format!(
-            "  {environment} = load {}, ptr %mal_environment, align {}",
-            value_type.llvm, value_type.alignment
-        ));
+        self.load(
+            environment.clone(),
+            value_type.llvm,
+            "%mal_environment",
+            value_type.alignment,
+            [],
+        );
         self.release_value(&environment_type, &environment)?;
         self.return_void();
         self.finish_function()?;
@@ -54,10 +57,13 @@ impl FunctionEmitter<'_> {
             return "%mal_environment".into();
         }
         let environment = self.register();
-        self.line(format!(
-            "  {environment} = load ptr, ptr %mal_active_environment, align {}",
-            self.types.pointer_alignment()
-        ));
+        self.load(
+            environment.clone(),
+            crate::backend::llvm::syntax::Type::Pointer,
+            "%mal_active_environment",
+            self.types.pointer_alignment(),
+            [],
+        );
         environment
     }
 }

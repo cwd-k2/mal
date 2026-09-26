@@ -77,10 +77,13 @@ impl FunctionEmitter<'_> {
                 let pointer = self.capture_pointer(*index, ty)?;
                 let value_type = self.types.value(ty)?;
                 let value = self.register();
-                self.line(format!(
-                    "  {value} = load {}, ptr {pointer}, align {}",
-                    value_type.llvm, value_type.alignment
-                ));
+                self.load(
+                    value.clone(),
+                    value_type.llvm,
+                    pointer,
+                    value_type.alignment,
+                    [],
+                );
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: value,
@@ -101,10 +104,13 @@ impl FunctionEmitter<'_> {
                 }
                 let value_type = self.types.value(ty)?;
                 let register = self.register();
-                self.line(format!(
-                    "  {register} = load {}, ptr %mal_slot_{}, align {}",
-                    value_type.llvm, slot.index, value_type.alignment
-                ));
+                self.load(
+                    register.clone(),
+                    value_type.llvm,
+                    format!("%mal_slot_{}", slot.index),
+                    value_type.alignment,
+                    [],
+                );
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: register,

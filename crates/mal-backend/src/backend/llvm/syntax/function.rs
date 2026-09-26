@@ -166,6 +166,7 @@ impl FunctionBuilder {
         block.terminate(terminator)
     }
 
+    #[cfg(test)]
     pub(in crate::backend::llvm) fn entry_instruction(
         &mut self,
         instruction: impl Into<String>,
@@ -208,6 +209,7 @@ pub(in crate::backend::llvm) struct BasicBlock {
 }
 
 impl BasicBlock {
+    #[cfg(test)]
     pub(in crate::backend::llvm) fn new(
         label: impl Into<String>,
         instructions: impl IntoIterator<Item = impl Into<String>>,
