@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use super::Instruction;
+
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct FunctionDefinition {
     signature: FunctionSignature,
@@ -147,6 +149,16 @@ impl FunctionBuilder {
         block.push_instruction(instruction.into())
     }
 
+    pub(in crate::backend::llvm) fn structured_instruction(
+        &mut self,
+        instruction: Instruction,
+    ) -> bool {
+        let Some(block) = self.blocks.last_mut() else {
+            return false;
+        };
+        block.push(instruction)
+    }
+
     pub(in crate::backend::llvm) fn terminate(&mut self, terminator: Terminator) -> bool {
         let Some(block) = self.blocks.last_mut() else {
             return false;
@@ -159,11 +171,18 @@ impl FunctionBuilder {
         instruction: impl Into<String>,
     ) -> bool {
         let instruction = instruction.into();
-        let Some(instruction) = Instruction::new(instruction) else {
+        let Some(instruction) = Instruction::raw(instruction) else {
             return false;
         };
         self.entry_prefix.push(instruction);
         true
+    }
+
+    pub(in crate::backend::llvm) fn structured_entry_instruction(
+        &mut self,
+        instruction: Instruction,
+    ) {
+        self.entry_prefix.push(instruction);
     }
 
     pub(in crate::backend::llvm) fn finish(mut self) -> Option<FunctionDefinition> {
@@ -215,9 +234,16 @@ impl BasicBlock {
         if self.terminator.is_some() {
             return false;
         }
-        let Some(instruction) = Instruction::new(instruction) else {
+        let Some(instruction) = Instruction::raw(instruction) else {
             return false;
         };
+        self.push(instruction)
+    }
+
+    fn push(&mut self, instruction: Instruction) -> bool {
+        if self.terminator.is_some() {
+            return false;
+        }
         self.instructions.push(instruction);
         true
     }
@@ -235,7 +261,7 @@ impl BasicBlock {
         output.push_str(":\n");
         for instruction in &self.instructions {
             output.push_str("  ");
-            output.push_str(&instruction.0);
+            instruction.render_into(output);
             output.push('\n');
         }
         if let Some(terminator) = &self.terminator {
@@ -246,24 +272,12 @@ impl BasicBlock {
     }
 
     fn uses_byte_runtime(&self) -> bool {
-        self.instructions
-            .iter()
-            .any(|instruction| is_byte_runtime_reference(&instruction.0))
+        self.instructions.iter().any(Instruction::uses_byte_runtime)
             || self
                 .terminator
                 .as_ref()
                 .is_some_and(Terminator::uses_byte_runtime)
     }
-}
-
-fn is_byte_runtime_reference(text: &str) -> bool {
-    [
-        "@mal_runtime_bytes_",
-        "@mal_runtime_buffer_",
-        "@mal_runtime_symbol_",
-    ]
-    .iter()
-    .any(|prefix| text.contains(prefix))
 }
 
 pub(super) fn is_valid_name(name: &str) -> bool {
@@ -277,15 +291,6 @@ pub(super) fn is_valid_name(name: &str) -> bool {
 
 pub(super) fn is_single_line(text: &str) -> bool {
     !text.is_empty() && !text.contains(['\n', '\r'])
-}
-
-#[derive(Clone)]
-struct Instruction(String);
-
-impl Instruction {
-    fn new(text: String) -> Option<Self> {
-        (!text.is_empty() && !text.contains(['\n', '\r'])).then_some(Self(text))
-    }
 }
 
 #[derive(Clone)]

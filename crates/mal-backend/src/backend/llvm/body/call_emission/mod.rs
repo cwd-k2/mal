@@ -180,7 +180,7 @@ impl FunctionEmitter<'_> {
 
     pub(super) fn entry_alloca(
         &mut self,
-        llvm: &impl std::fmt::Display,
+        llvm: &super::super::syntax::Type,
         alignment: usize,
     ) -> String {
         let storage = format!("%mal_alloca_{}", self.next_entry_alloca);
@@ -189,8 +189,13 @@ impl FunctionEmitter<'_> {
             self.emission_failed = true;
             return storage;
         };
-        self.emission_failed |=
-            !function.entry_instruction(format!("{storage} = alloca {llvm}, align {alignment}"));
+        let Some(instruction) =
+            super::super::syntax::Instruction::alloca(storage.clone(), llvm.clone(), alignment)
+        else {
+            self.emission_failed = true;
+            return storage;
+        };
+        function.structured_entry_instruction(instruction);
         storage
     }
 
@@ -224,6 +229,21 @@ impl FunctionEmitter<'_> {
             return;
         };
         self.emission_failed |= !function.start_block(label);
+    }
+
+    pub(super) fn structured_instruction(
+        &mut self,
+        instruction: Option<super::super::syntax::Instruction>,
+    ) {
+        let Some(instruction) = instruction else {
+            self.emission_failed = true;
+            return;
+        };
+        let Some(function) = self.current_definition.as_mut() else {
+            self.emission_failed = true;
+            return;
+        };
+        self.emission_failed |= !function.structured_instruction(instruction);
     }
 
     pub(super) fn terminate(&mut self, terminator: Option<super::super::syntax::Terminator>) {

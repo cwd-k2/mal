@@ -238,10 +238,10 @@ impl<'a> FunctionEmitter<'a> {
                 self.types.index_alignment()
             ));
             if self.local_control_top {
-                self.line(format!(
-                    "  %mal_local_control_top = alloca {}, align {}",
-                    self.types.index_integer(),
-                    self.types.index_alignment()
+                self.structured_instruction(super::super::syntax::Instruction::alloca(
+                    "%mal_local_control_top",
+                    self.types.index_llvm_type(),
+                    self.types.index_alignment(),
                 ));
                 self.line(format!(
                     "  store {} %mal_control_base, ptr %mal_local_control_top, align {}",
@@ -250,14 +250,15 @@ impl<'a> FunctionEmitter<'a> {
                 ));
             }
             if self.local_control_storage {
-                self.line(format!(
-                    "  %mal_local_control_storage = alloca ptr, align {}",
-                    self.types.pointer_alignment()
+                self.structured_instruction(super::super::syntax::Instruction::alloca(
+                    "%mal_local_control_storage",
+                    super::super::syntax::Type::Pointer,
+                    self.types.pointer_alignment(),
                 ));
-                self.line(format!(
-                    "  %mal_local_control_capacity = alloca {}, align {}",
-                    self.types.index_integer(),
-                    self.types.index_alignment()
+                self.structured_instruction(super::super::syntax::Instruction::alloca(
+                    "%mal_local_control_capacity",
+                    self.types.index_llvm_type(),
+                    self.types.index_alignment(),
                 ));
                 self.refresh_control_storage();
             }
@@ -266,9 +267,10 @@ impl<'a> FunctionEmitter<'a> {
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
             let value_type = self.types.value(&slot.ty)?;
-            self.line(format!(
-                "  %mal_slot_{} = alloca {}, align {}",
-                slot.index, value_type.llvm, value_type.alignment
+            self.structured_instruction(super::super::syntax::Instruction::alloca(
+                format!("%mal_slot_{}", slot.index),
+                value_type.llvm.clone(),
+                value_type.alignment,
             ));
             if crate::execution::ownership::is_managed(&slot.ty) {
                 self.line(format!(
@@ -278,9 +280,10 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
         if self.common_region.is_some() {
-            self.line(format!(
-                "  %mal_active_environment = alloca ptr, align {}",
-                self.types.pointer_alignment()
+            self.structured_instruction(super::super::syntax::Instruction::alloca(
+                "%mal_active_environment",
+                super::super::syntax::Type::Pointer,
+                self.types.pointer_alignment(),
             ));
             let environment = self.register();
             self.line(format!(
@@ -292,23 +295,32 @@ impl<'a> FunctionEmitter<'a> {
             ));
         }
         if let Some((size, alignment)) = self.external_storage {
-            self.line(format!(
-                "  %mal_bridge_argument = alloca [{size} x i8], align {alignment}"
+            let storage_type =
+                super::super::syntax::Type::array(size, super::super::syntax::Type::integer(8_u16));
+            self.structured_instruction(super::super::syntax::Instruction::alloca(
+                "%mal_bridge_argument",
+                storage_type.clone(),
+                alignment,
             ));
-            self.line(format!(
-                "  %mal_bridge_result = alloca [{size} x i8], align {alignment}"
+            self.structured_instruction(super::super::syntax::Instruction::alloca(
+                "%mal_bridge_result",
+                storage_type,
+                alignment,
             ));
         }
         if self.needs_symbol_result_slot {
             let symbol = self.types.value(&Type::Symbol)?;
-            self.line(format!(
-                "  %mal_symbol_result = alloca {}, align {}",
-                symbol.llvm, symbol.alignment
+            self.structured_instruction(super::super::syntax::Instruction::alloca(
+                "%mal_symbol_result",
+                symbol.llvm,
+                symbol.alignment,
             ));
         }
         if let Some((size, alignment)) = self.buffer_value_storage {
-            self.line(format!(
-                "  %mal_buffer_value = alloca [{size} x i8], align {alignment}"
+            self.structured_instruction(super::super::syntax::Instruction::alloca(
+                "%mal_buffer_value",
+                super::super::syntax::Type::array(size, super::super::syntax::Type::integer(8_u16)),
+                alignment,
             ));
         }
         if self.mode == EmissionMode::Native {

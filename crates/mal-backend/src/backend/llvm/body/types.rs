@@ -142,6 +142,12 @@ impl Types {
         format!("i{}", self.target.index_size * 8)
     }
 
+    pub(in crate::backend::llvm) fn index_llvm_type(&self) -> LlvmType {
+        LlvmType::integer(
+            u16::try_from(self.target.index_size * 8).expect("supported index width fits u16"),
+        )
+    }
+
     pub(in crate::backend::llvm) fn pointer_representation_integer(&self) -> String {
         format!("i{}", self.target.pointer_size * 8)
     }
