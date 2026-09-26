@@ -50,7 +50,7 @@ pub(super) fn definition(
         "ret void".into(),
     ]);
     FunctionDefinition::new(
-        AbiFunction::program_entry().llvm_signature(),
+        AbiFunction::program_entry().llvm_definition_signature(),
         vec![BasicBlock::new("entry", instructions)?],
     )
 }

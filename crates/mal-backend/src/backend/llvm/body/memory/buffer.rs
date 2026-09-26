@@ -415,15 +415,20 @@ impl FunctionEmitter<'_> {
         retain: bool,
     ) -> Option<()> {
         let value_type = self.types.value(element)?;
-        if retain {
-            self.begin_function(format!(
-                "internal void @mal_buffer_retain_{number}(ptr %mal_context, ptr %mal_element)"
-            ));
+        let signature = if retain {
+            crate::backend::llvm::syntax::FunctionSignature::new(
+                "void",
+                format!("mal_buffer_retain_{number}"),
+                ["ptr %mal_context", "ptr %mal_element"],
+            )
         } else {
-            self.begin_function(format!(
-                "internal void @mal_buffer_release_{number}(ptr %mal_element)"
-            ));
-        }
+            crate::backend::llvm::syntax::FunctionSignature::new(
+                "void",
+                format!("mal_buffer_release_{number}"),
+                ["ptr %mal_element"],
+            )
+        };
+        self.begin_function(signature.with_linkage("internal"));
         self.line("entry:");
         let value = self.register();
         self.line(format!(

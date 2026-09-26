@@ -26,7 +26,9 @@ pub(super) fn render(
         module.declare(declaration);
     }
 
-    module.add_global_fragment(body.globals.clone());
+    for global in &body.globals {
+        module.add_global(global.clone());
+    }
     for definition in &body.definitions {
         module.define(definition.clone());
     }
@@ -34,5 +36,5 @@ pub(super) fn render(
         module.add_metadata(metadata::buffer_alias());
     }
     module.define(entry::definition(body, &types)?);
-    Some(module.render())
+    module.render()
 }

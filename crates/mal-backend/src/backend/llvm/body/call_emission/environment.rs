@@ -12,10 +12,17 @@ impl FunctionEmitter<'_> {
         let environment_type =
             Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
-        self.begin_function(format!(
-            "internal void @mal_destroy_environment_{}(ptr %mal_environment)",
-            function_number(self.function.id)
-        ));
+        self.begin_function(
+            crate::backend::llvm::syntax::FunctionSignature::new(
+                "void",
+                format!(
+                    "mal_destroy_environment_{}",
+                    function_number(self.function.id)
+                ),
+                ["ptr %mal_environment"],
+            )
+            .with_linkage("internal"),
+        );
         self.line("entry:");
         let environment = self.register();
         self.line(format!(

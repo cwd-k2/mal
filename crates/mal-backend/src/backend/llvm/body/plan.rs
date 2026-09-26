@@ -21,7 +21,7 @@ pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(Fu
 
 pub(super) struct TopLevelConstants {
     values: HashMap<ValueId, Constant>,
-    globals: String,
+    globals: Vec<crate::backend::llvm::syntax::GlobalDefinition>,
     types: Types,
 }
 
@@ -42,7 +42,7 @@ impl TopLevelConstants {
     pub(super) fn new(execution: &crate::execution::Program, types: Types) -> Option<Self> {
         let mut constants = Self {
             values: HashMap::new(),
-            globals: String::new(),
+            globals: Vec::new(),
             types,
         };
         for binding in &execution.lowered.bindings {
@@ -58,7 +58,7 @@ impl TopLevelConstants {
         Some(constants)
     }
 
-    pub(super) fn globals(&self) -> &str {
+    pub(super) fn globals(&self) -> &[crate::backend::llvm::syntax::GlobalDefinition] {
         &self.globals
     }
 
@@ -201,7 +201,7 @@ impl TopLevelConstants {
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
-                    .push_str(&super::symbol::literal_definition(&name, bytes));
+                    .push(super::symbol::literal_definition(&name, bytes)?);
                 let index = self.types.index_integer();
                 format!(
                     "{{ ptr @{name}, ptr getelementptr (i8, ptr @{name}, {index} {}), {index} {} }}",

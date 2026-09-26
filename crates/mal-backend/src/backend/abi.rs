@@ -72,6 +72,18 @@ impl Function {
         format!("void @{}({parameters})", self.name)
     }
 
+    pub(in crate::backend) fn llvm_definition_signature(
+        &self,
+    ) -> crate::backend::llvm::syntax::FunctionSignature {
+        crate::backend::llvm::syntax::FunctionSignature::new(
+            "void",
+            self.name.clone(),
+            self.parameters
+                .iter()
+                .map(|parameter| format!("ptr %mal_{}", parameter.name)),
+        )
+    }
+
     pub(in crate::backend) fn llvm_declaration(
         &self,
     ) -> crate::backend::llvm::syntax::FunctionDeclaration {

@@ -39,7 +39,7 @@ impl FunctionEmitter<'_> {
                     atom.id.0
                 );
                 self.globals
-                    .push_str(&super::super::symbol::literal_definition(&name, bytes));
+                    .push(super::super::symbol::literal_definition(&name, bytes)?);
                 let data = self.register();
                 self.line(format!(
                     "  {data} = getelementptr i8, ptr @{name}, i64 {}",

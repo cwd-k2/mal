@@ -2,13 +2,73 @@ use std::collections::HashSet;
 
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct FunctionDefinition {
-    signature: String,
+    signature: FunctionSignature,
     blocks: Vec<BasicBlock>,
+}
+
+#[derive(Clone)]
+pub(in crate::backend) struct FunctionSignature {
+    linkage: Option<String>,
+    result: String,
+    name: String,
+    parameters: Vec<String>,
+    attributes: Vec<String>,
+}
+
+impl FunctionSignature {
+    pub(in crate::backend) fn new(
+        result: impl Into<String>,
+        name: impl Into<String>,
+        parameters: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            linkage: None,
+            result: result.into(),
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            attributes: Vec::new(),
+        }
+    }
+
+    pub(in crate::backend::llvm) fn with_linkage(mut self, linkage: impl Into<String>) -> Self {
+        self.linkage = Some(linkage.into());
+        self
+    }
+
+    pub(in crate::backend::llvm) fn with_attributes(
+        mut self,
+        attributes: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.attributes = attributes.into_iter().map(Into::into).collect();
+        self
+    }
+
+    fn render(&self) -> String {
+        let linkage = self
+            .linkage
+            .as_ref()
+            .map_or(String::new(), |linkage| format!("{linkage} "));
+        let attributes = if self.attributes.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", self.attributes.join(" "))
+        };
+        format!(
+            "{linkage}{} @{}({}){attributes}",
+            self.result,
+            self.name,
+            self.parameters.join(", ")
+        )
+    }
+
+    pub(super) fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl FunctionDefinition {
     pub(in crate::backend::llvm) fn new(
-        signature: impl Into<String>,
+        signature: FunctionSignature,
         blocks: Vec<BasicBlock>,
     ) -> Option<Self> {
         let mut labels = HashSet::new();
@@ -16,33 +76,34 @@ impl FunctionDefinition {
             && blocks
                 .iter()
                 .all(|block| labels.insert(block.label.clone())))
-        .then(|| Self {
-            signature: signature.into(),
-            blocks,
-        })
+        .then_some(Self { signature, blocks })
     }
 
     pub(in crate::backend::llvm) fn render(&self) -> String {
-        let mut output = format!("define {} {{\n", self.signature);
+        let mut output = format!("define {} {{\n", self.signature.render());
         for block in &self.blocks {
             block.render_into(&mut output);
         }
         output.push('}');
         output
     }
+
+    pub(super) fn name(&self) -> &str {
+        self.signature.name()
+    }
 }
 
 pub(in crate::backend::llvm) struct FunctionBuilder {
-    signature: String,
+    signature: FunctionSignature,
     entry_prefix: Vec<Instruction>,
     blocks: Vec<BasicBlock>,
     labels: HashSet<String>,
 }
 
 impl FunctionBuilder {
-    pub(in crate::backend::llvm) fn new(signature: impl Into<String>) -> Self {
+    pub(in crate::backend::llvm) fn new(signature: FunctionSignature) -> Self {
         Self {
-            signature: signature.into(),
+            signature,
             entry_prefix: Vec::new(),
             blocks: Vec::new(),
             labels: HashSet::new(),
@@ -217,7 +278,10 @@ mod tests {
 
     #[test]
     fn renders_late_entry_instructions_before_the_existing_entry_body() {
-        let mut function = FunctionBuilder::new("internal void @example()");
+        let mut function = FunctionBuilder::new(
+            FunctionSignature::new("void", "example", std::iter::empty::<&str>())
+                .with_linkage("internal"),
+        );
         assert!(function.start_block("entry"));
         assert!(function.instruction("br label %body"));
         assert!(function.start_block("body"));
@@ -243,7 +307,11 @@ mod tests {
         assert!(BasicBlock::new("entry", ["call void @work()"]).is_none());
         assert!(BasicBlock::new("entry", ["ret void", "call void @late()"]).is_none());
 
-        let mut function = FunctionBuilder::new("void @missing_terminator()");
+        let mut function = FunctionBuilder::new(FunctionSignature::new(
+            "void",
+            "missing_terminator",
+            std::iter::empty::<&str>(),
+        ));
         assert!(function.start_block("entry"));
         assert!(function.instruction("call void @work()"));
         assert!(function.finish().is_none());
@@ -253,21 +321,32 @@ mod tests {
     fn rejects_invalid_and_duplicate_block_labels() {
         assert!(BasicBlock::new("0invalid", ["ret void"]).is_none());
 
-        let mut function = FunctionBuilder::new("void @duplicate()");
+        let mut function = FunctionBuilder::new(FunctionSignature::new(
+            "void",
+            "duplicate",
+            std::iter::empty::<&str>(),
+        ));
         assert!(function.start_block("entry"));
         assert!(function.instruction("ret void"));
         assert!(!function.start_block("entry"));
 
         let entry = BasicBlock::new("entry", ["ret void"]).unwrap();
         assert!(
-            FunctionDefinition::new("void @duplicate_direct()", vec![entry.clone(), entry],)
-                .is_none()
+            FunctionDefinition::new(
+                FunctionSignature::new("void", "duplicate_direct", std::iter::empty::<&str>(),),
+                vec![entry.clone(), entry],
+            )
+            .is_none()
         );
     }
 
     #[test]
     fn rejects_invalid_entry_prefix_instructions() {
-        let mut function = FunctionBuilder::new("void @invalid_prefix()");
+        let mut function = FunctionBuilder::new(FunctionSignature::new(
+            "void",
+            "invalid_prefix",
+            std::iter::empty::<&str>(),
+        ));
         assert!(function.start_block("entry"));
         assert!(function.instruction("ret void"));
 

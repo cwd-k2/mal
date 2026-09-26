@@ -37,7 +37,7 @@ pub(super) fn admit_target(
 }
 
 pub(super) struct Output {
-    pub(super) globals: String,
+    pub(super) globals: Vec<super::syntax::GlobalDefinition>,
     pub(super) definitions: Vec<super::syntax::FunctionDefinition>,
     pub(super) main: FunctionId,
     pub(super) main_parameter: Type,
@@ -67,7 +67,7 @@ pub(super) fn generate(
     let index = ProgramIndex::new(execution).ok_or("program index construction")?;
     let optimizations = super::optimization::OptimizationPlan::new(execution, enabled);
     debug_assert!(optimizations.is_valid(execution, enabled));
-    let mut globals = top_levels.globals().to_string();
+    let mut globals = top_levels.globals().to_vec();
     let mut definitions = FunctionEmitter::new(
         execution,
         &index,
@@ -108,7 +108,7 @@ pub(super) fn generate(
             .into_native_version();
             // Both versions declare the same globals and environment destructor; the native version owns them.
             let emitted = native.emit().ok_or_else(|| failed("native version"))?;
-            globals.push_str(&emitted.globals);
+            globals.extend(emitted.globals);
             definitions.extend(emitted.definitions);
             let frames = emitter
                 .into_frames_version()
@@ -118,7 +118,7 @@ pub(super) fn generate(
             continue;
         }
         let emitted = emitter.emit().ok_or_else(|| failed("body"))?;
-        globals.push_str(&emitted.globals);
+        globals.extend(emitted.globals);
         definitions.extend(emitted.definitions);
     }
     Ok(Output {
@@ -170,7 +170,7 @@ struct FunctionEmitter<'a> {
     current_definition: Option<super::syntax::FunctionBuilder>,
     definitions: Vec<super::syntax::FunctionDefinition>,
     emission_failed: bool,
-    globals: String,
+    globals: Vec<super::syntax::GlobalDefinition>,
 }
 
 struct ProgramIndex<'a> {
@@ -235,7 +235,7 @@ struct PreparedValue {
 }
 
 struct EmittedFunction {
-    globals: String,
+    globals: Vec<super::syntax::GlobalDefinition>,
     definitions: Vec<super::syntax::FunctionDefinition>,
 }
 

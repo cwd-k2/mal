@@ -214,7 +214,7 @@ impl FunctionEmitter<'_> {
         }
     }
 
-    pub(super) fn begin_function(&mut self, signature: impl Into<String>) {
+    pub(super) fn begin_function(&mut self, signature: super::super::syntax::FunctionSignature) {
         if self.current_definition.is_some() {
             self.emission_failed = true;
             return;

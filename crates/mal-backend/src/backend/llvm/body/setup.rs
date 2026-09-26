@@ -186,7 +186,7 @@ impl<'a> FunctionEmitter<'a> {
             current_definition: None,
             definitions: Vec::new(),
             emission_failed: false,
-            globals: String::new(),
+            globals: Vec::new(),
         })
     }
 
@@ -194,14 +194,20 @@ impl<'a> FunctionEmitter<'a> {
         if self.mode != EmissionMode::Frames {
             self.emit_environment_destructor()?;
         }
-        let parameter = if self.function.parameter.ty == Type::Unit {
-            "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment".to_string()
+        let parameters = if self.function.parameter.ty == Type::Unit {
+            vec![
+                "ptr %mal_context".to_string(),
+                "ptr %mal_control_top".to_string(),
+                "ptr %mal_environment".to_string(),
+            ]
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
-            format!(
-                "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment, {} %mal_parameter",
-                parameter.llvm
-            )
+            vec![
+                "ptr %mal_context".to_string(),
+                "ptr %mal_control_top".to_string(),
+                "ptr %mal_environment".to_string(),
+                format!("{} %mal_parameter", parameter.llvm),
+            ]
         };
         let result = self.types.value(&self.result_type)?;
         let suffix = if self.mode == EmissionMode::Frames {
@@ -211,15 +217,19 @@ impl<'a> FunctionEmitter<'a> {
         };
         // The native version must stay small on its hot path, so the frames version is never inlined into it.
         let attributes = if self.mode == EmissionMode::Frames {
-            " noinline"
+            vec!["noinline"]
         } else {
-            ""
+            Vec::new()
         };
-        self.begin_function(format!(
-            "internal {} @{}{suffix}({parameter}){attributes}",
-            result.llvm,
-            function_name(self.function.id)
-        ));
+        self.begin_function(
+            super::super::syntax::FunctionSignature::new(
+                result.llvm,
+                format!("{}{suffix}", function_name(self.function.id)),
+                parameters,
+            )
+            .with_linkage("internal")
+            .with_attributes(attributes),
+        );
         self.line("entry:");
         if !self.frame_sites.is_empty() {
             self.line(format!(

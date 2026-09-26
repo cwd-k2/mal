@@ -1,4 +1,5 @@
 use super::FunctionDefinition;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub(in crate::backend) struct FunctionDeclaration {
@@ -43,6 +44,10 @@ impl FunctionDeclaration {
             self.parameters.join(", ")
         )
     }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 pub(in crate::backend::llvm) struct Module<'a> {
@@ -53,9 +58,35 @@ pub(in crate::backend::llvm) struct Module<'a> {
 }
 
 enum ModuleItem {
-    GlobalFragment(String),
+    Global(GlobalDefinition),
     Function(FunctionDefinition),
     Metadata(String),
+}
+
+#[derive(Clone)]
+pub(in crate::backend::llvm) struct GlobalDefinition {
+    name: String,
+    definition: String,
+}
+
+impl GlobalDefinition {
+    pub(in crate::backend::llvm) fn new(
+        name: impl Into<String>,
+        definition: impl Into<String>,
+    ) -> Option<Self> {
+        let name = name.into();
+        let definition = definition.into();
+        (!name.is_empty() && !definition.trim().is_empty() && !definition.contains(['\n', '\r']))
+            .then_some(Self { name, definition })
+    }
+
+    fn render(&self) -> String {
+        self.definition.clone()
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl<'a> Module<'a> {
@@ -72,8 +103,8 @@ impl<'a> Module<'a> {
         self.declarations.push(declaration);
     }
 
-    pub(in crate::backend::llvm) fn add_global_fragment(&mut self, fragment: impl Into<String>) {
-        self.add_nonempty(fragment, ModuleItem::GlobalFragment);
+    pub(in crate::backend::llvm) fn add_global(&mut self, definition: GlobalDefinition) {
+        self.items.push(ModuleItem::Global(definition));
     }
 
     pub(in crate::backend::llvm) fn define(&mut self, definition: FunctionDefinition) {
@@ -84,7 +115,16 @@ impl<'a> Module<'a> {
         self.add_nonempty(metadata, ModuleItem::Metadata);
     }
 
-    pub(in crate::backend::llvm) fn render(&self) -> String {
+    pub(in crate::backend::llvm) fn render(&self) -> Option<String> {
+        let mut symbols = HashSet::new();
+        self.declarations
+            .iter()
+            .all(|declaration| symbols.insert(declaration.name()))
+            .then_some(())?;
+        self.items
+            .iter()
+            .all(|item| item.name().is_none_or(|name| symbols.insert(name)))
+            .then_some(())?;
         let mut sections = vec![format!(
             "target datalayout = {:?}\ntarget triple = {:?}",
             self.data_layout, self.triple
@@ -99,7 +139,7 @@ impl<'a> Module<'a> {
             );
         }
         sections.extend(self.items.iter().map(ModuleItem::render));
-        sections.join("\n\n") + "\n"
+        Some(sections.join("\n\n") + "\n")
     }
 
     fn add_nonempty(
@@ -117,8 +157,17 @@ impl<'a> Module<'a> {
 impl ModuleItem {
     fn render(&self) -> String {
         match self {
-            Self::GlobalFragment(fragment) | Self::Metadata(fragment) => fragment.clone(),
+            Self::Global(definition) => definition.render(),
+            Self::Metadata(fragment) => fragment.clone(),
             Self::Function(definition) => definition.render(),
+        }
+    }
+
+    fn name(&self) -> Option<&str> {
+        match self {
+            Self::Global(definition) => Some(definition.name()),
+            Self::Function(definition) => Some(definition.name()),
+            Self::Metadata(_) => None,
         }
     }
 }
@@ -126,7 +175,7 @@ impl ModuleItem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::llvm::syntax::BasicBlock;
+    use crate::backend::llvm::syntax::{BasicBlock, FunctionSignature};
 
     #[test]
     fn renders_only_the_declarations_added_to_a_module() {
@@ -138,14 +187,14 @@ mod tests {
         ));
         module.define(
             FunctionDefinition::new(
-                "void @entry()",
+                FunctionSignature::new("void", "entry", std::iter::empty::<&str>()),
                 vec![BasicBlock::new("entry", ["call void @always()", "ret void"]).unwrap()],
             )
             .unwrap(),
         );
 
         assert_eq!(
-            module.render(),
+            module.render().unwrap(),
             concat!(
                 "target datalayout = \"e-p:64:64\"\n",
                 "target triple = \"test-target\"\n\n",
@@ -157,6 +206,23 @@ mod tests {
                 "}\n",
             )
         );
-        assert!(!module.render().contains("unused"));
+        assert!(!module.render().unwrap().contains("unused"));
+    }
+
+    #[test]
+    fn rejects_duplicate_module_symbols() {
+        let mut module = Module::new("test-target", "e-p:64:64");
+        module.declare(FunctionDeclaration::new(
+            "void",
+            "duplicate",
+            std::iter::empty::<&str>(),
+        ));
+        module.declare(FunctionDeclaration::new(
+            "void",
+            "duplicate",
+            std::iter::empty::<&str>(),
+        ));
+
+        assert!(module.render().is_none());
     }
 }

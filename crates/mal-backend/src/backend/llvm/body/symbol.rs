@@ -14,7 +14,10 @@ pub(super) fn literal_storage_size(length: usize) -> Option<usize> {
     )
 }
 
-pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
+pub(super) fn literal_definition(
+    name: &str,
+    bytes: &[u8],
+) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
     let contents = bytes
         .iter()
         .map(|byte| match byte {
@@ -22,11 +25,14 @@ pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
             _ => format!("\\{byte:02X}"),
         })
         .collect::<String>();
-    format!(
-        "@{name} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align {STATIC_OWNER_ALIGNMENT}\n",
-        bytes.len(),
-        bytes.len(),
-        bytes.len()
+    crate::backend::llvm::syntax::GlobalDefinition::new(
+        name,
+        format!(
+            "@{name} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align {STATIC_OWNER_ALIGNMENT}",
+            bytes.len(),
+            bytes.len(),
+            bytes.len()
+        ),
     )
 }
 
