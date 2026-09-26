@@ -12,8 +12,8 @@ pub(in crate::backend) enum Type {
 }
 
 impl Type {
-    pub(in crate::backend::llvm) fn integer(bits: impl Into<u16>) -> Self {
-        Self::Integer(bits.into())
+    pub(in crate::backend::llvm) fn integer(bits: u16) -> Self {
+        Self::Integer(bits)
     }
 
     pub(in crate::backend::llvm) fn array(length: usize, element: Self) -> Self {

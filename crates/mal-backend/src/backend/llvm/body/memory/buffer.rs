@@ -552,33 +552,16 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let value_type = self.types.value(element)?;
         let signature = if retain {
-            crate::backend::llvm::syntax::FunctionSignature::new(
-                crate::backend::llvm::syntax::Type::Void,
-                format!("mal_buffer_retain_{number}"),
-                [
-                    crate::backend::llvm::syntax::Parameter::named(
-                        crate::backend::llvm::syntax::Type::Pointer,
-                        "%mal_context",
-                    ),
-                    crate::backend::llvm::syntax::Parameter::named(
-                        crate::backend::llvm::syntax::Type::Pointer,
-                        "%mal_element",
-                    ),
-                ],
-            )
+            crate::backend::llvm::syntax::llvm_signature!(internal fn { format!("mal_buffer_retain_{number}") }(
+                "%mal_context": ptr,
+                "%mal_element": ptr,
+            ) -> void; attributes [])
         } else {
-            crate::backend::llvm::syntax::FunctionSignature::new(
-                crate::backend::llvm::syntax::Type::Void,
-                format!("mal_buffer_release_{number}"),
-                [crate::backend::llvm::syntax::Parameter::named(
-                    crate::backend::llvm::syntax::Type::Pointer,
-                    "%mal_element",
-                )],
-            )
+            crate::backend::llvm::syntax::llvm_signature!(internal fn { format!("mal_buffer_release_{number}") }(
+                "%mal_element": ptr,
+            ) -> void; attributes [])
         };
-        self.begin_function(
-            signature.with_linkage(crate::backend::llvm::syntax::Linkage::Internal),
-        );
+        self.begin_function(signature);
         self.block("entry");
         let value = self.register();
         self.load(

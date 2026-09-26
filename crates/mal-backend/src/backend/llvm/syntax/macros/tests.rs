@@ -5,6 +5,32 @@ use crate::backend::llvm::syntax::{
 };
 
 #[test]
+fn composes_types_parameters_and_signatures_with_template_interpolation() {
+    let name = "convert";
+    let result = Type::integer(32_u16);
+    let trailing = [super::llvm_parameter!("%value" : int(8))];
+    let signature = super::llvm_signature!(internal fn { name }(
+        "%context": ptr,
+        {{ trailing }},
+    ) -> { result }; attributes [nounwind, willreturn]);
+
+    let mut function = FunctionBuilder::new(signature);
+    assert!(function.start_block("entry"));
+    assert!(
+        function.terminate(super::llvm_terminator!(return Type::integer(32_u16) => "0").unwrap())
+    );
+    assert_eq!(
+        function.finish().unwrap().render(),
+        concat!(
+            "define internal i32 @convert(ptr %context, i8 %value) nounwind willreturn {\n",
+            "entry:\n",
+            "  ret i32 0\n",
+            "}"
+        )
+    );
+}
+
+#[test]
 fn composes_static_embedded_and_runtime_typed_values_in_order() {
     let evaluations = Cell::new(0);
     let dynamic = || {

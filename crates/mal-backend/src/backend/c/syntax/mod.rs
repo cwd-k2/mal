@@ -12,8 +12,9 @@ mod unit;
 
 pub(in crate::backend) use macros::{
     c_block, c_block_item, c_expr, c_exprs, c_exprs_item, c_function, c_initializer,
-    c_initializers, c_initializers_item, c_statement, c_switch_case, c_switch_cases,
-    c_switch_cases_item,
+    c_initializers, c_initializers_item, c_parameter, c_parameter_attributes, c_parameters,
+    c_parameters_items, c_signature, c_signature_from_parts, c_statement, c_switch_case,
+    c_switch_cases, c_switch_cases_item, c_type,
 };
 
 pub(in crate::backend) use self::declaration::{

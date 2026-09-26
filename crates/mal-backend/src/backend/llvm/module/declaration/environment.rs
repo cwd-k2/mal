@@ -1,7 +1,7 @@
 use super::declaration;
 use crate::backend::llvm::body;
 use crate::backend::llvm::syntax::{
-    FunctionAttribute, FunctionDeclaration, Module, Parameter, ParameterAttribute, Type,
+    FunctionAttribute, FunctionDeclaration, Module, Parameter, Type, llvm_parameter,
 };
 
 pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
@@ -51,7 +51,7 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             Parameter::unnamed(Type::Pointer),
             Parameter::unnamed(Type::Pointer),
             Parameter::unnamed(index),
-            Parameter::unnamed(Type::integer(1_u16)).with_attribute(ParameterAttribute::ImmArg),
+            llvm_parameter!(_ : int(1) [immarg]),
         ],
     ));
 }

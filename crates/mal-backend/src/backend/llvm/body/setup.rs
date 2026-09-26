@@ -333,8 +333,7 @@ impl<'a> FunctionEmitter<'a> {
             );
         }
         if let Some((size, alignment)) = self.external_storage {
-            let storage_type =
-                super::super::syntax::Type::array(size, super::super::syntax::Type::integer(8_u16));
+            let storage_type = super::super::syntax::llvm_type!(array(size, int(8)));
             self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
                 "%mal_bridge_argument",
                 storage_type.clone(),

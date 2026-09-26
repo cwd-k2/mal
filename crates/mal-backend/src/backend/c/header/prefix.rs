@@ -1,7 +1,7 @@
 use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, Attribute, Comment, Declaration, Directive,
     FunctionSignature, FunctionSpecifier, Parameter, PreprocessorExpr, TranslationUnit, TypeName,
-    c_expr, c_function,
+    c_expr, c_function, c_signature,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
@@ -180,11 +180,9 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
 
 fn append_builtin_returns(output: &mut TranslationUnit) {
     output.push(c_function!(signature
-        FunctionSignature::static_inline(
-            "MalType_Unit",
-            "mal_Unit_return",
-            [Parameter::named(TypeName::named("mal_call_t").pointer(), "call").maybe_unused()],
-        );
+        c_signature!(static inline fn "mal_Unit_return"(
+            "call": ptr(named("mal_call_t")) [maybe_unused],
+        ) -> named("MalType_Unit"));
         block [(return (compound "MalType_Unit";
             (field "unused"; (call "UINT8_C"; (number 0))),
         ))]

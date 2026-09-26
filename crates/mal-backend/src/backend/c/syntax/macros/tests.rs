@@ -3,6 +3,22 @@ use std::cell::Cell;
 use crate::backend::c::syntax::{Expr, FunctionSignature, Initializer, SwitchCase};
 
 #[test]
+fn composes_types_parameters_and_signatures_with_template_interpolation() {
+    let name = "convert";
+    let result = super::c_type!(named("uint32_t"));
+    let trailing = [super::c_parameter!("value" : named("uint8_t"))];
+    let signature = super::c_signature!(static inline fn { name }(
+        "call": ptr(named("mal_call_t")) [maybe_unused],
+        {{ trailing }},
+    ) -> { result });
+
+    assert_eq!(
+        signature.render(),
+        "static inline uint32_t convert(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t value)"
+    );
+}
+
+#[test]
 fn embeds_rust_expressions_once_inside_structured_expressions() {
     let evaluations = Cell::new(0);
     let dynamic = || {
