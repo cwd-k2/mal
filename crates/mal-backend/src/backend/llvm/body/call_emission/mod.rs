@@ -181,8 +181,11 @@ impl FunctionEmitter<'_> {
     pub(super) fn entry_alloca(&mut self, llvm: &str, alignment: usize) -> String {
         let storage = format!("%mal_alloca_{}", self.next_entry_alloca);
         self.next_entry_alloca += 1;
-        self.entry_allocas
-            .push_str(&format!("  {storage} = alloca {llvm}, align {alignment}\n"));
+        let Some(function) = self.current_definition.as_mut() else {
+            self.emission_failed = true;
+            return storage;
+        };
+        function.entry_instruction(format!("{storage} = alloca {llvm}, align {alignment}"));
         storage
     }
 
@@ -193,7 +196,34 @@ impl FunctionEmitter<'_> {
     }
 
     pub(super) fn line(&mut self, line: impl AsRef<str>) {
-        self.output.push_str(line.as_ref());
-        self.output.push('\n');
+        let line = line.as_ref();
+        let Some(function) = self.current_definition.as_mut() else {
+            self.emission_failed = true;
+            return;
+        };
+        if let Some(label) = line
+            .strip_suffix(':')
+            .filter(|label| !label.starts_with(' '))
+        {
+            function.start_block(label);
+        } else if let Some(instruction) = line.strip_prefix("  ") {
+            self.emission_failed |= !function.instruction(instruction);
+        } else {
+            self.emission_failed = true;
+        }
+    }
+
+    pub(super) fn begin_function(&mut self, signature: impl Into<String>) {
+        if self.current_definition.is_some() {
+            self.emission_failed = true;
+            return;
+        }
+        self.current_definition = Some(super::super::syntax::FunctionBuilder::new(signature));
+    }
+
+    pub(super) fn finish_function(&mut self) -> Option<()> {
+        let definition = self.current_definition.take()?.finish()?;
+        self.definitions.push(definition);
+        Some(())
     }
 }

@@ -183,9 +183,10 @@ impl<'a> FunctionEmitter<'a> {
             optimizations,
             next_register: 0,
             next_entry_alloca: 0,
-            entry_allocas: String::new(),
+            current_definition: None,
+            definitions: Vec::new(),
+            emission_failed: false,
             globals: String::new(),
-            output: String::new(),
         })
     }
 
@@ -214,8 +215,8 @@ impl<'a> FunctionEmitter<'a> {
         } else {
             ""
         };
-        self.line(format!(
-            "define internal {} @{}{suffix}({parameter}){attributes} {{",
+        self.begin_function(format!(
+            "internal {} @{}{suffix}({parameter}){attributes}",
             result.llvm,
             function_name(self.function.id)
         ));
@@ -300,7 +301,6 @@ impl<'a> FunctionEmitter<'a> {
                 "  %mal_buffer_value = alloca [{size} x i8], align {alignment}"
             ));
         }
-        let entry_alloca_offset = self.output.len();
         if self.mode == EmissionMode::Native {
             self.emit_native_entry_guard()?;
         }
@@ -325,12 +325,13 @@ impl<'a> FunctionEmitter<'a> {
         for site in self.states.clone() {
             self.emit_state(site)?;
         }
-        self.line("}");
-        self.output
-            .insert_str(entry_alloca_offset, &self.entry_allocas);
+        self.finish_function()?;
+        if self.emission_failed {
+            return None;
+        }
         Some(EmittedFunction {
             globals: self.globals,
-            definition: self.output,
+            definitions: self.definitions,
         })
     }
 }

@@ -24,7 +24,9 @@ pub(super) fn render(
     }
 
     module.add_global_fragment(body.globals.clone());
-    module.add_function_fragment(body.definitions.clone());
+    for definition in &body.definitions {
+        module.define(definition.clone());
+    }
     if body.uses_byte_runtime {
         module.add_metadata(buffer_alias_metadata());
     }

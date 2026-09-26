@@ -21,7 +21,6 @@ pub(in crate::backend::llvm) struct Module<'a> {
 
 enum ModuleItem {
     GlobalFragment(String),
-    FunctionFragment(String),
     Function(FunctionDefinition),
     Metadata(String),
 }
@@ -42,10 +41,6 @@ impl<'a> Module<'a> {
 
     pub(in crate::backend::llvm) fn add_global_fragment(&mut self, fragment: impl Into<String>) {
         self.add_nonempty(fragment, ModuleItem::GlobalFragment);
-    }
-
-    pub(in crate::backend::llvm) fn add_function_fragment(&mut self, fragment: impl Into<String>) {
-        self.add_nonempty(fragment, ModuleItem::FunctionFragment);
     }
 
     pub(in crate::backend::llvm) fn define(&mut self, definition: FunctionDefinition) {
@@ -89,9 +84,7 @@ impl<'a> Module<'a> {
 impl ModuleItem {
     fn render(&self) -> String {
         match self {
-            Self::GlobalFragment(fragment)
-            | Self::FunctionFragment(fragment)
-            | Self::Metadata(fragment) => fragment.clone(),
+            Self::GlobalFragment(fragment) | Self::Metadata(fragment) => fragment.clone(),
             Self::Function(definition) => definition.render(),
         }
     }

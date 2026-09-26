@@ -399,13 +399,13 @@ impl FunctionEmitter<'_> {
     /// Defines the callbacks that let the runtime retain and release one stored element of each managed element type.
     pub(in crate::backend::llvm::body) fn emit_managed_buffer_element_callbacks(
         &mut self,
-    ) -> Option<String> {
+    ) -> Option<Vec<crate::backend::llvm::syntax::FunctionDefinition>> {
         let index = self.index;
         for (number, element) in index.managed_buffer_elements.0.iter().enumerate() {
             self.emit_managed_element_callback(number, element, true)?;
             self.emit_managed_element_callback(number, element, false)?;
         }
-        Some(std::mem::take(&mut self.output))
+        (!self.emission_failed).then(|| std::mem::take(&mut self.definitions))
     }
 
     fn emit_managed_element_callback(
@@ -416,16 +416,15 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let value_type = self.types.value(element)?;
         if retain {
-            self.line(format!(
-                "define internal void @mal_buffer_retain_{number}(ptr %mal_context, ptr %mal_element) {{"
+            self.begin_function(format!(
+                "internal void @mal_buffer_retain_{number}(ptr %mal_context, ptr %mal_element)"
             ));
         } else {
-            self.line(format!(
-                "define internal void @mal_buffer_release_{number}(ptr %mal_element) {{"
+            self.begin_function(format!(
+                "internal void @mal_buffer_release_{number}(ptr %mal_element)"
             ));
         }
         self.line("entry:");
-        let allocas = self.output.len();
         let value = self.register();
         self.line(format!(
             "  {value} = load {}, ptr %mal_element, align {}",
@@ -437,11 +436,7 @@ impl FunctionEmitter<'_> {
             self.release_value(element, &value)?;
         }
         self.line("  ret void");
-        self.line("}");
-        let entry_allocas = std::mem::take(&mut self.entry_allocas);
-        self.output.insert_str(allocas, &entry_allocas);
-        self.line("");
-        Some(())
+        self.finish_function()
     }
 
     fn buffer_element_pointer(

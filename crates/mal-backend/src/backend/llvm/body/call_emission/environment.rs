@@ -12,8 +12,8 @@ impl FunctionEmitter<'_> {
         let environment_type =
             Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
-        self.line(format!(
-            "define internal void @mal_destroy_environment_{}(ptr %mal_environment) {{",
+        self.begin_function(format!(
+            "internal void @mal_destroy_environment_{}(ptr %mal_environment)",
             function_number(self.function.id)
         ));
         self.line("entry:");
@@ -24,8 +24,7 @@ impl FunctionEmitter<'_> {
         ));
         self.release_value(&environment_type, &environment)?;
         self.line("  ret void");
-        self.line("}");
-        self.line("");
+        self.finish_function()?;
         self.next_register = 0;
         Some(())
     }

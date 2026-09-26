@@ -38,7 +38,7 @@ pub(super) fn admit_target(
 
 pub(super) struct Output {
     pub(super) globals: String,
-    pub(super) definitions: String,
+    pub(super) definitions: Vec<super::syntax::FunctionDefinition>,
     pub(super) main: FunctionId,
     pub(super) main_parameter: Type,
     pub(super) uses_control: bool,
@@ -109,20 +109,17 @@ pub(super) fn generate(
             // Both versions declare the same globals and environment destructor; the native version owns them.
             let emitted = native.emit().ok_or_else(|| failed("native version"))?;
             globals.push_str(&emitted.globals);
-            definitions.push_str(&emitted.definition);
-            definitions.push('\n');
+            definitions.extend(emitted.definitions);
             let frames = emitter
                 .into_frames_version()
                 .emit()
                 .ok_or_else(|| failed("frames version"))?;
-            definitions.push_str(&frames.definition);
-            definitions.push('\n');
+            definitions.extend(frames.definitions);
             continue;
         }
         let emitted = emitter.emit().ok_or_else(|| failed("body"))?;
         globals.push_str(&emitted.globals);
-        definitions.push_str(&emitted.definition);
-        definitions.push('\n');
+        definitions.extend(emitted.definitions);
     }
     Ok(Output {
         globals,
@@ -170,9 +167,10 @@ struct FunctionEmitter<'a> {
     optimizations: &'a super::optimization::OptimizationPlan,
     next_register: usize,
     next_entry_alloca: usize,
-    entry_allocas: String,
+    current_definition: Option<super::syntax::FunctionBuilder>,
+    definitions: Vec<super::syntax::FunctionDefinition>,
+    emission_failed: bool,
     globals: String,
-    output: String,
 }
 
 struct ProgramIndex<'a> {
@@ -238,7 +236,7 @@ struct PreparedValue {
 
 struct EmittedFunction {
     globals: String,
-    definition: String,
+    definitions: Vec<super::syntax::FunctionDefinition>,
 }
 
 /// Names a function in an internal error by its LLVM symbol.
