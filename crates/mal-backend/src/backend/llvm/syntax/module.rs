@@ -96,24 +96,49 @@ pub(in crate::backend::llvm) enum MetadataOperand {
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct GlobalDefinition {
     name: String,
-    definition: String,
+    kind: GlobalKind,
+}
+
+#[derive(Clone)]
+enum GlobalKind {
+    ByteOwner { bytes: Vec<u8>, alignment: usize },
 }
 
 impl GlobalDefinition {
-    pub(in crate::backend::llvm) fn new(
+    pub(in crate::backend::llvm) fn byte_owner(
         name: impl Into<String>,
-        definition: impl Into<String>,
+        bytes: impl Into<Vec<u8>>,
+        alignment: usize,
     ) -> Option<Self> {
         let name = name.into();
-        let definition = definition.into();
-        (is_valid_name(&name)
-            && !definition.trim().is_empty()
-            && !definition.contains(['\n', '\r']))
-        .then_some(Self { name, definition })
+        (is_valid_name(&name) && alignment.is_power_of_two()).then_some(Self {
+            name,
+            kind: GlobalKind::ByteOwner {
+                bytes: bytes.into(),
+                alignment,
+            },
+        })
     }
 
     fn render(&self) -> String {
-        self.definition.clone()
+        match &self.kind {
+            GlobalKind::ByteOwner { bytes, alignment } => {
+                let contents = bytes
+                    .iter()
+                    .map(|byte| match byte {
+                        0x20..=0x21 | 0x23..=0x5b | 0x5d..=0x7e => (*byte as char).to_string(),
+                        _ => format!("\\{byte:02X}"),
+                    })
+                    .collect::<String>();
+                format!(
+                    "@{} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align {alignment}",
+                    self.name,
+                    bytes.len(),
+                    bytes.len(),
+                    bytes.len(),
+                )
+            }
+        }
     }
 
     fn name(&self) -> &str {

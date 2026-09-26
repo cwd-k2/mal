@@ -1,3 +1,4 @@
+mod constant;
 mod function;
 mod instruction;
 mod module;
@@ -49,6 +50,7 @@ macro_rules! llvm_instruction {
 
 pub(super) use llvm_instruction;
 
+pub(super) use constant::{Constant, TypedConstant};
 #[cfg(test)]
 pub(super) use function::BasicBlock;
 pub(super) use function::{

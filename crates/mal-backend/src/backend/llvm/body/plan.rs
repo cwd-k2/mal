@@ -7,6 +7,9 @@ use mal_frontend::check::ast::Type;
 
 use super::Slot;
 use super::types::Types;
+use crate::backend::llvm::syntax::{
+    BinaryOperator, CastOperator, Constant as LlvmConstant, TypedConstant, UnaryOperator,
+};
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
     let entry = execution.lowered.entry?;
@@ -33,7 +36,7 @@ pub(super) struct Constant {
 
 #[derive(Clone)]
 enum ConstantKind {
-    Value(String),
+    Value(LlvmConstant),
     Product(Vec<Constant>),
     Sum { index: usize, value: Box<Constant> },
 }
@@ -78,10 +81,16 @@ impl TopLevelConstants {
             Operation::Atom(atom) => self.atom(atom, values)?,
             Operation::MakeClosure { function, captures } if captures.is_empty() => Constant {
                 ty: result_type.clone(),
-                kind: ConstantKind::Value(format!(
-                    "{{ ptr @{}, ptr null }}",
-                    super::function_name(*function)
-                )),
+                kind: ConstantKind::Value(LlvmConstant::structure([
+                    TypedConstant::new(
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        LlvmConstant::atom(format!("@{}", super::function_name(*function)))?,
+                    ),
+                    TypedConstant::new(
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        LlvmConstant::atom("null")?,
+                    ),
+                ])),
             },
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand, values)?;
@@ -118,8 +127,8 @@ impl TopLevelConstants {
                 }
                 let kind = if super::types::is_bool(result_type) {
                     match index {
-                        0 => ConstantKind::Value("false".into()),
-                        1 => ConstantKind::Value("true".into()),
+                        0 => ConstantKind::Value(LlvmConstant::atom("false")?),
+                        1 => ConstantKind::Value(LlvmConstant::atom("true")?),
                         _ => return None,
                     }
                 } else {
@@ -136,23 +145,20 @@ impl TopLevelConstants {
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand, values)?;
                 let scalar = super::scalar::scalar_type(&operand.ty, self.types.index_size())?;
-                let representation = match operator {
+                let value = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => {
-                        format!("fneg ({} {})", scalar.llvm, operand.representation()?)
+                        LlvmConstant::unary(UnaryOperator::FNeg, operand.typed(self.types.clone())?)
                     }
-                    crate::core::ast::UnaryPrimitive::Negate => {
-                        format!(
-                            "sub ({} 0, {} {})",
-                            scalar.llvm,
-                            scalar.llvm,
-                            operand.representation()?
-                        )
-                    }
+                    crate::core::ast::UnaryPrimitive::Negate => LlvmConstant::binary(
+                        BinaryOperator::Sub,
+                        TypedConstant::new(scalar.llvm_type(), LlvmConstant::atom("0")?),
+                        operand.typed(self.types.clone())?,
+                    )?,
                     _ => return None,
                 };
                 Constant {
                     ty: operand.ty,
-                    kind: ConstantKind::Value(representation),
+                    kind: ConstantKind::Value(value),
                 }
             }
             Operation::PrimitiveBinary {
@@ -167,16 +173,14 @@ impl TopLevelConstants {
                 }
                 let scalar = super::scalar::scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = super::scalar::arithmetic_instruction(*operator, scalar)?;
-                let representation = format!(
-                    "{instruction} ({} {}, {} {})",
-                    scalar.llvm,
-                    left.representation()?,
-                    scalar.llvm,
-                    right.representation()?
-                );
+                let value = LlvmConstant::binary(
+                    instruction,
+                    left.typed(self.types.clone())?,
+                    right.typed(self.types.clone())?,
+                )?;
                 Constant {
                     ty: left.ty,
-                    kind: ConstantKind::Value(representation),
+                    kind: ConstantKind::Value(value),
                 }
             }
             _ => return None,
@@ -189,33 +193,59 @@ impl TopLevelConstants {
         atom: &crate::closure::ast::Atom,
         values: &HashMap<ValueId, Constant>,
     ) -> Option<Constant> {
-        let representation = match &atom.kind {
-            AtomKind::Integer(value) => {
-                super::scalar::integer_literal(&atom.ty, *value, self.types.index_size())?
+        let value = match &atom.kind {
+            AtomKind::Integer(value) => LlvmConstant::atom(super::scalar::integer_literal(
+                &atom.ty,
+                *value,
+                self.types.index_size(),
+            )?)?,
+            AtomKind::Float(bits) if atom.ty == Type::Float32 => LlvmConstant::atom(format!(
+                "0x{:016X}",
+                (f32::from_bits(*bits as u32) as f64).to_bits()
+            ))?,
+            AtomKind::Float(bits) if atom.ty == Type::Float64 => {
+                LlvmConstant::atom(format!("0x{bits:016X}"))?
             }
-            AtomKind::Float(bits) if atom.ty == Type::Float32 => {
-                format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits())
-            }
-            AtomKind::Float(bits) if atom.ty == Type::Float64 => format!("0x{bits:016X}"),
-            AtomKind::Symbol(bytes) if bytes.is_empty() => "zeroinitializer".into(),
+            AtomKind::Symbol(bytes) if bytes.is_empty() => LlvmConstant::ZeroInitializer,
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
                     .push(super::symbol::literal_definition(&name, bytes)?);
-                let index = self.types.index_integer();
-                format!(
-                    "{{ ptr @{name}, ptr getelementptr (i8, ptr @{name}, {index} {}), {index} {} }}",
-                    super::symbol::STATIC_OWNER_DATA_OFFSET,
-                    bytes.len(),
-                )
+                let address_constant = LlvmConstant::atom(format!("@{name}"))?;
+                let address = || {
+                    TypedConstant::new(
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        address_constant.clone(),
+                    )
+                };
+                LlvmConstant::structure([
+                    address(),
+                    TypedConstant::new(
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        LlvmConstant::get_element_ptr(
+                            crate::backend::llvm::syntax::Type::integer(8_u16),
+                            address(),
+                            [TypedConstant::new(
+                                self.types.index_llvm_type(),
+                                LlvmConstant::atom(
+                                    super::symbol::STATIC_OWNER_DATA_OFFSET.to_string(),
+                                )?,
+                            )],
+                        ),
+                    ),
+                    TypedConstant::new(
+                        self.types.index_llvm_type(),
+                        LlvmConstant::atom(bytes.len().to_string())?,
+                    ),
+                ])
             }
-            AtomKind::Unit if atom.ty == Type::Unit => "0".into(),
+            AtomKind::Unit if atom.ty == Type::Unit => LlvmConstant::atom("0")?,
             AtomKind::Reference(Reference::Binding(id)) => return values.get(id).cloned(),
             _ => return None,
         };
         Some(Constant {
             ty: atom.ty.clone(),
-            kind: ConstantKind::Value(representation),
+            kind: ConstantKind::Value(value),
         })
     }
 
@@ -295,11 +325,18 @@ fn bind_top_pattern(
 }
 
 impl Constant {
-    fn representation(&self) -> Option<&str> {
+    fn llvm(&self) -> Option<&LlvmConstant> {
         let ConstantKind::Value(value) = &self.kind else {
             return None;
         };
         Some(value)
+    }
+
+    fn typed(&self, types: Types) -> Option<TypedConstant> {
+        Some(TypedConstant::new(
+            types.value(&self.ty)?.llvm,
+            self.llvm()?.clone(),
+        ))
     }
 
     pub(super) fn product(&self) -> Option<&[Constant]> {
@@ -316,8 +353,8 @@ impl Constant {
         Some((*index, value))
     }
 
-    pub(super) fn value(&self) -> Option<&str> {
-        self.representation()
+    pub(super) fn value(&self) -> Option<String> {
+        self.llvm().map(LlvmConstant::render)
     }
 }
 
@@ -325,39 +362,46 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
     let source = super::scalar::scalar_type(&operand.ty, types.index_size())?;
     let target = super::scalar::scalar_type(result_type, types.index_size())?;
     let representation = if source.floating == target.floating && source.bits == target.bits {
-        operand.representation()?.into()
+        operand.llvm()?.clone()
     } else if !source.floating && !target.floating {
-        let value = operand.representation()?.parse::<i128>().ok()?;
+        let value = operand.llvm()?.integer_value()?;
         let modulus = 1_i128 << target.bits;
         let residue = value.rem_euclid(modulus);
         if target.signed && residue >= modulus / 2 {
-            (residue - modulus).to_string()
+            LlvmConstant::atom((residue - modulus).to_string())?
         } else {
-            residue.to_string()
+            LlvmConstant::atom(residue.to_string())?
         }
     } else {
         let instruction = if source.floating && target.floating {
             if source.bits > target.bits {
-                "fptrunc"
+                CastOperator::FPTrunc
             } else {
-                "fpext"
+                CastOperator::FPExt
             }
         } else if source.floating {
-            if target.signed { "fptosi" } else { "fptoui" }
+            if target.signed {
+                CastOperator::FPToSI
+            } else {
+                CastOperator::FPToUI
+            }
         } else if target.floating {
-            if source.signed { "sitofp" } else { "uitofp" }
+            if source.signed {
+                CastOperator::SIToFP
+            } else {
+                CastOperator::UIToFP
+            }
         } else if source.bits > target.bits {
-            "trunc"
+            CastOperator::Trunc
         } else if source.signed {
-            "sext"
+            CastOperator::SExt
         } else {
-            "zext"
+            CastOperator::ZExt
         };
-        format!(
-            "{instruction} ({} {} to {})",
-            source.llvm,
-            operand.representation()?,
-            target.llvm
+        LlvmConstant::cast(
+            instruction,
+            operand.typed(types.clone())?,
+            target.llvm_type(),
         )
     };
     Some(Constant {

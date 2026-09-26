@@ -17,21 +17,10 @@ pub(super) fn literal_definition(
     name: &str,
     bytes: &[u8],
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
-    let contents = bytes
-        .iter()
-        .map(|byte| match byte {
-            0x20..=0x21 | 0x23..=0x5b | 0x5d..=0x7e => (*byte as char).to_string(),
-            _ => format!("\\{byte:02X}"),
-        })
-        .collect::<String>();
-    crate::backend::llvm::syntax::GlobalDefinition::new(
+    crate::backend::llvm::syntax::GlobalDefinition::byte_owner(
         name,
-        format!(
-            "@{name} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align {STATIC_OWNER_ALIGNMENT}",
-            bytes.len(),
-            bytes.len(),
-            bytes.len()
-        ),
+        bytes.to_vec(),
+        STATIC_OWNER_ALIGNMENT,
     )
 }
 

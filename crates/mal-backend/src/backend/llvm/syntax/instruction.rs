@@ -566,7 +566,7 @@ impl Instruction {
 }
 
 impl UnaryOperator {
-    fn mnemonic(self) -> &'static str {
+    pub(super) fn mnemonic(self) -> &'static str {
         match self {
             Self::FNeg => "fneg",
         }
@@ -636,7 +636,7 @@ impl ComparisonPredicate {
 }
 
 impl CastOperator {
-    fn mnemonic(self) -> &'static str {
+    pub(super) fn mnemonic(self) -> &'static str {
         match self {
             Self::Trunc => "trunc",
             Self::ZExt => "zext",
