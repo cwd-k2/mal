@@ -11,7 +11,12 @@ impl FunctionDefinition {
         signature: impl Into<String>,
         blocks: Vec<BasicBlock>,
     ) -> Option<Self> {
-        (!blocks.is_empty()).then(|| Self {
+        let mut labels = HashSet::new();
+        (!blocks.is_empty()
+            && blocks
+                .iter()
+                .all(|block| labels.insert(block.label.clone())))
+        .then(|| Self {
             signature: signature.into(),
             blocks,
         })
@@ -29,7 +34,7 @@ impl FunctionDefinition {
 
 pub(in crate::backend::llvm) struct FunctionBuilder {
     signature: String,
-    entry_prefix: Vec<String>,
+    entry_prefix: Vec<Instruction>,
     blocks: Vec<BasicBlock>,
     labels: HashSet<String>,
 }
@@ -60,18 +65,21 @@ impl FunctionBuilder {
         block.push(instruction.into())
     }
 
-    pub(in crate::backend::llvm) fn entry_instruction(&mut self, instruction: impl Into<String>) {
-        self.entry_prefix.push(instruction.into());
+    pub(in crate::backend::llvm) fn entry_instruction(
+        &mut self,
+        instruction: impl Into<String>,
+    ) -> bool {
+        let Some(instruction) = Instruction::new(instruction.into()) else {
+            return false;
+        };
+        self.entry_prefix.push(instruction);
+        true
     }
 
     pub(in crate::backend::llvm) fn finish(mut self) -> Option<FunctionDefinition> {
         let entry = self.blocks.first_mut()?;
         if !self.entry_prefix.is_empty() {
-            let mut instructions = self
-                .entry_prefix
-                .into_iter()
-                .map(Instruction)
-                .collect::<Vec<_>>();
+            let mut instructions = self.entry_prefix;
             instructions.append(&mut entry.instructions);
             entry.instructions = instructions;
         }
@@ -117,9 +125,15 @@ impl BasicBlock {
             return false;
         }
         if Terminator::recognizes(&instruction) {
-            self.terminator = Terminator::from_text(instruction);
+            let Some(terminator) = Terminator::from_text(instruction) else {
+                return false;
+            };
+            self.terminator = Some(terminator);
         } else {
-            self.instructions.push(Instruction(instruction));
+            let Some(instruction) = Instruction::new(instruction) else {
+                return false;
+            };
+            self.instructions.push(instruction);
         }
         true
     }
@@ -151,6 +165,13 @@ fn is_valid_name(name: &str) -> bool {
 
 #[derive(Clone)]
 struct Instruction(String);
+
+impl Instruction {
+    fn new(text: String) -> Option<Self> {
+        (!text.is_empty() && !text.contains(['\n', '\r']) && !Terminator::recognizes(&text))
+            .then_some(Self(text))
+    }
+}
 
 #[derive(Clone)]
 enum Terminator {
@@ -201,7 +222,7 @@ mod tests {
         assert!(function.instruction("br label %body"));
         assert!(function.start_block("body"));
         assert!(function.instruction("ret void"));
-        function.entry_instruction("%storage = alloca i32, align 4");
+        assert!(function.entry_instruction("%storage = alloca i32, align 4"));
 
         assert_eq!(
             function.finish().unwrap().render(),
@@ -236,5 +257,21 @@ mod tests {
         assert!(function.start_block("entry"));
         assert!(function.instruction("ret void"));
         assert!(!function.start_block("entry"));
+
+        let entry = BasicBlock::new("entry", ["ret void"]).unwrap();
+        assert!(
+            FunctionDefinition::new("void @duplicate_direct()", vec![entry.clone(), entry],)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_entry_prefix_instructions() {
+        let mut function = FunctionBuilder::new("void @invalid_prefix()");
+        assert!(function.start_block("entry"));
+        assert!(function.instruction("ret void"));
+
+        assert!(!function.entry_instruction("ret void"));
+        assert!(!function.entry_instruction("call void @work()\nret void"));
     }
 }

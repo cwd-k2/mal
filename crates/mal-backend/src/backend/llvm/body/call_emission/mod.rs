@@ -185,7 +185,8 @@ impl FunctionEmitter<'_> {
             self.emission_failed = true;
             return storage;
         };
-        function.entry_instruction(format!("{storage} = alloca {llvm}, align {alignment}"));
+        self.emission_failed |=
+            !function.entry_instruction(format!("{storage} = alloca {llvm}, align {alignment}"));
         storage
     }
 
