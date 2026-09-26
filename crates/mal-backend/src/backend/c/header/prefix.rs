@@ -1,7 +1,7 @@
 use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, Attribute, Block, Comment, Declaration, Directive, Expr,
     FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
-    PreprocessorExpr, Statement, TranslationUnit, TypeName,
+    PreprocessorExpr, Statement, TranslationUnit, TypeName, c_expr, c_statement,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
@@ -176,12 +176,9 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
             FunctionSpecifier::Inline,
             FunctionSpecifier::NoReturn,
         ]),
-        Block::new([Statement::call(
-            "mal_trap",
-            [
-                Expr::identifier("call").pointer_field("mal_detail_context"),
-                Expr::identifier("message"),
-            ],
+        Block::new([c_statement!(call "mal_trap";
+            (pointer_field (id "call"); "mal_detail_context"),
+            (id "message"),
         )]),
     ));
     append_builtin_returns(&mut output);
@@ -227,7 +224,7 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
                     Parameter::named(host, "value"),
                 ],
             ),
-            Block::new([Statement::return_value(Expr::identifier("value"))]),
+            Block::new([c_statement!(return (id "value"))]),
         ));
     }
     output.push(FunctionDefinition::from_signature(
@@ -241,16 +238,13 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ),
         Block::new([
             Statement::if_then(
-                Expr::equal(Expr::identifier("value"), Expr::number("0")),
-                Block::new([Statement::call(
-                    "mal_call_trap",
-                    [
-                        Expr::identifier("call"),
-                        Expr::string("invalid Address result"),
-                    ],
+                c_expr!(equal (id "value"); (number 0)),
+                Block::new([c_statement!(call "mal_call_trap";
+                    (id "call"),
+                    (string "invalid Address result"),
                 )]),
             ),
-            Statement::return_value(Expr::identifier("value")),
+            c_statement!(return (id "value")),
         ]),
     ));
     output.push(FunctionDefinition::from_signature(
@@ -264,19 +258,16 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ),
         Block::new([
             Statement::if_then(
-                Expr::logical_and(
-                    Expr::not_equal(Expr::identifier("value"), Expr::identifier("mal_false")),
-                    Expr::not_equal(Expr::identifier("value"), Expr::identifier("mal_true")),
+                c_expr!(logical_and
+                    (not_equal (id "value"); (id "mal_false"));
+                    (not_equal (id "value"); (id "mal_true"))
                 ),
-                Block::new([Statement::call(
-                    "mal_call_trap",
-                    [
-                        Expr::identifier("call"),
-                        Expr::string("invalid Bool result"),
-                    ],
+                Block::new([c_statement!(call "mal_call_trap";
+                    (id "call"),
+                    (string "invalid Bool result"),
                 )]),
             ),
-            Statement::return_value(Expr::identifier("value")),
+            c_statement!(return (id "value")),
         ]),
     ));
 }

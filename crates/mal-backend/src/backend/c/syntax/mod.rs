@@ -22,6 +22,15 @@ macro_rules! c_expr {
     (address $value:tt) => {
         $crate::backend::c::syntax::Expr::address_of($crate::backend::c::syntax::c_expr! $value)
     };
+    (dereference $value:tt) => {
+        $crate::backend::c::syntax::Expr::dereference($crate::backend::c::syntax::c_expr! $value)
+    };
+    (field $value:tt; $name:expr) => {
+        ($crate::backend::c::syntax::c_expr! $value).field($name)
+    };
+    (pointer_field $value:tt; $name:expr) => {
+        ($crate::backend::c::syntax::c_expr! $value).pointer_field($name)
+    };
     (sizeof $value:tt) => {
         $crate::backend::c::syntax::Expr::sizeof_value($crate::backend::c::syntax::c_expr! $value)
     };
@@ -46,8 +55,38 @@ macro_rules! c_expr {
             $crate::backend::c::syntax::c_expr! $right,
         )
     };
+    (multiply $left:tt; $right:tt) => {
+        $crate::backend::c::syntax::Expr::multiply(
+            $crate::backend::c::syntax::c_expr! $left,
+            $crate::backend::c::syntax::c_expr! $right,
+        )
+    };
+    (assign $left:tt; $right:tt) => {
+        $crate::backend::c::syntax::Expr::assign(
+            $crate::backend::c::syntax::c_expr! $left,
+            $crate::backend::c::syntax::c_expr! $right,
+        )
+    };
+    (equal $left:tt; $right:tt) => {
+        $crate::backend::c::syntax::Expr::equal(
+            $crate::backend::c::syntax::c_expr! $left,
+            $crate::backend::c::syntax::c_expr! $right,
+        )
+    };
+    (not_equal $left:tt; $right:tt) => {
+        $crate::backend::c::syntax::Expr::not_equal(
+            $crate::backend::c::syntax::c_expr! $left,
+            $crate::backend::c::syntax::c_expr! $right,
+        )
+    };
     (greater $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::greater(
+            $crate::backend::c::syntax::c_expr! $left,
+            $crate::backend::c::syntax::c_expr! $right,
+        )
+    };
+    (logical_and $left:tt; $right:tt) => {
+        $crate::backend::c::syntax::Expr::logical_and(
             $crate::backend::c::syntax::c_expr! $left,
             $crate::backend::c::syntax::c_expr! $right,
         )

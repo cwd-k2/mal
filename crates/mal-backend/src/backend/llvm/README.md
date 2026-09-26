@@ -36,10 +36,10 @@ instructions and supplies typed operands; it does not assemble LLVM source lines
 or rendered text to recover structure. The model admits only the LLVM subset used by mal and validates function-local
 invariants before rendering. Rendering is the only operation that turns that model into LLVM text.
 
-Small declarative macros may provide concise construction syntax after the corresponding node constructors and invariants
-are stable. Such macros expand to typed syntax nodes, remain interchangeable with ordinary Rust construction, and never
-produce LLVM source fragments directly. Dynamic lowering policy stays in ordinary Rust code rather than being hidden in a
-macro grammar.
+`llvm_instruction!` provides concise construction for the admitted instruction forms after their node constructors have
+checked the local invariants. It expands to typed syntax nodes, remains interchangeable with ordinary Rust construction,
+and never produces LLVM source fragments directly. Dynamic lowering policy stays in ordinary Rust code rather than being
+hidden in the macro grammar.
 
 `module` builds one logical LLVM module from feature groups. It derives byte-runtime requirements from references in the emitted
 typed call structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source

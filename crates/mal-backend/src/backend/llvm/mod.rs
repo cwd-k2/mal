@@ -74,11 +74,6 @@ pub(crate) fn generate(
         .iter()
         .map(|bridge| bridge.llvm_declaration.clone())
         .collect::<Vec<_>>();
-    let external_definitions = external_bridges
-        .iter()
-        .map(|bridge| bridge.c_definitions.render())
-        .collect::<Vec<_>>()
-        .join("\n\n");
     let module = module::render(&body, target, layout, external_declarations).ok_or(
         Error::InconsistentExecutionPlan("entry argument layout".into()),
     )?;
@@ -88,18 +83,24 @@ pub(crate) fn generate(
     )?;
     let runtime =
         crate::backend::runtime::for_program(body.uses_byte_runtime || main.uses_byte_runtime);
-    let main = main.definition.render();
-    let entry_declaration =
-        crate::backend::c::syntax::Declaration::function(entry.c_signature()).render();
-    let shim = format!(
-        "#include \"program.mal.h\"\n#include \"runtime.h\"\n\n#include <string.h>\n\n{}\n\n{}\n\n{}",
-        entry_declaration.trim_end(),
-        external_definitions,
-        main,
-    );
+    let mut shim = crate::backend::c::syntax::TranslationUnit::new([
+        crate::backend::c::syntax::Directive::include_quoted("program.mal.h").into(),
+        crate::backend::c::syntax::Directive::include_quoted("runtime.h").into(),
+        crate::backend::c::syntax::Directive::include_system("string.h").into(),
+    ]);
+    shim.blank_line();
+    shim.push(crate::backend::c::syntax::Declaration::function(
+        entry.c_signature(),
+    ));
+    for bridge in external_bridges {
+        shim.blank_line();
+        shim.extend(bridge.c_definitions);
+    }
+    shim.blank_line();
+    shim.push(main.definition);
     Ok(LlvmArtifacts {
         module,
-        shim,
+        shim: shim.render(),
         header: crate::backend::c::emit_header_for_target(&program.lowered.interface, layout),
         runtime,
     })
