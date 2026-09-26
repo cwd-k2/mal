@@ -15,6 +15,6 @@ pub(super) use instruction::{
 };
 pub(in crate::backend) use instruction::{Callee, Instruction, TypedValue};
 pub(in crate::backend) use module::FunctionDeclaration;
-pub(super) use module::GlobalDefinition;
 pub(super) use module::Module;
+pub(super) use module::{GlobalDefinition, MetadataDefinition, MetadataOperand};
 pub(in crate::backend) use ty::Type;

@@ -76,7 +76,21 @@ pub(in crate::backend::llvm) struct Module<'a> {
 enum ModuleItem {
     Global(GlobalDefinition),
     Function(FunctionDefinition),
-    Metadata(String),
+    Metadata(Vec<MetadataDefinition>),
+}
+
+#[derive(Clone)]
+pub(in crate::backend::llvm) struct MetadataDefinition {
+    id: usize,
+    distinct: bool,
+    operands: Vec<MetadataOperand>,
+}
+
+#[derive(Clone)]
+pub(in crate::backend::llvm) enum MetadataOperand {
+    Node(usize),
+    Text(String),
+    Integer { ty: Type, value: i128 },
 }
 
 #[derive(Clone)]
@@ -129,8 +143,14 @@ impl<'a> Module<'a> {
         self.items.push(ModuleItem::Function(definition));
     }
 
-    pub(in crate::backend::llvm) fn add_metadata(&mut self, metadata: impl Into<String>) {
-        self.add_nonempty(metadata, ModuleItem::Metadata);
+    pub(in crate::backend::llvm) fn add_metadata(
+        &mut self,
+        metadata: impl IntoIterator<Item = MetadataDefinition>,
+    ) {
+        let metadata = metadata.into_iter().collect::<Vec<_>>();
+        if !metadata.is_empty() {
+            self.items.push(ModuleItem::Metadata(metadata));
+        }
     }
 
     pub(in crate::backend::llvm) fn render(&self) -> Option<String> {
@@ -159,15 +179,41 @@ impl<'a> Module<'a> {
         sections.extend(self.items.iter().map(ModuleItem::render));
         Some(sections.join("\n\n") + "\n")
     }
+}
 
-    fn add_nonempty(
-        &mut self,
-        fragment: impl Into<String>,
-        item: impl FnOnce(String) -> ModuleItem,
-    ) {
-        let fragment = fragment.into();
-        if !fragment.trim().is_empty() {
-            self.items.push(item(fragment.trim_end().into()));
+impl MetadataDefinition {
+    pub(in crate::backend::llvm) fn new(
+        id: usize,
+        distinct: bool,
+        operands: impl IntoIterator<Item = MetadataOperand>,
+    ) -> Self {
+        Self {
+            id,
+            distinct,
+            operands: operands.into_iter().collect(),
+        }
+    }
+
+    fn render(&self) -> String {
+        let distinct = if self.distinct { "distinct " } else { "" };
+        format!(
+            "!{} = {distinct}!{{{}}}",
+            self.id,
+            self.operands
+                .iter()
+                .map(MetadataOperand::render)
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    }
+}
+
+impl MetadataOperand {
+    fn render(&self) -> String {
+        match self {
+            Self::Node(id) => format!("!{id}"),
+            Self::Text(text) => format!("!{:?}", text),
+            Self::Integer { ty, value } => format!("{ty} {value}"),
         }
     }
 }
@@ -176,7 +222,11 @@ impl ModuleItem {
     fn render(&self) -> String {
         match self {
             Self::Global(definition) => definition.render(),
-            Self::Metadata(fragment) => fragment.clone(),
+            Self::Metadata(definitions) => definitions
+                .iter()
+                .map(MetadataDefinition::render)
+                .collect::<Vec<_>>()
+                .join("\n"),
             Self::Function(definition) => definition.render(),
         }
     }
