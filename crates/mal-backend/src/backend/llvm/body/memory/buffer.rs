@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::{llvm_signature, llvm_type};
 use crate::core::ast::BufferOperation;
 use mal_frontend::check::ast::Type;
 
@@ -81,17 +82,11 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(representation.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             "mal_runtime_buffer_from",
             [
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_context".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    address.representation,
-                ),
+                (llvm_type!(ptr), "%mal_context".into()),
+                (llvm_type!(ptr), address.representation),
                 (self.types.index_llvm_type(), offset.representation),
                 (self.types.index_llvm_type(), length.representation),
                 (self.types.index_llvm_type(), stride.to_string()),
@@ -129,21 +124,12 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             None,
             false,
-            crate::backend::llvm::syntax::llvm_type!(void),
+            llvm_type!(void),
             "mal_runtime_buffer_into",
             [
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_context".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    buffer.representation,
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    address.representation,
-                ),
+                (llvm_type!(ptr), "%mal_context".into()),
+                (llvm_type!(ptr), buffer.representation),
+                (llvm_type!(ptr), address.representation),
                 (self.types.index_llvm_type(), offset.representation),
                 (self.types.index_llvm_type(), length.representation),
                 (self.types.index_llvm_type(), stride.to_string()),
@@ -180,39 +166,27 @@ impl FunctionEmitter<'_> {
                     self.direct_call(
                         Some(buffer.clone()),
                         false,
-                        crate::backend::llvm::syntax::llvm_type!(ptr),
+                        llvm_type!(ptr),
                         "mal_runtime_buffer_make_managed",
                         [
-                            (
-                                crate::backend::llvm::syntax::llvm_type!(ptr),
-                                "%mal_context".into(),
-                            ),
+                            (llvm_type!(ptr), "%mal_context".into()),
                             (self.types.index_llvm_type(), stride.to_string()),
                             (
                                 self.types.index_llvm_type(),
                                 capacity.representation.clone(),
                             ),
-                            (
-                                crate::backend::llvm::syntax::llvm_type!(ptr),
-                                format!("@mal_buffer_retain_{number}"),
-                            ),
-                            (
-                                crate::backend::llvm::syntax::llvm_type!(ptr),
-                                format!("@mal_buffer_release_{number}"),
-                            ),
+                            (llvm_type!(ptr), format!("@mal_buffer_retain_{number}")),
+                            (llvm_type!(ptr), format!("@mal_buffer_release_{number}")),
                         ],
                     );
                 } else {
                     self.direct_call(
                         Some(buffer.clone()),
                         false,
-                        crate::backend::llvm::syntax::llvm_type!(ptr),
+                        llvm_type!(ptr),
                         "mal_runtime_buffer_make",
                         [
-                            (
-                                crate::backend::llvm::syntax::llvm_type!(ptr),
-                                "%mal_context".into(),
-                            ),
+                            (llvm_type!(ptr), "%mal_context".into()),
                             (self.types.index_llvm_type(), stride.to_string()),
                             (
                                 self.types.index_llvm_type(),
@@ -239,15 +213,9 @@ impl FunctionEmitter<'_> {
                     self.types.index_llvm_type(),
                     function,
                     [
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            "%mal_context".into(),
-                        ),
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            buffer.representation.clone(),
-                        ),
-                        (crate::backend::llvm::syntax::llvm_type!(ptr), value_pointer),
+                        (llvm_type!(ptr), "%mal_context".into()),
+                        (llvm_type!(ptr), buffer.representation.clone()),
+                        (llvm_type!(ptr), value_pointer),
                         (self.types.index_llvm_type(), stride.to_string()),
                     ],
                 );
@@ -320,20 +288,14 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::llvm_type!(void),
+                    llvm_type!(void),
                     function,
                     [
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            "%mal_context".into(),
-                        ),
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            buffer.representation.clone(),
-                        ),
+                        (llvm_type!(ptr), "%mal_context".into()),
+                        (llvm_type!(ptr), buffer.representation.clone()),
                         (self.types.index_llvm_type(), offset.representation.clone()),
                         (self.types.index_llvm_type(), length.representation.clone()),
-                        (crate::backend::llvm::syntax::llvm_type!(ptr), value_pointer),
+                        (llvm_type!(ptr), value_pointer),
                         (self.types.index_llvm_type(), stride.to_string()),
                     ],
                 );
@@ -363,25 +325,16 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::llvm_type!(void),
+                    llvm_type!(void),
                     function,
                     [
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            "%mal_context".into(),
-                        ),
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            destination.representation.clone(),
-                        ),
+                        (llvm_type!(ptr), "%mal_context".into()),
+                        (llvm_type!(ptr), destination.representation.clone()),
                         (
                             self.types.index_llvm_type(),
                             destination_offset.representation.clone(),
                         ),
-                        (
-                            crate::backend::llvm::syntax::llvm_type!(ptr),
-                            source.representation.clone(),
-                        ),
+                        (llvm_type!(ptr), source.representation.clone()),
                         (
                             self.types.index_llvm_type(),
                             source_offset.representation.clone(),
@@ -403,17 +356,14 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(slot.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             "mal_runtime_buffer_data_slot",
-            [(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                buffer.representation.clone(),
-            )],
+            [(llvm_type!(ptr), buffer.representation.clone())],
         );
         let data = self.register();
         self.load(
             data.clone(),
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             slot,
             self.types.pointer_alignment(),
             [
@@ -456,7 +406,7 @@ impl FunctionEmitter<'_> {
             ElementStorage::Canonical { stride } => {
                 let layout = self.source_layouts.layout(&value.ty)?;
                 self.store(
-                    crate::backend::llvm::syntax::llvm_type!(array(stride, int(8_u16))),
+                    llvm_type!(array(stride, int(8_u16))),
                     "zeroinitializer",
                     storage,
                     layout.alignment,
@@ -549,12 +499,12 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let value_type = self.types.value(element)?;
         let signature = if retain {
-            crate::backend::llvm::syntax::llvm_signature!(internal fn { format!("mal_buffer_retain_{number}") }(
+            llvm_signature!(internal fn { format!("mal_buffer_retain_{number}") }(
                 "%mal_context": ptr,
                 "%mal_element": ptr,
             ) -> void; attributes [])
         } else {
-            crate::backend::llvm::syntax::llvm_signature!(internal fn { format!("mal_buffer_release_{number}") }(
+            llvm_signature!(internal fn { format!("mal_buffer_release_{number}") }(
                 "%mal_element": ptr,
             ) -> void; attributes [])
         };
@@ -598,7 +548,7 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             pointer.clone(),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             data,
             [(self.types.index_llvm_type(), offset)],
         );

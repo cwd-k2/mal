@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::llvm_type;
 use crate::core::ast::BinaryPrimitive;
 use mal_frontend::check::ast::Type;
 
@@ -12,12 +13,12 @@ impl ScalarType {
     pub(super) fn llvm_type(self) -> crate::backend::llvm::syntax::Type {
         if self.floating {
             if self.bits == 32 {
-                crate::backend::llvm::syntax::llvm_type!(float)
+                llvm_type!(float)
             } else {
-                crate::backend::llvm::syntax::llvm_type!(double)
+                llvm_type!(double)
             }
         } else {
-            crate::backend::llvm::syntax::llvm_type!(int(u16::from(self.bits)))
+            llvm_type!(int(u16::from(self.bits)))
         }
     }
 }

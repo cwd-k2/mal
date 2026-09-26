@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::{llvm_global, llvm_type};
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use mal_frontend::check::ast::Type;
 
@@ -17,7 +18,7 @@ pub(super) fn literal_definition(
     name: &str,
     bytes: &[u8],
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
-    crate::backend::llvm::syntax::llvm_global!(byte_owner name;
+    llvm_global!(byte_owner name;
         bytes { bytes.to_vec() };
         align STATIC_OWNER_ALIGNMENT
     )
@@ -45,10 +46,10 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(result.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             "mal_runtime_symbol_at",
             [
-                (crate::backend::llvm::syntax::llvm_type!(ptr), data),
+                (llvm_type!(ptr), data),
                 (self.types.index_llvm_type(), index.representation),
             ],
         );
@@ -107,22 +108,16 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             None,
             false,
-            crate::backend::llvm::syntax::llvm_type!(void),
+            llvm_type!(void),
             operation,
             [
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_context".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    result_storage.into(),
-                ),
-                (crate::backend::llvm::syntax::llvm_type!(ptr), left_owner),
-                (crate::backend::llvm::syntax::llvm_type!(ptr), left_data),
+                (llvm_type!(ptr), "%mal_context".into()),
+                (llvm_type!(ptr), result_storage.into()),
+                (llvm_type!(ptr), left_owner),
+                (llvm_type!(ptr), left_data),
                 (self.types.index_llvm_type(), left_length),
-                (crate::backend::llvm::syntax::llvm_type!(ptr), right_owner),
-                (crate::backend::llvm::syntax::llvm_type!(ptr), right_data),
+                (llvm_type!(ptr), right_owner),
+                (llvm_type!(ptr), right_data),
                 (self.types.index_llvm_type(), right_length),
             ],
         );

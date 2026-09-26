@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::{llvm_terminator, llvm_type};
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::control::ast::{CaseArm, StateId};
 use mal_frontend::check::ast::Type;
@@ -112,7 +113,7 @@ impl FunctionEmitter<'_> {
             tag.clone(),
             sum_type.llvm.clone(),
             "zeroinitializer",
-            crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
+            llvm_type!(int(32_u16)),
             index.to_string(),
             [0],
         );
@@ -131,14 +132,8 @@ impl FunctionEmitter<'_> {
             sum_type.llvm.clone(),
             storage.clone(),
             [
-                (
-                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
-                    "0".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
-                    "1".into(),
-                ),
+                (llvm_type!(int(32_u16)), "0".into()),
+                (llvm_type!(int(32_u16)), "1".into()),
             ],
         );
         self.store(member_type.llvm, value.representation, payload, 1, []);
@@ -182,7 +177,7 @@ impl FunctionEmitter<'_> {
             );
             tag
         };
-        let tag_type = crate::backend::llvm::syntax::llvm_type!(int(if is_bool(&scrutinee.ty) {
+        let tag_type = llvm_type!(int(if is_bool(&scrutinee.ty) {
             1_u16
         } else {
             32_u16
@@ -193,7 +188,7 @@ impl FunctionEmitter<'_> {
                 format!("mal_case_{}_{}", site.0, arm.index),
             )
         });
-        self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
+        self.terminate(llvm_terminator!(switch
             tag_type => tag;
             default format!("mal_invalid_case_{}", site.0);
             [{{ cases }}]
@@ -289,14 +284,8 @@ impl FunctionEmitter<'_> {
             sum_type.llvm,
             storage,
             [
-                (
-                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
-                    "0".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
-                    "1".into(),
-                ),
+                (llvm_type!(int(32_u16)), "0".into()),
+                (llvm_type!(int(32_u16)), "1".into()),
             ],
         );
         let payload = self.register();

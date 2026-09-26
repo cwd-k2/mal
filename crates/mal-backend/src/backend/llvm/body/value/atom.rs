@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::llvm_type;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use mal_frontend::check::ast::Type;
 
@@ -44,10 +45,10 @@ impl FunctionEmitter<'_> {
                 self.get_element_ptr(
                     data.clone(),
                     false,
-                    crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                    llvm_type!(int(8_u16)),
                     format!("@{name}"),
                     [(
-                        crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
+                        llvm_type!(int(64_u16)),
                         super::super::symbol::STATIC_OWNER_DATA_OFFSET.to_string(),
                     )],
                 );
@@ -66,7 +67,7 @@ impl FunctionEmitter<'_> {
                     with_code.clone(),
                     value_type.llvm.clone(),
                     "zeroinitializer",
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
+                    llvm_type!(ptr),
                     format!("@{}", super::super::function_name(*function)),
                     [0],
                 );
@@ -76,7 +77,7 @@ impl FunctionEmitter<'_> {
                     closure.clone(),
                     value_type.llvm,
                     with_code,
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
+                    llvm_type!(ptr),
                     environment,
                     [1],
                 );
@@ -159,12 +160,9 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             pointer.clone(),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             environment,
-            [(
-                crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
-                offset.to_string(),
-            )],
+            [(llvm_type!(int(64_u16)), offset.to_string())],
         );
         Some(pointer)
     }

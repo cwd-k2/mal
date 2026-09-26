@@ -1,4 +1,7 @@
 use super::*;
+use crate::backend::llvm::syntax::{
+    llvm_function_attributes, llvm_instruction, llvm_parameters, llvm_signature, llvm_type,
+};
 impl<'a> FunctionEmitter<'a> {
     pub(super) fn new(
         execution: &'a crate::execution::Program,
@@ -195,14 +198,14 @@ impl<'a> FunctionEmitter<'a> {
             self.emit_environment_destructor()?;
         }
         let parameters = if self.function.parameter.ty == Type::Unit {
-            super::super::syntax::llvm_parameters!(
+            llvm_parameters!(
                 "%mal_context" : ptr,
                 "%mal_control_top" : ptr,
                 "%mal_environment" : ptr,
             )
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
-            super::super::syntax::llvm_parameters!(
+            llvm_parameters!(
                 "%mal_context" : ptr,
                 "%mal_control_top" : ptr,
                 "%mal_environment" : ptr,
@@ -217,11 +220,11 @@ impl<'a> FunctionEmitter<'a> {
         };
         // The native version must stay small on its hot path, so the frames version is never inlined into it.
         let attributes = if self.mode == EmissionMode::Frames {
-            super::super::syntax::llvm_function_attributes!(noinline)
+            llvm_function_attributes!(noinline)
         } else {
             Vec::new()
         };
-        self.begin_function(super::super::syntax::llvm_signature!(
+        self.begin_function(llvm_signature!(
             internal fn { format!("{}{suffix}", function_name(self.function.id)) }(
                 {{ parameters }},
             ) -> { result.llvm }; attributes [{{ attributes }}]
@@ -236,7 +239,7 @@ impl<'a> FunctionEmitter<'a> {
                 [],
             );
             if self.local_control_top {
-                self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+                self.structured_instruction(llvm_instruction!(alloca
                     "%mal_local_control_top",
                     self.types.index_llvm_type(),
                     self.types.index_alignment(),
@@ -250,12 +253,12 @@ impl<'a> FunctionEmitter<'a> {
                 );
             }
             if self.local_control_storage {
-                self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+                self.structured_instruction(llvm_instruction!(alloca
                     "%mal_local_control_storage",
-                    super::super::syntax::llvm_type!(ptr),
+                    llvm_type!(ptr),
                     self.types.pointer_alignment(),
                 ));
-                self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+                self.structured_instruction(llvm_instruction!(alloca
                     "%mal_local_control_capacity",
                     self.types.index_llvm_type(),
                     self.types.index_alignment(),
@@ -267,7 +270,7 @@ impl<'a> FunctionEmitter<'a> {
         slots.sort_by_key(|slot| slot.index);
         for slot in slots {
             let value_type = self.types.value(&slot.ty)?;
-            self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+            self.structured_instruction(llvm_instruction!(alloca
                 format!("%mal_slot_{}", slot.index),
                 value_type.llvm.clone(),
                 value_type.alignment,
@@ -283,27 +286,24 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
         if self.common_region.is_some() {
-            self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+            self.structured_instruction(llvm_instruction!(alloca
                 "%mal_active_environment",
-                super::super::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 self.types.pointer_alignment(),
             ));
             let environment = self.register();
             self.direct_call(
                 Some(environment.clone()),
                 false,
-                super::super::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 "mal_runtime_environment_retain",
                 [
-                    (super::super::syntax::llvm_type!(ptr), "%mal_context".into()),
-                    (
-                        super::super::syntax::llvm_type!(ptr),
-                        "%mal_environment".into(),
-                    ),
+                    (llvm_type!(ptr), "%mal_context".into()),
+                    (llvm_type!(ptr), "%mal_environment".into()),
                 ],
             );
             self.store(
-                super::super::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 environment,
                 "%mal_active_environment",
                 self.types.pointer_alignment(),
@@ -311,13 +311,13 @@ impl<'a> FunctionEmitter<'a> {
             );
         }
         if let Some((size, alignment)) = self.external_storage {
-            let storage_type = super::super::syntax::llvm_type!(array(size, int(8)));
-            self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+            let storage_type = llvm_type!(array(size, int(8)));
+            self.structured_instruction(llvm_instruction!(alloca
                 "%mal_bridge_argument",
                 storage_type.clone(),
                 alignment,
             ));
-            self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+            self.structured_instruction(llvm_instruction!(alloca
                 "%mal_bridge_result",
                 storage_type,
                 alignment,
@@ -325,16 +325,16 @@ impl<'a> FunctionEmitter<'a> {
         }
         if self.needs_symbol_result_slot {
             let symbol = self.types.value(&Type::Symbol)?;
-            self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+            self.structured_instruction(llvm_instruction!(alloca
                 "%mal_symbol_result",
                 symbol.llvm,
                 symbol.alignment,
             ));
         }
         if let Some((size, alignment)) = self.buffer_value_storage {
-            self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
+            self.structured_instruction(llvm_instruction!(alloca
                 "%mal_buffer_value",
-                super::super::syntax::llvm_type!(array(size, int(8_u16))),
+                llvm_type!(array(size, int(8_u16))),
                 alignment,
             ));
         }

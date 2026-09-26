@@ -1,3 +1,5 @@
+use crate::backend::llvm::syntax::llvm_type;
+
 use super::FunctionEmitter;
 
 pub(super) struct ControlReservation {
@@ -15,15 +17,12 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(storage.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             "mal_control_storage",
-            [(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_context".into(),
-            )],
+            [(llvm_type!(ptr), "%mal_context".into())],
         );
         self.store(
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             storage,
             "%mal_local_control_storage",
             self.types.pointer_alignment(),
@@ -35,10 +34,7 @@ impl FunctionEmitter<'_> {
             false,
             self.types.index_llvm_type(),
             "mal_control_capacity",
-            [(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_context".into(),
-            )],
+            [(llvm_type!(ptr), "%mal_context".into())],
         );
         self.store(
             self.types.index_llvm_type(),
@@ -54,7 +50,7 @@ impl FunctionEmitter<'_> {
         if self.local_control_storage {
             self.load(
                 storage.clone(),
-                crate::backend::llvm::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 "%mal_local_control_storage",
                 self.types.pointer_alignment(),
                 [],
@@ -63,12 +59,9 @@ impl FunctionEmitter<'_> {
             self.direct_call(
                 Some(storage.clone()),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 "mal_control_storage",
-                [(
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_context".into(),
-                )],
+                [(llvm_type!(ptr), "%mal_context".into())],
             );
         }
         storage
@@ -108,13 +101,10 @@ impl FunctionEmitter<'_> {
             self.direct_call(
                 Some(storage.clone()),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 "mal_control_reserve_frame",
                 [
-                    (
-                        crate::backend::llvm::syntax::llvm_type!(ptr),
-                        "%mal_context".into(),
-                    ),
+                    (llvm_type!(ptr), "%mal_context".into()),
                     (self.types.index_llvm_type(), top.clone()),
                     (self.types.index_llvm_type(), frame_size.to_string()),
                 ],
@@ -165,7 +155,7 @@ impl FunctionEmitter<'_> {
         self.binary(
             fast.clone(),
             crate::backend::llvm::syntax::BinaryOperator::And,
-            crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
+            llvm_type!(int(1_u16)),
             no_overflow,
             within_capacity,
         );
@@ -182,19 +172,16 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(grown.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             "mal_control_reserve_frame",
             [
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_context".into(),
-                ),
+                (llvm_type!(ptr), "%mal_context".into()),
                 (self.types.index_llvm_type(), top.clone()),
                 (self.types.index_llvm_type(), frame_size.to_string()),
             ],
         );
         self.store(
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             grown.as_str(),
             "%mal_local_control_storage",
             self.types.pointer_alignment(),
@@ -206,10 +193,7 @@ impl FunctionEmitter<'_> {
             false,
             self.types.index_llvm_type(),
             "mal_control_capacity",
-            [(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_context".into(),
-            )],
+            [(llvm_type!(ptr), "%mal_context".into())],
         );
         self.store(
             self.types.index_llvm_type(),
@@ -223,7 +207,7 @@ impl FunctionEmitter<'_> {
         let storage = self.register();
         self.phi(
             storage.clone(),
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             [
                 (cached_storage, format!("mal_control_fast_{label}")),
                 (grown, format!("mal_control_slow_{label}")),

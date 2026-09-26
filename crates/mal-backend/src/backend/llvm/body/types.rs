@@ -272,7 +272,7 @@ fn aggregate_type(fields: Vec<ValueType>) -> Option<ValueType> {
         size = size.checked_add(field.size)?;
     }
     Some(ValueType {
-        llvm: crate::backend::llvm::syntax::llvm_type!(structure([{
+        llvm: llvm_type!(structure([{
             { fields.iter().map(|field| field.llvm.clone()) }
         },])),
         alignment,

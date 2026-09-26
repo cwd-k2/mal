@@ -1,7 +1,7 @@
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
-use crate::backend::llvm::syntax::{MetadataAttachment, llvm_type};
+use crate::backend::llvm::syntax::{MetadataAttachment, llvm_terminator, llvm_type};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_aligned_buffer_load_at(
@@ -123,8 +123,8 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
-                crate::backend::llvm::syntax::llvm_type!(int(32_u16)) => tag;
+            self.terminate(llvm_terminator!(switch
+                llvm_type!(int(32_u16)) => tag;
                 default format!("{stem}_invalid");
                 [{{ cases }}]
             ));
@@ -317,8 +317,8 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
-                crate::backend::llvm::syntax::llvm_type!(int(32_u16)) => tag;
+            self.terminate(llvm_terminator!(switch
+                llvm_type!(int(32_u16)) => tag;
                 default format!("{stem}_invalid");
                 [{{ cases }}]
             ));

@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::{llvm_signature, llvm_type};
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter, function_number};
@@ -12,7 +13,7 @@ impl FunctionEmitter<'_> {
         let environment_type =
             Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
-        self.begin_function(crate::backend::llvm::syntax::llvm_signature!(
+        self.begin_function(llvm_signature!(
             internal fn { format!(
                 "mal_destroy_environment_{}",
                 function_number(self.function.id)
@@ -58,7 +59,7 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         self.load(
             environment.clone(),
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             "%mal_active_environment",
             self.types.pointer_alignment(),
             [],

@@ -6,6 +6,7 @@
 //! is used up. A native activation keeps its live values in its own slots and touches no control arena, so the
 //! optimizer sees an ordinary recursive function whose only extra work is one stack check per activation.
 
+use crate::backend::llvm::syntax::llvm_type;
 use crate::closure::ast::Atom;
 use crate::control::ast::{StateId, Terminator};
 use mal_frontend::check::ast::Type;
@@ -62,15 +63,9 @@ impl FunctionEmitter<'_> {
         // ownership plan's handoff (a share or a move) is released once the call returns.
         let mut handed_over = None;
         let mut arguments = vec![
-            (
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_context".into(),
-            ),
-            (
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_control_top".into(),
-            ),
-            (crate::backend::llvm::syntax::llvm_type!(ptr), environment),
+            (llvm_type!(ptr), "%mal_context".into()),
+            (llvm_type!(ptr), "%mal_control_top".into()),
+            (llvm_type!(ptr), environment),
         ];
         if self.function.parameter.ty != Type::Unit {
             let argument = if crate::execution::ownership::is_managed(&argument.ty) {
@@ -115,18 +110,9 @@ impl FunctionEmitter<'_> {
     /// Continues the activation in the frames version when the native stack is used up.
     pub(in crate::backend::llvm::body) fn emit_native_entry_guard(&mut self) -> Option<()> {
         let mut parameters = vec![
-            (
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_context".into(),
-            ),
-            (
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_control_top".into(),
-            ),
-            (
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_environment".into(),
-            ),
+            (llvm_type!(ptr), "%mal_context".into()),
+            (llvm_type!(ptr), "%mal_control_top".into()),
+            (llvm_type!(ptr), "%mal_environment".into()),
         ];
         if self.function.parameter.ty != Type::Unit {
             let value = self.types.value(&self.function.parameter.ty)?;
@@ -138,19 +124,16 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(flag.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             "mal_native_stack_is_deep",
-            [(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
-                "%mal_context".into(),
-            )],
+            [(llvm_type!(ptr), "%mal_context".into())],
         );
         let deep = self.register();
         self.compare(
             deep.clone(),
             crate::backend::llvm::syntax::ComparisonKind::Integer,
             crate::backend::llvm::syntax::ComparisonPredicate::Ne,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             flag,
             "0",
         );
@@ -158,14 +141,11 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(expected.clone()),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
+            llvm_type!(int(1_u16)),
             "llvm.expect.i1",
             [
-                (crate::backend::llvm::syntax::llvm_type!(int(1_u16)), deep),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
-                    "false".into(),
-                ),
+                (llvm_type!(int(1_u16)), deep),
+                (llvm_type!(int(1_u16)), "false".into()),
             ],
         );
         self.conditional_branch(expected, "mal_deep_entry", "mal_native_entry");

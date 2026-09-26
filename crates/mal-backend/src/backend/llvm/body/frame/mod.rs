@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::llvm_type;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
 use mal_frontend::check::ast::Type;
@@ -52,14 +53,14 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             frame_pointer.clone(),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             reservation.storage,
             [(self.types.index_llvm_type(), reservation.top.clone())],
         );
         if tagged {
             let tag = self.frame_tags.get(&site)?;
             self.store(
-                crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
+                llvm_type!(int(32_u16)),
                 tag.to_string(),
                 frame_pointer.as_str(),
                 4,
@@ -87,12 +88,9 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 pointer.clone(),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                llvm_type!(int(8_u16)),
                 frame_pointer.as_str(),
-                [(
-                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
-                    layout.offset.to_string(),
-                )],
+                [(llvm_type!(int(64_u16)), layout.offset.to_string())],
             );
             self.store(
                 layout.value_type.llvm.clone(),
@@ -108,15 +106,12 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 pointer.clone(),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                llvm_type!(int(8_u16)),
                 frame_pointer.as_str(),
-                [(
-                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
-                    offset.to_string(),
-                )],
+                [(llvm_type!(int(64_u16)), offset.to_string())],
             );
             self.store(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 environment,
                 pointer,
                 self.types.pointer_alignment(),
@@ -128,12 +123,9 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 footer.clone(),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                llvm_type!(int(8_u16)),
                 frame_pointer,
-                [(
-                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
-                    offset.to_string(),
-                )],
+                [(llvm_type!(int(64_u16)), offset.to_string())],
             );
             self.store(
                 self.types.index_llvm_type(),
@@ -264,13 +256,13 @@ impl FunctionEmitter<'_> {
             self.direct_call(
                 None,
                 false,
-                crate::backend::llvm::syntax::llvm_type!(void),
+                llvm_type!(void),
                 "mal_runtime_environment_release",
-                [(crate::backend::llvm::syntax::llvm_type!(ptr), previous)],
+                [(llvm_type!(ptr), previous)],
             );
         }
         self.store(
-            crate::backend::llvm::syntax::llvm_type!(ptr),
+            llvm_type!(ptr),
             environment.as_str(),
             "%mal_active_environment",
             self.types.pointer_alignment(),
@@ -312,7 +304,7 @@ impl FunctionEmitter<'_> {
                 matched.clone(),
                 crate::backend::llvm::syntax::ComparisonKind::Integer,
                 crate::backend::llvm::syntax::ComparisonPredicate::Eq,
-                crate::backend::llvm::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 code,
                 format!("@{}", super::function_name(*target)),
             );
@@ -333,18 +325,9 @@ impl FunctionEmitter<'_> {
         if has_native_target {
             let result_type = self.types.value(result)?;
             let mut arguments = vec![
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_context".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    "%mal_control_top".into(),
-                ),
-                (
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
-                    environment.into(),
-                ),
+                (llvm_type!(ptr), "%mal_context".into()),
+                (llvm_type!(ptr), "%mal_control_top".into()),
+                (llvm_type!(ptr), environment.into()),
             ];
             if argument.ty != Type::Unit {
                 let argument_type = self.types.value(&argument.ty)?;

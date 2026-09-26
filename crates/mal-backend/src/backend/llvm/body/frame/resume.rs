@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::{llvm_terminator, llvm_type};
 use crate::control::ast::StateId;
 
 use super::layout::FrameLayout;
@@ -16,9 +17,9 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::llvm_type!(void),
+                    llvm_type!(void),
                     "mal_runtime_environment_release",
-                    [(crate::backend::llvm::syntax::llvm_type!(ptr), environment)],
+                    [(llvm_type!(ptr), environment)],
                 );
             }
             if result.ty != self.result_type {
@@ -57,9 +58,9 @@ impl FunctionEmitter<'_> {
             self.direct_call(
                 None,
                 false,
-                crate::backend::llvm::syntax::llvm_type!(void),
+                llvm_type!(void),
                 "mal_runtime_environment_release",
-                [(crate::backend::llvm::syntax::llvm_type!(ptr), environment)],
+                [(llvm_type!(ptr), environment)],
             );
         }
         if result.ty == self.result_type {
@@ -93,7 +94,7 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 frame_pointer.clone(),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                llvm_type!(int(8_u16)),
                 storage,
                 [(self.types.index_llvm_type(), previous_top)],
             );
@@ -102,9 +103,9 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::llvm_type!(void),
+                    llvm_type!(void),
                     "mal_runtime_environment_release",
-                    [(crate::backend::llvm::syntax::llvm_type!(ptr), active)],
+                    [(llvm_type!(ptr), active)],
                 );
             }
             self.branch(format!("mal_frame_{}_from_{}", frame_site.0, site.0));
@@ -122,7 +123,7 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             footer.clone(),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             storage.clone(),
             [(self.types.index_llvm_type(), footer_offset)],
         );
@@ -145,7 +146,7 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             frame_pointer.clone(),
             false,
-            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+            llvm_type!(int(8_u16)),
             storage,
             [(self.types.index_llvm_type(), previous_top)],
         );
@@ -154,15 +155,15 @@ impl FunctionEmitter<'_> {
             self.direct_call(
                 None,
                 false,
-                crate::backend::llvm::syntax::llvm_type!(void),
+                llvm_type!(void),
                 "mal_runtime_environment_release",
-                [(crate::backend::llvm::syntax::llvm_type!(ptr), active)],
+                [(llvm_type!(ptr), active)],
             );
         }
         let tag = self.register();
         self.load(
             tag.clone(),
-            crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
+            llvm_type!(int(32_u16)),
             frame_pointer.as_str(),
             4,
             [],
@@ -179,8 +180,8 @@ impl FunctionEmitter<'_> {
                 })
             })
             .collect::<Option<Vec<_>>>()?;
-        self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
-            crate::backend::llvm::syntax::llvm_type!(int(32_u16)) => tag;
+        self.terminate(llvm_terminator!(switch
+            llvm_type!(int(32_u16)) => tag;
             default format!("mal_invalid_frame_{}", site.0);
             [{{ cases }}]
         ));
@@ -221,12 +222,9 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 pointer.clone(),
                 false,
-                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                llvm_type!(int(8_u16)),
                 frame_pointer,
-                [(
-                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
-                    layout.offset.to_string(),
-                )],
+                [(llvm_type!(int(64_u16)), layout.offset.to_string())],
             );
             let value = self.register();
             self.load(
@@ -251,17 +249,14 @@ impl FunctionEmitter<'_> {
                 self.get_element_ptr(
                     pointer.clone(),
                     false,
-                    crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
+                    llvm_type!(int(8_u16)),
                     frame_pointer,
-                    [(
-                        crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
-                        offset.to_string(),
-                    )],
+                    [(llvm_type!(int(64_u16)), offset.to_string())],
                 );
                 let environment = self.register();
                 self.load(
                     environment.clone(),
-                    crate::backend::llvm::syntax::llvm_type!(ptr),
+                    llvm_type!(ptr),
                     pointer,
                     self.types.pointer_alignment(),
                     [],
@@ -271,7 +266,7 @@ impl FunctionEmitter<'_> {
                 "null".into()
             };
             self.store(
-                crate::backend::llvm::syntax::llvm_type!(ptr),
+                llvm_type!(ptr),
                 environment,
                 "%mal_active_environment",
                 self.types.pointer_alignment(),

@@ -1,4 +1,5 @@
 use super::*;
+use crate::backend::llvm::syntax::{llvm_instruction, llvm_terminator, llvm_type};
 
 mod environment;
 mod parameter;
@@ -28,12 +29,9 @@ impl FunctionEmitter<'_> {
         let callee = self.atom(callee)?;
         let environment = self.closure_environment(&callee)?;
         let mut arguments = vec![
-            (super::super::syntax::llvm_type!(ptr), "%mal_context".into()),
-            (
-                super::super::syntax::llvm_type!(ptr),
-                "%mal_control_top".into(),
-            ),
-            (super::super::syntax::llvm_type!(ptr), environment),
+            (llvm_type!(ptr), "%mal_context".into()),
+            (llvm_type!(ptr), "%mal_control_top".into()),
+            (llvm_type!(ptr), environment),
         ];
         if target.parameter.ty == Type::Unit {
             if argument.ty != Type::Unit {
@@ -108,12 +106,9 @@ impl FunctionEmitter<'_> {
             [1],
         );
         let mut arguments = vec![
-            (super::super::syntax::llvm_type!(ptr), "%mal_context".into()),
-            (
-                super::super::syntax::llvm_type!(ptr),
-                "%mal_control_top".into(),
-            ),
-            (super::super::syntax::llvm_type!(ptr), environment.clone()),
+            (llvm_type!(ptr), "%mal_context".into()),
+            (llvm_type!(ptr), "%mal_control_top".into()),
+            (llvm_type!(ptr), environment.clone()),
         ];
         if **parameter == Type::Unit {
             if argument.ty != Type::Unit {
@@ -207,7 +202,7 @@ impl FunctionEmitter<'_> {
             self.emission_failed = true;
             return storage;
         };
-        let Some(instruction) = super::super::syntax::llvm_instruction!(alloca storage.clone(), llvm.clone(), alignment)
+        let Some(instruction) = llvm_instruction!(alloca storage.clone(), llvm.clone(), alignment)
         else {
             self.emission_failed = true;
             return storage;
@@ -253,7 +248,7 @@ impl FunctionEmitter<'_> {
         alignment: usize,
         metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(load
+        self.structured_instruction(llvm_instruction!(load
             result, ty, pointer, alignment, metadata,
         ));
     }
@@ -266,7 +261,7 @@ impl FunctionEmitter<'_> {
         alignment: usize,
         metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(store
+        self.structured_instruction(llvm_instruction!(store
             ty, value, pointer, alignment, metadata,
         ));
     }
@@ -279,7 +274,7 @@ impl FunctionEmitter<'_> {
         callee: impl Into<String>,
         arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(
+        self.structured_instruction(llvm_instruction!(
             call result, tail, result_type, direct callee, arguments
         ));
     }
@@ -292,7 +287,7 @@ impl FunctionEmitter<'_> {
         callee: impl Into<String>,
         arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(
+        self.structured_instruction(llvm_instruction!(
             call result, tail, result_type, indirect callee, arguments
         ));
     }
@@ -304,7 +299,7 @@ impl FunctionEmitter<'_> {
         ty: super::super::syntax::Type,
         value: impl Into<String>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(
+        self.structured_instruction(llvm_instruction!(
             unary result, operator; ty => value
         ));
     }
@@ -317,7 +312,7 @@ impl FunctionEmitter<'_> {
         left: impl Into<String>,
         right: impl Into<String>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(binary
+        self.structured_instruction(llvm_instruction!(binary
             result, operator, ty, left, right,
         ));
     }
@@ -331,7 +326,7 @@ impl FunctionEmitter<'_> {
         left: impl Into<String>,
         right: impl Into<String>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(compare
+        self.structured_instruction(llvm_instruction!(compare
             result, kind, predicate, ty, left, right,
         ));
     }
@@ -344,7 +339,7 @@ impl FunctionEmitter<'_> {
         source: impl Into<String>,
         target: super::super::syntax::Type,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(
+        self.structured_instruction(llvm_instruction!(
             cast result, operator; source_type => source, target
         ));
     }
@@ -357,7 +352,7 @@ impl FunctionEmitter<'_> {
         pointer: impl Into<String>,
         indices: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(
+        self.structured_instruction(llvm_instruction!(
             get_element_ptr result, inbounds, element_type, pointer, indices
         ));
     }
@@ -369,7 +364,7 @@ impl FunctionEmitter<'_> {
         aggregate: impl Into<String>,
         indices: impl IntoIterator<Item = usize>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(
+        self.structured_instruction(llvm_instruction!(
             extract_value result; aggregate_type => aggregate, indices
         ));
     }
@@ -383,7 +378,7 @@ impl FunctionEmitter<'_> {
         element: impl Into<String>,
         indices: impl IntoIterator<Item = usize>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(insert_value
+        self.structured_instruction(llvm_instruction!(insert_value
             result; aggregate_type => aggregate, element_type => element, indices
         ));
     }
@@ -394,7 +389,7 @@ impl FunctionEmitter<'_> {
         ty: super::super::syntax::Type,
         incoming: impl IntoIterator<Item = (String, String)>,
     ) {
-        self.structured_instruction(super::super::syntax::llvm_instruction!(phi
+        self.structured_instruction(llvm_instruction!(phi
             result, ty, incoming
         ));
     }
@@ -412,15 +407,15 @@ impl FunctionEmitter<'_> {
     }
 
     pub(super) fn unreachable(&mut self) {
-        self.terminate(super::super::syntax::llvm_terminator!(unreachable));
+        self.terminate(llvm_terminator!(unreachable));
     }
 
     pub(super) fn return_void(&mut self) {
-        self.terminate(super::super::syntax::llvm_terminator!(return_void));
+        self.terminate(llvm_terminator!(return_void));
     }
 
     pub(super) fn branch(&mut self, target: impl Into<String>) {
-        self.terminate(super::super::syntax::llvm_terminator!(branch target));
+        self.terminate(llvm_terminator!(branch target));
     }
 
     pub(super) fn conditional_branch(
@@ -429,7 +424,7 @@ impl FunctionEmitter<'_> {
         then_target: impl Into<String>,
         else_target: impl Into<String>,
     ) {
-        self.terminate(super::super::syntax::llvm_terminator!(conditional
+        self.terminate(llvm_terminator!(conditional
             condition => then_target, else_target
         ));
     }
@@ -439,7 +434,7 @@ impl FunctionEmitter<'_> {
         ty: super::super::syntax::Type,
         value: impl Into<String>,
     ) {
-        self.terminate(super::super::syntax::llvm_terminator!(return ty => value));
+        self.terminate(llvm_terminator!(return ty => value));
     }
 
     pub(super) fn begin_function(&mut self, signature: super::super::syntax::FunctionSignature) {
