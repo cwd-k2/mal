@@ -6,7 +6,7 @@ use super::{
 };
 use crate::backend::c::syntax::{
     Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer,
-    MacroInvocation, Statement, TranslationUnit, c_block, c_statement,
+    MacroInvocation, TranslationUnit, c_block, c_statement,
 };
 
 mod prefix;
@@ -167,9 +167,9 @@ fn wrapper_definition(
     }
     let call = Expr::named_call(format!("mal_detail_{}", external.name), arguments);
     let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
-        Statement::expression(call)
+        c_statement!(expr (rust call))
     } else {
-        Statement::return_value(call)
+        c_statement!(return (rust call))
     };
     let body = c_block!(
         (var ("mal_call_t") ("call") = (compound "mal_call_t";

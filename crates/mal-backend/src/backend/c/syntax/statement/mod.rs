@@ -49,13 +49,6 @@ impl Statement {
         Self::Expression(expression)
     }
 
-    pub(in crate::backend) fn call(
-        name: impl Into<Identifier>,
-        arguments: impl IntoIterator<Item = Expr>,
-    ) -> Self {
-        Self::expression(Expr::named_call(name, arguments))
-    }
-
     pub(in crate::backend) fn variable_declaration(
         declaration: VariableDeclaration,
         initializer: Option<Expr>,

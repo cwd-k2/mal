@@ -393,15 +393,16 @@ impl TypeRegistry {
         value: Expr,
     ) -> Statement {
         if matches!(ty, Type::Unit) {
-            return Statement::expression(Expr::cast("void", value));
+            return c_statement!(expr (cast "void"; (rust value)));
         }
         let name = match ty {
             Type::Product(_) | Type::Sum(_) if !is_bool(ty) => self.index(ty).to_string(),
             _ => scalar_name(ty).into(),
         };
-        Statement::call(
-            format!("mal_detail_memory_write_{name}"),
-            [call, destination, value],
+        c_statement!(call format!("mal_detail_memory_write_{name}");
+            (rust call),
+            (rust destination),
+            (rust value),
         )
     }
 }

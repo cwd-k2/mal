@@ -58,6 +58,12 @@ macro_rules! c_expr {
             [$($crate::backend::c::syntax::c_expr! $argument),*],
         )
     };
+    (invoke $callee:tt; $($argument:tt),* $(,)?) => {
+        $crate::backend::c::syntax::Expr::call(
+            $crate::backend::c::syntax::c_expr! $callee,
+            [$($crate::backend::c::syntax::c_expr! $argument),*],
+        )
+    };
     (add $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::add(
             $crate::backend::c::syntax::c_expr! $left,
@@ -176,6 +182,11 @@ macro_rules! c_statement {
             call $name; $($argument),*
         ))
     };
+    (invoke $callee:tt; $($argument:tt),* $(,)?) => {
+        $crate::backend::c::syntax::Statement::expression($crate::backend::c::syntax::c_expr!(
+            invoke $callee; $($argument),*
+        ))
+    };
     (var ($ty:expr) ($name:expr)) => {
         $crate::backend::c::syntax::Statement::variable($ty, $name, None)
     };
@@ -248,7 +259,7 @@ mod tests {
     use std::cell::Cell;
 
     use crate::backend::c::syntax::{
-        Expr, FunctionDefinition, FunctionSignature, Initializer, Statement, SwitchCase,
+        Expr, FunctionDefinition, FunctionSignature, Initializer, SwitchCase,
     };
 
     #[test]
@@ -285,7 +296,7 @@ mod tests {
 
     #[test]
     fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
-        let statements = [Statement::call("observe", [Expr::identifier("value")])];
+        let statements = [super::c_statement!(call "observe"; (id "value"))];
         let cases = [SwitchCase::case(
             Expr::number("1"),
             super::c_block!((return (number 2))),

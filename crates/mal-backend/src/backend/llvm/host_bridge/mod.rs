@@ -28,10 +28,7 @@ pub(super) fn generate(
     let llvm_declaration = bridge.llvm_declaration();
     let (mut statements, arguments) = match &parameter.kind {
         plan::Kind::Unit => (
-            vec![Statement::expression(Expr::cast(
-                "void",
-                identifier("mal_argument"),
-            ))],
+            vec![c_statement!(expr (cast "void"; (id "mal_argument")))],
             Vec::new(),
         ),
         plan::Kind::Product(fields) => {
@@ -58,7 +55,7 @@ pub(super) fn generate(
     let call = Expr::named_call(format!("mal_ext_{}", external.name), call_arguments);
     match &result.kind {
         plan::Kind::Unit => {
-            statements.push(Statement::expression(call));
+            statements.push(c_statement!(expr (rust call)));
             statements.push(store(
                 "uint8_t",
                 identifier("mal_result"),
@@ -66,11 +63,9 @@ pub(super) fn generate(
             ));
         }
         plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
-            statements.push(variable(
-                raw_types.c_type(&external.result),
-                "result",
-                Some(call),
-            ));
+            statements.push(
+                c_statement!(var (raw_types.c_type(&external.result)) ("result") = (rust call)),
+            );
             statements.extend(marshalling.write(
                 &result,
                 identifier("result"),
@@ -304,7 +299,11 @@ impl<'a> Marshalling<'a> {
         context: Expr,
     ) -> Option<Statement> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.write_helpers.get(&id)) {
-            return Some(Statement::call(helper.clone(), [context, pointer, value]));
+            return Some(c_statement!(call helper.clone();
+                (rust context),
+                (rust pointer),
+                (rust value),
+            ));
         }
         let helper = self.helper_name("write");
         if let Some(id) = ty.shared_id() {
@@ -388,14 +387,10 @@ fn load(ty: TypeName, pointer: Expr) -> Expr {
 }
 
 fn store(ty: impl Into<TypeName>, pointer: Expr, value: Expr) -> Statement {
-    Statement::expression(Expr::assign(
-        Expr::dereference(Expr::cast(ty.into().pointer(), pointer)),
-        value,
+    c_statement!(expr (assign
+        (dereference (cast ty.into().pointer(); (rust pointer)));
+        (rust value)
     ))
-}
-
-fn variable(ty: impl Into<TypeName>, name: &str, initializer: Option<Expr>) -> Statement {
-    Statement::variable(ty, name, initializer)
 }
 
 fn identifier(name: impl Into<crate::backend::c::syntax::Identifier>) -> Expr {
@@ -407,7 +402,7 @@ fn number(value: impl ToString) -> Expr {
 }
 
 fn trap(context: Expr, message: &str) -> Statement {
-    Statement::call("mal_trap", [context, Expr::string(message)])
+    c_statement!(call "mal_trap"; (rust context), (string message))
 }
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {
