@@ -330,12 +330,14 @@ mod tests {
                 ty: product,
                 element_aliases: vec![None, None],
                 host_memory_access: false,
+                span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
             },
             crate::core::ast::TypeAlias {
                 name: "Result".into(),
                 ty: sum,
                 element_aliases: vec![None, Some("Packet".into())],
                 host_memory_access: false,
+                span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
             },
         ];
 

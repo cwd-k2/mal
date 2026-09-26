@@ -4,6 +4,7 @@ use mal_frontend::check::ast::Type;
 use mal_syntax::diagnostic::Diagnostic;
 
 use crate::backend::llvm::TargetLayout;
+use crate::backend::source_layout::SourceLayouts;
 pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Result<(), Diagnostic> {
     let maximum = match target.index_size {
         1 => u8::MAX as u128,
@@ -12,6 +13,7 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
         8 => u64::MAX as u128,
         _ => unreachable!("target layout admits only supported index widths"),
     };
+    admit_host_memory_layouts(program, target, maximum)?;
     let mut blocks = program
         .lowered
         .bindings
@@ -25,6 +27,41 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
         admit_atom(&block.result, maximum)?;
         for binding in &block.bindings {
             admit_operation(&binding.operation, maximum, &mut blocks)?;
+        }
+    }
+    Ok(())
+}
+
+fn admit_host_memory_layouts(
+    program: &execution::Program,
+    target: TargetLayout,
+    maximum: u128,
+) -> Result<(), Diagnostic> {
+    let layouts = SourceLayouts::new(target);
+    for alias in program
+        .lowered
+        .interface
+        .type_aliases
+        .iter()
+        .filter(|alias| alias.host_memory_access)
+    {
+        let Some(layout) = layouts.layout(&alias.ty) else {
+            return Err(Diagnostic::error(
+                "canonical memory layout is not representable for the target",
+            )
+            .with_primary(alias.span, "this type's layout exceeds the host size range"));
+        };
+        if layout.stride as u128 > maximum {
+            return Err(Diagnostic::error(
+                "canonical memory layout is not representable for the target",
+            )
+            .with_primary(
+                alias.span,
+                format!(
+                    "this type has a {}-byte stride, exceeding the target maximum {maximum}",
+                    layout.stride
+                ),
+            ));
         }
     }
     Ok(())

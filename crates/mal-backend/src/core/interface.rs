@@ -21,6 +21,7 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
                     ty: ty.clone(),
                     element_aliases: element_aliases.clone(),
                     host_memory_access: *host_memory_access,
+                    span: item.span,
                 });
             }
             checked::TopItem::ExternalType { binding } => {

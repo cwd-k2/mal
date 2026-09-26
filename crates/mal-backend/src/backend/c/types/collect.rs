@@ -289,6 +289,7 @@ mod tests {
                 ty: alias.clone(),
                 element_aliases: vec![None, None],
                 host_memory_access: false,
+                span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
             }],
             external_types: Vec::new(),
             externals: vec![crate::core::ast::ExternalOperation {
