@@ -24,7 +24,7 @@ impl FunctionEmitter<'_> {
             self.types.index_llvm_type(),
             "mal_runtime_buffer_count",
             [(
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 buffer.representation.clone(),
             )],
         );
@@ -51,7 +51,7 @@ impl FunctionEmitter<'_> {
             self.types.index_llvm_type(),
             "mal_runtime_buffer_count",
             [(
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 buffer.representation.clone(),
             )],
         );
@@ -59,14 +59,14 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(owner.clone()),
             false,
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             "mal_runtime_bytes_read",
             [
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "%mal_context".into(),
                 ),
-                (crate::backend::llvm::syntax::Type::Pointer, data),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), data),
                 (self.types.index_llvm_type(), count.clone()),
             ],
         );
@@ -74,9 +74,9 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(copied_data.clone()),
             false,
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             "mal_runtime_bytes_data",
-            [(crate::backend::llvm::syntax::Type::Pointer, owner.clone())],
+            [(crate::backend::llvm::syntax::llvm_type!(ptr), owner.clone())],
         );
         self.make_byte_view(&Type::Symbol, &owner, &copied_data, &count, true)
     }
@@ -94,14 +94,14 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(buffer.clone()),
             false,
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             "mal_runtime_buffer_from",
             [
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "%mal_context".into(),
                 ),
-                (crate::backend::llvm::syntax::Type::Pointer, fields.data),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), fields.data),
                 (self.types.index_llvm_type(), "0".into()),
                 (self.types.index_llvm_type(), fields.count),
                 (self.types.index_llvm_type(), "1".into()),
@@ -152,7 +152,7 @@ impl FunctionEmitter<'_> {
             with_owner.clone(),
             runtime.llvm.clone(),
             "poison",
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             owner,
             [0],
         );
@@ -161,7 +161,7 @@ impl FunctionEmitter<'_> {
             with_data.clone(),
             runtime.llvm.clone(),
             with_owner,
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             data,
             [1],
         );

@@ -83,9 +83,9 @@ impl TopLevelConstants {
             Operation::MakeClosure { function, captures } if captures.is_empty() => Constant {
                 ty: result_type.clone(),
                 kind: ConstantKind::Value(llvm_constant!(structure [
-                    (typed crate::backend::llvm::syntax::Type::Pointer =>
+                    (typed crate::backend::llvm::syntax::llvm_type!(ptr) =>
                         (atom format!("@{}", super::function_name(*function)))),
-                    (typed crate::backend::llvm::syntax::Type::Pointer => (atom "null")),
+                    (typed crate::backend::llvm::syntax::llvm_type!(ptr) => (atom "null")),
                 ])?),
             },
             Operation::NumericConversion { operand } => {
@@ -211,14 +211,14 @@ impl TopLevelConstants {
                 let address_constant = llvm_constant!(atom format!("@{name}"))?;
                 let address = || {
                     llvm_typed_constant!(typed
-                        crate::backend::llvm::syntax::Type::Pointer =>
+                        crate::backend::llvm::syntax::llvm_type!(ptr) =>
                         { address_constant.clone() }
                     )
                 };
                 llvm_constant!(structure [
                     { address()? },
-                    (typed crate::backend::llvm::syntax::Type::Pointer =>
-                        (get_element_ptr crate::backend::llvm::syntax::Type::integer(8_u16);
+                    (typed crate::backend::llvm::syntax::llvm_type!(ptr) =>
+                        (get_element_ptr crate::backend::llvm::syntax::llvm_type!(int(8_u16));
                             { address()? };
                             [(typed self.types.index_llvm_type() =>
                                 (atom super::symbol::STATIC_OWNER_DATA_OFFSET))]

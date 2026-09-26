@@ -102,12 +102,12 @@ impl FunctionEmitter<'_> {
                     self.direct_call(
                         Some(equality.clone()),
                         false,
-                        crate::backend::llvm::syntax::Type::integer(8_u16),
+                        crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                         "mal_runtime_symbol_equal",
                         [
-                            (crate::backend::llvm::syntax::Type::Pointer, left.data),
+                            (crate::backend::llvm::syntax::llvm_type!(ptr), left.data),
                             (self.types.index_llvm_type(), left.count),
-                            (crate::backend::llvm::syntax::Type::Pointer, right.data),
+                            (crate::backend::llvm::syntax::llvm_type!(ptr), right.data),
                             (self.types.index_llvm_type(), right.count),
                         ],
                     );
@@ -124,7 +124,7 @@ impl FunctionEmitter<'_> {
                         condition.clone(),
                         crate::backend::llvm::syntax::ComparisonKind::Integer,
                         predicate,
-                        crate::backend::llvm::syntax::Type::integer(8_u16),
+                        crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                         equality,
                         "0",
                     );
@@ -142,7 +142,7 @@ impl FunctionEmitter<'_> {
                         condition.clone(),
                         crate::backend::llvm::syntax::ComparisonKind::Integer,
                         predicate,
-                        crate::backend::llvm::syntax::Type::integer(1_u16),
+                        crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
                         left.representation,
                         right.representation,
                     );

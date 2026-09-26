@@ -1,6 +1,6 @@
 use crate::backend::llvm::body;
 use crate::backend::llvm::syntax::{
-    FunctionDeclaration, Module, Parameter, Type, llvm_declaration,
+    FunctionDeclaration, Module, Type, llvm_declaration, llvm_parameter,
 };
 
 mod byte;
@@ -26,7 +26,7 @@ fn declaration(
 ) -> FunctionDeclaration {
     let parameters = parameters
         .into_iter()
-        .map(Parameter::unnamed)
+        .map(|ty| llvm_parameter!(_ : { ty }))
         .collect::<Vec<_>>();
     llvm_declaration!(fn { name.into() }(
         {{ parameters }},

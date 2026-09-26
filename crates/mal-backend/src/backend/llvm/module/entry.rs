@@ -2,6 +2,7 @@ use super::super::body;
 use super::super::function_name;
 use super::super::syntax::{
     FunctionBuilder, FunctionDefinition, Instruction, Type, llvm_instruction, llvm_terminator,
+    llvm_type,
 };
 use crate::backend::abi::Function as AbiFunction;
 
@@ -32,9 +33,9 @@ pub(super) fn definition(
         function
             .structured_instruction(direct_call(
                 None,
-                Type::Void,
+                llvm_type!(void),
                 "mal_native_stack_begin",
-                [(Type::Pointer, "%mal_context".into())],
+                [(llvm_type!(ptr), "%mal_context".into())],
             )?)
             .then_some(())?;
         "%mal_control_top"
@@ -42,9 +43,9 @@ pub(super) fn definition(
         "null"
     };
     let mut arguments = vec![
-        (Type::Pointer, "%mal_context".into()),
-        (Type::Pointer, control_top.into()),
-        (Type::Pointer, "null".into()),
+        (llvm_type!(ptr), "%mal_context".into()),
+        (llvm_type!(ptr), control_top.into()),
+        (llvm_type!(ptr), "null".into()),
     ];
     match &body.main_parameter {
         mal_frontend::check::ast::Type::Unit => {}
@@ -65,14 +66,14 @@ pub(super) fn definition(
     function
         .structured_instruction(direct_call(
             Some("%mal_entry_result".into()),
-            Type::integer(32_u16),
+            llvm_type!(int(32_u16)),
             function_name(body.main),
             arguments,
         )?)
         .then_some(())?;
     function
         .structured_instruction(llvm_instruction!(store
-            Type::integer(32_u16),
+            llvm_type!(int(32_u16)),
             "%mal_entry_result",
             "%mal_result",
             4,

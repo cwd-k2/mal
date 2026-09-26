@@ -195,37 +195,19 @@ impl<'a> FunctionEmitter<'a> {
             self.emit_environment_destructor()?;
         }
         let parameters = if self.function.parameter.ty == Type::Unit {
-            vec![
-                super::super::syntax::Parameter::named(
-                    super::super::syntax::Type::Pointer,
-                    "%mal_context",
-                ),
-                super::super::syntax::Parameter::named(
-                    super::super::syntax::Type::Pointer,
-                    "%mal_control_top",
-                ),
-                super::super::syntax::Parameter::named(
-                    super::super::syntax::Type::Pointer,
-                    "%mal_environment",
-                ),
-            ]
+            super::super::syntax::llvm_parameters!(
+                "%mal_context" : ptr,
+                "%mal_control_top" : ptr,
+                "%mal_environment" : ptr,
+            )
         } else {
             let parameter = self.types.value(&self.function.parameter.ty)?;
-            vec![
-                super::super::syntax::Parameter::named(
-                    super::super::syntax::Type::Pointer,
-                    "%mal_context",
-                ),
-                super::super::syntax::Parameter::named(
-                    super::super::syntax::Type::Pointer,
-                    "%mal_control_top",
-                ),
-                super::super::syntax::Parameter::named(
-                    super::super::syntax::Type::Pointer,
-                    "%mal_environment",
-                ),
-                super::super::syntax::Parameter::named(parameter.llvm, "%mal_parameter"),
-            ]
+            super::super::syntax::llvm_parameters!(
+                "%mal_context" : ptr,
+                "%mal_control_top" : ptr,
+                "%mal_environment" : ptr,
+                "%mal_parameter" : { parameter.llvm },
+            )
         };
         let result = self.types.value(&self.result_type)?;
         let suffix = if self.mode == EmissionMode::Frames {
@@ -235,19 +217,15 @@ impl<'a> FunctionEmitter<'a> {
         };
         // The native version must stay small on its hot path, so the frames version is never inlined into it.
         let attributes = if self.mode == EmissionMode::Frames {
-            vec![super::super::syntax::FunctionAttribute::NoInline]
+            super::super::syntax::llvm_function_attributes!(noinline)
         } else {
             Vec::new()
         };
-        self.begin_function(
-            super::super::syntax::FunctionSignature::new(
-                result.llvm,
-                format!("{}{suffix}", function_name(self.function.id)),
-                parameters,
-            )
-            .with_linkage(super::super::syntax::Linkage::Internal)
-            .with_attributes(attributes),
-        );
+        self.begin_function(super::super::syntax::llvm_signature!(
+            internal fn { format!("{}{suffix}", function_name(self.function.id)) }(
+                {{ parameters }},
+            ) -> { result.llvm }; attributes [{{ attributes }}]
+        ));
         self.block("entry");
         if !self.frame_sites.is_empty() {
             self.load(
@@ -274,7 +252,7 @@ impl<'a> FunctionEmitter<'a> {
             if self.local_control_storage {
                 self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
                     "%mal_local_control_storage",
-                    super::super::syntax::Type::Pointer,
+                    super::super::syntax::llvm_type!(ptr),
                     self.types.pointer_alignment(),
                 ));
                 self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
@@ -307,25 +285,25 @@ impl<'a> FunctionEmitter<'a> {
         if self.common_region.is_some() {
             self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
                 "%mal_active_environment",
-                super::super::syntax::Type::Pointer,
+                super::super::syntax::llvm_type!(ptr),
                 self.types.pointer_alignment(),
             ));
             let environment = self.register();
             self.direct_call(
                 Some(environment.clone()),
                 false,
-                super::super::syntax::Type::Pointer,
+                super::super::syntax::llvm_type!(ptr),
                 "mal_runtime_environment_retain",
                 [
-                    (super::super::syntax::Type::Pointer, "%mal_context".into()),
+                    (super::super::syntax::llvm_type!(ptr), "%mal_context".into()),
                     (
-                        super::super::syntax::Type::Pointer,
+                        super::super::syntax::llvm_type!(ptr),
                         "%mal_environment".into(),
                     ),
                 ],
             );
             self.store(
-                super::super::syntax::Type::Pointer,
+                super::super::syntax::llvm_type!(ptr),
                 environment,
                 "%mal_active_environment",
                 self.types.pointer_alignment(),
@@ -356,7 +334,7 @@ impl<'a> FunctionEmitter<'a> {
         if let Some((size, alignment)) = self.buffer_value_storage {
             self.structured_instruction(super::super::syntax::llvm_instruction!(alloca
                 "%mal_buffer_value",
-                super::super::syntax::Type::array(size, super::super::syntax::Type::integer(8_u16)),
+                super::super::syntax::llvm_type!(array(size, int(8_u16))),
                 alignment,
             ));
         }

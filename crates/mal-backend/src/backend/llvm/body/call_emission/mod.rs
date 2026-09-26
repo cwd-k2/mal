@@ -28,12 +28,12 @@ impl FunctionEmitter<'_> {
         let callee = self.atom(callee)?;
         let environment = self.closure_environment(&callee)?;
         let mut arguments = vec![
-            (super::super::syntax::Type::Pointer, "%mal_context".into()),
+            (super::super::syntax::llvm_type!(ptr), "%mal_context".into()),
             (
-                super::super::syntax::Type::Pointer,
+                super::super::syntax::llvm_type!(ptr),
                 "%mal_control_top".into(),
             ),
-            (super::super::syntax::Type::Pointer, environment),
+            (super::super::syntax::llvm_type!(ptr), environment),
         ];
         if target.parameter.ty == Type::Unit {
             if argument.ty != Type::Unit {
@@ -108,12 +108,12 @@ impl FunctionEmitter<'_> {
             [1],
         );
         let mut arguments = vec![
-            (super::super::syntax::Type::Pointer, "%mal_context".into()),
+            (super::super::syntax::llvm_type!(ptr), "%mal_context".into()),
             (
-                super::super::syntax::Type::Pointer,
+                super::super::syntax::llvm_type!(ptr),
                 "%mal_control_top".into(),
             ),
-            (super::super::syntax::Type::Pointer, environment.clone()),
+            (super::super::syntax::llvm_type!(ptr), environment.clone()),
         ];
         if **parameter == Type::Unit {
             if argument.ty != Type::Unit {

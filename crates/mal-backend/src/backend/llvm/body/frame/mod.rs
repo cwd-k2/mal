@@ -52,14 +52,14 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             frame_pointer.clone(),
             false,
-            crate::backend::llvm::syntax::Type::integer(8_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
             reservation.storage,
             [(self.types.index_llvm_type(), reservation.top.clone())],
         );
         if tagged {
             let tag = self.frame_tags.get(&site)?;
             self.store(
-                crate::backend::llvm::syntax::Type::integer(32_u16),
+                crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
                 tag.to_string(),
                 frame_pointer.as_str(),
                 4,
@@ -87,10 +87,10 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 pointer.clone(),
                 false,
-                crate::backend::llvm::syntax::Type::integer(8_u16),
+                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                 frame_pointer.as_str(),
                 [(
-                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
                     layout.offset.to_string(),
                 )],
             );
@@ -108,15 +108,15 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 pointer.clone(),
                 false,
-                crate::backend::llvm::syntax::Type::integer(8_u16),
+                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                 frame_pointer.as_str(),
                 [(
-                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
                     offset.to_string(),
                 )],
             );
             self.store(
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 environment,
                 pointer,
                 self.types.pointer_alignment(),
@@ -128,10 +128,10 @@ impl FunctionEmitter<'_> {
             self.get_element_ptr(
                 footer.clone(),
                 false,
-                crate::backend::llvm::syntax::Type::integer(8_u16),
+                crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                 frame_pointer,
                 [(
-                    crate::backend::llvm::syntax::Type::integer(64_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(64_u16)),
                     offset.to_string(),
                 )],
             );
@@ -264,13 +264,13 @@ impl FunctionEmitter<'_> {
             self.direct_call(
                 None,
                 false,
-                crate::backend::llvm::syntax::Type::Void,
+                crate::backend::llvm::syntax::llvm_type!(void),
                 "mal_runtime_environment_release",
-                [(crate::backend::llvm::syntax::Type::Pointer, previous)],
+                [(crate::backend::llvm::syntax::llvm_type!(ptr), previous)],
             );
         }
         self.store(
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             environment.as_str(),
             "%mal_active_environment",
             self.types.pointer_alignment(),
@@ -312,7 +312,7 @@ impl FunctionEmitter<'_> {
                 matched.clone(),
                 crate::backend::llvm::syntax::ComparisonKind::Integer,
                 crate::backend::llvm::syntax::ComparisonPredicate::Eq,
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 code,
                 format!("@{}", super::function_name(*target)),
             );
@@ -334,15 +334,15 @@ impl FunctionEmitter<'_> {
             let result_type = self.types.value(result)?;
             let mut arguments = vec![
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "%mal_context".into(),
                 ),
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "%mal_control_top".into(),
                 ),
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     environment.into(),
                 ),
             ];

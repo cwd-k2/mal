@@ -63,14 +63,14 @@ impl FunctionEmitter<'_> {
         let mut handed_over = None;
         let mut arguments = vec![
             (
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 "%mal_context".into(),
             ),
             (
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 "%mal_control_top".into(),
             ),
-            (crate::backend::llvm::syntax::Type::Pointer, environment),
+            (crate::backend::llvm::syntax::llvm_type!(ptr), environment),
         ];
         if self.function.parameter.ty != Type::Unit {
             let argument = if crate::execution::ownership::is_managed(&argument.ty) {
@@ -116,15 +116,15 @@ impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_native_entry_guard(&mut self) -> Option<()> {
         let mut parameters = vec![
             (
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 "%mal_context".into(),
             ),
             (
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 "%mal_control_top".into(),
             ),
             (
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 "%mal_environment".into(),
             ),
         ];
@@ -138,10 +138,10 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(flag.clone()),
             false,
-            crate::backend::llvm::syntax::Type::integer(8_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
             "mal_native_stack_is_deep",
             [(
-                crate::backend::llvm::syntax::Type::Pointer,
+                crate::backend::llvm::syntax::llvm_type!(ptr),
                 "%mal_context".into(),
             )],
         );
@@ -150,7 +150,7 @@ impl FunctionEmitter<'_> {
             deep.clone(),
             crate::backend::llvm::syntax::ComparisonKind::Integer,
             crate::backend::llvm::syntax::ComparisonPredicate::Ne,
-            crate::backend::llvm::syntax::Type::integer(8_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
             flag,
             "0",
         );
@@ -158,12 +158,12 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(expected.clone()),
             false,
-            crate::backend::llvm::syntax::Type::integer(1_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
             "llvm.expect.i1",
             [
-                (crate::backend::llvm::syntax::Type::integer(1_u16), deep),
+                (crate::backend::llvm::syntax::llvm_type!(int(1_u16)), deep),
                 (
-                    crate::backend::llvm::syntax::Type::integer(1_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
                     "false".into(),
                 ),
             ],

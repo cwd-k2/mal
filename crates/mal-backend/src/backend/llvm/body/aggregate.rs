@@ -112,7 +112,7 @@ impl FunctionEmitter<'_> {
             tag.clone(),
             sum_type.llvm.clone(),
             "zeroinitializer",
-            crate::backend::llvm::syntax::Type::integer(32_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
             index.to_string(),
             [0],
         );
@@ -132,11 +132,11 @@ impl FunctionEmitter<'_> {
             storage.clone(),
             [
                 (
-                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
                     "0".into(),
                 ),
                 (
-                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
                     "1".into(),
                 ),
             ],
@@ -182,11 +182,11 @@ impl FunctionEmitter<'_> {
             );
             tag
         };
-        let tag_type = crate::backend::llvm::syntax::Type::integer(if is_bool(&scrutinee.ty) {
+        let tag_type = crate::backend::llvm::syntax::llvm_type!(int(if is_bool(&scrutinee.ty) {
             1_u16
         } else {
             32_u16
-        });
+        }));
         let cases = arms.iter().map(|arm| {
             (
                 arm.index.to_string(),
@@ -290,11 +290,11 @@ impl FunctionEmitter<'_> {
             storage,
             [
                 (
-                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
                     "0".into(),
                 ),
                 (
-                    crate::backend::llvm::syntax::Type::integer(32_u16),
+                    crate::backend::llvm::syntax::llvm_type!(int(32_u16)),
                     "1".into(),
                 ),
             ],

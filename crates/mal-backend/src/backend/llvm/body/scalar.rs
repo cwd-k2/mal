@@ -12,12 +12,12 @@ impl ScalarType {
     pub(super) fn llvm_type(self) -> crate::backend::llvm::syntax::Type {
         if self.floating {
             if self.bits == 32 {
-                crate::backend::llvm::syntax::Type::Float
+                crate::backend::llvm::syntax::llvm_type!(float)
             } else {
-                crate::backend::llvm::syntax::Type::Double
+                crate::backend::llvm::syntax::llvm_type!(double)
             }
         } else {
-            crate::backend::llvm::syntax::Type::integer(u16::from(self.bits))
+            crate::backend::llvm::syntax::llvm_type!(int(u16::from(self.bits)))
         }
     }
 }

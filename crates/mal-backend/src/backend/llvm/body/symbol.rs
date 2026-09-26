@@ -45,10 +45,10 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(result.clone()),
             false,
-            crate::backend::llvm::syntax::Type::integer(8_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
             "mal_runtime_symbol_at",
             [
-                (crate::backend::llvm::syntax::Type::Pointer, data),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), data),
                 (self.types.index_llvm_type(), index.representation),
             ],
         );
@@ -107,22 +107,22 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             None,
             false,
-            crate::backend::llvm::syntax::Type::Void,
+            crate::backend::llvm::syntax::llvm_type!(void),
             operation,
             [
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "%mal_context".into(),
                 ),
                 (
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     result_storage.into(),
                 ),
-                (crate::backend::llvm::syntax::Type::Pointer, left_owner),
-                (crate::backend::llvm::syntax::Type::Pointer, left_data),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), left_owner),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), left_data),
                 (self.types.index_llvm_type(), left_length),
-                (crate::backend::llvm::syntax::Type::Pointer, right_owner),
-                (crate::backend::llvm::syntax::Type::Pointer, right_data),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), right_owner),
+                (crate::backend::llvm::syntax::llvm_type!(ptr), right_data),
                 (self.types.index_llvm_type(), right_length),
             ],
         );

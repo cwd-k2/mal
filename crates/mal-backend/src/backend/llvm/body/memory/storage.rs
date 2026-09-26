@@ -1,7 +1,7 @@
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
-use crate::backend::llvm::syntax::{MetadataAttachment, Type as LlvmType};
+use crate::backend::llvm::syntax::{MetadataAttachment, llvm_type};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_aligned_buffer_load_at(
@@ -71,7 +71,7 @@ impl FunctionEmitter<'_> {
             };
             self.load(
                 source_tag.clone(),
-                LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
                 pointer,
                 alignment,
                 metadata.iter().copied(),
@@ -81,9 +81,9 @@ impl FunctionEmitter<'_> {
                 self.cast(
                     value.clone(),
                     crate::backend::llvm::syntax::CastOperator::Trunc,
-                    LlvmType::integer(8_u16),
+                    llvm_type!(int(8_u16)),
                     source_tag,
-                    LlvmType::integer(1_u16),
+                    llvm_type!(int(1_u16)),
                 );
                 return Some(EmittedValue {
                     ty: element.clone(),
@@ -98,9 +98,9 @@ impl FunctionEmitter<'_> {
                 self.cast(
                     extended.clone(),
                     crate::backend::llvm::syntax::CastOperator::ZExt,
-                    LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                    llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
                     source_tag,
-                    LlvmType::integer(32_u16),
+                    llvm_type!(int(32_u16)),
                 );
                 extended
             } else {
@@ -108,9 +108,9 @@ impl FunctionEmitter<'_> {
                 self.cast(
                     narrowed.clone(),
                     crate::backend::llvm::syntax::CastOperator::Trunc,
-                    LlvmType::integer(64_u16),
+                    llvm_type!(int(64_u16)),
                     source_tag,
-                    LlvmType::integer(32_u16),
+                    llvm_type!(int(32_u16)),
                 );
                 narrowed
             };
@@ -124,7 +124,7 @@ impl FunctionEmitter<'_> {
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
             self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
-                crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+                crate::backend::llvm::syntax::llvm_type!(int(32_u16)) => tag;
                 default format!("{stem}_invalid");
                 [{{ cases }}]
             ));
@@ -259,12 +259,12 @@ impl FunctionEmitter<'_> {
                 self.cast(
                     tag.clone(),
                     crate::backend::llvm::syntax::CastOperator::ZExt,
-                    LlvmType::integer(1_u16),
+                    llvm_type!(int(1_u16)),
                     value.representation.clone(),
-                    LlvmType::integer(8_u16),
+                    llvm_type!(int(8_u16)),
                 );
                 self.store(
-                    LlvmType::integer(8_u16),
+                    llvm_type!(int(8_u16)),
                     &tag,
                     pointer,
                     1,
@@ -282,9 +282,9 @@ impl FunctionEmitter<'_> {
                 self.cast(
                     narrowed.clone(),
                     crate::backend::llvm::syntax::CastOperator::Trunc,
-                    LlvmType::integer(32_u16),
+                    llvm_type!(int(32_u16)),
                     &tag,
-                    LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                    llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
                 );
                 narrowed
             } else {
@@ -292,9 +292,9 @@ impl FunctionEmitter<'_> {
                 self.cast(
                     extended.clone(),
                     crate::backend::llvm::syntax::CastOperator::ZExt,
-                    LlvmType::integer(32_u16),
+                    llvm_type!(int(32_u16)),
                     &tag,
-                    LlvmType::integer(64_u16),
+                    llvm_type!(int(64_u16)),
                 );
                 extended
             };
@@ -304,7 +304,7 @@ impl FunctionEmitter<'_> {
                 1
             };
             self.store(
-                LlvmType::integer(u16::try_from(layout.tag_bits).ok()?),
+                llvm_type!(int(u16::try_from(layout.tag_bits).ok()?)),
                 source_tag,
                 pointer,
                 alignment,
@@ -318,7 +318,7 @@ impl FunctionEmitter<'_> {
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
             self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
-                crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+                crate::backend::llvm::syntax::llvm_type!(int(32_u16)) => tag;
                 default format!("{stem}_invalid");
                 [{{ cases }}]
             ));
@@ -384,7 +384,7 @@ impl FunctionEmitter<'_> {
         self.get_element_ptr(
             field.clone(),
             false,
-            LlvmType::integer(8_u16),
+            llvm_type!(int(8_u16)),
             pointer,
             [(self.types.index_llvm_type(), offset.to_string())],
         );

@@ -12,20 +12,14 @@ impl FunctionEmitter<'_> {
         let environment_type =
             Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
-        self.begin_function(
-            crate::backend::llvm::syntax::FunctionSignature::new(
-                crate::backend::llvm::syntax::Type::Void,
-                format!(
-                    "mal_destroy_environment_{}",
-                    function_number(self.function.id)
-                ),
-                [crate::backend::llvm::syntax::Parameter::named(
-                    crate::backend::llvm::syntax::Type::Pointer,
-                    "%mal_environment",
-                )],
-            )
-            .with_linkage(crate::backend::llvm::syntax::Linkage::Internal),
-        );
+        self.begin_function(crate::backend::llvm::syntax::llvm_signature!(
+            internal fn { format!(
+                "mal_destroy_environment_{}",
+                function_number(self.function.id)
+            ) }(
+                "%mal_environment" : ptr,
+            ) -> void; attributes []
+        ));
         self.block("entry");
         let environment = self.register();
         self.load(
@@ -64,7 +58,7 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         self.load(
             environment.clone(),
-            crate::backend::llvm::syntax::Type::Pointer,
+            crate::backend::llvm::syntax::llvm_type!(ptr),
             "%mal_active_environment",
             self.types.pointer_alignment(),
             [],

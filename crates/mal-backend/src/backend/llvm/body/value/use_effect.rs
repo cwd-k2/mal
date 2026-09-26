@@ -107,17 +107,17 @@ impl FunctionEmitter<'_> {
         self.direct_call(
             Some(unique.clone()),
             false,
-            crate::backend::llvm::syntax::Type::integer(8_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
             "mal_runtime_environment_is_unique",
-            [(crate::backend::llvm::syntax::Type::Pointer, environment)],
+            [(crate::backend::llvm::syntax::llvm_type!(ptr), environment)],
         );
         let condition = self.register();
         self.cast(
             condition.clone(),
             crate::backend::llvm::syntax::CastOperator::Trunc,
-            crate::backend::llvm::syntax::Type::integer(8_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
             unique,
-            crate::backend::llvm::syntax::Type::integer(1_u16),
+            crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
         );
         let label = self.label_id();
         self.conditional_branch(

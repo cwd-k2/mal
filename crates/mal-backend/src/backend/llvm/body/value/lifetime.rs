@@ -74,14 +74,14 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "mal_runtime_bytes_retain",
                     [
                         (
-                            crate::backend::llvm::syntax::Type::Pointer,
+                            crate::backend::llvm::syntax::llvm_type!(ptr),
                             "%mal_context".into(),
                         ),
-                        (crate::backend::llvm::syntax::Type::Pointer, owner),
+                        (crate::backend::llvm::syntax::llvm_type!(ptr), owner),
                     ],
                 );
                 Some(value.into())
@@ -93,14 +93,14 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "mal_runtime_environment_retain",
                     [
                         (
-                            crate::backend::llvm::syntax::Type::Pointer,
+                            crate::backend::llvm::syntax::llvm_type!(ptr),
                             "%mal_context".into(),
                         ),
-                        (crate::backend::llvm::syntax::Type::Pointer, environment),
+                        (crate::backend::llvm::syntax::llvm_type!(ptr), environment),
                     ],
                 );
                 Some(value.into())
@@ -109,14 +109,14 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     "mal_runtime_environment_retain",
                     [
                         (
-                            crate::backend::llvm::syntax::Type::Pointer,
+                            crate::backend::llvm::syntax::llvm_type!(ptr),
                             "%mal_context".into(),
                         ),
-                        (crate::backend::llvm::syntax::Type::Pointer, value.into()),
+                        (crate::backend::llvm::syntax::llvm_type!(ptr), value.into()),
                     ],
                 );
                 Some(value.into())
@@ -155,9 +155,9 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::Type::Void,
+                    crate::backend::llvm::syntax::llvm_type!(void),
                     "mal_runtime_bytes_release",
-                    [(crate::backend::llvm::syntax::Type::Pointer, owner)],
+                    [(crate::backend::llvm::syntax::llvm_type!(ptr), owner)],
                 );
             }
             Type::Function { .. } => {
@@ -167,17 +167,17 @@ impl FunctionEmitter<'_> {
                 self.direct_call(
                     None,
                     false,
-                    crate::backend::llvm::syntax::Type::Void,
+                    crate::backend::llvm::syntax::llvm_type!(void),
                     "mal_runtime_environment_release",
-                    [(crate::backend::llvm::syntax::Type::Pointer, environment)],
+                    [(crate::backend::llvm::syntax::llvm_type!(ptr), environment)],
                 )
             }
             Type::Buffer(_) => self.direct_call(
                 None,
                 false,
-                crate::backend::llvm::syntax::Type::Void,
+                crate::backend::llvm::syntax::llvm_type!(void),
                 "mal_runtime_environment_release",
-                [(crate::backend::llvm::syntax::Type::Pointer, value.into())],
+                [(crate::backend::llvm::syntax::llvm_type!(ptr), value.into())],
             ),
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
@@ -214,7 +214,7 @@ impl FunctionEmitter<'_> {
             .enumerate()
             .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
         self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
-            crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+            crate::backend::llvm::syntax::llvm_type!(int(32_u16)) => tag;
             default format!("mal_{operation}_{id}_invalid");
             [{{ cases }}]
         ));

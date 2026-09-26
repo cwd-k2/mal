@@ -41,7 +41,7 @@ impl FunctionEmitter<'_> {
                     with_code.clone(),
                     closure_type.llvm.clone(),
                     "zeroinitializer",
-                    crate::backend::llvm::syntax::Type::Pointer,
+                    crate::backend::llvm::syntax::llvm_type!(ptr),
                     format!("@{}", super::function_name(*function)),
                     [0],
                 );
@@ -79,11 +79,11 @@ impl FunctionEmitter<'_> {
                     self.direct_call(
                         Some(environment.clone()),
                         false,
-                        crate::backend::llvm::syntax::Type::Pointer,
+                        crate::backend::llvm::syntax::llvm_type!(ptr),
                         "mal_runtime_environment_allocate",
                         [
                             (
-                                crate::backend::llvm::syntax::Type::Pointer,
+                                crate::backend::llvm::syntax::llvm_type!(ptr),
                                 "%mal_context".into(),
                             ),
                             (
@@ -91,7 +91,7 @@ impl FunctionEmitter<'_> {
                                 environment_layout.size.to_string(),
                             ),
                             (
-                                crate::backend::llvm::syntax::Type::Pointer,
+                                crate::backend::llvm::syntax::llvm_type!(ptr),
                                 format!(
                                     "@mal_destroy_environment_{}",
                                     super::function_number(*function)
@@ -112,7 +112,7 @@ impl FunctionEmitter<'_> {
                         closure.clone(),
                         closure_type.llvm,
                         with_code,
-                        crate::backend::llvm::syntax::Type::Pointer,
+                        crate::backend::llvm::syntax::llvm_type!(ptr),
                         environment,
                         [1],
                     );
@@ -203,7 +203,7 @@ impl FunctionEmitter<'_> {
                     self.get_element_ptr(
                         register.clone(),
                         false,
-                        crate::backend::llvm::syntax::Type::integer(8_u16),
+                        crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                         left.representation,
                         [(self.types.index_llvm_type(), offset)],
                     );
@@ -230,12 +230,12 @@ impl FunctionEmitter<'_> {
                         self.direct_call(
                             Some(equality.clone()),
                             false,
-                            crate::backend::llvm::syntax::Type::integer(8_u16),
+                            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                             "mal_runtime_symbol_equal",
                             [
-                                (crate::backend::llvm::syntax::Type::Pointer, left.data),
+                                (crate::backend::llvm::syntax::llvm_type!(ptr), left.data),
                                 (self.types.index_llvm_type(), left.count),
-                                (crate::backend::llvm::syntax::Type::Pointer, right.data),
+                                (crate::backend::llvm::syntax::llvm_type!(ptr), right.data),
                                 (self.types.index_llvm_type(), right.count),
                             ],
                         );
@@ -252,7 +252,7 @@ impl FunctionEmitter<'_> {
                             register.clone(),
                             crate::backend::llvm::syntax::ComparisonKind::Integer,
                             predicate,
-                            crate::backend::llvm::syntax::Type::integer(8_u16),
+                            crate::backend::llvm::syntax::llvm_type!(int(8_u16)),
                             equality,
                             "0",
                         );
@@ -270,7 +270,7 @@ impl FunctionEmitter<'_> {
                             register.clone(),
                             crate::backend::llvm::syntax::ComparisonKind::Integer,
                             predicate,
-                            crate::backend::llvm::syntax::Type::integer(1_u16),
+                            crate::backend::llvm::syntax::llvm_type!(int(1_u16)),
                             left.representation,
                             right.representation,
                         );
