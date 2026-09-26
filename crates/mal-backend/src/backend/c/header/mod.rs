@@ -142,14 +142,14 @@ fn wrapper_definition(
     match &external.parameter {
         mal_frontend::check::ast::Type::Unit => {}
         mal_frontend::check::ast::Type::Product(elements) => {
-            let raw = Expr::compound_literal(
-                types.c_type(&external.parameter),
-                elements.iter().enumerate().map(|(field, _)| {
-                    Initializer::designated(
-                        format!("field_{field}"),
-                        Expr::identifier(format!("argument_{field}")),
-                    )
-                }),
+            let initializers = elements.iter().enumerate().map(|(field, _)| {
+                Initializer::designated(
+                    format!("field_{field}"),
+                    c_expr!(id format!("argument_{field}")),
+                )
+            });
+            let raw = c_expr!(compound types.c_type(&external.parameter);
+                (extend initializers),
             );
             arguments.push(types.raw_to_host_value(
                 &external.parameter,

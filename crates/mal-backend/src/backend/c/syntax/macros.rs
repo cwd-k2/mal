@@ -21,6 +21,25 @@ macro_rules! c_initializer {
     };
 }
 
+macro_rules! c_initializers {
+    ($($initializer:tt),* $(,)?) => {{
+        let mut initializers = Vec::new();
+        $(
+            $crate::backend::c::syntax::c_initializers_item!(initializers; $initializer);
+        )*
+        initializers
+    }};
+}
+
+macro_rules! c_initializers_item {
+    ($initializers:ident; (extend $more:expr)) => {
+        $initializers.extend($more)
+    };
+    ($initializers:ident; $initializer:tt) => {
+        $initializers.extend([$crate::backend::c::syntax::c_initializer! $initializer])
+    };
+}
+
 macro_rules! c_expr {
     (rust $expression:expr) => {
         $expression
@@ -127,7 +146,7 @@ macro_rules! c_expr {
     (compound $ty:expr; $($initializer:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::compound_literal(
             $ty,
-            [$($crate::backend::c::syntax::c_initializer! $initializer),*],
+            $crate::backend::c::syntax::c_initializers!($($initializer),*),
         )
     };
 }
@@ -251,7 +270,8 @@ pub(in crate::backend) use c_block;
 pub(in crate::backend) use c_expr;
 pub(in crate::backend) use c_statement;
 pub(in crate::backend) use {
-    c_block_item, c_initializer, c_switch_case, c_switch_cases, c_switch_cases_item,
+    c_block_item, c_initializer, c_initializers, c_initializers_item, c_switch_case,
+    c_switch_cases, c_switch_cases_item,
 };
 
 #[cfg(test)]
@@ -286,12 +306,17 @@ mod tests {
     #[test]
     fn constructs_compound_literals_from_static_and_rust_initializers() {
         let dynamic = Initializer::designated("second", Expr::number("2"));
+        let trailing = [Initializer::positional(Expr::number("3"))];
         let expression = super::c_expr!(compound "Pair";
             (field "first"; (number 1)),
             (rust dynamic),
+            (extend trailing),
         );
 
-        assert_eq!(expression.to_string(), "(Pair){ .first = 1, .second = 2 }");
+        assert_eq!(
+            expression.to_string(),
+            "(Pair){ .first = 1, .second = 2, 3 }"
+        );
     }
 
     #[test]
