@@ -1,6 +1,5 @@
 use crate::backend::c::syntax::{
-    Expr, FunctionDefinition, TypeName, VariableDeclaration, c_block, c_expr, c_function,
-    c_signature,
+    Expr, FunctionDefinition, c_block, c_expr, c_function, c_signature, c_type, c_variable,
 };
 use mal_frontend::check::ast::Type;
 
@@ -69,10 +68,10 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                 (number 0)
         )),
         (declaration (
-            VariableDeclaration::array("uint8_t", "argument", number(value.size))
+            c_variable!(array "argument": named("uint8_t"); size { number(value.size) })
                 .aligned(number(value.alignment))
         ) = { zero_initializer() }),
-        (var (TypeName::named("void").pointer()) ("arguments") = (call "mal_runtime_buffer_from_arguments";
+        (var (c_type!(ptr(named("void")))) ("arguments") = (call "mal_runtime_buffer_from_arguments";
                 (address (id "context")),
                 (add (id "mal_argv"); (number 1)),
                 (id "argument_count"),

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
-    Expr, FunctionSignature, FunctionSpecifier, Parameter, Statement, TranslationUnit, TypeName,
-    c_expr, c_function, c_initializer, c_statement, c_switch_case,
+    Expr, Statement, TranslationUnit, TypeName, c_expr, c_function, c_initializer, c_signature,
+    c_statement, c_switch_case, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -136,7 +136,7 @@ impl<'a> Marshalling<'a> {
                 (field "unused"; (call "UINT8_C"; (number 0))),
             )),
             plan::Kind::External => Some(c_expr!(compound self.raw_types.c_type(value.ty);
-                (field "bits"; { load(TypeName::const_named("uintptr_t").pointer(), pointer) }),
+                (field "bits"; { load(c_type!(ptr(const(named("uintptr_t")))), pointer) }),
             )),
             plan::Kind::Product(fields) => {
                 let initializers = fields
@@ -162,7 +162,7 @@ impl<'a> Marshalling<'a> {
                 variants,
             } => self.read_sum(value.ty, *tag_offset, variants, pointer, context),
             plan::Kind::Scalar => Some(load(
-                TypeName::const_named(c_scalar_type(value.ty)?).pointer(),
+                c_type!(ptr(const(named(c_scalar_type(value.ty)?)))),
                 pointer,
             )),
         }
@@ -208,19 +208,14 @@ impl<'a> Marshalling<'a> {
             "invalid sum tag at LLVM bridge",
         ) }]));
         let tag = load(
-            TypeName::const_named("uint32_t").pointer(),
+            c_type!(ptr(const(named("uint32_t")))),
             c_expr!(add (id "value"); (number tag_offset)),
         );
         self.helpers.push(c_function!(signature {
-            FunctionSignature::new(
-                c_type,
-                helper.clone(),
-                [
-                    Parameter::named(TypeName::named("MalContext").pointer(), "context"),
-                    Parameter::named(TypeName::const_named("uint8_t").pointer(), "value"),
-                ],
-            )
-            .with_specifiers([FunctionSpecifier::Static])
+            c_signature!(static fn { helper.clone() }(
+                "context": ptr(named("MalContext")),
+                "value": ptr(const(named("uint8_t"))),
+            ) -> { c_type })
         };
             block [
                 (var ("uint32_t") ("tag") = { tag }),
@@ -332,16 +327,11 @@ impl<'a> Marshalling<'a> {
             c_expr!(field (id "input"); "tag"),
         );
         self.helpers.push(c_function!(signature {
-            FunctionSignature::new(
-                "void",
-                helper.clone(),
-                [
-                    Parameter::named(TypeName::named("MalContext").pointer(), "context"),
-                    Parameter::named(TypeName::named("uint8_t").pointer(), "value"),
-                    Parameter::named(c_type, "input"),
-                ],
-            )
-            .with_specifiers([FunctionSpecifier::Static])
+            c_signature!(static fn { helper.clone() }(
+                "context": ptr(named("MalContext")),
+                "value": ptr(named("uint8_t")),
+                "input": { c_type },
+            ) -> named("void"))
         };
             block [
                 { tag_store },
@@ -359,9 +349,9 @@ impl<'a> Marshalling<'a> {
 
 fn bridge_pointer(base: Expr, offset: usize, read_only: bool) -> Expr {
     let ty = if read_only {
-        TypeName::const_named("uint8_t").pointer()
+        c_type!(ptr(const(named("uint8_t"))))
     } else {
-        TypeName::named("uint8_t").pointer()
+        c_type!(ptr(named("uint8_t")))
     };
     let pointer = c_expr!(cast ty; { base });
     if offset == 0 {
@@ -372,7 +362,7 @@ fn bridge_pointer(base: Expr, offset: usize, read_only: bool) -> Expr {
 }
 
 fn context_cast() -> Expr {
-    c_expr!(cast TypeName::named("MalContext").pointer(); (id "mal_context"))
+    c_expr!(cast c_type!(ptr(named("MalContext"))); (id "mal_context"))
 }
 
 fn load(ty: TypeName, pointer: Expr) -> Expr {
@@ -381,7 +371,7 @@ fn load(ty: TypeName, pointer: Expr) -> Expr {
 
 fn store(ty: impl Into<TypeName>, pointer: Expr, value: Expr) -> Statement {
     c_statement!(expr (assign
-        (dereference (cast ty.into().pointer(); { pointer }));
+        (dereference (cast c_type!({ ty.into().pointer() }); { pointer }));
         { value }
     ))
 }
