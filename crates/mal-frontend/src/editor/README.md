@@ -9,9 +9,9 @@ Builds what editor queries need from the current text and, when analysis succeed
 | `index` | declaration identity index behind document symbols, completion, and file-local views |
 | `index/resolved_ast` | declaration and reference identities, explicit alias names, and result binders |
 | `index/checked_ast` | canonical types of checked expressions and result binders, and where control leaves its result block and to which binders |
-| `index/aliases` | alias names written in declarations, so hover keeps them |
+| `index/aliases` | value identity aliases introduced by lambda captures |
+| `index/type_display` | declared and contextually propagated source type names, so hover keeps aliases |
 | `index/predefined` | type details of predefined values from the resolver's predefined table |
-| `index/type_display` | display names of source type expressions |
 | `documentation` | the contiguous `//` comment lines directly above a declaration |
 
 The resolved and checked walks iterate over left-associative operator chains instead of recursing.

@@ -86,6 +86,45 @@ fn function_and_parameter_hovers_preserve_declared_aliases() {
 }
 
 #[test]
+fn inferred_call_results_and_callback_parameters_preserve_specialized_aliases() {
+    let text = "View<A> :: (Buffer<A>, USize);\n\
+                MaybeView<A> :: [Unit, View<A>];\n\
+                view<A> :: Buffer<A> -> View<A> := (buffer) -> (buffer, 0usize);\n\
+                choose<A> :: View<A> -> MaybeView<A> := (source) -> [none, some] => some(source);\n\
+                inspect<A> :: (View<A>, View<A> -> USize) -> USize := (source, callback) -> callback(source);\n\
+                main :: Unit -> Int32 := () -> {\n\
+                    writable := view<Int32>(make<Int32>(0usize));\n\
+                    inspected := inspect<Int32>(writable, (current) -> 0usize);\n\
+                    selected := choose<Int32>(writable);\n\
+                    selected[() -> 0usize, (selectedView) -> 0usize];\n\
+                    0i32\n\
+                };\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+
+    let writable = document
+        .hover_at(text.find("writable :=").unwrap())
+        .unwrap();
+    assert_eq!(writable.ty, "View<Int32>");
+    let current = document.hover_at(text.find("current").unwrap()).unwrap();
+    assert_eq!(current.ty, "View<Int32>");
+    let selected_view = document
+        .hover_at(text.find("selectedView").unwrap())
+        .unwrap();
+    assert_eq!(selected_view.ty, "View<Int32>");
+}
+
+#[test]
+fn buffer_handles_inferred_views_keep_the_generic_alias() {
+    let text = include_str!("../../../../examples/buffer-handles/program.mal");
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+
+    for name in ["writable :=", "readonly :="] {
+        let hover = document.hover_at(text.find(name).unwrap()).unwrap();
+        assert_eq!(hover.ty, "View<Int32>");
+    }
+}
+
+#[test]
 fn external_function_references_share_the_declaration_identity() {
     let text = "extern output :: UInt8 -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(1u8) };\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");

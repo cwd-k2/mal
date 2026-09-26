@@ -78,6 +78,8 @@ impl Index {
                 value,
             } => {
                 let id = SymbolId::Value(binding.id);
+                self.value_types
+                    .insert(binding.id, super::type_display::type_name(annotation));
                 self.top_level.push(id);
                 self.add_raw(
                     id,
@@ -145,6 +147,8 @@ impl Index {
         if let Some(annotation) = &binding.annotation {
             self.collect_resolved_type(annotation);
             self.apply_declared_pattern_type(&binding.pattern, annotation);
+        } else if let Some(inferred) = self.expression_display_type(&binding.value) {
+            self.apply_declared_pattern_type(&binding.pattern, &inferred);
         }
         self.collect_resolved_expression_with_expected(&binding.value, binding.annotation.as_ref());
         self.collect_resolved_pattern(&binding.pattern, top_level, declaration_span);
@@ -160,6 +164,7 @@ impl Index {
                 let id = self.canonical_value(binding.id);
                 self.value_types
                     .insert(id, super::type_display::type_name(ty));
+                self.declared_value_types.insert(id, ty.clone());
             }
             resolved::Pattern::Product(patterns) => {
                 let expanded = self.expanded_type(ty);
@@ -364,29 +369,24 @@ impl Index {
             Expression::Lambda(lambda) => {
                 self.collect_resolved_lambda(lambda, None, None);
             }
-            Expression::Call { callee, arguments } => {
-                self.collect_resolved_expression(callee);
-                for argument in arguments {
-                    self.collect_resolved_expression(argument);
-                }
-            }
+            Expression::Call { callee, arguments } => self.collect_resolved_call(callee, arguments),
             Expression::ContinuationApplication {
                 value,
                 continuations,
             } => {
                 self.collect_resolved_expression(value);
-                for continuation in continuations {
-                    match continuation {
-                        resolved::Continuation::Function(expression) => {
-                            self.collect_resolved_expression(expression);
-                        }
-                        resolved::Continuation::Branch(branch) => {
-                            if let Some(parameter) = &branch.parameter {
-                                self.collect_resolved_pattern(parameter, false, parameter.span);
-                            }
-                            self.collect_resolved_body(&branch.body.items, &branch.body.result);
-                        }
-                    }
+                let members = self
+                    .expression_display_type(value)
+                    .map(|ty| self.expanded_type(&ty))
+                    .and_then(|ty| match ty.kind {
+                        resolved::TypeExpression::Sum(members) => Some(members),
+                        _ => None,
+                    });
+                for (index, continuation) in continuations.iter().enumerate() {
+                    self.collect_resolved_continuation(
+                        continuation,
+                        members.as_ref().and_then(|members| members.get(index)),
+                    );
                 }
             }
             Expression::Conversion { value, .. } => self.collect_resolved_expression(value),
@@ -420,6 +420,71 @@ impl Index {
             | Expression::Byte(_)
             | Expression::Symbol(_)
             | Expression::Unit => {}
+        }
+    }
+
+    fn collect_resolved_continuation(
+        &mut self,
+        continuation: &resolved::Continuation,
+        parameter_type: Option<&mal_syntax::ast::Node<resolved::TypeExpression>>,
+    ) {
+        match continuation {
+            resolved::Continuation::Function(expression) => {
+                if let (resolved::Expression::Lambda(lambda), Some(parameter_type)) =
+                    (&expression.kind, parameter_type)
+                {
+                    self.collect_resolved_lambda(lambda, Some(parameter_type), None);
+                } else {
+                    self.collect_resolved_expression(expression);
+                }
+            }
+            resolved::Continuation::Branch(branch) => {
+                if let Some(parameter) = &branch.parameter {
+                    if let Some(parameter_type) = parameter_type {
+                        self.apply_declared_pattern_type(parameter, parameter_type);
+                    }
+                    self.collect_resolved_pattern(parameter, false, parameter.span);
+                }
+                self.collect_resolved_body(&branch.body.items, &branch.body.result);
+            }
+        }
+    }
+
+    fn collect_resolved_call(
+        &mut self,
+        callee: &mal_syntax::ast::Node<resolved::Expression>,
+        arguments: &[mal_syntax::ast::Node<resolved::Expression>],
+    ) {
+        let parameter = self.expression_display_type(callee).and_then(|signature| {
+            match self.expanded_type(&signature).kind {
+                resolved::TypeExpression::Function { parameter, .. } => Some(*parameter),
+                _ => None,
+            }
+        });
+        self.collect_resolved_expression(callee);
+        match (arguments, parameter) {
+            ([argument], Some(parameter)) => {
+                self.collect_resolved_expression_with_expected(argument, Some(&parameter));
+            }
+            (arguments, Some(parameter)) => {
+                let expanded = self.expanded_type(&parameter);
+                if let resolved::TypeExpression::Product(parameters) = expanded.kind
+                    && parameters.len() == arguments.len()
+                {
+                    for (argument, parameter) in arguments.iter().zip(&parameters) {
+                        self.collect_resolved_expression_with_expected(argument, Some(parameter));
+                    }
+                } else {
+                    for argument in arguments {
+                        self.collect_resolved_expression(argument);
+                    }
+                }
+            }
+            (arguments, None) => {
+                for argument in arguments {
+                    self.collect_resolved_expression(argument);
+                }
+            }
         }
     }
 

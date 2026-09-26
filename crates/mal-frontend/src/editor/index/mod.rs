@@ -26,6 +26,10 @@ struct Index {
     value_types: HashMap<resolved::ValueId, String>,
     type_details: HashMap<resolved::TypeId, String>,
     type_aliases: HashMap<resolved::TypeId, mal_syntax::ast::Node<resolved::TypeExpression>>,
+    generic_type_aliases: HashMap<resolved::TypeId, GenericTypeAlias>,
+    declared_value_types:
+        HashMap<resolved::ValueId, mal_syntax::ast::Node<resolved::TypeExpression>>,
+    generic_value_types: HashMap<resolved::ValueId, GenericValueType>,
     functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
     result_binders: HashSet<resolved::ValueId>,
@@ -35,6 +39,18 @@ struct Index {
     exits: Vec<Exit>,
     raw_occurrences: Vec<RawOccurrence>,
     top_level: Vec<SymbolId>,
+}
+
+#[derive(Clone)]
+struct GenericTypeAlias {
+    parameters: Vec<resolved::TypeId>,
+    value: mal_syntax::ast::Node<resolved::TypeExpression>,
+}
+
+#[derive(Clone)]
+struct GenericValueType {
+    parameters: Vec<resolved::TypeId>,
+    ty: mal_syntax::ast::Node<resolved::TypeExpression>,
 }
 
 struct RawOccurrence {
@@ -52,6 +68,9 @@ impl Index {
             value_types: predefined::value_types(),
             type_details: predefined::type_details(),
             type_aliases: HashMap::new(),
+            generic_type_aliases: HashMap::new(),
+            declared_value_types: HashMap::new(),
+            generic_value_types: HashMap::new(),
             functions: predefined::functions(),
             parameters: HashSet::new(),
             result_binders: HashSet::new(),
@@ -63,8 +82,50 @@ impl Index {
         };
         for item in &resolved.items {
             index.collect_aliases_top(&item.kind);
-            if let resolved::TopItem::TypeAlias { binding, value } = &item.kind {
-                index.type_aliases.insert(binding.id, value.clone());
+            match &item.kind {
+                resolved::TopItem::TypeAlias { binding, value } => {
+                    index.type_aliases.insert(binding.id, value.clone());
+                }
+                resolved::TopItem::GenericTypeAlias {
+                    binding,
+                    parameters,
+                    value,
+                } => {
+                    index.generic_type_aliases.insert(
+                        binding.id,
+                        GenericTypeAlias {
+                            parameters: parameters.iter().map(|parameter| parameter.id).collect(),
+                            value: value.clone(),
+                        },
+                    );
+                }
+                resolved::TopItem::ExternalOperation { binding, ty, .. } => {
+                    index.declared_value_types.insert(binding.id, ty.clone());
+                }
+                resolved::TopItem::Binding(binding) => {
+                    if let (resolved::Pattern::Binding(name), Some(annotation)) =
+                        (&binding.pattern.kind, &binding.annotation)
+                    {
+                        index
+                            .declared_value_types
+                            .insert(name.id, annotation.clone());
+                    }
+                }
+                resolved::TopItem::GenericBinding {
+                    binding,
+                    parameters,
+                    annotation,
+                    ..
+                } => {
+                    index.generic_value_types.insert(
+                        binding.id,
+                        GenericValueType {
+                            parameters: parameters.iter().map(|parameter| parameter.id).collect(),
+                            ty: annotation.clone(),
+                        },
+                    );
+                }
+                resolved::TopItem::ExternalType { .. } => {}
             }
         }
         for item in &checked.items {
@@ -197,9 +258,68 @@ impl Index {
                     };
                     expanded = alias.clone();
                 }
+                resolved::TypeExpression::Application {
+                    constructor,
+                    arguments,
+                } if seen.insert(constructor.id) => {
+                    let Some(alias) = self.generic_type_aliases.get(&constructor.id) else {
+                        return expanded;
+                    };
+                    let substitutions = alias
+                        .parameters
+                        .iter()
+                        .copied()
+                        .zip(arguments.iter().cloned())
+                        .collect();
+                    expanded = type_display::substitute(&alias.value, &substitutions);
+                }
                 resolved::TypeExpression::Parenthesized(inner) => expanded = (**inner).clone(),
                 _ => return expanded,
             }
+        }
+    }
+
+    fn expression_display_type(
+        &self,
+        expression: &mal_syntax::ast::Node<resolved::Expression>,
+    ) -> Option<mal_syntax::ast::Node<resolved::TypeExpression>> {
+        use resolved::Expression;
+        match &expression.kind {
+            Expression::Reference(reference) => self
+                .declared_value_types
+                .get(&self.canonical_value(reference.id))
+                .cloned(),
+            Expression::GenericReference {
+                reference,
+                arguments,
+            } => {
+                let signature = self.generic_value_types.get(&reference.id)?;
+                let substitutions = signature
+                    .parameters
+                    .iter()
+                    .copied()
+                    .zip(arguments.iter().cloned())
+                    .collect();
+                Some(type_display::substitute(&signature.ty, &substitutions))
+            }
+            Expression::Parenthesized(inner) => self.expression_display_type(inner),
+            Expression::Call { callee, .. } => {
+                let signature = self.expanded_type(&self.expression_display_type(callee)?);
+                match signature.kind {
+                    resolved::TypeExpression::Function { result, .. } => Some(*result),
+                    _ => None,
+                }
+            }
+            Expression::Block(block) => self.expression_display_type(&block.result),
+            Expression::ResultBlock { body, .. } => self.expression_display_type(&body.result),
+            Expression::If {
+                then_branch,
+                else_branch,
+                ..
+            } => self
+                .expression_display_type(&then_branch.result)
+                .or_else(|| self.expression_display_type(&else_branch.result)),
+            _ => None,
         }
     }
 

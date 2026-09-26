@@ -101,6 +101,40 @@ fn preserves_declared_type_aliases_in_hover() {
 }
 
 #[test]
+fn preserves_specialized_aliases_for_inferred_results_and_callbacks() {
+    let text = "View<A> :: (Buffer<A>, USize);\n\
+                view<A> :: Buffer<A> -> View<A> := (buffer) -> (buffer, 0usize);\n\
+                inspect<A> :: (View<A>, View<A> -> USize) -> USize := (source, callback) -> callback(source);\n\
+                main :: Unit -> Int32 := () -> {\n\
+                    writable := view<Int32>(make<Int32>(0usize));\n\
+                    inspected := inspect<Int32>(writable, (current) -> 0usize);\n\
+                    0i32\n\
+                };\n";
+    let uri = "file:///generic-alias-hover.mal";
+    let mut server = open_document(uri, text);
+
+    for (id, name) in [(150, "writable :="), (151, "current")] {
+        let hover = request_at(
+            &mut server,
+            id,
+            "textDocument/hover",
+            uri,
+            text,
+            text.find(name).unwrap(),
+        );
+        assert!(
+            hover["result"]["contents"]["value"]
+                .as_str()
+                .unwrap()
+                .starts_with(&format!(
+                    "```mal\n{} :: View<Int32>\n```",
+                    name.split(' ').next().unwrap()
+                ))
+        );
+    }
+}
+
+#[test]
 fn expands_a_sum_result_type_hover_by_exactly_one_alias_layer() {
     let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\ncreate :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { create(1) };\n";
     let uri = "file:///sum-result-hover.mal";
