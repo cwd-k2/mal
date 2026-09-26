@@ -432,9 +432,10 @@ native再帰のpersistent borrowとparameter scalarizationを入れた現行comp
 | 043 | 272.561 ms | 221.479 ms | 1.231x |
 | 068 | 17.434 ms | 13.793 ms | 1.264x |
 
-この5問をCallgrind 3.27.1で調べると、043以外は計算本体より入力形式の差が大きかった。Mal corpusの共通hostは全整数を
-`scanf("%" SCNd64)`で`Int64`へ読み、direct Cは各問題で範囲が足りる値を`scanf("%d")`で`int`へ読む。次表の入力差は双方の
-`__isoc99_scanf` inclusive instruction差であり、最後の列はprogram全体のinstruction差に占める割合である。
+この5問をCallgrind 3.27.1で調べると、043以外は計算本体より入力形式の差が大きかった。次表の入力差は双方の
+`__isoc99_scanf` inclusive instruction差であり、最後の列はprogram全体のinstruction差に占める割合である。この時点ではMalが
+`Int64`を一つずつ読み、direct Cが問題ごとに`int`または`int64_t`を一つの入力record単位で読むという、整数幅とcall粒度の二つの差が
+混在していた。
 
 | 問題 | Mal instructions | C instructions | `scanf`差 | 全差に占める割合 |
 |:---|---:|---:|---:|---:|
@@ -444,10 +445,22 @@ native再帰のpersistent borrowとparameter scalarizationを入れた現行comp
 | 068 | 383.28 M | 315.48 M | 57.90 M | 85.4% |
 
 次点の062、026、017、010、028でも、program全体のinstruction差に占める同じ`scanf`差はそれぞれ88%、77%、59%、54%、94%だった。
-これはLLVMが生成したrecursion、Buffer helper、ownership操作の差ではなく、比較するsourceとhost ABIが選んだ整数幅の差である。
-整数入力を含むcorpus比をcompiler単独のoverheadとして扱わない。
+当初はこれを主に整数幅の差と解釈したが、入力をCと同じ`Int32`へ変更した021のinstructionは358.02 Mから357.62 Mへしか減らず、
+`scanf` inclusiveも328.88 Mのままだった。支配的だったのは幅ではなく、Malが辺の2整数やqueryの4整数を4回のscalar host callに分け、
+Cが一回の`scanf`で一つの入力recordを読むcall粒度の差である。幅の整合はdomainとstorageを揃えるために必要だが、このinstruction差の
+説明にはならない。
 
-同じ整数幅の差はworking setにも現れた。Mal sourceはindex、parent、tagなども一つの`Buffer<Int64>`へ置き、C sourceは多くを
+そこで共通hostに`Int32Pair`、`Int64Pair`、weighted edge、weighted queryなど、source上の一入力recordを返すoperationを追加した。
+特定問題のalgorithmをhostへ移さず、Cと同じformat parse一回でproductを返す。010の一出力行もproductを一回で出力し、012の
+Yes/Noも一回のhost operationに揃えた。これによりI/Oを含む比較でhost boundaryの分割数が結果を支配しなくなった。
+
+ただしarityごとのoperationは診断用の過渡形であり、corpusの恒久的なhost interfaceにはしない。自然な収束先は、`fread`でbyte blockを
+補充するscannerと、byte bufferへ整数をformatして一括flushするwriterを一つずつ持ち、Malとdirect Cの両方が同じ実装を使う形である。
+Mal sourceは再びscalarな`readInt32`、`readInt64`、`writeInt64`を使い、record arityをhost ABIへ列挙しない。scannerは符号、範囲、EOF、
+不正tokenを明示的に検査し、writerは正常終了時と明示flush時のerrorを伝える。比較用Cだけが`scanf`/`printf`のformat parseを使う状態も
+残さず、I/O layerを共有した上でcompiler生成部分の比率を測る。
+
+整数storage幅の差はworking setにも現れた。Mal sourceはindex、parent、tagなども一つの`Buffer<Int64>`へ置き、C sourceは多くを
 `int`またはbyte arrayへ分ける。5回測定したmaximum RSSとminor faultのmedianは次の通りだった。
 
 | 問題 | Mal RSS | C RSS | Mal / C | Mal / C minor faults |
@@ -459,7 +472,7 @@ native再帰のpersistent borrowとparameter scalarizationを入れた現行comp
 | 068 | 4,164 KiB | 2,628 KiB | 1.58x | 770 / 378 |
 
 021、039、003の最終binaryには別の`mal_function_*`が残らず、sourceのBuffer view helperとtail recursionはLTO後の`main`へ統合されていた。
-したがってこれらの残差を関数呼出し一般には帰属させない。型に応じた32-bit storageと入力を自然に選べるsource/API、および同じdata layoutでの
+したがってこれらの残差を関数呼出し一般には帰属させない。型に応じた32-bit storage、入力record単位のhost operation、同じdata layoutでの
 比較を先に整える必要がある。
 
 043は別で、入力が6整数だけなので2,474.73 M対1,422.98 M instructionsの差はheap本体にある。最終assemblyではheap pushが
@@ -494,6 +507,21 @@ child nodeの比較後の移動にはscalar 2本が残る。読みやすさと�
 同じ手製view、`appendZeroedSlots`、workspace headerのいずれかを持つcanonical sourceは、043を直した後も78問中34問あった。
 これは個々のalgorithmが要求する表現ではなく、Packed/Regionからmanaged Bufferへ移行した時期の共通慣習である。すべてを機械的に分割せず、
 まずC比上位の021、039、003、068、062、026、017、028、013を、sourceの論理collectionとBufferが一対一になる自然な版で再測定する。
+
+この方針で021、039、003、068、062、026、017、013に加え、上位へ移った077、054、035、012も整理した。index、offset、parent、queueは
+`Buffer<Int32>`、flagは`Buffer<UInt8>`または`Buffer<Int8>`、距離と重みだけを`Buffer<Int64>`にした。辺、座標、heap itemのように
+一つの値として移動するrowはproduct Bufferとし、query resultを同じ巨大Bufferの末尾へ置くheader/view表現を廃止した。013のheap popは
+nodeとdistanceを別配列と副作用cellで返す形から`(Int32, Int64)` resultへ、068と012は出力を蓄積せず入力順に出す形へ戻した。
+
+自然なlayoutだけを入れた20 roundの代表値では、003が1.27倍から1.10倍、017が1.21倍から1.04倍、026が1.22倍から1.05倍、
+062が1.25倍から1.08倍、013が1.22倍から1.13倍、054が1.23倍から1.02倍、077が1.31倍から1.15倍になった。その後、入力record単位の
+host operationを揃えると、003、013、021、026、039、062、068は0.96--1.03倍、017は0.97倍に収まった。028はscalar入力時の
+1.23倍から1.08倍、010は1.22倍から1.03倍になった。035はlayoutも分けて1.01倍、012はflag分離と逐次出力を含めて1.05倍になった。
+
+全変更後に269 sampleと79 maximum-order comparisonを通し、2 warmup、交互10 roundで78問を再測定した。双方5 ms以上の52問では
+Mal / C比のmedianが1.016倍、meanが1.007倍、最大が049の1.14倍だった。全体の比率上位は5 ms未満の080が1.24倍で、これは下記の
+再帰guard差と一致する。慣習差を除いた後の上位は049、044、078で、032は1.11倍だった。入力幅や一枚Bufferをcorpus全体のcompiler overheadと
+誤認する状態は解消した。
 
 再帰固有の残差は別記録に分離する。080は現行Mal 90.38 M対C 77.79 M instructionsで、conditional branch差約2.10 Mがactivationごとの
 stack guardに一致する。一方068のnative hybridとframe-onlyは16.21 ms対16.43 msで、同問題のC差の主因ではなかった。032には
