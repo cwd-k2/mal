@@ -3,7 +3,7 @@ mod function;
 mod statement;
 
 pub(in crate::backend) use expression::{
-    c_expr, c_initializer, c_initializers, c_initializers_item,
+    c_expr, c_exprs, c_exprs_item, c_initializer, c_initializers, c_initializers_item,
 };
 pub(in crate::backend) use function::c_function;
 pub(in crate::backend) use statement::{

@@ -110,7 +110,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
 }
 
 fn number(value: impl ToString) -> Expr {
-    Expr::number(value.to_string())
+    c_expr!(number value)
 }
 
 fn zero_initializer() -> Expr {

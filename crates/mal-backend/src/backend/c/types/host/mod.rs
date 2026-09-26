@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Directive, Expr, FunctionSignature, Initializer, Parameter, SwitchCase, TranslationUnit,
-    TypeName, c_block, c_function,
+    Block, Directive, Expr, FunctionSignature, Parameter, TranslationUnit, TypeName, c_block,
+    c_expr, c_function, c_initializer, c_switch_case,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -35,8 +35,8 @@ impl TypeRegistry {
                     ),
                     c_block!((return (rust self.host_to_raw_value(
                         ty,
-                        Expr::identifier("call"),
-                        Expr::identifier("value"),
+                        c_expr!(id "call"),
+                        c_expr!(id "value"),
                     )))),
                 ),
                 Type::Sum(members) => {
@@ -119,8 +119,8 @@ impl TypeRegistry {
                 ),
                 c_block!((return (rust self.host_to_raw_value(
                     &alias.ty,
-                    Expr::identifier("call"),
-                    Expr::identifier("value"),
+                    c_expr!(id "call"),
+                    c_expr!(id "value"),
                 )))),
             );
         }
@@ -143,15 +143,12 @@ impl TypeRegistry {
             let tag_name = format!("mal_{public_name}_tag_{variant}");
             output.push(Directive::define_expr(
                 tag_name.clone(),
-                Expr::named_call("UINT32_C", [Expr::number(variant.to_string())]),
+                c_expr!(call "UINT32_C"; (number variant)),
             ));
             let (parameters, payload) = if *member == Type::Unit {
                 (
                     Vec::new(),
-                    Expr::compound_literal(
-                        "mal_Unit_t",
-                        [Initializer::positional(Expr::number("0"))],
-                    ),
+                    c_expr!(compound "mal_Unit_t"; (positional (number 0))),
                 )
             } else {
                 (
@@ -159,18 +156,12 @@ impl TypeRegistry {
                         self.host_value_c_type(member, element_aliases[variant].as_deref()),
                         "value",
                     )],
-                    Expr::identifier("value"),
+                    c_expr!(id "value"),
                 )
             };
-            let host_value = Expr::compound_literal(
-                host_type,
-                [
-                    Initializer::designated("tag", Expr::identifier(tag_name)),
-                    Initializer::designated_path(
-                        ["payload".into(), format!("variant_{variant}")],
-                        payload,
-                    ),
-                ],
+            let host_value = c_expr!(compound host_type;
+                (field "tag"; (id tag_name)),
+                (path ["payload".into(), format!("variant_{variant}")]; (rust payload)),
             );
             append_function(
                 output,
@@ -195,7 +186,7 @@ impl TypeRegistry {
                 ),
                 c_block!((return (rust self.host_to_raw_value(
                     ty,
-                    Expr::identifier("call"),
+                    c_expr!(id "call"),
                     host_value,
                 )))),
             );
@@ -211,52 +202,38 @@ impl TypeRegistry {
         let mut to_host_cases = Vec::new();
         let mut to_raw_cases = Vec::new();
         for (variant, member) in members.iter().enumerate() {
-            let tag = Expr::named_call("UINT32_C", [Expr::number(variant.to_string())]);
-            to_host_cases.push(SwitchCase::case(
-                tag.clone(),
-                c_block!((return (rust Expr::compound_literal(
-                    host_type.clone(),
-                    [
-                        Initializer::designated("tag", tag.clone()),
-                        Initializer::designated_path(
-                            ["payload".into(), format!("variant_{variant}")],
-                            self.raw_to_host_value(
-                                member,
-                                None,
-                                Expr::identifier("call"),
-                                Expr::identifier("value")
-                                    .field("payload")
-                                    .field(format!("variant_{variant}")),
-                            ),
-                        ),
-                    ],
-                )))),
-            ));
-            to_raw_cases.push(SwitchCase::case(
-                tag.clone(),
-                c_block!((return (rust Expr::compound_literal(
-                    raw_type.clone(),
-                    [
-                        Initializer::designated("tag", tag),
-                        Initializer::designated_path(
-                            ["payload".into(), format!("variant_{variant}")],
-                            self.host_to_raw_value(
-                                member,
-                                Expr::identifier("call"),
-                                Expr::identifier("value")
-                                    .field("payload")
-                                    .field(format!("variant_{variant}")),
-                            ),
-                        ),
-                    ],
-                )))),
-            ));
+            let tag = c_expr!(call "UINT32_C"; (number variant));
+            to_host_cases.push(c_switch_case!(case (rust tag.clone()); [
+                (return (compound host_type.clone();
+                    (field "tag"; (rust tag.clone())),
+                    (path ["payload".into(), format!("variant_{variant}")];
+                        (rust self.raw_to_host_value(
+                            member,
+                            None,
+                            c_expr!(id "call"),
+                            c_expr!(field (field (id "value"); "payload"); format!("variant_{variant}")),
+                        ))
+                    ),
+                )),
+            ]));
+            to_raw_cases.push(c_switch_case!(case (rust tag.clone()); [
+                (return (compound raw_type.clone();
+                    (field "tag"; (rust tag)),
+                    (path ["payload".into(), format!("variant_{variant}")];
+                        (rust self.host_to_raw_value(
+                            member,
+                            c_expr!(id "call"),
+                            c_expr!(field (field (id "value"); "payload"); format!("variant_{variant}")),
+                        ))
+                    ),
+                )),
+            ]));
         }
         for cases in [&mut to_host_cases, &mut to_raw_cases] {
-            cases.push(SwitchCase::default(c_block!((call "mal_call_trap";
+            cases.push(c_switch_case!(default; [(call "mal_call_trap";
                 (id "call"),
                 (string "invalid sum tag"),
-            ))));
+            )]));
         }
         let mut output = TranslationUnit::default();
         output.push(c_function!(signature
@@ -292,34 +269,27 @@ impl TypeRegistry {
 
     fn host_to_raw_value(&self, ty: &Type, call: Expr, value: Expr) -> Expr {
         match ty {
-            Type::Product(elements) => Expr::compound_literal(
-                self.c_type(ty),
-                elements.iter().enumerate().map(|(field, element)| {
-                    Initializer::designated(
-                        format!("field_{field}"),
-                        self.host_to_raw_value(
+            Type::Product(elements) => {
+                let initializers = elements.iter().enumerate().map(|(field, element)| {
+                    c_initializer!(field format!("field_{field}");
+                        (rust self.host_to_raw_value(
                             element,
                             call.clone(),
-                            value.clone().field(format!("field_{field}")),
-                        ),
+                            c_expr!(field (rust value.clone()); format!("field_{field}")),
+                        ))
                     )
-                }),
-            ),
-            Type::Sum(_) if !is_bool(ty) => Expr::named_call(
-                format!("mal_detail_to_raw_{}", self.index(ty)),
-                [call, value],
-            ),
-            Type::Address => Expr::named_call("mal_Address_return", [call, value]),
-            Type::External { .. } => Expr::compound_literal(
-                self.c_type(ty),
-                [Initializer::designated(
-                    "bits",
-                    value.field("mal_detail_bits"),
-                )],
-            ),
-            Type::Unit => {
-                Expr::compound_literal("MalType_Unit", [Initializer::positional(Expr::number("0"))])
+                });
+                c_expr!(compound self.c_type(ty); (extend initializers))
             }
+            Type::Sum(_) if !is_bool(ty) => c_expr!(call
+                format!("mal_detail_to_raw_{}", self.index(ty));
+                (rust call), (rust value)
+            ),
+            Type::Address => c_expr!(call "mal_Address_return"; (rust call), (rust value)),
+            Type::External { .. } => c_expr!(compound self.c_type(ty);
+                (field "bits"; (field (rust value); "mal_detail_bits")),
+            ),
+            Type::Unit => c_expr!(compound "MalType_Unit"; (positional (number 0))),
             Type::Symbol | Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
@@ -335,31 +305,26 @@ impl TypeRegistry {
         value: Expr,
     ) -> Expr {
         match ty {
-            Type::Product(elements) => Expr::compound_literal(
-                self.host_value_c_type(ty, alias),
-                elements.iter().enumerate().map(|(field, element)| {
-                    Initializer::designated(
-                        format!("field_{field}"),
-                        self.raw_to_host_value(
+            Type::Product(elements) => {
+                let initializers = elements.iter().enumerate().map(|(field, element)| {
+                    c_initializer!(field format!("field_{field}");
+                        (rust self.raw_to_host_value(
                             element,
                             None,
                             call.clone(),
-                            value.clone().field(format!("field_{field}")),
-                        ),
+                            c_expr!(field (rust value.clone()); format!("field_{field}")),
+                        ))
                     )
-                }),
-            ),
-            Type::Sum(_) if !is_bool(ty) => Expr::named_call(
-                format!("mal_detail_to_host_{}", self.index(ty)),
-                [call, value],
+                });
+                c_expr!(compound self.host_value_c_type(ty, alias); (extend initializers))
+            }
+            Type::Sum(_) if !is_bool(ty) => c_expr!(call
+                format!("mal_detail_to_host_{}", self.index(ty));
+                (rust call), (rust value)
             ),
             Type::Address => value,
-            Type::External { .. } => Expr::compound_literal(
-                self.host_value_c_type(ty, alias),
-                [Initializer::designated(
-                    "mal_detail_bits",
-                    value.field("bits"),
-                )],
+            Type::External { .. } => c_expr!(compound self.host_value_c_type(ty, alias);
+                (field "mal_detail_bits"; (field (rust value); "bits")),
             ),
             Type::Symbol | Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")

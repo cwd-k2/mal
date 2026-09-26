@@ -40,6 +40,25 @@ macro_rules! c_initializers_item {
     };
 }
 
+macro_rules! c_exprs {
+    ($($expression:tt),* $(,)?) => {{
+        let mut expressions = Vec::new();
+        $(
+            $crate::backend::c::syntax::c_exprs_item!(expressions; $expression);
+        )*
+        expressions
+    }};
+}
+
+macro_rules! c_exprs_item {
+    ($expressions:ident; (extend $more:expr)) => {
+        $expressions.extend($more)
+    };
+    ($expressions:ident; $expression:tt) => {
+        $expressions.extend([$crate::backend::c::syntax::c_expr! $expression])
+    };
+}
+
 macro_rules! c_expr {
     (rust $expression:expr) => {
         $expression
@@ -74,13 +93,13 @@ macro_rules! c_expr {
     (call $name:expr; $($argument:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::named_call(
             $name,
-            [$($crate::backend::c::syntax::c_expr! $argument),*],
+            $crate::backend::c::syntax::c_exprs!($($argument),*),
         )
     };
     (invoke $callee:tt; $($argument:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::call(
             $crate::backend::c::syntax::c_expr! $callee,
-            [$($crate::backend::c::syntax::c_expr! $argument),*],
+            $crate::backend::c::syntax::c_exprs!($($argument),*),
         )
     };
     (add $left:tt; $right:tt) => {
@@ -139,9 +158,9 @@ macro_rules! c_expr {
         )
     };
     (initializer $($element:tt),* $(,)?) => {
-        $crate::backend::c::syntax::Expr::initializer_list([
-            $($crate::backend::c::syntax::c_expr! $element),*
-        ])
+        $crate::backend::c::syntax::Expr::initializer_list(
+            $crate::backend::c::syntax::c_exprs!($($element),*)
+        )
     };
     (compound $ty:expr; $($initializer:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::compound_literal(
@@ -151,4 +170,6 @@ macro_rules! c_expr {
     };
 }
 
-pub(in crate::backend) use {c_expr, c_initializer, c_initializers, c_initializers_item};
+pub(in crate::backend) use {
+    c_expr, c_exprs, c_exprs_item, c_initializer, c_initializers, c_initializers_item,
+};

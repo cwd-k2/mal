@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, FunctionSignature, Initializer, Parameter, Statement, SwitchCase, TranslationUnit,
-    TypeName, c_block, c_statement,
+    Block, Expr, FunctionSignature, Parameter, Statement, TranslationUnit, TypeName, c_block,
+    c_expr, c_statement, c_switch_case,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -51,17 +51,11 @@ impl TypeRegistry {
             Parameter::named(TypeName::named("mal_call_t").pointer(), "call").maybe_unused()
         };
         let value = if matches!(ty, Type::Address) {
-            Expr::named_call(
-                "mal_Address_return",
-                [Expr::identifier("call"), Expr::identifier("value")],
-            )
+            c_expr!(call "mal_Address_return"; (id "call"), (id "value"))
         } else if is_bool(ty) {
-            Expr::named_call(
-                "mal_Bool_return",
-                [Expr::identifier("call"), Expr::identifier("value")],
-            )
+            c_expr!(call "mal_Bool_return"; (id "call"), (id "value"))
         } else {
-            Expr::identifier("value")
+            c_expr!(id "value")
         };
         let read_body = c_block!(
             (var (host_type.clone()) ("value")),
@@ -141,8 +135,8 @@ impl TypeRegistry {
                                 (field (id "value"); format!("field_{field}"));
                                 (rust self.memory_read_value(
                                 element,
-                                Expr::identifier("call"),
-                                offset(Expr::identifier("source"), layout.offset),
+                                c_expr!(id "call"),
+                                offset(c_expr!(id "source"), layout.offset),
                             ))
                             ))
                         },
@@ -180,9 +174,9 @@ impl TypeRegistry {
                     |(field, (element, layout))| {
                         self.memory_write_statement(
                             element,
-                            Expr::identifier("call"),
-                            offset(Expr::identifier("destination"), layout.offset),
-                            Expr::identifier("value").field(format!("field_{field}")),
+                            c_expr!(id "call"),
+                            offset(c_expr!(id "destination"), layout.offset),
+                            c_expr!(field (id "value"); format!("field_{field}")),
                         )
                     },
                 )))
@@ -216,32 +210,24 @@ impl TypeRegistry {
             .iter()
             .enumerate()
             .map(|(variant, member)| {
-                SwitchCase::case(
-                    Expr::number(variant.to_string()),
-                    c_block!((return (rust Expr::compound_literal(
-                        self.host_value_c_type(ty, None),
-                        [
-                            Initializer::designated(
-                                "tag",
-                                Expr::named_call("UINT32_C", [Expr::number(variant.to_string())]),
-                            ),
-                            Initializer::designated_path(
-                                ["payload".into(), format!("variant_{variant}")],
-                                self.memory_read_value(
-                                    member,
-                                    Expr::identifier("call"),
-                                    offset(Expr::identifier("source"), layout.payload_offset),
-                                ),
-                            ),
-                        ],
-                    )))),
-                )
+                c_switch_case!(case (number variant); [
+                    (return (compound self.host_value_c_type(ty, None);
+                        (field "tag"; (call "UINT32_C"; (number variant))),
+                        (path ["payload".into(), format!("variant_{variant}")];
+                            (rust self.memory_read_value(
+                                member,
+                                c_expr!(id "call"),
+                                offset(c_expr!(id "source"), layout.payload_offset),
+                            ))
+                        ),
+                    )),
+                ])
             })
             .collect::<Vec<_>>();
         c_block!((switch (rust self.memory_read_value(
                 &tag_type,
-                Expr::identifier("call"),
-                Expr::identifier("source"),
+                c_expr!(id "call"),
+                c_expr!(id "source"),
             )); [
                 (extend cases),
                 (default; [
@@ -262,34 +248,31 @@ impl TypeRegistry {
             .iter()
             .enumerate()
             .map(|(variant, member)| {
-                SwitchCase::case(
-                    Expr::named_call("UINT32_C", [Expr::number(variant.to_string())]),
-                    c_block!(
+                c_switch_case!(case (call "UINT32_C"; (number variant)); [
                         (rust self.memory_write_statement(
                             &tag_type,
-                            Expr::identifier("call"),
-                            Expr::identifier("destination"),
-                            Expr::cast(
-                                self.host_value_c_type(&tag_type, None),
-                                Expr::identifier("value").field("tag"),
+                            c_expr!(id "call"),
+                            c_expr!(id "destination"),
+                            c_expr!(cast self.host_value_c_type(&tag_type, None);
+                                (field (id "value"); "tag")
                             ),
                         )),
                         (rust self.memory_write_statement(
                             member,
-                            Expr::identifier("call"),
-                            offset(Expr::identifier("destination"), layout.payload_offset),
-                            Expr::identifier("value")
-                                .field("payload")
-                                .field(format!("variant_{variant}")),
+                            c_expr!(id "call"),
+                            offset(c_expr!(id "destination"), layout.payload_offset),
+                            c_expr!(field
+                                (field (id "value"); "payload");
+                                format!("variant_{variant}")
+                            ),
                         )),
                         (return_void),
-                    ),
-                )
+                ])
             })
-            .chain([SwitchCase::default(c_block!((call "mal_call_trap";
+            .chain([c_switch_case!(default; [(call "mal_call_trap";
                 (id "call"),
                 (string "invalid sum tag"),
-            )))])
+            )])])
             .collect();
         c_block!((switch (field (id "value"); "tag"); [
             (extend cases),
@@ -307,14 +290,11 @@ impl TypeRegistry {
             .expect("checker-approved memory alias has a layout")
             .stride;
         let source = offset(
-            Expr::cast(
-                TypeName::const_named("uint8_t").pointer(),
-                Expr::identifier("address"),
-            ),
-            Expr::multiply(Expr::identifier("index"), Expr::number(stride.to_string())),
+            c_expr!(cast TypeName::const_named("uint8_t").pointer(); (id "address")),
+            c_expr!(multiply (id "index"); (number stride)),
         );
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
-        let read_value = self.memory_read_value(&alias.ty, Expr::identifier("call"), source);
+        let read_value = self.memory_read_value(&alias.ty, c_expr!(id "call"), source);
         let read_body = c_block!(
             (extend unused_index),
             (call "mal_Address_return"; (id "call"), (id "address")),
@@ -335,18 +315,15 @@ impl TypeRegistry {
         );
 
         let destination = offset(
-            Expr::cast(
-                TypeName::named("uint8_t").pointer(),
-                Expr::identifier("address"),
-            ),
-            Expr::multiply(Expr::identifier("index"), Expr::number(stride.to_string())),
+            c_expr!(cast TypeName::named("uint8_t").pointer(); (id "address")),
+            c_expr!(multiply (id "index"); (number stride)),
         );
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
         let write_value = self.memory_write_statement(
             &alias.ty,
-            Expr::identifier("call"),
+            c_expr!(id "call"),
             destination,
-            Expr::identifier("value"),
+            c_expr!(id "value"),
         );
         let write_body = c_block!(
             (extend unused_index),
@@ -371,16 +348,13 @@ impl TypeRegistry {
 
     fn memory_read_value(&self, ty: &Type, call: Expr, source: Expr) -> Expr {
         match ty {
-            Type::Unit => {
-                Expr::compound_literal("mal_Unit_t", [Initializer::positional(Expr::number("0"))])
-            }
-            Type::Product(_) | Type::Sum(_) if !is_bool(ty) => Expr::named_call(
-                format!("mal_detail_memory_read_{}", self.index(ty)),
-                [call, source],
+            Type::Unit => c_expr!(compound "mal_Unit_t"; (positional (number 0))),
+            Type::Product(_) | Type::Sum(_) if !is_bool(ty) => c_expr!(call
+                format!("mal_detail_memory_read_{}", self.index(ty));
+                (rust call), (rust source)
             ),
-            _ => Expr::named_call(
-                format!("mal_detail_memory_read_{}", scalar_name(ty)),
-                [call, source],
+            _ => c_expr!(call format!("mal_detail_memory_read_{}", scalar_name(ty));
+                (rust call), (rust source)
             ),
         }
     }
@@ -459,14 +433,14 @@ fn integer_type(bits: usize) -> Type {
 }
 
 fn offset(base: Expr, offset: impl Into<Offset>) -> Expr {
-    Expr::add(base, offset.into().0)
+    c_expr!(add (rust base); (rust offset.into().0))
 }
 
 struct Offset(Expr);
 
 impl From<usize> for Offset {
     fn from(value: usize) -> Self {
-        Self(Expr::number(value.to_string()))
+        Self(c_expr!(number value))
     }
 }
 

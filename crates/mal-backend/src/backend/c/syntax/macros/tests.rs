@@ -24,6 +24,21 @@ fn embeds_rust_expressions_once_inside_structured_expressions() {
 }
 
 #[test]
+fn splices_runtime_call_arguments_in_order() {
+    let middle = [Expr::identifier("second"), Expr::identifier("third")];
+    let expression = super::c_expr!(call "observe";
+        (id "first"),
+        (extend middle),
+        (id "fourth"),
+    );
+
+    assert_eq!(
+        expression.to_string(),
+        "observe(first, second, third, fourth)"
+    );
+}
+
+#[test]
 fn constructs_compound_literals_from_static_and_rust_initializers() {
     let dynamic = Initializer::designated("second", Expr::number("2"));
     let trailing = [Initializer::positional(Expr::number("3"))];

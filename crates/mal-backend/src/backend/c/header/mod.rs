@@ -5,8 +5,8 @@ use super::{
     host_signature::{CompilerSignature, ExternalSignatures},
 };
 use crate::backend::c::syntax::{
-    Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer,
-    MacroInvocation, TranslationUnit, c_block, c_expr, c_function, c_statement,
+    Comment, Declaration, Directive, FunctionDefinition, FunctionSignature, MacroInvocation,
+    TranslationUnit, c_block, c_expr, c_function, c_initializer, c_statement,
 };
 
 mod prefix;
@@ -135,14 +135,13 @@ fn wrapper_definition(
     external: &crate::core::ast::ExternalOperation,
     types: &TypeRegistry,
 ) -> FunctionDefinition {
-    let mut arguments = vec![Expr::address_of(Expr::identifier("call"))];
+    let mut arguments = vec![c_expr!(address (id "call"))];
     match &external.parameter {
         mal_frontend::check::ast::Type::Unit => {}
         mal_frontend::check::ast::Type::Product(elements) => {
             let initializers = elements.iter().enumerate().map(|(field, _)| {
-                Initializer::designated(
-                    format!("field_{field}"),
-                    c_expr!(id format!("argument_{field}")),
+                c_initializer!(field format!("field_{field}");
+                    (id format!("argument_{field}"))
                 )
             });
             let raw = c_expr!(compound types.c_type(&external.parameter);
@@ -151,18 +150,18 @@ fn wrapper_definition(
             arguments.push(types.raw_to_host_value(
                 &external.parameter,
                 external.parameter_alias.as_deref(),
-                Expr::address_of(Expr::identifier("call")),
+                c_expr!(address (id "call")),
                 raw,
             ));
         }
         ty => arguments.push(types.raw_to_host_value(
             ty,
             external.parameter_alias.as_deref(),
-            Expr::address_of(Expr::identifier("call")),
-            Expr::identifier("value"),
+            c_expr!(address (id "call")),
+            c_expr!(id "value"),
         )),
     }
-    let call = Expr::named_call(format!("mal_detail_{}", external.name), arguments);
+    let call = c_expr!(call format!("mal_detail_{}", external.name); (extend arguments));
     let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
         c_statement!(expr (rust call))
     } else {
@@ -185,7 +184,7 @@ fn host_macro_invocation(
         signature
             .parameter_names()
             .into_iter()
-            .map(Expr::identifier),
+            .map(|name| c_expr!(id name)),
     )
 }
 
