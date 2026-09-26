@@ -131,6 +131,10 @@ closure environmentの最後のreleaseではcaptureを逆順に破棄する。ta
 recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte storageへ積む。frame payload、resume target、owner moveは
 LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
+LLVM artifact生成前のtarget admissionは、target幅のliteralだけでなく、実際にobject storageを要求するcanonical memory、
+Buffer element、binding slot、external bridge temporary、closure environment、control frameのsizeも検査する。targetのindex幅で
+表現できないsizeはemitter内部の失敗や切り捨てへ送らず、所有するsource constructのspanを持つdiagnosticとして拒否する。
+
 `Address`はLLVMの`ptr`、`Buffer`はmanaged runtime objectへのpointerへlowerする。C host copy primitiveは
 canonical representationをruntime objectとhost storageの間でcopyし、Buffer element accessはruntimeが保証するalignmentを使う。
 `Symbol`を含む要素はcanonical layoutを持たないので、runtime valueのlayoutで格納し、C host copyの対象にしない。

@@ -62,7 +62,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
 | `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
-| `backend/llvm` | admitted execution planからLLVM moduleとC shimへの変換 |
+| `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、canonical storage、runtime slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical memoryのstride、alignment、offsetをtarget data layoutから構成 |
 | `runtime/c11` | program非依存のC11 mechanism。allocation、reference count、control storage、Symbol operation |

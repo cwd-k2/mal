@@ -1,4 +1,4 @@
-use crate::closure::ast::{Atom, AtomKind, Block, Operation};
+use crate::closure::ast::{Atom, AtomKind, Block, Operation, Pattern};
 use crate::execution;
 use mal_frontend::check::ast::Type;
 use mal_syntax::diagnostic::Diagnostic;
@@ -16,8 +16,9 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
     };
     let layouts = SourceLayouts::new(target);
     let types = Types::for_target(target);
-    admit_host_memory_layouts(program, layouts, maximum)?;
+    admit_host_memory_layouts(program, layouts, &types, maximum)?;
     admit_control_frames(program, &types, maximum)?;
+    admit_runtime_slots(program, &types, maximum)?;
     let mut blocks = program
         .lowered
         .bindings
@@ -42,6 +43,53 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
         }
     }
     Ok(())
+}
+
+fn admit_runtime_slots(
+    program: &execution::Program,
+    types: &Types,
+    maximum: u128,
+) -> Result<(), Diagnostic> {
+    for function in &program.control.functions {
+        if matches!(
+            program.parameters.destination(function.id),
+            Some(crate::execution::ParameterDestination::Bind(_))
+        ) {
+            admit_runtime_storage(
+                &function.parameter.ty,
+                function.parameter.span,
+                types,
+                maximum,
+                "parameter slot",
+            )?;
+        }
+        for site in &function.states {
+            for binding in &program.control.states[site.0].bindings {
+                admit_pattern_storage(&binding.pattern, binding.span, types, maximum)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn admit_pattern_storage(
+    pattern: &Pattern,
+    span: mal_syntax::source::Span,
+    types: &Types,
+    maximum: u128,
+) -> Result<(), Diagnostic> {
+    match pattern {
+        Pattern::Binding { ty, .. } => {
+            admit_runtime_storage(ty, span, types, maximum, "binding slot")
+        }
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                admit_pattern_storage(element, span, types, maximum)?;
+            }
+            Ok(())
+        }
+        Pattern::Wildcard { .. } => Ok(()),
+    }
 }
 
 fn admit_control_frames(
@@ -109,6 +157,7 @@ fn admit_control_frames(
 fn admit_host_memory_layouts(
     program: &execution::Program,
     layouts: SourceLayouts,
+    types: &Types,
     maximum: u128,
 ) -> Result<(), Diagnostic> {
     for alias in program
@@ -125,9 +174,34 @@ fn admit_host_memory_layouts(
             if let Some(layout) = layouts.layout(ty) {
                 admit_canonical_stride(layout.stride, external.span, maximum)?;
             }
+            admit_runtime_storage(ty, external.span, types, maximum, "external value")?;
         }
     }
     Ok(())
+}
+
+fn admit_runtime_storage(
+    ty: &Type,
+    span: mal_syntax::source::Span,
+    types: &Types,
+    maximum: u128,
+    description: &str,
+) -> Result<(), Diagnostic> {
+    let Some(value) = types.value(ty) else {
+        return Ok(());
+    };
+    if value.size as u128 <= maximum {
+        return Ok(());
+    }
+    Err(
+        Diagnostic::error("runtime value layout is not representable for the target").with_primary(
+            span,
+            format!(
+                "this {description} needs {} bytes, exceeding the target maximum {maximum}",
+                value.size
+            ),
+        ),
+    )
 }
 
 fn admit_canonical_layout(
@@ -185,9 +259,20 @@ fn admit_operation<'a>(
             argument: value, ..
         }
         | Operation::NumericConversion { operand: value }
-        | Operation::SumInjection { value, .. }
         | Operation::PrimitiveUnary { operand: value, .. } => admit_atom(value, maximum)?,
-        Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
+        Operation::SumInjection { value, .. } => {
+            admit_runtime_storage(result_type, span, types, maximum, "sum temporary")?;
+            admit_atom(value, maximum)?;
+        }
+        Operation::MakeClosure { captures, .. } => {
+            let environment =
+                Type::Product(captures.iter().map(|capture| capture.ty.clone()).collect());
+            admit_runtime_storage(&environment, span, types, maximum, "closure environment")?;
+            for capture in captures {
+                admit_atom(capture, maximum)?;
+            }
+        }
+        Operation::Product(captures) => {
             for capture in captures {
                 admit_atom(capture, maximum)?;
             }
@@ -220,7 +305,9 @@ fn admit_operation<'a>(
             }
         }
         Operation::Buffer {
-            element, operands, ..
+            operation,
+            element,
+            operands,
         } => {
             let stride = layouts
                 .layout(element)
@@ -239,6 +326,21 @@ fn admit_operation<'a>(
                     ),
                 ));
             }
+            if matches!(
+                operation,
+                crate::core::ast::BufferOperation::New
+                    | crate::core::ast::BufferOperation::Get
+                    | crate::core::ast::BufferOperation::Put
+                    | crate::core::ast::BufferOperation::Fill
+            ) {
+                admit_runtime_storage(
+                    element,
+                    span,
+                    types,
+                    maximum,
+                    "Buffer element temporary",
+                )?;
+            }
             for operand in operands {
                 admit_atom(operand, maximum)?;
             }
@@ -248,6 +350,13 @@ fn admit_operation<'a>(
             admit_atom(argument, maximum)?;
         }
         Operation::Case { scrutinee, arms } => {
+            admit_runtime_storage(
+                &scrutinee.ty,
+                span,
+                types,
+                maximum,
+                "sum temporary",
+            )?;
             admit_atom(scrutinee, maximum)?;
             blocks.extend(arms.iter().map(|arm| &arm.value));
         }
