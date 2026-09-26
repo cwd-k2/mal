@@ -305,7 +305,7 @@ impl FunctionEmitter<'_> {
         value: impl Into<String>,
     ) {
         self.structured_instruction(super::super::syntax::llvm_instruction!(
-            typed unary(result, operator); ty => value
+            unary result, operator; ty => value
         ));
     }
 
@@ -345,7 +345,7 @@ impl FunctionEmitter<'_> {
         target: super::super::syntax::Type,
     ) {
         self.structured_instruction(super::super::syntax::llvm_instruction!(
-            typed cast(result, operator); source_type => source, target
+            cast result, operator; source_type => source, target
         ));
     }
 
@@ -370,7 +370,7 @@ impl FunctionEmitter<'_> {
         indices: impl IntoIterator<Item = usize>,
     ) {
         self.structured_instruction(super::super::syntax::llvm_instruction!(
-            typed extract_value(result); aggregate_type => aggregate, indices
+            extract_value result; aggregate_type => aggregate, indices
         ));
     }
 

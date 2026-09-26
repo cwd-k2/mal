@@ -96,11 +96,19 @@ macro_rules! llvm_instruction {
             call $result, $tail, $result_type, indirect $callee; [(typed_extend $arguments)]
         )
     };
-    (typed $constructor:ident($($leading:expr),*); $ty:expr => $value:expr $(, $trailing:expr)* $(,)? ) => {{
+    (unary $result:expr, $operator:expr; $ty:expr => $value:expr $(,)?) => {{
         $crate::backend::llvm::syntax::llvm_value!(typed $ty => $value).and_then(|value| {
-            $crate::backend::llvm::syntax::Instruction::$constructor(
-                $($leading,)* value $(, $trailing)*
-            )
+            $crate::backend::llvm::syntax::Instruction::unary($result, $operator, value)
+        })
+    }};
+    (cast $result:expr, $operator:expr; $ty:expr => $value:expr, $target:expr $(,)?) => {{
+        $crate::backend::llvm::syntax::llvm_value!(typed $ty => $value).and_then(|value| {
+            $crate::backend::llvm::syntax::Instruction::cast($result, $operator, value, $target)
+        })
+    }};
+    (extract_value $result:expr; $ty:expr => $value:expr, $indices:expr $(,)?) => {{
+        $crate::backend::llvm::syntax::llvm_value!(typed $ty => $value).and_then(|value| {
+            $crate::backend::llvm::syntax::Instruction::extract_value($result, value, $indices)
         })
     }};
     (binary $result:expr, $operator:expr, $ty:expr, $left:expr, $right:expr $(,)?) => {
