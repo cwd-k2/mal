@@ -1,7 +1,7 @@
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, Attribute, Comment, Declaration, Directive, Expr,
+    AggregateDefinition, AggregateField, Attribute, Comment, Declaration, Directive,
     FunctionDefinition, FunctionSignature, FunctionSpecifier, Parameter, PreprocessorExpr,
-    TranslationUnit, TypeName, c_block,
+    TranslationUnit, TypeName, c_block, c_expr,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
@@ -23,7 +23,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     output.blank_line();
     output.push(Directive::define_expr(
         "MAL_C_ABI_VERSION",
-        Expr::number("0x000800u"),
+        c_expr!(number "0x000800u"),
     ));
     output.blank_line();
     output.push(Directive::If(PreprocessorExpr::defined("__clang__")));
@@ -68,39 +68,38 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         "MalType_Address",
     ));
     output.push(Declaration::static_assert(
-        Expr::equal(
-            Expr::multiply(
-                Expr::sizeof_value(Expr::cast("size_t", Expr::number("0"))),
-                Expr::identifier("CHAR_BIT"),
-            ),
-            Expr::number(index_bits.to_string()),
+        c_expr!(equal
+            (multiply (sizeof (cast "size_t"; (number 0))); (id "CHAR_BIT"));
+            (number index_bits)
         ),
         "size_t does not match the mal target pointer index width",
     ));
     let width_of = |ty: &str, bits: u32| {
-        Expr::equal(
-            Expr::multiply(
-                Expr::sizeof_value(Expr::cast(ty, Expr::number("0"))),
-                Expr::identifier("CHAR_BIT"),
-            ),
-            Expr::number(bits.to_string()),
+        c_expr!(equal
+            (multiply (sizeof (cast ty; (number 0))); (id "CHAR_BIT"));
+            (number bits)
         )
     };
-    let macro_equals =
-        |name: &str, value: &str| Expr::equal(Expr::identifier(name), Expr::number(value));
+    let macro_equals = |name: &str, value: &str| c_expr!(equal (id name); (number value));
     for (condition, message) in [
         (
-            Expr::logical_and(width_of("float", 32), macro_equals("FLT_MANT_DIG", "24")),
+            c_expr!(logical_and
+                (rust width_of("float", 32));
+                (rust macro_equals("FLT_MANT_DIG", "24"))
+            ),
             "float is not IEEE 754 binary32",
         ),
         (
-            Expr::logical_and(width_of("double", 64), macro_equals("DBL_MANT_DIG", "53")),
+            c_expr!(logical_and
+                (rust width_of("double", 64));
+                (rust macro_equals("DBL_MANT_DIG", "53"))
+            ),
             "double is not IEEE 754 binary64",
         ),
         (
-            Expr::logical_and(
-                macro_equals("FLT_HAS_SUBNORM", "1"),
-                macro_equals("DBL_HAS_SUBNORM", "1"),
+            c_expr!(logical_and
+                (rust macro_equals("FLT_HAS_SUBNORM", "1"));
+                (rust macro_equals("DBL_HAS_SUBNORM", "1"))
             ),
             "the target does not preserve subnormal floating-point values",
         ),
@@ -141,17 +140,11 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     output.blank_line();
     output.push(Directive::define_expr(
         "mal_false",
-        Expr::cast(
-            "mal_Bool_t",
-            Expr::named_call("UINT8_C", [Expr::number("0")]),
-        ),
+        c_expr!(cast "mal_Bool_t"; (call "UINT8_C"; (number 0))),
     ));
     output.push(Directive::define_expr(
         "mal_true",
-        Expr::cast(
-            "mal_Bool_t",
-            Expr::named_call("UINT8_C", [Expr::number("1")]),
-        ),
+        c_expr!(cast "mal_Bool_t"; (call "UINT8_C"; (number 1))),
     ));
     output.blank_line();
     output.push(Declaration::function(FunctionSignature::no_return(

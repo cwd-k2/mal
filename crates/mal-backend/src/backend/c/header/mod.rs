@@ -6,7 +6,7 @@ use super::{
 };
 use crate::backend::c::syntax::{
     Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer,
-    MacroInvocation, TranslationUnit, c_block, c_statement,
+    MacroInvocation, TranslationUnit, c_block, c_expr, c_statement,
 };
 
 mod prefix;
@@ -121,7 +121,7 @@ fn emit_definition_macro(
     let signature = &signatures.compiler;
     output.push(Directive::define_expr(
         format!("MAL_HAS_EXTERN_{}", signature.operation_name),
-        Expr::number("1"),
+        c_expr!(number 1),
     ));
     output.push(Directive::function_items_define(
         format!("MAL_DEFINE_{}", signature.operation_name),
