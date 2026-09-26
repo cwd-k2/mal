@@ -38,6 +38,7 @@
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | execution backendを変更する | [実行backendの責務境界](implementation/execution-backend.md) | [生成物例](implementation/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
+| generated C / LLVMの構築を変更する | [C / LLVM構文構築](implementation/backend-syntax-construction.md) | [compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md) |
 | `Address`、`Buffer`、C host copyを使う | [AddressとBuffer](spec/memory.md) | [C host ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、素案の[index構造](proposals/indexed-buffer-structures.md)と[更新例](proposals/indexed-buffer-tree-examples.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |

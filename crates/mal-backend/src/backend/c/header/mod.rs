@@ -6,7 +6,7 @@ use super::{
 };
 use crate::backend::c::syntax::{
     Comment, Declaration, Directive, FunctionDefinition, FunctionSignature, MacroInvocation,
-    TranslationUnit, c_block, c_expr, c_function, c_initializer, c_statement,
+    TranslationUnit, c_block, c_expr, c_function, c_initializer, c_macro_invocation, c_statement,
 };
 
 mod prefix;
@@ -179,13 +179,13 @@ fn wrapper_definition(
 fn host_macro_invocation(
     signature: &super::host_signature::HostBodySignature<'_>,
 ) -> MacroInvocation {
-    MacroInvocation::new(
-        format!("MAL_DEFINE_{}", signature.operation_name),
-        signature
-            .parameter_names()
-            .into_iter()
-            .map(|name| c_expr!(id name)),
-    )
+    let arguments = signature
+        .parameter_names()
+        .into_iter()
+        .map(|name| c_expr!(id name));
+    c_macro_invocation!(format!("MAL_DEFINE_{}", signature.operation_name); [
+        {{ arguments }},
+    ])
 }
 
 fn external_signature(signature: &CompilerSignature<'_>, definition: bool) -> FunctionSignature {

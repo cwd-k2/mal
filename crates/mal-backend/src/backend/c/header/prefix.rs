@@ -1,39 +1,33 @@
 use crate::backend::c::syntax::{
-    Attribute, Comment, Declaration, Directive, FunctionSignature, FunctionSpecifier, Parameter,
-    PreprocessorExpr, TranslationUnit, TypeName, c_aggregate, c_declaration, c_expr, c_function,
+    Comment, Declaration, Directive, FunctionSignature, FunctionSpecifier, Parameter,
+    TranslationUnit, TypeName, c_aggregate, c_declaration, c_directive, c_expr, c_function,
     c_signature,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
     let mut output = TranslationUnit::default();
     for directive in [
-        Directive::Ifndef("MAL_PROGRAM_MAL_H".into()),
-        Directive::define_empty("MAL_PROGRAM_MAL_H"),
+        c_directive!(ifndef "MAL_PROGRAM_MAL_H"),
+        c_directive!(define "MAL_PROGRAM_MAL_H"),
     ] {
         output.push(directive);
     }
     output.blank_line();
-    output.push(Directive::include_system("stddef.h"));
-    output.push(Directive::include_system("stdint.h"));
-    output.push(Directive::include_system("limits.h"));
-    output.push(Directive::include_system("float.h"));
+    output.push(c_directive!(include(system "stddef.h")));
+    output.push(c_directive!(include(system "stdint.h")));
+    output.push(c_directive!(include(system "limits.h")));
+    output.push(c_directive!(include(system "float.h")));
     if memory_access {
-        output.push(Directive::include_system("string.h"));
+        output.push(c_directive!(include(system "string.h")));
     }
     output.blank_line();
-    output.push(Directive::define_expr(
-        "MAL_C_ABI_VERSION",
-        c_expr!(number "0x000800u"),
-    ));
+    output.push(c_directive!(define "MAL_C_ABI_VERSION" = (number "0x000800u")));
     output.blank_line();
-    output.push(Directive::If(PreprocessorExpr::defined("__clang__")));
-    output.push(Directive::define_attribute(
-        "MAL_DETAIL_MAYBE_UNUSED",
-        Attribute::Unused,
-    ));
-    output.push(Directive::Else);
-    output.push(Directive::define_empty("MAL_DETAIL_MAYBE_UNUSED"));
-    output.push(Directive::Endif);
+    output.push(c_directive!(if (defined("__clang__"))));
+    output.push(c_directive!(define "MAL_DETAIL_MAYBE_UNUSED" = unused));
+    output.push(c_directive!(else));
+    output.push(c_directive!(define "MAL_DETAIL_MAYBE_UNUSED"));
+    output.push(c_directive!(endif));
     output.blank_line();
     output.push(Comment::new("Runtime API"));
     output.blank_line();
