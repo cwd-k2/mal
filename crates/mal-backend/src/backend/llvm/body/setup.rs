@@ -330,7 +330,7 @@ impl<'a> FunctionEmitter<'a> {
             };
             self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
         }
-        self.line(format!("  br label %mal_state_{}", self.function.entry.0));
+        self.branch(format!("mal_state_{}", self.function.entry.0));
 
         for site in self.states.clone() {
             self.emit_state(site)?;

@@ -102,7 +102,7 @@ impl FunctionEmitter<'_> {
             representation: register,
         };
         self.store_input_pattern(resume, Some(&result))?;
-        self.line(format!("  br label %mal_state_{}", resume.0));
+        self.branch(format!("mal_state_{}", resume.0));
         Some(())
     }
 }
@@ -131,16 +131,14 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {expected} = call i1 @llvm.expect.i1(i1 {deep}, i1 false)"
         ));
-        self.line(format!(
-            "  br i1 {expected}, label %mal_deep_entry, label %mal_native_entry"
-        ));
-        self.line("mal_deep_entry:");
+        self.conditional_branch(expected, "mal_deep_entry", "mal_native_entry");
+        self.block("mal_deep_entry");
         let continued = self.register();
         self.line(format!(
             "  {continued} = call {result_llvm} @{name}_frames({parameter})"
         ));
-        self.line(format!("  ret {result_llvm} {continued}"));
-        self.line("mal_native_entry:");
+        self.return_value(result_llvm, continued);
+        self.block("mal_native_entry");
         Some(())
     }
 }

@@ -242,6 +242,27 @@ impl FunctionEmitter<'_> {
         self.terminate(Some(super::super::syntax::Terminator::return_void()));
     }
 
+    pub(super) fn branch(&mut self, target: impl Into<String>) {
+        self.terminate(super::super::syntax::Terminator::branch(target));
+    }
+
+    pub(super) fn conditional_branch(
+        &mut self,
+        condition: impl Into<String>,
+        then_target: impl Into<String>,
+        else_target: impl Into<String>,
+    ) {
+        self.terminate(super::super::syntax::Terminator::conditional_branch(
+            condition,
+            then_target,
+            else_target,
+        ));
+    }
+
+    pub(super) fn return_value(&mut self, ty: impl Into<String>, value: impl Into<String>) {
+        self.terminate(super::super::syntax::Terminator::return_value(ty, value));
+    }
+
     pub(super) fn begin_function(&mut self, signature: super::super::syntax::FunctionSignature) {
         if self.current_definition.is_some() {
             self.emission_failed = true;

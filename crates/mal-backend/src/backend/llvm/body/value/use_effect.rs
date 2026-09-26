@@ -107,21 +107,23 @@ impl FunctionEmitter<'_> {
         let condition = self.register();
         self.line(format!("  {condition} = trunc i8 {unique} to i1"));
         let label = self.label_id();
-        self.line(format!(
-            "  br i1 {condition}, label %mal_capture_take_{label}, label %mal_capture_share_{label}"
-        ));
-        self.line(format!("mal_capture_take_{label}:"));
+        self.conditional_branch(
+            condition,
+            format!("mal_capture_take_{label}"),
+            format!("mal_capture_share_{label}"),
+        );
+        self.block(format!("mal_capture_take_{label}"));
         let pointer = self.capture_pointer(index, &atom.ty)?;
         let value_type = self.types.value(&atom.ty)?;
         self.line(format!(
             "  store {} zeroinitializer, ptr {pointer}, align {}",
             value_type.llvm, value_type.alignment
         ));
-        self.line(format!("  br label %mal_capture_ready_{label}"));
-        self.line(format!("mal_capture_share_{label}:"));
+        self.branch(format!("mal_capture_ready_{label}"));
+        self.block(format!("mal_capture_share_{label}"));
         self.retain_if_borrowed(&mut value)?;
-        self.line(format!("  br label %mal_capture_ready_{label}"));
-        self.line(format!("mal_capture_ready_{label}:"));
+        self.branch(format!("mal_capture_ready_{label}"));
+        self.block(format!("mal_capture_ready_{label}"));
         value.owned = true;
         Some(PreparedValue {
             value,

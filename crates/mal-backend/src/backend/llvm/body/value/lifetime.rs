@@ -192,10 +192,10 @@ impl FunctionEmitter<'_> {
             format!("mal_{operation}_{id}_invalid"),
             cases,
         ));
-        self.line(format!("mal_{operation}_{id}_invalid:"));
+        self.block(format!("mal_{operation}_{id}_invalid"));
         self.unreachable();
         for (index, member) in members.iter().enumerate() {
-            self.line(format!("mal_{operation}_{id}_{index}:"));
+            self.block(format!("mal_{operation}_{id}_{index}"));
             if crate::execution::ownership::is_managed(member) {
                 let payload = self.emit_sum_payload(ty, member, value)?;
                 if retain {
@@ -204,9 +204,9 @@ impl FunctionEmitter<'_> {
                     self.release_value(member, &payload)?;
                 }
             }
-            self.line(format!("  br label %mal_{operation}_{id}_done"));
+            self.branch(format!("mal_{operation}_{id}_done"));
         }
-        self.line(format!("mal_{operation}_{id}_done:"));
+        self.block(format!("mal_{operation}_{id}_done"));
         Some(())
     }
 }

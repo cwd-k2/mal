@@ -170,11 +170,11 @@ impl FunctionEmitter<'_> {
             format!("mal_invalid_case_{}", site.0),
             cases,
         ));
-        self.line(format!("mal_invalid_case_{}:", site.0));
+        self.block(format!("mal_invalid_case_{}", site.0));
         self.unreachable();
         for (arm_ordinal, arm) in arms.iter().enumerate() {
             let member = members.get(arm.index)?;
-            self.line(format!("mal_case_{}_{}:", site.0, arm.index));
+            self.block(format!("mal_case_{}_{}", site.0, arm.index));
             let payload = if is_bool(&scrutinee.ty) {
                 EmittedValue {
                     ty: Type::Unit,
@@ -197,7 +197,7 @@ impl FunctionEmitter<'_> {
                 site,
                 crate::execution::ownership::ControlPath::CaseArm(arm_ordinal),
             )?;
-            self.line(format!("  br label %mal_state_{}", arm.target.0));
+            self.branch(format!("mal_state_{}", arm.target.0));
         }
         Some(())
     }

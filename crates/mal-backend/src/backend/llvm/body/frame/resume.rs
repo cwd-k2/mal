@@ -21,10 +21,7 @@ impl FunctionEmitter<'_> {
                 return None;
             }
             let result_type = self.types.value(&self.result_type)?;
-            self.line(format!(
-                "  ret {} {}",
-                result_type.llvm, result.representation
-            ));
+            self.return_value(result_type.llvm, result.representation.as_str());
             return Some(());
         }
         let index_type = self.types.index_integer();
@@ -38,11 +35,12 @@ impl FunctionEmitter<'_> {
         self.line(format!(
             "  {finished} = icmp eq {index_type} {top}, %mal_control_base"
         ));
-        self.line(format!(
-            "  br i1 {finished}, label %mal_return_done_{}, label %mal_return_pop_{}",
-            site.0, site.0
-        ));
-        self.line(format!("mal_return_done_{}:", site.0));
+        self.conditional_branch(
+            finished,
+            format!("mal_return_done_{}", site.0),
+            format!("mal_return_pop_{}", site.0),
+        );
+        self.block(format!("mal_return_done_{}", site.0));
         self.sync_control_top()?;
         if self.common_region.is_some() {
             let environment = self.active_environment();
@@ -52,14 +50,11 @@ impl FunctionEmitter<'_> {
         }
         if result.ty == self.result_type {
             let result_type = self.types.value(&self.result_type)?;
-            self.line(format!(
-                "  ret {} {}",
-                result_type.llvm, result.representation
-            ));
+            self.return_value(result_type.llvm, result.representation.as_str());
         } else {
             self.unreachable();
         }
-        self.line(format!("mal_return_pop_{}:", site.0));
+        self.block(format!("mal_return_pop_{}", site.0));
         let storage = self.current_control_storage();
         if let [frame_site] = frame_sites.as_slice() {
             let frame = self.execution.control_frames.frame(*frame_site)?.clone();
@@ -85,10 +80,7 @@ impl FunctionEmitter<'_> {
                     "  call void @mal_runtime_environment_release(ptr {active})"
                 ));
             }
-            self.line(format!(
-                "  br label %mal_frame_{}_from_{}",
-                frame_site.0, site.0
-            ));
+            self.branch(format!("mal_frame_{}_from_{}", frame_site.0, site.0));
             return self.emit_frame_resume(site, *frame_site, result, &frame_pointer, false);
         }
         let footer_offset = self.register();
@@ -140,7 +132,7 @@ impl FunctionEmitter<'_> {
             format!("mal_invalid_frame_{}", site.0),
             cases,
         ));
-        self.line(format!("mal_invalid_frame_{}:", site.0));
+        self.block(format!("mal_invalid_frame_{}", site.0));
         self.unreachable();
         for frame_site in frame_sites {
             self.emit_frame_resume(site, frame_site, result, &frame_pointer, true)?;
@@ -220,7 +212,7 @@ impl FunctionEmitter<'_> {
                 owned: true,
             }),
         )?;
-        self.line(format!("  br label %mal_state_{}", frame.resume.0));
+        self.branch(format!("mal_state_{}", frame.resume.0));
         Some(())
     }
 }

@@ -9,7 +9,7 @@ impl FunctionEmitter<'_> {
             .filter(|function| self.optimizations.self_tail_parameter(function.id))
             .and_then(|function| self.execution.self_tail_parameters.get(function.id))
             .cloned();
-        self.line(format!("mal_state_{}:", site.0));
+        self.block(format!("mal_state_{}", site.0));
         for (binding_index, binding) in state.bindings.iter().enumerate() {
             let value = self.emit_operation(
                 site,
@@ -32,8 +32,8 @@ impl FunctionEmitter<'_> {
                 .is_some_and(|parameter| parameter.binding_count == binding_index + 1)
             {
                 let label = self_tail_entry_label(self.current_function);
-                self.line(format!("  br label %{label}"));
-                self.line(format!("{label}:"));
+                self.branch(label.clone());
+                self.block(label);
             }
         }
         self.emit_terminator(site, &state.terminator)
@@ -58,7 +58,7 @@ impl FunctionEmitter<'_> {
             }
             Terminator::Goto(target) => {
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                self.line(format!("  br label %mal_state_{}", target.0));
+                self.branch(format!("mal_state_{}", target.0));
             }
             Terminator::Jump { target, value } => {
                 let effect = self.ownership.terminator_operand_use(
@@ -70,7 +70,7 @@ impl FunctionEmitter<'_> {
                 self.commit_consumes(&value)?;
                 self.store_input_pattern(*target, Some(&value.value))?;
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                self.line(format!("  br label %mal_state_{}", target.0));
+                self.branch(format!("mal_state_{}", target.0));
             }
             Terminator::PrimitiveBranch {
                 operator,
@@ -154,24 +154,22 @@ impl FunctionEmitter<'_> {
                 } else {
                     format!("mal_state_{}", otherwise.0)
                 };
-                self.line(format!(
-                    "  br i1 {condition}, label %{then_label}, label %{otherwise_label}"
-                ));
+                self.conditional_branch(condition, then_label, otherwise_label);
                 if then_drops {
-                    self.line(format!("mal_edge_{}_then:", site.0));
+                    self.block(format!("mal_edge_{}_then", site.0));
                     self.emit_edge_drops(
                         site,
                         crate::execution::ownership::ControlPath::BranchThen,
                     )?;
-                    self.line(format!("  br label %mal_state_{}", then.0));
+                    self.branch(format!("mal_state_{}", then.0));
                 }
                 if otherwise_drops {
-                    self.line(format!("mal_edge_{}_otherwise:", site.0));
+                    self.block(format!("mal_edge_{}_otherwise", site.0));
                     self.emit_edge_drops(
                         site,
                         crate::execution::ownership::ControlPath::BranchOtherwise,
                     )?;
-                    self.line(format!("  br label %mal_state_{}", otherwise.0));
+                    self.branch(format!("mal_state_{}", otherwise.0));
                 }
             }
             Terminator::Call {
@@ -183,7 +181,7 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_call(site, target, callee, argument, false)?;
                     self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    self.line(format!("  br label %mal_state_{}", resume.0));
+                    self.branch(format!("mal_state_{}", resume.0));
                 }
                 ControlCallMode::DirectRegion(_) if self.mode == EmissionMode::Native => {
                     self.emit_native_self_call(site, callee, argument)?;
@@ -205,7 +203,7 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_indirect_call(site, callee, argument, false)?;
                     self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    self.line(format!("  br label %mal_state_{}", resume.0));
+                    self.branch(format!("mal_state_{}", resume.0));
                 }
                 ControlCallMode::DirectSelfTail => return None,
                 ControlCallMode::DirectRegion(_) => return None,
@@ -253,7 +251,7 @@ impl FunctionEmitter<'_> {
                         } else {
                             format!("mal_state_{}", function.entry.0)
                         };
-                        self.line(format!("  br label %{target}"));
+                        self.branch(target);
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(site, target, callee, argument, true)?;

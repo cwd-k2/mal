@@ -108,12 +108,14 @@ impl FunctionEmitter<'_> {
             "  {fast} = and i1 {no_overflow}, {within_capacity}"
         ));
         let label = self.label_id();
-        self.line(format!(
-            "  br i1 {fast}, label %mal_control_fast_{label}, label %mal_control_slow_{label}"
-        ));
-        self.line(format!("mal_control_fast_{label}:"));
-        self.line(format!("  br label %mal_control_ready_{label}"));
-        self.line(format!("mal_control_slow_{label}:"));
+        self.conditional_branch(
+            fast,
+            format!("mal_control_fast_{label}"),
+            format!("mal_control_slow_{label}"),
+        );
+        self.block(format!("mal_control_fast_{label}"));
+        self.branch(format!("mal_control_ready_{label}"));
+        self.block(format!("mal_control_slow_{label}"));
         let grown = self.register();
         self.line(format!(
             "  {grown} = call ptr @mal_control_reserve_frame(ptr %mal_context, {index_type} {top}, {index_type} {frame_size})"
@@ -130,8 +132,8 @@ impl FunctionEmitter<'_> {
             "  store {index_type} {grown_capacity}, ptr %mal_local_control_capacity, align {}",
             self.types.index_alignment()
         ));
-        self.line(format!("  br label %mal_control_ready_{label}"));
-        self.line(format!("mal_control_ready_{label}:"));
+        self.branch(format!("mal_control_ready_{label}"));
+        self.block(format!("mal_control_ready_{label}"));
         let storage = self.register();
         self.line(format!(
             "  {storage} = phi ptr [{cached_storage}, %mal_control_fast_{label}], [{grown}, %mal_control_slow_{label}]"

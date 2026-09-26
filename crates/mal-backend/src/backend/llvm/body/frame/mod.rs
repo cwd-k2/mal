@@ -141,7 +141,7 @@ impl FunctionEmitter<'_> {
                 crate::execution::ownership::ParameterEntry::OwnedHandoff,
             )?;
             self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-            self.line(format!("  br label %mal_state_{}", self.function.entry.0));
+            self.branch(format!("mal_state_{}", self.function.entry.0));
             Some(())
         }
     }
@@ -267,11 +267,12 @@ impl FunctionEmitter<'_> {
                 super::function_name(*target)
             ));
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
-            self.line(format!(
-                "  br i1 {matched}, label %mal_region_target_{}_{index}, label %{next}",
-                site.0
-            ));
-            self.line(format!("{next}:"));
+            self.conditional_branch(
+                matched,
+                format!("mal_region_target_{}_{index}", site.0),
+                next.clone(),
+            );
+            self.block(next);
         }
         let has_native_target = self
             .execution
@@ -317,7 +318,7 @@ impl FunctionEmitter<'_> {
             self.unreachable();
         }
         for (index, target) in targets.iter().enumerate() {
-            self.line(format!("mal_region_target_{}_{index}:", site.0));
+            self.block(format!("mal_region_target_{}_{index}", site.0));
             self.emit_region_target(*target, argument)?;
         }
         Some(())
@@ -331,7 +332,7 @@ impl FunctionEmitter<'_> {
             argument,
             crate::execution::ownership::ParameterEntry::OwnedHandoff,
         )?;
-        self.line(format!("  br label %mal_state_{}", entry.0));
+        self.branch(format!("mal_state_{}", entry.0));
         Some(())
     }
 }

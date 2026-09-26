@@ -101,10 +101,10 @@ impl FunctionEmitter<'_> {
                 format!("{stem}_invalid"),
                 cases,
             ));
-            self.line(format!("{stem}_invalid:"));
+            self.block(format!("{stem}_invalid"));
             self.unreachable();
             for (index, variant) in variants.iter().enumerate() {
-                self.line(format!("{stem}_variant_{index}:"));
+                self.block(format!("{stem}_variant_{index}"));
                 let payload = self.emit_source_load_at_with_alignment(
                     &payload_pointer,
                     variant,
@@ -116,9 +116,9 @@ impl FunctionEmitter<'_> {
                     "  store {} {}, ptr {storage}, align {}",
                     runtime.llvm, sum.representation, runtime.alignment
                 ));
-                self.line(format!("  br label %{stem}_loaded"));
+                self.branch(format!("{stem}_loaded"));
             }
-            self.line(format!("{stem}_loaded:"));
+            self.block(format!("{stem}_loaded"));
             let result = self.register();
             self.line(format!(
                 "  {result} = load {}, ptr {storage}, align {}",
@@ -267,10 +267,10 @@ impl FunctionEmitter<'_> {
                 format!("{stem}_invalid"),
                 cases,
             ));
-            self.line(format!("{stem}_invalid:"));
+            self.block(format!("{stem}_invalid"));
             self.unreachable();
             for (index, variant) in variants.iter().enumerate() {
-                self.line(format!("{stem}_variant_{index}:"));
+                self.block(format!("{stem}_variant_{index}"));
                 let payload = self.emit_sum_payload(&value.ty, variant, &value.representation)?;
                 self.emit_source_store_at_with_alignment(
                     &payload_pointer,
@@ -282,9 +282,9 @@ impl FunctionEmitter<'_> {
                     aligned,
                     metadata,
                 )?;
-                self.line(format!("  br label %{stem}_stored"));
+                self.branch(format!("{stem}_stored"));
             }
-            self.line(format!("{stem}_stored:"));
+            self.block(format!("{stem}_stored"));
             return Some(());
         }
         if !matches!(
