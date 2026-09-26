@@ -6,6 +6,9 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 
 | Module | Responsibility |
 |---|---|
+| `target` | target data layout admission and the scalar, pointer, and index layout used by emission |
+| `module` | selection and composition of the LLVM declarations, definitions, metadata, and root bridge required by one program |
+| `syntax` | LLVM module, function, and basic-block construction followed by textual rendering |
 | `host_bridge`, `host_bridge/plan` | marshalling plan and typed C syntax for converting between LLVM values and public C host values |
 | `shim` | C11 entry point that passes process arguments and calls the internal root bridge |
 | `body/types` | LLVM value types, target pointer size, and scalar and value ABI alignment |
@@ -23,3 +26,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/memory` | `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer snapshot conversion |
 | `body/scalar` | integer and floating-point widths, literals, and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |
+
+`module` builds one logical LLVM module from feature groups. It adds control and byte-runtime declarations only when the emitted
+body uses them. The renderer currently writes that logical module to the single `program.ll` artifact; physical partitioning into
+several `.ll` inputs is a delivery choice and does not change feature selection or body lowering.

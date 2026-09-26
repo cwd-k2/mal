@@ -4,10 +4,14 @@ use std::fmt;
 
 mod body;
 mod host_bridge;
+mod module;
 mod optimization;
 mod shim;
+mod syntax;
+mod target;
 
 pub(crate) use optimization::OptimizationSet;
+pub(crate) use target::{TargetLayout, parse as target_layout};
 
 pub struct Target<'a> {
     pub triple: &'a str,
@@ -54,7 +58,6 @@ pub(crate) fn generate(
     let body =
         body::generate(program, layout, optimizations).map_err(Error::InconsistentExecutionPlan)?;
     let runtime = crate::backend::runtime::for_program(body.uses_byte_runtime);
-    let types = body::types::Types::for_target(layout);
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
@@ -68,124 +71,19 @@ pub(crate) fn generate(
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let external_declarations = external_bridges
+    let external_signatures = external_bridges
         .iter()
-        .map(|bridge| bridge.llvm_declaration.as_str())
-        .collect::<Vec<_>>()
-        .join("\n");
+        .map(|bridge| bridge.llvm_signature.clone())
+        .collect::<Vec<_>>();
     let external_definitions = external_bridges
         .iter()
         .map(|bridge| bridge.c_definitions.render())
         .collect::<Vec<_>>()
         .join("\n\n");
-    let control_declarations = if body.uses_control {
-        format!(
-            "declare ptr @mal_control_reserve_frame(ptr, {0}, {0})\ndeclare ptr @mal_control_storage(ptr)\ndeclare {0} @mal_control_capacity(ptr)\ndeclare void @mal_native_stack_begin(ptr)\ndeclare i8 @mal_native_stack_is_deep(ptr) nofree nounwind willreturn memory(argmem: read)\ndeclare i1 @llvm.expect.i1(i1, i1)\n\n",
-            types.index_integer()
-        )
-    } else {
-        String::new()
-    };
-    // Buffer object fields and element storage are distinct allocations. Their TBAA types preserve
-    // that boundary across inlining. Runtime slot writes do not carry this metadata, so growth still
-    // invalidates an active data pointer.
-    let buffer_alias_metadata = body.uses_byte_runtime.then_some(
-        "!0 = !{!\"Simple C/C++ TBAA\"}\n\
-         !1 = !{!\"omnipotent char\", !0, i64 0}\n\
-         !2 = !{!\"mal buffer element storage\", !1, i64 0}\n\
-         !3 = !{!2, !2, i64 0}\n\
-         !4 = distinct !{!4, !\"mal buffer object allocation\"}\n\
-         !5 = distinct !{!5, !4, !\"mal buffer object metadata\"}\n\
-         !6 = !{!5}\n\
-         !7 = !{!\"mal buffer object field\", !1, i64 0}\n\
-         !8 = !{!7, !7, i64 0}\n",
-    );
-    let byte_declarations = if body.uses_byte_runtime {
-        let index = types.index_integer();
-        format!(
-            "declare ptr @mal_runtime_bytes_data(ptr) nofree nounwind willreturn memory(argmem: read)\n\
-             declare ptr @mal_runtime_bytes_read(ptr, ptr, {index})\n\
-             declare ptr @mal_runtime_bytes_retain(ptr, ptr)\n\
-             declare void @mal_runtime_bytes_release(ptr)\n\
-             declare void @mal_runtime_bytes_write(ptr, ptr, {index}, {index})\n\
-             declare ptr @mal_runtime_buffer_make(ptr, {index}, {index})\n\
-             declare ptr @mal_runtime_buffer_make_managed(ptr, {index}, {index}, ptr, ptr)\n\
-             declare {index} @mal_runtime_buffer_new_managed(ptr, ptr, ptr, {index})\n\
-             declare void @mal_runtime_buffer_fill_managed(ptr, ptr, {index}, {index}, ptr, {index})\n\
-             declare void @mal_runtime_buffer_copy_managed(ptr, ptr, {index}, ptr, {index}, {index}, {index})\n\
-             declare {index} @mal_runtime_buffer_new(ptr, ptr, ptr, {index})\n\
-             declare void @mal_runtime_buffer_fill(ptr, ptr, {index}, {index}, ptr, {index})\n\
-             declare void @mal_runtime_buffer_copy(ptr, ptr, {index}, ptr, {index}, {index}, {index})\n\
-             declare ptr @mal_runtime_buffer_data_slot(ptr) nofree nounwind willreturn memory(none)\n\
-             declare {index} @mal_runtime_buffer_count(ptr) nofree nounwind willreturn memory(argmem: read)\n\
-             declare ptr @mal_runtime_buffer_from(ptr, ptr, {index}, {index}, {index})\n\
-             declare void @mal_runtime_buffer_into(ptr, ptr, ptr, {index}, {index}, {index})\n\
-             declare i8 @mal_runtime_symbol_at(ptr, {index})\n\
-             declare void @mal_runtime_symbol_concatenate(ptr, ptr, ptr, ptr, {index}, ptr, ptr, {index})\n\
-             declare void @mal_runtime_symbol_concatenate_consuming_left(ptr, ptr, ptr, ptr, {index}, ptr, ptr, {index})\n\
-             declare void @mal_runtime_symbol_concatenate_consuming_right(ptr, ptr, ptr, ptr, {index}, ptr, ptr, {index})\n\
-             declare i8 @mal_runtime_symbol_equal(ptr, {index}, ptr, {index})\n\n"
-        )
-    } else {
-        String::new()
-    };
-    let (control_entry, control_top) = if body.uses_control {
-        (
-            format!(
-                "  %mal_control_top = alloca {0}, align {1}\n  store {0} 0, ptr %mal_control_top, align {1}\n  call void @mal_native_stack_begin(ptr %mal_context)\n",
-                types.index_integer(),
-                types.index_alignment()
-            ),
-            "%mal_control_top",
-        )
-    } else {
-        (String::new(), "null")
-    };
-    let (entry_argument, entry_call) = match &body.main_parameter {
-        mal_frontend::check::ast::Type::Unit => (
-            String::new(),
-            format!(
-                "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null)",
-                function_name(body.main),
-            ),
-        ),
-        ty => {
-            let value = types.value(ty).ok_or(Error::InconsistentExecutionPlan(
-                "entry argument layout".into(),
-            ))?;
-            (
-                format!(
-                    "  %mal_entry_argument = load {}, ptr %mal_argument, align {}\n",
-                    value.llvm, value.alignment
-                ),
-                format!(
-                    "call i32 @{}(ptr %mal_context, ptr {control_top}, ptr null, {} %mal_entry_argument)",
-                    function_name(body.main),
-                    value.llvm
-                ),
-            )
-        }
-    };
-    let module = format!(
-        "target datalayout = \"{}\"\ntarget triple = \"{}\"\n\ndeclare ptr @mal_runtime_environment_allocate(ptr, {}, ptr)\ndeclare ptr @mal_runtime_environment_retain(ptr, ptr)\ndeclare void @mal_runtime_environment_release(ptr)\ndeclare i8 @mal_runtime_environment_is_unique(ptr) nofree nounwind willreturn memory(argmem: read)\ndeclare ptr @llvm.invariant.start.p0(i64, ptr)\ndeclare ptr @llvm.ptrmask.p0.i{}(ptr, {})\ndeclare void @llvm.memcpy.p0.p0.i{}(ptr, ptr, {}, i1 immarg)\n{}{}{}\n{}\n{}\n{}define {} {{\nentry:\n{}{}  %mal_entry_result = {}\n  store i32 %mal_entry_result, ptr %mal_result, align 4\n  ret void\n}}\n",
-        target.data_layout,
-        target.triple,
-        types.index_integer(),
-        types.pointer_size() * 8,
-        types.pointer_representation_integer(),
-        layout.index_size * 8,
-        types.index_integer(),
-        control_declarations,
-        byte_declarations,
-        external_declarations,
-        body.globals,
-        body.definitions,
-        buffer_alias_metadata.unwrap_or_default(),
-        entry.llvm_signature(),
-        control_entry,
-        entry_argument,
-        entry_call,
-    );
+    let module = module::render(&body, target, layout, external_signatures).ok_or(
+        Error::InconsistentExecutionPlan("entry argument layout".into()),
+    )?;
+    let types = body::types::Types::for_target(layout);
     let main = shim::entry_main(&body.main_parameter, types, entry.name())
         .ok_or(Error::InconsistentExecutionPlan(
             "process entry emission".into(),
@@ -210,106 +108,6 @@ pub(crate) fn generate(
 fn function_name(id: crate::closure::ast::FunctionId) -> String {
     let crate::closure::ast::FunctionId::Lambda(id) = id;
     format!("mal_function_{}", id.0)
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) struct TargetLayout {
-    pub(crate) pointer_size: usize,
-    pub(crate) pointer_alignment: usize,
-    pub(crate) index_size: usize,
-    pub(crate) integer_alignments: [usize; 4],
-    pub(crate) float_alignments: [usize; 2],
-    pub(crate) supports_pointer_alignment: bool,
-}
-
-impl TargetLayout {
-    pub(crate) fn natural(pointer_size: usize, index_size: usize) -> Option<Self> {
-        (pointer_size.is_power_of_two() && index_size.is_power_of_two()).then_some(Self {
-            pointer_size,
-            pointer_alignment: pointer_size,
-            index_size,
-            integer_alignments: [1, 2, 4, 8],
-            float_alignments: [4, 8],
-            supports_pointer_alignment: true,
-        })
-    }
-
-    pub(crate) fn scalar_alignment(self, bits: u8, floating: bool) -> Option<usize> {
-        if floating {
-            return match bits {
-                32 => Some(self.float_alignments[0]),
-                64 => Some(self.float_alignments[1]),
-                _ => None,
-            };
-        }
-        match bits {
-            8 => Some(self.integer_alignments[0]),
-            16 => Some(self.integer_alignments[1]),
-            32 => Some(self.integer_alignments[2]),
-            64 => Some(self.integer_alignments[3]),
-            _ => None,
-        }
-    }
-}
-
-pub(crate) fn target_layout(data_layout: &str) -> Option<TargetLayout> {
-    let pointer = data_layout.split('-').find_map(|component| {
-        component
-            .strip_prefix("p:")
-            .or_else(|| component.strip_prefix("p0:"))
-    });
-    let (pointer_bits, pointer_alignment_bits, index_bits) = if let Some(pointer) = pointer {
-        let fields = pointer.split(':').collect::<Vec<_>>();
-        let pointer_bits = fields.first()?.parse::<usize>().ok()?;
-        let pointer_alignment_bits = fields.get(1)?.parse::<usize>().ok()?;
-        let index_bits = fields
-            .get(3)
-            .map_or(Some(pointer_bits), |bits| bits.parse().ok())?;
-        (pointer_bits, pointer_alignment_bits, index_bits)
-    } else {
-        (64, 64, 64)
-    };
-    let byte_alignment = |bits: usize| {
-        bits.is_multiple_of(8)
-            .then_some(bits / 8)
-            .filter(|bytes| bytes.is_power_of_two())
-    };
-    let supported_size =
-        |bits: usize| byte_alignment(bits).filter(|bytes| matches!(bytes, 1 | 2 | 4 | 8));
-    let mut layout = TargetLayout {
-        pointer_size: supported_size(pointer_bits)?,
-        pointer_alignment: byte_alignment(pointer_alignment_bits)?,
-        index_size: supported_size(index_bits)?,
-        integer_alignments: [1, 2, 4, 8],
-        float_alignments: [4, 8],
-        supports_pointer_alignment: !data_layout.split('-').any(|component| {
-            component
-                .strip_prefix("ni:")
-                .is_some_and(|spaces| spaces.split(':').any(|space| space == "0"))
-        }),
-    };
-    for component in data_layout.split('-') {
-        let (floating, fields) = if let Some(fields) = component.strip_prefix('i') {
-            (false, fields)
-        } else if let Some(fields) = component.strip_prefix('f') {
-            (true, fields)
-        } else {
-            continue;
-        };
-        let mut fields = fields.split(':');
-        let bits = fields.next()?.parse::<u8>().ok()?;
-        let alignment = byte_alignment(fields.next()?.parse::<usize>().ok()?)?;
-        match (floating, bits) {
-            (false, 8) => layout.integer_alignments[0] = alignment,
-            (false, 16) => layout.integer_alignments[1] = alignment,
-            (false, 32) => layout.integer_alignments[2] = alignment,
-            (false, 64) => layout.integer_alignments[3] = alignment,
-            (true, 32) => layout.float_alignments[0] = alignment,
-            (true, 64) => layout.float_alignments[1] = alignment,
-            _ => {}
-        }
-    }
-    Some(layout)
 }
 
 #[cfg(test)]

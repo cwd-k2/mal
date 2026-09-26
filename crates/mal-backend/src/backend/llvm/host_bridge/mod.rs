@@ -11,7 +11,7 @@ use crate::backend::c::syntax::{
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
 pub(super) struct Bridge {
-    pub(super) llvm_declaration: String,
+    pub(super) llvm_signature: String,
     pub(super) c_definitions: TranslationUnit,
 }
 
@@ -25,7 +25,7 @@ pub(super) fn generate(
     let result = plan::Value::new(&external.result, types)?;
     let mut marshalling = Marshalling::new(external.id.0, raw_types);
     let bridge = AbiFunction::external_bridge(external.id);
-    let llvm_declaration = format!("declare {}", bridge.llvm_signature());
+    let llvm_signature = bridge.llvm_signature();
     let (mut statements, arguments) = match &parameter.kind {
         plan::Kind::Unit => (
             vec![Statement::expression(Expr::cast(
@@ -92,7 +92,7 @@ pub(super) fn generate(
         Block::new(statements),
     ));
     Some(Bridge {
-        llvm_declaration,
+        llvm_signature,
         c_definitions: marshalling.helpers,
     })
 }

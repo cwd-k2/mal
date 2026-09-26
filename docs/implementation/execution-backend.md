@@ -98,5 +98,13 @@ LLVM moduleはdriverが選んだtarget tripleとdata layoutを持ち、同じtar
 bitcodeをtargetおよびLLVM versionから独立した配布形式とは扱わない。永続的なpublic artifactはC headerと最終objectまたは
 executableであり、IR出力を公開する場合は使用toolchainとtargetに結びつくdiagnostic/development artifactとする。
 
+backendは生成中のLLVM artifactを論理moduleとして構成し、target property、外部function宣言、global、function定義、metadataを
+rendererへ渡す。control storageとbyte runtimeの宣言groupは、それを使うbodyだけがmoduleへ追加する。LLVM IRにはsource-levelの
+`include`を設けず、必要なgroupの選択をbackendが所有する。
+
+現行driverは論理moduleを一つの`program.ll`へrenderする。複数の`.ll`へ物理分割するとinternal linkage、module間最適化、target
+propertyの一致を別途管理する必要があるため、code organizationだけを理由には分割しない。compile時間または再利用性に測定可能な
+利点が生じた場合は、同じ論理moduleのpartitionとし、baselineでもobservable behaviorとstack boundを維持する。
+
 artifactの具体像は[LLVM backend生成物例](llvm-backend-artifacts.md)、採用後の最適化gateは
 [generated program最適化policy](../development/generated-program-optimization.md)に置く。
