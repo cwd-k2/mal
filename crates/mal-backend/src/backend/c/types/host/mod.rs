@@ -230,7 +230,7 @@ impl TypeRegistry {
             )]));
         }
         let mut output = TranslationUnit::default();
-        output.push(c_function!(signature
+        output.push(c_function!(signature {
             FunctionSignature::static_inline(
                 host_type.clone(),
                 format!("mal_detail_to_host_{index}"),
@@ -238,13 +238,14 @@ impl TypeRegistry {
                     Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
                     Parameter::named(raw_type.clone(), "value"),
                 ],
-            );
+            )
+        };
             block [(switch (field (id "value"); "tag"); [
                 {{ to_host_cases }},
             ])]
         ));
         output.blank_line();
-        output.push(c_function!(signature
+        output.push(c_function!(signature {
             FunctionSignature::static_inline(
                 raw_type,
                 format!("mal_detail_to_raw_{index}"),
@@ -252,7 +253,8 @@ impl TypeRegistry {
                     Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
                     Parameter::named(host_type, "value"),
                 ],
-            );
+            )
+        };
             block [(switch (field (id "value"); "tag"); [
                 {{ to_raw_cases }},
             ])]
@@ -329,6 +331,6 @@ impl TypeRegistry {
 }
 
 fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {
-    output.push(c_function!(signature signature; body body));
+    output.push(c_function!(signature { signature }; body { body }));
     output.blank_line();
 }

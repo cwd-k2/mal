@@ -94,7 +94,7 @@ pub(super) fn emit_host(
                 )),
             ),
         );
-        output.push(c_function!(macro host_macro_invocation(signature); body body));
+        output.push(c_function!(macro { host_macro_invocation(signature) }; body { body }));
     }
     output.render()
 }
@@ -173,7 +173,7 @@ fn wrapper_definition(
         )),
         { terminal },
     );
-    c_function!(signature external_signature(&signatures.compiler, true); body body)
+    c_function!(signature { external_signature(&signatures.compiler, true) }; body { body })
 }
 
 fn host_macro_invocation(

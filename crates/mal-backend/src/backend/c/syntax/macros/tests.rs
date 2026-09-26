@@ -119,9 +119,10 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
             ]),
         ]),
     );
-    let function = super::c_function!(signature
-        FunctionSignature::new("int", "example", []);
-        body body
+    let function = super::c_function!(signature {
+        FunctionSignature::new("int", "example", [])
+    };
+        body { body }
     );
 
     assert_eq!(

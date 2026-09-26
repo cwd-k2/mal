@@ -84,7 +84,7 @@ pub(super) fn generate(
     marshalling.helpers.blank_line();
     marshalling
         .helpers
-        .push(c_function!(signature bridge.c_signature();
+        .push(c_function!(signature { bridge.c_signature() };
             block [{{ statements }}]
         ));
     Some(Bridge {
@@ -211,7 +211,7 @@ impl<'a> Marshalling<'a> {
             TypeName::const_named("uint32_t").pointer(),
             c_expr!(add (id "value"); (number tag_offset)),
         );
-        self.helpers.push(c_function!(signature
+        self.helpers.push(c_function!(signature {
             FunctionSignature::new(
                 c_type,
                 helper.clone(),
@@ -220,7 +220,8 @@ impl<'a> Marshalling<'a> {
                     Parameter::named(TypeName::const_named("uint8_t").pointer(), "value"),
                 ],
             )
-            .with_specifiers([FunctionSpecifier::Static]);
+            .with_specifiers([FunctionSpecifier::Static])
+        };
             block [
                 (var ("uint32_t") ("tag") = { tag }),
                 (switch (id "tag"); [{{ cases }}]),
@@ -330,7 +331,7 @@ impl<'a> Marshalling<'a> {
             c_expr!(add (id "value"); (number tag_offset)),
             c_expr!(field (id "input"); "tag"),
         );
-        self.helpers.push(c_function!(signature
+        self.helpers.push(c_function!(signature {
             FunctionSignature::new(
                 "void",
                 helper.clone(),
@@ -340,7 +341,8 @@ impl<'a> Marshalling<'a> {
                     Parameter::named(c_type, "input"),
                 ],
             )
-            .with_specifiers([FunctionSpecifier::Static]);
+            .with_specifiers([FunctionSpecifier::Static])
+        };
             block [
                 { tag_store },
                 (switch (field (id "input"); "tag"); [{{ cases }}]),

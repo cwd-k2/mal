@@ -25,8 +25,9 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 }
 
 fn unit_main(entry: &str) -> FunctionDefinition {
-    c_function!(signature
-        c_signature!(fn "main"() -> named("int"));
+    c_function!(signature {
+        c_signature!(fn "main"() -> named("int"))
+    };
         block [
             (var ("MalContext") ("context") = { zero_initializer() }),
             (var ("int32_t") ("result")),
@@ -96,12 +97,13 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         (return (id "result")),
     );
 
-    Some(c_function!(signature
+    Some(c_function!(signature {
         c_signature!(fn "main"(
             "mal_argc": named("int"),
             "mal_argv": ptr(ptr(named("char"))),
-        ) -> named("int"));
-        body body
+        ) -> named("int"))
+    };
+        body { body }
     ))
 }
 
