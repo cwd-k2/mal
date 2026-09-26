@@ -61,8 +61,7 @@ pub(super) fn generate(
     enabled: super::optimization::OptimizationSet,
 ) -> Result<Output, String> {
     let (main, main_parameter) = main_function(execution).ok_or("entry function selection")?;
-    let types = Types::for_program(target, &execution.lowered.functions)
-        .ok_or("value type construction")?;
+    let types = Types::for_program(target, &execution.lowered.functions);
     let top_levels = TopLevelConstants::new(execution, types.clone())
         .ok_or("top-level constant construction")?;
     let index = ProgramIndex::new(execution).ok_or("program index construction")?;

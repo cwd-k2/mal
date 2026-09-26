@@ -25,18 +25,20 @@ pub(in crate::backend::llvm) struct Types {
 impl Types {
     #[cfg(test)]
     pub(in crate::backend::llvm) fn new(pointer_size: usize) -> Option<Self> {
-        Self::for_target(TargetLayout::natural(pointer_size, pointer_size)?)
+        Some(Self::for_target(TargetLayout::natural(
+            pointer_size,
+            pointer_size,
+        )?))
     }
 
-    pub(in crate::backend::llvm) fn for_target(target: TargetLayout) -> Option<Self> {
-        TargetLayout::natural(target.pointer_size, target.index_size)?;
-        Some(Self { target })
+    pub(in crate::backend::llvm) fn for_target(target: TargetLayout) -> Self {
+        Self { target }
     }
 
     pub(in crate::backend::llvm) fn for_program(
         target: TargetLayout,
         _functions: &[crate::closure::ast::Function],
-    ) -> Option<Self> {
+    ) -> Self {
         Self::for_target(target)
     }
 
@@ -326,7 +328,7 @@ mod tests {
     fn uses_target_abi_alignment_for_runtime_scalars_and_pointers() {
         let target = crate::backend::llvm::target_layout("e-p:64:32-i16:32-i64:32")
             .expect("synthetic target layout");
-        let types = Types::for_target(target).unwrap();
+        let types = Types::for_target(target);
 
         assert_eq!(types.value(&Type::UInt16).unwrap().alignment, 4);
         assert_eq!(types.value(&Type::UInt64).unwrap().alignment, 4);

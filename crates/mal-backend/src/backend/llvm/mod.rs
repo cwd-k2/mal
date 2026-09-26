@@ -54,9 +54,7 @@ pub(crate) fn generate(
     let body =
         body::generate(program, layout, optimizations).map_err(Error::InconsistentExecutionPlan)?;
     let runtime = crate::backend::runtime::for_program(body.uses_byte_runtime);
-    let types = body::types::Types::for_target(layout).ok_or(Error::InconsistentExecutionPlan(
-        "target type construction".into(),
-    ))?;
+    let types = body::types::Types::for_target(layout);
     let entry = AbiFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program

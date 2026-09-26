@@ -20,7 +20,7 @@ pub(super) fn generate(
     target: super::TargetLayout,
     raw_types: &crate::backend::c::RawHostTypes,
 ) -> Option<Bridge> {
-    let types = body::types::Types::for_target(target)?;
+    let types = body::types::Types::for_target(target);
     let parameter = plan::Value::new(&external.parameter, types.clone())?;
     let result = plan::Value::new(&external.result, types)?;
     let mut marshalling = Marshalling::new(external.id.0, raw_types);

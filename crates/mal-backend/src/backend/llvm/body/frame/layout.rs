@@ -100,8 +100,7 @@ mod tests {
             integer_alignments: [1, 2, 4, 8],
             float_alignments: [4, 16],
             supports_pointer_alignment: true,
-        })
-        .unwrap();
+        });
 
         let empty = std::collections::HashSet::new();
         let narrow =
@@ -126,8 +125,7 @@ mod tests {
             integer_alignments: [1, 1, 2, 2],
             float_alignments: [1, 2],
             supports_pointer_alignment: true,
-        })
-        .unwrap();
+        });
 
         let empty = std::collections::HashSet::new();
         let first =
