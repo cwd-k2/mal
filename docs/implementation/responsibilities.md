@@ -65,7 +65,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、canonical storage、runtime slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical memoryのstride、alignment、offsetをtarget data layoutから構成 |
-| `runtime/c11` | program非依存のC11 mechanism。allocation、reference count、control storage、Symbol operation |
+| `runtime/c11` | program非依存のC11 mechanism。allocation、reference count、control storage、Symbol operation、Buffer storageとrange operation |
 | `analysis`、`pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | current tokenから作るsyntax indexと、resolved identity・source上のdeclaration/reference・checked typeから作るsemantic indexをeditor queryへ構成 |
 | `driver` | 生成物のpath、temporary path、C compiler process、C build input、および`--optimization`の選択 |

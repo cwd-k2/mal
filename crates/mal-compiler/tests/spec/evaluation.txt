@@ -98,6 +98,10 @@ main :: Unit -> Int32 := () -> { s := make<Int32>(0usize); s.fill(0usize, 3usize
 main :: Unit -> Int32 := () -> { b := make<Int32>(0usize); i := new(b, 5); put(b, i, 6); fill(b, 1usize, 1usize, 8); if (get(b, i) == 6 && get(b, 1usize) == 8) then 1 else 0; };
 ### buffer_unit_count | run:3
 main :: Unit -> Int32 := () -> { b := make<Unit>(0usize); _ := b.new(()); _ := b.new(()); _ := b.new(()); (#b).i32; };
+### buffer_unit_fill_extends_count | run:5
+main :: Unit -> Int32 := () -> { b := make<Unit>(0usize); b.fill(0usize, 5usize, ()); (#b).i32; };
+### buffer_unit_copy_extends_count | run:4
+main :: Unit -> Int32 := () -> { source := make<Unit>(0usize); source.fill(0usize, 3usize, ()); destination := make<Unit>(0usize); _ := destination.new(()); destination.copy(1usize, source, 0usize, 3usize); (#destination).i32; };
 ### buffer_product_sum | run:1
 main :: Unit -> Int32 := () -> { b := make<(Int32, UInt8)>(0usize); i := b.new((5, 6u8)); (x, y) := b.get(i); if (x == 5 && y == 6u8) then 1 else 0; };
 ### order_left_to_right | run:1
