@@ -1,5 +1,7 @@
 use std::ops::Deref;
 
+use super::render::RenderWrite;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend) struct NumericLiteral(String);
 
@@ -41,9 +43,7 @@ impl StringLiteral {
         Self(value.into())
     }
 
-    pub(super) fn render(&self, output: &mut String) {
-        use std::fmt::Write as _;
-
+    pub(super) fn render(&self, output: &mut impl RenderWrite) {
         output.push('"');
         for byte in self.0.bytes() {
             match byte {

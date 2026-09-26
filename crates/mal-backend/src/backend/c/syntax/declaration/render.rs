@@ -1,6 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use super::*;
+use crate::backend::c::syntax::render::RenderWrite;
 
 impl TypeName {
     pub(in crate::backend) fn render_declarator(&self, declarator: &str) -> String {
@@ -112,6 +113,11 @@ impl FunctionSpecifier {
 impl FunctionSignature {
     pub(in crate::backend) fn render(&self) -> String {
         let mut output = String::new();
+        self.render_into(&mut output);
+        output
+    }
+
+    pub(in crate::backend::c::syntax) fn render_into(&self, output: &mut impl RenderWrite) {
         for specifier in &self.specifiers {
             output.push_str(match specifier {
                 FunctionSpecifier::Static => "static ",
@@ -123,10 +129,9 @@ impl FunctionSignature {
         output.push('(');
         output.push_str(&render_parameters(&self.parameters));
         output.push(')');
-        output
     }
 
-    pub(in crate::backend) fn render_macro(&self, output: &mut String) {
+    pub(in crate::backend::c::syntax) fn render_multiline(&self, output: &mut impl RenderWrite) {
         for specifier in &self.specifiers {
             output.push_str(specifier.spelling());
             output.push(' ');
@@ -136,14 +141,14 @@ impl FunctionSignature {
             output.push_str("(void)");
             return;
         }
-        output.push_str("( \\\n");
+        output.push_str("(\n");
         for (index, parameter) in self.parameters.iter().enumerate() {
             output.push_str("    ");
             output.push_str(&parameter.render());
             if index + 1 != self.parameters.len() {
                 output.push(',');
             }
-            output.push_str(" \\\n");
+            output.push('\n');
         }
         output.push(')');
     }

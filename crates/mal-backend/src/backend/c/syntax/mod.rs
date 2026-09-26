@@ -4,6 +4,7 @@ mod literal;
 mod name;
 mod operator;
 mod preprocessor;
+mod render;
 mod statement;
 mod translation_unit;
 mod unit;

@@ -1,9 +1,8 @@
-use std::fmt::Write as _;
-
 use super::*;
+use crate::backend::c::syntax::render::{MacroReplacementWriter, RenderWrite};
 
 impl PreprocessorExpr {
-    fn render(&self, output: &mut String) {
+    fn render(&self, output: &mut impl RenderWrite) {
         match self {
             Self::Defined(name) => {
                 write!(output, "defined({name})").expect("writing generated C cannot fail");
@@ -40,30 +39,20 @@ impl Directive {
                 definitions,
                 trailing_signature,
             } => {
-                let mut replacement = String::new();
+                let mut prefix = format!("#define {name}(");
+                render_macro_parameters(&mut prefix, parameters);
+                prefix.push_str(") \\\n");
+                let mut output = MacroReplacementWriter::new(prefix);
                 for declaration in declarations {
-                    replacement.push_str(&declaration.render());
-                    replacement.push_str(";\n");
+                    declaration.render_into(&mut output);
+                    output.push_str(";\n");
                 }
                 for definition in definitions {
-                    replacement.push_str(&definition.render());
+                    definition.render_into(&mut output);
                 }
-                trailing_signature.render_macro(&mut replacement);
-
-                let mut output = format!("#define {name}(");
-                render_macro_parameters(&mut output, parameters);
-                output.push_str(") \\\n");
-                let lines: Vec<_> = replacement.lines().collect();
-                for (index, line) in lines.iter().enumerate() {
-                    output.push_str(line);
-                    if index + 1 != lines.len() && !line.ends_with(" \\") {
-                        output.push_str(" \\\n");
-                    } else if index + 1 != lines.len() {
-                        output.push('\n');
-                    }
-                }
+                trailing_signature.render_multiline(&mut output);
                 output.push('\n');
-                output
+                output.finish()
             }
             Self::If(condition) => {
                 let mut output = String::from("#if ");
@@ -79,16 +68,15 @@ impl Directive {
 }
 
 impl MacroInvocation {
-    pub(in crate::backend) fn render(&self) -> String {
-        let mut output = format!("{}(", self.name);
+    pub(in crate::backend::c::syntax) fn render_into(&self, output: &mut impl RenderWrite) {
+        write!(output, "{}(", self.name).expect("writing generated C cannot fail");
         for (index, argument) in self.arguments.iter().enumerate() {
             if index != 0 {
                 output.push_str(", ");
             }
-            argument.render(&mut output);
+            argument.render(output);
         }
         output.push(')');
-        output
     }
 }
 

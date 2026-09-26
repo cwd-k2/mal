@@ -1,7 +1,12 @@
 use super::*;
+use crate::backend::c::syntax::render::RenderWrite;
 
 impl Statement {
-    pub(in crate::backend) fn render(&self, output: &mut String, depth: usize) {
+    pub(in crate::backend::c::syntax) fn render(
+        &self,
+        output: &mut impl RenderWrite,
+        depth: usize,
+    ) {
         match self {
             Self::VariableDeclaration {
                 declaration,
@@ -53,7 +58,7 @@ impl Statement {
 }
 
 impl Block {
-    fn render_braced(&self, output: &mut String, depth: usize) {
+    fn render_braced(&self, output: &mut impl RenderWrite, depth: usize) {
         output.push_str("{\n");
         for statement in &self.statements {
             statement.render(output, depth + 1);
@@ -64,7 +69,7 @@ impl Block {
 }
 
 impl SwitchCase {
-    fn render(&self, output: &mut String, depth: usize) {
+    fn render(&self, output: &mut impl RenderWrite, depth: usize) {
         write_indent(output, depth);
         match &self.label {
             Some(label) => {
@@ -84,17 +89,22 @@ impl SwitchCase {
 
 impl FunctionDefinition {
     pub(in crate::backend) fn render(&self) -> String {
-        let mut output = match &self.header {
-            FunctionHeader::Signature(signature) => signature.render(),
-            FunctionHeader::MacroInvocation(invocation) => invocation.render(),
-        };
-        output.push(' ');
-        self.body.render_braced(&mut output, 0);
+        let mut output = String::new();
+        self.render_into(&mut output);
         output
+    }
+
+    pub(in crate::backend::c::syntax) fn render_into(&self, output: &mut impl RenderWrite) {
+        match &self.header {
+            FunctionHeader::Signature(signature) => signature.render_into(output),
+            FunctionHeader::MacroInvocation(invocation) => invocation.render_into(output),
+        }
+        output.push(' ');
+        self.body.render_braced(output, 0);
     }
 }
 
-fn write_indent(output: &mut String, depth: usize) {
+fn write_indent(output: &mut impl RenderWrite, depth: usize) {
     for _ in 0..depth {
         output.push_str("    ");
     }

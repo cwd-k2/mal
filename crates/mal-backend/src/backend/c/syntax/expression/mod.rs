@@ -214,7 +214,7 @@ impl Initializer {
         }
     }
 
-    pub(super) fn render(&self, output: &mut String) {
+    pub(super) fn render(&self, output: &mut impl super::render::RenderWrite) {
         for designator in &self.designators {
             match designator {
                 Designator::Field(name) => {

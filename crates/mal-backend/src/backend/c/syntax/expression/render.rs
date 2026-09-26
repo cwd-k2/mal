@@ -1,11 +1,10 @@
 use std::fmt;
 
 use super::Expr;
+use crate::backend::c::syntax::render::RenderWrite;
 
 impl Expr {
-    pub(in crate::backend::c::syntax) fn render(&self, output: &mut String) {
-        use std::fmt::Write as _;
-
+    pub(in crate::backend::c::syntax) fn render(&self, output: &mut impl RenderWrite) {
         match self {
             Self::Number(value) => output.push_str(value),
             Self::Identifier(value) => output.push_str(value),
@@ -86,7 +85,7 @@ impl Expr {
         }
     }
 
-    fn render_postfix_operand(&self, output: &mut String) {
+    fn render_postfix_operand(&self, output: &mut impl RenderWrite) {
         if matches!(
             self,
             Self::Number(_)
@@ -104,7 +103,7 @@ impl Expr {
         }
     }
 
-    fn render_unary_operand(&self, output: &mut String) {
+    fn render_unary_operand(&self, output: &mut impl RenderWrite) {
         if matches!(
             self,
             Self::Number(_)
@@ -123,7 +122,7 @@ impl Expr {
         }
     }
 
-    fn render_binary_operand(&self, output: &mut String) {
+    fn render_binary_operand(&self, output: &mut impl RenderWrite) {
         if matches!(self, Self::Binary { .. } | Self::Conditional { .. }) {
             output.push('(');
             self.render(output);
