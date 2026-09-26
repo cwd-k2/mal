@@ -207,8 +207,7 @@ impl FunctionEmitter<'_> {
             self.emission_failed = true;
             return storage;
         };
-        let Some(instruction) =
-            super::super::syntax::Instruction::alloca(storage.clone(), llvm.clone(), alignment)
+        let Some(instruction) = super::super::syntax::llvm_instruction!(alloca storage.clone(), llvm.clone(), alignment)
         else {
             self.emission_failed = true;
             return storage;
@@ -254,7 +253,7 @@ impl FunctionEmitter<'_> {
         alignment: usize,
         metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
     ) {
-        self.structured_instruction(super::super::syntax::Instruction::load(
+        self.structured_instruction(super::super::syntax::llvm_instruction!(load
             result, ty, pointer, alignment, metadata,
         ));
     }
@@ -267,7 +266,7 @@ impl FunctionEmitter<'_> {
         alignment: usize,
         metadata: impl IntoIterator<Item = super::super::syntax::MetadataAttachment>,
     ) {
-        self.structured_instruction(super::super::syntax::Instruction::store(
+        self.structured_instruction(super::super::syntax::llvm_instruction!(store
             ty, value, pointer, alignment, metadata,
         ));
     }
@@ -318,7 +317,7 @@ impl FunctionEmitter<'_> {
         left: impl Into<String>,
         right: impl Into<String>,
     ) {
-        self.structured_instruction(super::super::syntax::Instruction::binary(
+        self.structured_instruction(super::super::syntax::llvm_instruction!(binary
             result, operator, ty, left, right,
         ));
     }
@@ -332,7 +331,7 @@ impl FunctionEmitter<'_> {
         left: impl Into<String>,
         right: impl Into<String>,
     ) {
-        self.structured_instruction(super::super::syntax::Instruction::compare(
+        self.structured_instruction(super::super::syntax::llvm_instruction!(compare
             result, kind, predicate, ty, left, right,
         ));
     }
@@ -358,19 +357,9 @@ impl FunctionEmitter<'_> {
         pointer: impl Into<String>,
         indices: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        let indices = indices
-            .into_iter()
-            .map(|(ty, value)| super::super::syntax::TypedValue::new(ty, value))
-            .collect::<Option<Vec<_>>>();
-        self.structured_instruction(indices.and_then(|indices| {
-            super::super::syntax::Instruction::get_element_ptr(
-                result,
-                inbounds,
-                element_type,
-                pointer,
-                indices,
-            )
-        }));
+        self.structured_instruction(super::super::syntax::llvm_instruction!(get_element_ptr
+            result, inbounds, element_type, pointer, indices
+        ));
     }
 
     pub(super) fn extract_value(
@@ -394,11 +383,9 @@ impl FunctionEmitter<'_> {
         element: impl Into<String>,
         indices: impl IntoIterator<Item = usize>,
     ) {
-        let aggregate = super::super::syntax::TypedValue::new(aggregate_type, aggregate);
-        let element = super::super::syntax::TypedValue::new(element_type, element);
-        self.structured_instruction(aggregate.zip(element).and_then(|(aggregate, element)| {
-            super::super::syntax::Instruction::insert_value(result, aggregate, element, indices)
-        }));
+        self.structured_instruction(super::super::syntax::llvm_instruction!(insert_value
+            result; aggregate_type => aggregate, element_type => element, indices
+        ));
     }
 
     pub(super) fn phi(
@@ -407,7 +394,9 @@ impl FunctionEmitter<'_> {
         ty: super::super::syntax::Type,
         incoming: impl IntoIterator<Item = (String, String)>,
     ) {
-        self.structured_instruction(super::super::syntax::Instruction::phi(result, ty, incoming));
+        self.structured_instruction(super::super::syntax::llvm_instruction!(phi
+            result, ty, incoming
+        ));
     }
 
     pub(super) fn terminate(&mut self, terminator: Option<super::super::syntax::Terminator>) {

@@ -1,7 +1,7 @@
 use super::super::body;
 use super::super::function_name;
 use super::super::syntax::{
-    Callee, FunctionBuilder, FunctionDefinition, Instruction, Terminator, Type, TypedValue,
+    FunctionBuilder, FunctionDefinition, Instruction, Terminator, Type, llvm_instruction,
 };
 use crate::backend::abi::Function as AbiFunction;
 
@@ -14,14 +14,14 @@ pub(super) fn definition(
     function.start_block("entry").then_some(())?;
     let control_top = if body.uses_control {
         function
-            .structured_instruction(Instruction::alloca(
+            .structured_instruction(llvm_instruction!(alloca
                 "%mal_control_top",
                 types.index_llvm_type(),
                 types.index_alignment(),
             )?)
             .then_some(())?;
         function
-            .structured_instruction(Instruction::store(
+            .structured_instruction(llvm_instruction!(store
                 types.index_llvm_type(),
                 "0",
                 "%mal_control_top",
@@ -51,7 +51,7 @@ pub(super) fn definition(
         ty => {
             let value = types.value(ty)?;
             function
-                .structured_instruction(Instruction::load(
+                .structured_instruction(llvm_instruction!(load
                     "%mal_entry_argument",
                     value.llvm.clone(),
                     "%mal_argument",
@@ -71,7 +71,7 @@ pub(super) fn definition(
         )?)
         .then_some(())?;
     function
-        .structured_instruction(Instruction::store(
+        .structured_instruction(llvm_instruction!(store
             Type::integer(32_u16),
             "%mal_entry_result",
             "%mal_result",
@@ -91,14 +91,5 @@ fn direct_call(
     callee: impl Into<String>,
     arguments: impl IntoIterator<Item = (Type, String)>,
 ) -> Option<Instruction> {
-    Instruction::call(
-        result,
-        false,
-        result_type,
-        Callee::direct(callee)?,
-        arguments
-            .into_iter()
-            .map(|(ty, value)| TypedValue::new(ty, value))
-            .collect::<Option<Vec<_>>>()?,
-    )
+    llvm_instruction!(call result, false, result_type, direct callee, arguments)
 }
