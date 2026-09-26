@@ -402,6 +402,50 @@ fn self_recursive_functions_have_a_native_and_a_frames_version_only_when_the_tec
 }
 
 #[test]
+fn native_worker_abi_carries_only_changing_parameter_leaves() {
+    let source = SourceFile::new(
+        FileId::new(109),
+        "native-recursion-scalar.mal",
+        "walk :: (Int64, Int64, Int64) -> Int64 := (fixed, scale, depth) -> {
+           if (depth == 0i64) then { fixed } else {
+             child := walk(fixed, scale, depth - 1i64);
+             child + scale;
+           };
+         };
+         main :: Unit -> Int32 := () -> { walk(1i64, 2i64, 2i64).i32 - 5i32; };"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check scalar native fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize scalar native fixture"),
+    );
+    let anf = crate::anf::lower(&core);
+    let execution = crate::execution::lower(
+        crate::closure::convert(&anf),
+        crate::execution::OptimizationSet::production(),
+    );
+    let module = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("scalar native fixture is supported")
+    .module;
+    let worker = module
+        .lines()
+        .find(|line| line.starts_with("define internal") && line.contains("_native("))
+        .expect("native worker definition");
+
+    assert!(worker.contains("(ptr %mal_native_context, i64 %mal_native_parameter_0)"));
+    assert!(!worker.contains("%mal_context"));
+    assert!(module.contains("call ptr @llvm.stacksave()"));
+    assert!(module.contains("_frames(ptr %mal_context, ptr %mal_control_top"));
+}
+
+#[test]
 fn native_recursion_borrows_managed_parameter_leaves_preserved_by_every_self_edge() {
     let source = SourceFile::new(
         FileId::new(108),

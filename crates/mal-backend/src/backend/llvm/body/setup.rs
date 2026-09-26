@@ -197,26 +197,29 @@ impl<'a> FunctionEmitter<'a> {
         if self.mode != EmissionMode::Frames {
             self.emit_environment_destructor()?;
         }
-        let parameters = if self.function.parameter.ty == Type::Unit {
-            llvm_parameters!(
-                "%mal_context" : ptr,
-                "%mal_control_top" : ptr,
-                "%mal_environment" : ptr,
-            )
-        } else {
-            let parameter = self.types.value(&self.function.parameter.ty)?;
-            llvm_parameters!(
-                "%mal_context" : ptr,
-                "%mal_control_top" : ptr,
-                "%mal_environment" : ptr,
-                "%mal_parameter" : { parameter.llvm },
-            )
-        };
+        let parameters =
+            if self.mode == EmissionMode::Native && self.native_worker_parameters().is_some() {
+                self.native_worker_parameters()?
+            } else if self.function.parameter.ty == Type::Unit {
+                llvm_parameters!(
+                    "%mal_context" : ptr,
+                    "%mal_control_top" : ptr,
+                    "%mal_environment" : ptr,
+                )
+            } else {
+                let parameter = self.types.value(&self.function.parameter.ty)?;
+                llvm_parameters!(
+                    "%mal_context" : ptr,
+                    "%mal_control_top" : ptr,
+                    "%mal_environment" : ptr,
+                    "%mal_parameter" : { parameter.llvm },
+                )
+            };
         let result = self.types.value(&self.result_type)?;
-        let suffix = if self.mode == EmissionMode::Frames {
-            "_frames"
-        } else {
-            ""
+        let suffix = match self.mode {
+            EmissionMode::Frames => "_frames",
+            EmissionMode::Native if self.native_worker_parameters().is_some() => "_native",
+            EmissionMode::Standard | EmissionMode::Native => "",
         };
         // The native version must stay small on its hot path, so the frames version is never inlined into it.
         let attributes = if self.mode == EmissionMode::Frames {
@@ -351,6 +354,9 @@ impl<'a> FunctionEmitter<'a> {
                 { llvm_type!(array({ size }, int(8_u16))) },
                 { alignment }
             );
+        }
+        if self.mode == EmissionMode::Native && self.native_worker_parameters().is_some() {
+            self.emit_native_context_entry()?;
         }
         if self.mode == EmissionMode::Native {
             self.emit_native_entry_guard()?;

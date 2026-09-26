@@ -53,6 +53,10 @@ fn omits_self_recursive_parameter_fields_preserved_by_every_edge() {
     assert!(production_module.contains("%mal_local_control_top"));
     assert!(!baseline_module.contains("%mal_local_control_storage"));
     assert!(production_module.contains("%mal_local_control_storage"));
+    assert!(
+        production_module.contains("_native(ptr %mal_native_context, i32 %mal_native_parameter_0)")
+    );
+    assert!(production_module.contains("_frames(ptr %mal_context, ptr %mal_control_top"));
 }
 #[test]
 fn builds_deep_non_tail_self_recursion_with_a_c_runtime_arena() {

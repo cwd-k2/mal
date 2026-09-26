@@ -21,7 +21,7 @@ pub(crate) use closure::ClosureUsePlan;
 pub(crate) use continuation::ContinuationGraph;
 pub(crate) use environment_alias::EnvironmentAliasPlan;
 pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
-pub(crate) use native_recursion::NativeRecursionPlan;
+pub(crate) use native_recursion::{NativeRecursionPlan, NativeScalarParameter};
 pub(crate) use optimization::{OptimizationPlan, OptimizationSet, Technique};
 pub(crate) use ownership::{
     Inputs as OwnershipInputs, Plan as OwnershipPlan, RecursionPlans as OwnershipRecursionPlans,

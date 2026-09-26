@@ -22,6 +22,20 @@ pub(crate) struct NativeRecursionPlan {
     functions: HashSet<FunctionId>,
     borrowed_parameters: HashSet<FunctionId>,
     persistent_lenders: HashSet<ValueId>,
+    scalar_parameters: Vec<NativeScalarParameter>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct NativeScalarParameter {
+    pub(crate) function: FunctionId,
+    pub(crate) varying: Vec<NativeParameterLeaf>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct NativeParameterLeaf {
+    pub(crate) id: ValueId,
+    pub(crate) ty: mal_frontend::check::ast::Type,
+    pub(crate) path: Vec<usize>,
 }
 
 impl NativeRecursionPlan {
@@ -109,10 +123,62 @@ impl NativeRecursionPlan {
             })
             .flatten()
             .collect();
+        let scalar_parameters = control
+            .functions
+            .iter()
+            .filter(|function| functions.contains(&function.id))
+            .filter_map(|function| {
+                let parameter = function.parameter.binding?;
+                let pattern = pass_through.parameter_pattern(control, function.entry, parameter)?;
+                let mut leaves = Vec::new();
+                collect_parameter_leaves(pattern, &mut Vec::new(), &mut leaves)?;
+                let preserved = function
+                    .states
+                    .iter()
+                    .filter_map(|site| match calls.mode(*site) {
+                        Some(ControlCallMode::DirectRegion(target)) if target == function.id => {
+                            let Terminator::Call { argument, .. } =
+                                &control.states[site.0].terminator
+                            else {
+                                return None;
+                            };
+                            Some(pass_through.fields(pattern, argument))
+                        }
+                        Some(ControlCallMode::DirectSelfTail) => {
+                            let Terminator::TailCall { argument, .. } =
+                                &control.states[site.0].terminator
+                            else {
+                                return None;
+                            };
+                            Some(pass_through.fields(pattern, argument))
+                        }
+                        _ => None,
+                    })
+                    .reduce(|left, right| left.intersection(&right).copied().collect())?;
+                let varying = leaves
+                    .iter()
+                    .filter(|leaf| !preserved.contains(&leaf.id))
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let managed_are_invariant = varying
+                    .iter()
+                    .all(|leaf| !super::ownership::is_managed(&leaf.ty))
+                    && (leaves
+                        .iter()
+                        .all(|leaf| !super::ownership::is_managed(&leaf.ty))
+                        || borrowed_parameters.contains(&function.id));
+                (!varying.is_empty() && varying.len() < leaves.len() && managed_are_invariant)
+                    .then_some(NativeScalarParameter {
+                        function: function.id,
+                        varying,
+                    })
+            })
+            .collect();
         Self {
             functions,
             borrowed_parameters,
             persistent_lenders,
+            scalar_parameters,
         }
     }
 
@@ -128,6 +194,40 @@ impl NativeRecursionPlan {
 
     pub(crate) fn persistent_lenders(&self) -> &HashSet<ValueId> {
         &self.persistent_lenders
+    }
+
+    /// A copy-only product parameter can keep invariant leaves in the invocation context and pass
+    /// only changing leaves through the recursive worker ABI.
+    pub(crate) fn scalar_parameter(&self, function: FunctionId) -> Option<&NativeScalarParameter> {
+        self.scalar_parameters
+            .iter()
+            .find(|parameter| parameter.function == function)
+    }
+}
+
+fn collect_parameter_leaves(
+    pattern: &Pattern,
+    path: &mut Vec<usize>,
+    result: &mut Vec<NativeParameterLeaf>,
+) -> Option<()> {
+    match pattern {
+        Pattern::Binding { id, ty } => {
+            result.push(NativeParameterLeaf {
+                id: *id,
+                ty: ty.clone(),
+                path: path.clone(),
+            });
+            Some(())
+        }
+        Pattern::Product { elements, .. } => {
+            for (index, element) in elements.iter().enumerate() {
+                path.push(index);
+                collect_parameter_leaves(element, path, result)?;
+                path.pop();
+            }
+            Some(())
+        }
+        Pattern::Wildcard { .. } => None,
     }
 }
 
@@ -214,6 +314,58 @@ mod tests {
             .expect("native recursive function");
 
         assert!(!execution.native_recursion.borrows_parameter(function.id));
+    }
+
+    #[test]
+    fn scalarizes_only_changing_leaves_of_a_native_parameter() {
+        let execution = lower(
+            "walk :: (Int64, Int64, Int64) -> Int64 := (fixed, scale, depth) -> {
+               if (depth == 0i64) then { fixed } else {
+                 child := walk(fixed, scale, depth - 1i64);
+                 child + scale;
+               };
+             };
+             main :: Unit -> Int32 := () -> { walk(1i64, 2i64, 2i64).i32 - 5i32; };",
+        );
+        let function = execution
+            .control
+            .functions
+            .iter()
+            .find(|function| execution.native_recursion.has_native_version(function.id))
+            .expect("native recursive function");
+        let parameter = execution
+            .native_recursion
+            .scalar_parameter(function.id)
+            .expect("scalar native parameter");
+
+        assert_eq!(parameter.varying.len(), 1);
+        assert_eq!(parameter.varying[0].path, [2]);
+    }
+
+    #[test]
+    fn keeps_a_changed_managed_leaf_out_of_the_scalar_worker_plan() {
+        let execution = lower(
+            "walk :: (Symbol, Int64) -> Int64 := (text, depth) -> {
+               if (depth == 0i64) then { 0i64 } else {
+                 child := walk(text + \"x\", depth - 1i64);
+                 child + 1i64;
+               };
+             };
+             main :: Unit -> Int32 := () -> { walk(\"a\", 2i64).i32 - 2i32; };",
+        );
+        let function = execution
+            .control
+            .functions
+            .iter()
+            .find(|function| execution.native_recursion.has_native_version(function.id))
+            .expect("native recursive function");
+
+        assert!(
+            execution
+                .native_recursion
+                .scalar_parameter(function.id)
+                .is_none()
+        );
     }
 
     #[test]

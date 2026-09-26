@@ -71,8 +71,8 @@ LLVM IR側で`llvm.stacksave`のlogical stack pointerを読み、runtimeへ値�
 150.29から144.31 ms、Callgrind instructionは3,218 millionから3,139 millionへ減った。guardを外す診断版の080は
 3.80から2.48 ms、conditional branchは4.23 millionから2.13 millionへ減ったが、bounded native stackを失うため採れない。
 guardをself call siteへ移す版も3.9 msに対して4.0 msで改善せず、coldなframe fallbackが存在する限りcallee-saved registerの
-退避と通常ABIのcontext引数がleaf activationにも残った。固定depth引数、call-site切替、専用worker contextは、いずれも安全性を
-保つ代わりにhot pathの別のcostへ置き換えるため採らなかった。
+退避と通常ABIのcontext引数がleaf activationにも残った。固定depth引数とcall-site切替は、安全性を保つ代わりにhot pathの別のcostへ
+置き換えるため採らなかった。元の全parameterに専用context pointerを追加するだけのworkerも引数圧を増やしたため、この時点では採らなかった。
 
 029の主要差は、全self edgeで同じ二つのBufferを転送するにもかかわらず、各activationのparameter分解が二つをretainし、終了時に
 releaseすることだった。`execution/native_recursion`で全self edgeのparameter対応を取り、使用するmanaged leafがすべて保持される
@@ -85,3 +85,14 @@ authorityを保持するため、nested aliasの通常livenessからlenderが消
 すべてstdoutがCと一致し、029のmedian比は1.44倍から1.09倍へ下がった。小さいOS stackとValgrind Memcheckを組み合わせたmanaged
 recursion fixtureも全件通過した。080に残るguard costは、bounded stackを維持したまま再帰不変fieldをnative内部ABIから分離する
 一般的なparameter scalarizationなしには除かない。
+
+続いて`execution/native_recursion`がcopy可能なparameter patternと全self edgeの対応から不変leafと変化leafを分けた。公開internal ABIの
+wrapperはruntime pointer、environment、元のparameterをinvocation contextに置き、native workerはcontext pointerと変化leafだけを受け取る。
+managed leafはpersistent lenderが全native/frame実行を覆い、かつそのleaf自身が不変な場合だけcontextへ置く。frame版へ切り替える入口では
+完全なparameterを復元し、その後は従来のframe pass-throughが不変fieldの保存を省く。
+
+080の`countValid`では5 leafのうち`bitMasks`、`count`、`bitCount`がcontextへ移り、worker ABIはcontext pointer、`index`、`unionMask`に
+縮んだ。30回の交互測定でmedianは3.766から3.342 msへ11.3%短縮し、Cの2.721 msに対する比は1.38から1.23になった。native frameは
+callee-saved registerを6本退避する点は同じだが、stack allocationは40 byteから8 byteへ減り、再帰call前後の不変引数の退避と再設定が
+消えた。Callgrind instructionは94.57 millionから90.38 millionへ4.4%減り、conditional branchはともに4.232 millionだった。
+guard自体は各activationに残るため、次の対象はparameter ABIと独立にguard頻度を安全に下げる構造である。

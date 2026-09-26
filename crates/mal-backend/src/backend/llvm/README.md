@@ -22,7 +22,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/symbol` | Symbol literals, length, byte access, and concatenation |
 | `body/call_emission` | value, environment, and parameter-responsibility handoff at call boundaries |
 | `body/control_storage`, `body/control_top` | region-local storage view and top access, synchronized at native Mal call boundaries |
-| `body/frame` | frame layout, resume dispatch, and owner transfer |
+| `body/frame` | frame layout, resume dispatch, owner transfer, and bounded native-recursion workers |
 | `body/aggregate` | product and sum construction, case dispatch, and payload extraction |
 | `body/value` | retain, transfer, and release of managed values, pattern destinations, and dead-slot cleanup |
 | `body/memory` | `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer snapshot conversion |

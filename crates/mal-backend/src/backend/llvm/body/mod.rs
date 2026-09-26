@@ -112,6 +112,25 @@ pub(super) fn generate(
         .ok_or_else(|| failed("setup"))?;
         uses_control |= !emitter.frame_sites.is_empty();
         if emitter.has_native_version() {
+            if execution
+                .native_recursion
+                .scalar_parameter(function.id)
+                .is_some()
+            {
+                let wrapper = FunctionEmitter::new(
+                    execution,
+                    &index,
+                    function.id,
+                    target,
+                    &top_levels,
+                    &execution.ownership,
+                    &optimizations,
+                )
+                .ok_or_else(|| failed("native wrapper setup"))?
+                .emit_native_wrapper()
+                .ok_or_else(|| failed("native wrapper"))?;
+                definitions.extend(wrapper.definitions);
+            }
             let native = FunctionEmitter::new(
                 execution,
                 &index,
