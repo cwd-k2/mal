@@ -84,6 +84,11 @@ stage constructorは成功時に自身のinvariantを満たす型だけを返す
 外部入力のadmissionではなくcompiler内部の整合性検査である。通常testとdebug buildでは`debug_assert!`で実行し、release buildの
 恒常costにはしない。利用者入力により失敗し得る規則はvalidatorへ委ねず、所有stageがstructured diagnosticとして常に検査する。
 
+generated CとLLVM IRは、生成物の入れ子がcall siteから読める再帰macroと、順序・重複・終端を所有するstateful builderを
+使い分ける。静的node、既に構築した`rust` node、動的な`extend`列には両backendで同じ合成規則を使う。macroはtyped nodeの
+constructorを呼び、検証を迂回するsource fragmentを受け取らない。functionやmoduleのようなcontainerをmacroへ移すかは短さではなく、
+不変条件のownerを一箇所に保ったまま可読性、記述性、一貫性が上がるかで決める。
+
 raw bytes、path、OS error、process status、C toolchain argumentは`source`、CLI、`driver`の境界で止める。
 core passへ渡す前に`SourceFile`、`Diagnostic`、またはtyped compiler outcomeへ変換する。
 
