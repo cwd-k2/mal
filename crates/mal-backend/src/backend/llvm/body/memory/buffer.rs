@@ -432,7 +432,7 @@ impl FunctionEmitter<'_> {
             )
         };
         self.begin_function(signature.with_linkage("internal"));
-        self.line("entry:");
+        self.block("entry");
         let value = self.register();
         self.line(format!(
             "  {value} = load {}, ptr %mal_element, align {}",
@@ -443,7 +443,7 @@ impl FunctionEmitter<'_> {
         } else {
             self.release_value(element, &value)?;
         }
-        self.line("  ret void");
+        self.return_void();
         self.finish_function()
     }
 

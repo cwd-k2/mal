@@ -314,7 +314,7 @@ impl FunctionEmitter<'_> {
                 },
             )?;
         } else {
-            self.line("  unreachable");
+            self.unreachable();
         }
         for (index, target) in targets.iter().enumerate() {
             self.line(format!("mal_region_target_{}_{index}:", site.0));

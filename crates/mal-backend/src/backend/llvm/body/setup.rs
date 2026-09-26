@@ -230,7 +230,7 @@ impl<'a> FunctionEmitter<'a> {
             .with_linkage("internal")
             .with_attributes(attributes),
         );
-        self.line("entry:");
+        self.block("entry");
         if !self.frame_sites.is_empty() {
             self.line(format!(
                 "  %mal_control_base = load {}, ptr %mal_control_top, align {}",

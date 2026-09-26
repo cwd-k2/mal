@@ -158,22 +158,20 @@ impl FunctionEmitter<'_> {
             tag
         };
         let tag_type = if is_bool(&scrutinee.ty) { "i1" } else { "i32" };
-        let cases = arms
-            .iter()
-            .map(|arm| {
-                format!(
-                    "    {tag_type} {}, label %mal_case_{}_{}",
-                    arm.index, site.0, arm.index
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-        self.line(format!(
-            "  switch {tag_type} {tag}, label %mal_invalid_case_{} [\n{cases}\n  ]",
-            site.0
+        let cases = arms.iter().map(|arm| {
+            (
+                arm.index.to_string(),
+                format!("mal_case_{}_{}", site.0, arm.index),
+            )
+        });
+        self.terminate(crate::backend::llvm::syntax::Terminator::switch(
+            tag_type,
+            tag,
+            format!("mal_invalid_case_{}", site.0),
+            cases,
         ));
         self.line(format!("mal_invalid_case_{}:", site.0));
-        self.line("  unreachable");
+        self.unreachable();
         for (arm_ordinal, arm) in arms.iter().enumerate() {
             let member = members.get(arm.index)?;
             self.line(format!("mal_case_{}_{}:", site.0, arm.index));

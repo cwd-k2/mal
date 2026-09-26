@@ -23,14 +23,14 @@ impl FunctionEmitter<'_> {
             )
             .with_linkage("internal"),
         );
-        self.line("entry:");
+        self.block("entry");
         let environment = self.register();
         self.line(format!(
             "  {environment} = load {}, ptr %mal_environment, align {}",
             value_type.llvm, value_type.alignment
         ));
         self.release_value(&environment_type, &environment)?;
-        self.line("  ret void");
+        self.return_void();
         self.finish_function()?;
         self.next_register = 0;
         Some(())

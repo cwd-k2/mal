@@ -94,14 +94,15 @@ impl FunctionEmitter<'_> {
             let cases = variants
                 .iter()
                 .enumerate()
-                .map(|(index, _)| format!("    i32 {index}, label %{stem}_variant_{index}"))
-                .collect::<Vec<_>>()
-                .join("\n");
-            self.line(format!(
-                "  switch i32 {tag}, label %{stem}_invalid [\n{cases}\n  ]"
+                .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
+            self.terminate(crate::backend::llvm::syntax::Terminator::switch(
+                "i32",
+                tag,
+                format!("{stem}_invalid"),
+                cases,
             ));
             self.line(format!("{stem}_invalid:"));
-            self.line("  unreachable");
+            self.unreachable();
             for (index, variant) in variants.iter().enumerate() {
                 self.line(format!("{stem}_variant_{index}:"));
                 let payload = self.emit_source_load_at_with_alignment(
@@ -259,14 +260,15 @@ impl FunctionEmitter<'_> {
             let cases = variants
                 .iter()
                 .enumerate()
-                .map(|(index, _)| format!("    i32 {index}, label %{stem}_variant_{index}"))
-                .collect::<Vec<_>>()
-                .join("\n");
-            self.line(format!(
-                "  switch i32 {tag}, label %{stem}_invalid [\n{cases}\n  ]"
+                .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
+            self.terminate(crate::backend::llvm::syntax::Terminator::switch(
+                "i32",
+                tag,
+                format!("{stem}_invalid"),
+                cases,
             ));
             self.line(format!("{stem}_invalid:"));
-            self.line("  unreachable");
+            self.unreachable();
             for (index, variant) in variants.iter().enumerate() {
                 self.line(format!("{stem}_variant_{index}:"));
                 let payload = self.emit_sum_payload(&value.ty, variant, &value.representation)?;

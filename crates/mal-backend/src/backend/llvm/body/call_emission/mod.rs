@@ -214,6 +214,34 @@ impl FunctionEmitter<'_> {
         }
     }
 
+    pub(super) fn block(&mut self, label: impl Into<String>) {
+        let Some(function) = self.current_definition.as_mut() else {
+            self.emission_failed = true;
+            return;
+        };
+        self.emission_failed |= !function.start_block(label);
+    }
+
+    pub(super) fn terminate(&mut self, terminator: Option<super::super::syntax::Terminator>) {
+        let Some(terminator) = terminator else {
+            self.emission_failed = true;
+            return;
+        };
+        let Some(function) = self.current_definition.as_mut() else {
+            self.emission_failed = true;
+            return;
+        };
+        self.emission_failed |= !function.terminate(terminator);
+    }
+
+    pub(super) fn unreachable(&mut self) {
+        self.terminate(Some(super::super::syntax::Terminator::unreachable()));
+    }
+
+    pub(super) fn return_void(&mut self) {
+        self.terminate(Some(super::super::syntax::Terminator::return_void()));
+    }
+
     pub(super) fn begin_function(&mut self, signature: super::super::syntax::FunctionSignature) {
         if self.current_definition.is_some() {
             self.emission_failed = true;

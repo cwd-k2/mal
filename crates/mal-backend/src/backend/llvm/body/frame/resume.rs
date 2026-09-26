@@ -57,7 +57,7 @@ impl FunctionEmitter<'_> {
                 result_type.llvm, result.representation
             ));
         } else {
-            self.line("  unreachable");
+            self.unreachable();
         }
         self.line(format!("mal_return_pop_{}:", site.0));
         let storage = self.current_control_storage();
@@ -127,20 +127,21 @@ impl FunctionEmitter<'_> {
             .enumerate()
             .map(|(tag, frame_site)| {
                 u32::try_from(tag).ok().map(|tag| {
-                    format!(
-                        "    i32 {}, label %mal_frame_{}_from_{}",
-                        tag, frame_site.0, site.0
+                    (
+                        tag.to_string(),
+                        format!("mal_frame_{}_from_{}", frame_site.0, site.0),
                     )
                 })
             })
-            .collect::<Option<Vec<_>>>()?
-            .join("\n");
-        self.line(format!(
-            "  switch i32 {tag}, label %mal_invalid_frame_{0} [\n{cases}\n  ]",
-            site.0
+            .collect::<Option<Vec<_>>>()?;
+        self.terminate(crate::backend::llvm::syntax::Terminator::switch(
+            "i32",
+            tag,
+            format!("mal_invalid_frame_{}", site.0),
+            cases,
         ));
         self.line(format!("mal_invalid_frame_{}:", site.0));
-        self.line("  unreachable");
+        self.unreachable();
         for frame_site in frame_sites {
             self.emit_frame_resume(site, frame_site, result, &frame_pointer, true)?;
         }
@@ -169,7 +170,7 @@ impl FunctionEmitter<'_> {
         {
             crate::execution::FrameResume::Resume => {}
             crate::execution::FrameResume::Unreachable => {
-                self.line("  unreachable");
+                self.unreachable();
                 return Some(());
             }
         }

@@ -144,14 +144,30 @@ impl FunctionBuilder {
         let Some(block) = self.blocks.last_mut() else {
             return false;
         };
-        block.push(instruction.into())
+        let instruction = instruction.into();
+        if let Some(terminator) = Terminator::from_legacy_text(&instruction) {
+            block.terminate(terminator)
+        } else {
+            block.push_instruction(instruction)
+        }
+    }
+
+    pub(in crate::backend::llvm) fn terminate(&mut self, terminator: Terminator) -> bool {
+        let Some(block) = self.blocks.last_mut() else {
+            return false;
+        };
+        block.terminate(terminator)
     }
 
     pub(in crate::backend::llvm) fn entry_instruction(
         &mut self,
         instruction: impl Into<String>,
     ) -> bool {
-        let Some(instruction) = Instruction::new(instruction.into()) else {
+        let instruction = instruction.into();
+        if Terminator::from_legacy_text(&instruction).is_some() {
+            return false;
+        }
+        let Some(instruction) = Instruction::new(instruction) else {
             return false;
         };
         self.entry_prefix.push(instruction);
@@ -189,7 +205,12 @@ impl BasicBlock {
         is_valid_name(&label).then_some(())?;
         let mut block = Self::empty(label);
         for instruction in instructions {
-            block.push(instruction.into()).then_some(())?;
+            let text = instruction.into();
+            if let Some(terminator) = Terminator::from_legacy_text(&text) {
+                block.terminate(terminator).then_some(())?;
+            } else {
+                block.push_instruction(text).then_some(())?;
+            }
         }
         block.terminator.is_some().then_some(block)
     }
@@ -202,21 +223,22 @@ impl BasicBlock {
         }
     }
 
-    fn push(&mut self, instruction: String) -> bool {
+    fn push_instruction(&mut self, instruction: String) -> bool {
         if self.terminator.is_some() {
             return false;
         }
-        if Terminator::recognizes(&instruction) {
-            let Some(terminator) = Terminator::from_text(instruction) else {
-                return false;
-            };
-            self.terminator = Some(terminator);
-        } else {
-            let Some(instruction) = Instruction::new(instruction) else {
-                return false;
-            };
-            self.instructions.push(instruction);
+        let Some(instruction) = Instruction::new(instruction) else {
+            return false;
+        };
+        self.instructions.push(instruction);
+        true
+    }
+
+    fn terminate(&mut self, terminator: Terminator) -> bool {
+        if self.terminator.is_some() {
+            return false;
         }
+        self.terminator = Some(terminator);
         true
     }
 
@@ -230,7 +252,7 @@ impl BasicBlock {
         }
         if let Some(terminator) = &self.terminator {
             output.push_str("  ");
-            output.push_str(terminator.text());
+            terminator.render_into(output);
             output.push('\n');
         }
     }
@@ -242,7 +264,7 @@ impl BasicBlock {
             || self
                 .terminator
                 .as_ref()
-                .is_some_and(|terminator| is_byte_runtime_reference(terminator.text()))
+                .is_some_and(Terminator::uses_byte_runtime)
     }
 }
 
@@ -274,46 +296,149 @@ struct Instruction(String);
 
 impl Instruction {
     fn new(text: String) -> Option<Self> {
-        (!text.is_empty() && !text.contains(['\n', '\r']) && !Terminator::recognizes(&text))
-            .then_some(Self(text))
+        (!text.is_empty() && !text.contains(['\n', '\r'])).then_some(Self(text))
     }
 }
 
 #[derive(Clone)]
-enum Terminator {
-    Branch(String),
-    Return(String),
-    Switch(String),
+pub(in crate::backend::llvm) enum Terminator {
+    Branch {
+        target: String,
+    },
+    ConditionalBranch {
+        condition: String,
+        then_target: String,
+        else_target: String,
+    },
+    ReturnVoid,
+    Return {
+        ty: String,
+        value: String,
+    },
+    Switch {
+        ty: String,
+        value: String,
+        default: String,
+        cases: Vec<(String, String)>,
+    },
     Unreachable,
 }
 
 impl Terminator {
-    fn recognizes(text: &str) -> bool {
-        text == "unreachable"
-            || text.starts_with("br ")
-            || text.starts_with("ret ")
-            || text.starts_with("switch ")
+    pub(in crate::backend::llvm) fn branch(target: impl Into<String>) -> Option<Self> {
+        let target = target.into();
+        is_valid_name(&target).then_some(Self::Branch { target })
     }
 
-    fn from_text(text: String) -> Option<Self> {
+    pub(in crate::backend::llvm) fn conditional_branch(
+        condition: impl Into<String>,
+        then_target: impl Into<String>,
+        else_target: impl Into<String>,
+    ) -> Option<Self> {
+        let condition = condition.into();
+        let then_target = then_target.into();
+        let else_target = else_target.into();
+        (is_single_line(&condition) && is_valid_name(&then_target) && is_valid_name(&else_target))
+            .then_some(Self::ConditionalBranch {
+                condition,
+                then_target,
+                else_target,
+            })
+    }
+
+    pub(in crate::backend::llvm) fn return_void() -> Self {
+        Self::ReturnVoid
+    }
+
+    pub(in crate::backend::llvm) fn return_value(
+        ty: impl Into<String>,
+        value: impl Into<String>,
+    ) -> Option<Self> {
+        let ty = ty.into();
+        let value = value.into();
+        (is_single_line(&ty) && is_single_line(&value)).then_some(Self::Return { ty, value })
+    }
+
+    pub(in crate::backend::llvm) fn switch(
+        ty: impl Into<String>,
+        value: impl Into<String>,
+        default: impl Into<String>,
+        cases: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> Option<Self> {
+        let ty = ty.into();
+        let value = value.into();
+        let default = default.into();
+        let cases = cases
+            .into_iter()
+            .map(|(value, target)| (value.into(), target.into()))
+            .collect::<Vec<_>>();
+        (is_single_line(&ty)
+            && is_single_line(&value)
+            && is_valid_name(&default)
+            && cases
+                .iter()
+                .all(|(value, target)| is_single_line(value) && is_valid_name(target)))
+        .then_some(Self::Switch {
+            ty,
+            value,
+            default,
+            cases,
+        })
+    }
+
+    pub(in crate::backend::llvm) fn unreachable() -> Self {
+        Self::Unreachable
+    }
+
+    fn from_legacy_text(text: &str) -> Option<Self> {
         if text == "unreachable" {
             Some(Self::Unreachable)
-        } else if text.starts_with("br ") {
-            Some(Self::Branch(text))
-        } else if text.starts_with("ret ") {
-            Some(Self::Return(text))
-        } else if text.starts_with("switch ") {
-            Some(Self::Switch(text))
+        } else if text == "ret void" {
+            Some(Self::ReturnVoid)
+        } else if let Some(target) = text.strip_prefix("br label %") {
+            Self::branch(target)
+        } else if let Some(branch) = text.strip_prefix("br i1 ") {
+            let (condition, targets) = branch.split_once(", label %")?;
+            let (then_target, else_target) = targets.split_once(", label %")?;
+            Self::conditional_branch(condition, then_target, else_target)
+        } else if let Some(value) = text.strip_prefix("ret ") {
+            let (ty, value) = value.split_once(' ')?;
+            Self::return_value(ty, value)
         } else {
             None
         }
     }
 
-    fn text(&self) -> &str {
+    fn render_into(&self, output: &mut String) {
         match self {
-            Self::Branch(text) | Self::Return(text) | Self::Switch(text) => text,
-            Self::Unreachable => "unreachable",
+            Self::Branch { target } => output.push_str(&format!("br label %{target}")),
+            Self::ConditionalBranch {
+                condition,
+                then_target,
+                else_target,
+            } => output.push_str(&format!(
+                "br i1 {condition}, label %{then_target}, label %{else_target}"
+            )),
+            Self::ReturnVoid => output.push_str("ret void"),
+            Self::Return { ty, value } => output.push_str(&format!("ret {ty} {value}")),
+            Self::Switch {
+                ty,
+                value,
+                default,
+                cases,
+            } => {
+                output.push_str(&format!("switch {ty} {value}, label %{default} ["));
+                for (case, target) in cases {
+                    output.push_str(&format!("\n    {ty} {case}, label %{target}"));
+                }
+                output.push_str("\n  ]");
+            }
+            Self::Unreachable => output.push_str("unreachable"),
         }
+    }
+
+    fn uses_byte_runtime(&self) -> bool {
+        false
     }
 }
 

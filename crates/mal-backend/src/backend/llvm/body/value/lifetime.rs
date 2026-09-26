@@ -185,14 +185,15 @@ impl FunctionEmitter<'_> {
         let cases = members
             .iter()
             .enumerate()
-            .map(|(index, _)| format!("    i32 {index}, label %mal_{operation}_{id}_{index}"))
-            .collect::<Vec<_>>()
-            .join("\n");
-        self.line(format!(
-            "  switch i32 {tag}, label %mal_{operation}_{id}_invalid [\n{cases}\n  ]"
+            .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
+        self.terminate(crate::backend::llvm::syntax::Terminator::switch(
+            "i32",
+            tag,
+            format!("mal_{operation}_{id}_invalid"),
+            cases,
         ));
         self.line(format!("mal_{operation}_{id}_invalid:"));
-        self.line("  unreachable");
+        self.unreachable();
         for (index, member) in members.iter().enumerate() {
             self.line(format!("mal_{operation}_{id}_{index}:"));
             if crate::execution::ownership::is_managed(member) {
