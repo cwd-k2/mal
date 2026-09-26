@@ -2,6 +2,7 @@ use std::fmt::{self, Display, Formatter};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend::llvm) enum Type {
+    Void,
     Integer(u16),
     Float,
     Double,
@@ -30,6 +31,7 @@ impl Type {
 impl Display for Type {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Void => formatter.write_str("void"),
             Self::Integer(bits) => write!(formatter, "i{bits}"),
             Self::Float => formatter.write_str("float"),
             Self::Double => formatter.write_str("double"),

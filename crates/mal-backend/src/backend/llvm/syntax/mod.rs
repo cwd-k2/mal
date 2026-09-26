@@ -7,7 +7,7 @@ mod ty;
 pub(super) use function::BasicBlock;
 pub(in crate::backend) use function::FunctionSignature;
 pub(super) use function::{FunctionBuilder, FunctionDefinition, Terminator};
-pub(super) use instruction::{Instruction, MetadataAttachment};
+pub(super) use instruction::{Callee, Instruction, MetadataAttachment, TypedValue};
 pub(in crate::backend) use module::FunctionDeclaration;
 pub(super) use module::GlobalDefinition;
 pub(super) use module::Module;

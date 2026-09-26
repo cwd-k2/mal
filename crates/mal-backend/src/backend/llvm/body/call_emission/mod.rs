@@ -27,30 +27,38 @@ impl FunctionEmitter<'_> {
         self.require_terminator_borrow(site, callee_operand, callee)?;
         let callee = self.atom(callee)?;
         let environment = self.closure_environment(&callee)?;
-        let arguments = if target.parameter.ty == Type::Unit {
-            format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
+        let mut arguments = vec![
+            (super::super::syntax::Type::Pointer, "%mal_context".into()),
+            (
+                super::super::syntax::Type::Pointer,
+                "%mal_control_top".into(),
+            ),
+            (super::super::syntax::Type::Pointer, environment),
+        ];
+        if target.parameter.ty == Type::Unit {
+            if argument.ty != Type::Unit {
+                return None;
+            }
         } else {
             let argument = self.call_argument(site, argument_operand, argument)?;
             if argument.ty != target.parameter.ty {
                 return None;
             }
             let argument_type = self.types.value(&argument.ty)?;
-            format!(
-                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
-                argument_type.llvm, argument.representation
-            )
-        };
+            arguments.push((argument_type.llvm, argument.representation));
+        }
         let lowered = *self.index.lowered_functions.get(&target.id)?;
         let result_type = lowered.body.result.ty.clone();
         let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
-        let tail = if tail { "tail " } else { "" };
         self.sync_control_top()?;
-        self.line(format!(
-            "  {register} = {tail}call {} @{}({arguments})",
+        self.direct_call(
+            Some(register.clone()),
+            tail,
             result_value_type.llvm,
-            function_name(target.id)
-        ));
+            function_name(target.id),
+            arguments,
+        );
         if self.optimizations.localizes_control_storage(target.id) {
             self.refresh_control_storage();
         }
@@ -95,30 +103,36 @@ impl FunctionEmitter<'_> {
             "  {environment} = extractvalue {} {}, 1",
             closure_type.llvm, callee.representation
         ));
-        let arguments = if **parameter == Type::Unit {
+        let mut arguments = vec![
+            (super::super::syntax::Type::Pointer, "%mal_context".into()),
+            (
+                super::super::syntax::Type::Pointer,
+                "%mal_control_top".into(),
+            ),
+            (super::super::syntax::Type::Pointer, environment.clone()),
+        ];
+        if **parameter == Type::Unit {
             if argument.ty != Type::Unit {
                 return None;
             }
-            format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
         } else {
             let argument = self.call_argument(site, argument_operand, argument)?;
             if argument.ty != **parameter {
                 return None;
             }
             let argument_type = self.types.value(&argument.ty)?;
-            format!(
-                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
-                argument_type.llvm, argument.representation
-            )
-        };
+            arguments.push((argument_type.llvm, argument.representation));
+        }
         let result_type = self.types.value(result)?;
         let register = self.register();
-        let tail = if tail { "tail " } else { "" };
         self.sync_control_top()?;
-        self.line(format!(
-            "  {register} = {tail}call {} {code}({arguments})",
-            result_type.llvm
-        ));
+        self.indirect_call(
+            Some(register.clone()),
+            tail,
+            result_type.llvm,
+            code,
+            arguments,
+        );
         if self
             .optimizations
             .site_may_relocate_control_storage(&self.execution.applications, site)
@@ -269,6 +283,64 @@ impl FunctionEmitter<'_> {
     ) {
         self.structured_instruction(super::super::syntax::Instruction::store(
             ty, value, pointer, alignment, metadata,
+        ));
+    }
+
+    pub(super) fn direct_call(
+        &mut self,
+        result: Option<String>,
+        tail: bool,
+        result_type: super::super::syntax::Type,
+        callee: impl Into<String>,
+        arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
+    ) {
+        let Some(callee) = super::super::syntax::Callee::direct(callee) else {
+            self.emission_failed = true;
+            return;
+        };
+        let Some(arguments) = arguments
+            .into_iter()
+            .map(|(ty, value)| super::super::syntax::TypedValue::new(ty, value))
+            .collect::<Option<Vec<_>>>()
+        else {
+            self.emission_failed = true;
+            return;
+        };
+        self.structured_instruction(super::super::syntax::Instruction::call(
+            result,
+            tail,
+            result_type,
+            callee,
+            arguments,
+        ));
+    }
+
+    pub(super) fn indirect_call(
+        &mut self,
+        result: Option<String>,
+        tail: bool,
+        result_type: super::super::syntax::Type,
+        callee: impl Into<String>,
+        arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
+    ) {
+        let Some(callee) = super::super::syntax::Callee::indirect(callee) else {
+            self.emission_failed = true;
+            return;
+        };
+        let Some(arguments) = arguments
+            .into_iter()
+            .map(|(ty, value)| super::super::syntax::TypedValue::new(ty, value))
+            .collect::<Option<Vec<_>>>()
+        else {
+            self.emission_failed = true;
+            return;
+        };
+        self.structured_instruction(super::super::syntax::Instruction::call(
+            result,
+            tail,
+            result_type,
+            callee,
+            arguments,
         ));
     }
 

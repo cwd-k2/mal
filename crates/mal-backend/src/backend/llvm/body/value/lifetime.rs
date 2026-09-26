@@ -74,9 +74,19 @@ impl FunctionEmitter<'_> {
                     "  {owner} = extractvalue {} {value}, 0",
                     value_type.llvm
                 ));
-                self.line(format!(
-                    "  call ptr @mal_runtime_bytes_retain(ptr %mal_context, ptr {owner})"
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "mal_runtime_bytes_retain",
+                    [
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            "%mal_context".into(),
+                        ),
+                        (crate::backend::llvm::syntax::Type::Pointer, owner),
+                    ],
+                );
                 Some(value.into())
             }
             Type::Function { .. } => {
@@ -86,15 +96,35 @@ impl FunctionEmitter<'_> {
                     "  {environment} = extractvalue {} {value}, 1",
                     value_type.llvm
                 ));
-                self.line(format!(
-                    "  call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {environment})"
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "mal_runtime_environment_retain",
+                    [
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            "%mal_context".into(),
+                        ),
+                        (crate::backend::llvm::syntax::Type::Pointer, environment),
+                    ],
+                );
                 Some(value.into())
             }
             Type::Buffer(_) => {
-                self.line(format!(
-                    "  call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr {value})"
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "mal_runtime_environment_retain",
+                    [
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            "%mal_context".into(),
+                        ),
+                        (crate::backend::llvm::syntax::Type::Pointer, value.into()),
+                    ],
+                );
                 Some(value.into())
             }
             Type::Product(elements) => {
@@ -134,9 +164,13 @@ impl FunctionEmitter<'_> {
                     "  {owner} = extractvalue {} {value}, 0",
                     value_type.llvm
                 ));
-                self.line(format!(
-                    "  call void @mal_runtime_bytes_release(ptr {owner})"
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Void,
+                    "mal_runtime_bytes_release",
+                    [(crate::backend::llvm::syntax::Type::Pointer, owner)],
+                );
             }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
@@ -145,13 +179,21 @@ impl FunctionEmitter<'_> {
                     "  {environment} = extractvalue {} {value}, 1",
                     value_type.llvm
                 ));
-                self.line(format!(
-                    "  call void @mal_runtime_environment_release(ptr {environment})"
-                ))
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Void,
+                    "mal_runtime_environment_release",
+                    [(crate::backend::llvm::syntax::Type::Pointer, environment)],
+                )
             }
-            Type::Buffer(_) => self.line(format!(
-                "  call void @mal_runtime_environment_release(ptr {value})"
-            )),
+            Type::Buffer(_) => self.direct_call(
+                None,
+                false,
+                crate::backend::llvm::syntax::Type::Void,
+                "mal_runtime_environment_release",
+                [(crate::backend::llvm::syntax::Type::Pointer, value.into())],
+            ),
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
                 for (index, element) in elements.iter().enumerate() {

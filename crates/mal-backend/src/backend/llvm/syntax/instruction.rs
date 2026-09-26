@@ -22,7 +22,26 @@ pub(in crate::backend::llvm) enum Instruction {
         alignment: usize,
         metadata: Vec<MetadataAttachment>,
     },
+    Call {
+        result: Option<String>,
+        tail: bool,
+        result_type: Type,
+        callee: Callee,
+        arguments: Vec<TypedValue>,
+    },
     Raw(String),
+}
+
+#[derive(Clone)]
+pub(in crate::backend::llvm) enum Callee {
+    Direct(String),
+    Indirect(String),
+}
+
+#[derive(Clone)]
+pub(in crate::backend::llvm) struct TypedValue {
+    ty: Type,
+    value: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -86,6 +105,28 @@ impl Instruction {
         })
     }
 
+    pub(in crate::backend::llvm) fn call(
+        result: Option<impl Into<String>>,
+        tail: bool,
+        result_type: Type,
+        callee: Callee,
+        arguments: impl IntoIterator<Item = TypedValue>,
+    ) -> Option<Self> {
+        let result = result.map(Into::into);
+        (result
+            .as_deref()
+            .is_none_or(|result| local_name(result).is_some_and(is_valid_name))
+            && !matches!(result_type, Type::Void)
+            || result.is_none())
+        .then_some(Self::Call {
+            result,
+            tail,
+            result_type,
+            callee,
+            arguments: arguments.into_iter().collect(),
+        })
+    }
+
     pub(super) fn raw(text: impl Into<String>) -> Option<Self> {
         let text = text.into();
         is_single_line(&text).then_some(Self::Raw(text))
@@ -122,6 +163,35 @@ impl Instruction {
                 ));
                 render_metadata(output, metadata);
             }
+            Self::Call {
+                result,
+                tail,
+                result_type,
+                callee,
+                arguments,
+            } => {
+                if let Some(result) = result {
+                    output.push_str(result);
+                    output.push_str(" = ");
+                }
+                if *tail {
+                    output.push_str("tail ");
+                }
+                output.push_str("call ");
+                output.push_str(&result_type.to_string());
+                output.push(' ');
+                callee.render_into(output);
+                output.push('(');
+                for (index, argument) in arguments.iter().enumerate() {
+                    if index != 0 {
+                        output.push_str(", ");
+                    }
+                    output.push_str(&argument.ty.to_string());
+                    output.push(' ');
+                    output.push_str(&argument.value);
+                }
+                output.push(')');
+            }
             Self::Raw(text) => output.push_str(text),
         }
     }
@@ -129,6 +199,7 @@ impl Instruction {
     pub(super) fn uses_byte_runtime(&self) -> bool {
         match self {
             Self::Alloca { .. } | Self::Load { .. } | Self::Store { .. } => false,
+            Self::Call { callee, .. } => callee.uses_byte_runtime(),
             Self::Raw(text) => [
                 "@mal_runtime_bytes_",
                 "@mal_runtime_buffer_",
@@ -137,6 +208,38 @@ impl Instruction {
             .iter()
             .any(|prefix| text.contains(prefix)),
         }
+    }
+}
+
+impl Callee {
+    pub(in crate::backend::llvm) fn direct(name: impl Into<String>) -> Option<Self> {
+        let name = name.into();
+        is_valid_name(&name).then_some(Self::Direct(name))
+    }
+
+    pub(in crate::backend::llvm) fn indirect(value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        is_value(&value).then_some(Self::Indirect(value))
+    }
+
+    fn render_into(&self, output: &mut String) {
+        match self {
+            Self::Direct(name) => output.push_str(&format!("@{name}")),
+            Self::Indirect(value) => output.push_str(value),
+        }
+    }
+
+    fn uses_byte_runtime(&self) -> bool {
+        matches!(self, Self::Direct(name) if name.starts_with("mal_runtime_bytes_")
+            || name.starts_with("mal_runtime_buffer_")
+            || name.starts_with("mal_runtime_symbol_"))
+    }
+}
+
+impl TypedValue {
+    pub(in crate::backend::llvm) fn new(ty: Type, value: impl Into<String>) -> Option<Self> {
+        let value = value.into();
+        is_value(&value).then_some(Self { ty, value })
     }
 }
 
