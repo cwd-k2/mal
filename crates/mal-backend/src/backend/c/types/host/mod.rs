@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Block, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter,
-    Statement, SwitchCase, TranslationUnit, TypeName, c_block,
+    SwitchCase, TranslationUnit, TypeName, c_block,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -33,11 +33,11 @@ impl TypeRegistry {
                             Parameter::named(format!("mal_repr_product_{index}_t"), "value"),
                         ],
                     ),
-                    Block::new([Statement::return_value(self.host_to_raw_value(
+                    c_block!((return (rust self.host_to_raw_value(
                         ty,
                         Expr::identifier("call"),
                         Expr::identifier("value"),
-                    ))]),
+                    )))),
                 ),
                 Type::Sum(members) => {
                     output.extend(self.host_sum_conversion_helpers(index, ty));
@@ -62,13 +62,9 @@ impl TypeRegistry {
                     format!("mal_{name}_from_bits"),
                     [Parameter::named("uintptr_t", "bits")],
                 ),
-                Block::new([Statement::return_value(Expr::compound_literal(
-                    host_type.clone(),
-                    [Initializer::designated(
-                        "mal_detail_bits",
-                        Expr::identifier("bits"),
-                    )],
-                ))]),
+                c_block!((return (compound host_type.clone();
+                    (field "mal_detail_bits"; (id "bits")),
+                ))),
             );
             append_function(
                 &mut output,
@@ -77,9 +73,7 @@ impl TypeRegistry {
                     format!("mal_{name}_to_bits"),
                     [Parameter::named(host_type.clone(), "value")],
                 ),
-                Block::new([Statement::return_value(
-                    Expr::identifier("value").field("mal_detail_bits"),
-                )]),
+                c_block!((return (field (id "value"); "mal_detail_bits"))),
             );
             append_function(
                 &mut output,
@@ -92,13 +86,9 @@ impl TypeRegistry {
                         Parameter::named(host_type, "value"),
                     ],
                 ),
-                Block::new([Statement::return_value(Expr::compound_literal(
-                    format!("MalType_{name}"),
-                    [Initializer::designated(
-                        "bits",
-                        Expr::identifier("value").field("mal_detail_bits"),
-                    )],
-                ))]),
+                c_block!((return (compound format!("MalType_{name}");
+                    (field "bits"; (field (id "value"); "mal_detail_bits")),
+                ))),
             );
         }
         for alias in aliases {
@@ -127,11 +117,11 @@ impl TypeRegistry {
                         Parameter::named(format!("mal_{}_t", alias.name), "value"),
                     ],
                 ),
-                Block::new([Statement::return_value(self.host_to_raw_value(
+                c_block!((return (rust self.host_to_raw_value(
                     &alias.ty,
                     Expr::identifier("call"),
                     Expr::identifier("value"),
-                ))]),
+                )))),
             );
         }
         output
@@ -189,7 +179,7 @@ impl TypeRegistry {
                     format!("mal_{public_name}_make_{variant}"),
                     parameters.clone(),
                 ),
-                Block::new([Statement::return_value(host_value.clone())]),
+                c_block!((return (rust host_value.clone()))),
             );
             let mut return_parameters = vec![Parameter::named(
                 TypeName::named("mal_call_t").pointer(),
@@ -203,11 +193,11 @@ impl TypeRegistry {
                     format!("mal_{public_name}_return_{variant}"),
                     return_parameters,
                 ),
-                Block::new([Statement::return_value(self.host_to_raw_value(
+                c_block!((return (rust self.host_to_raw_value(
                     ty,
                     Expr::identifier("call"),
                     host_value,
-                ))]),
+                )))),
             );
         }
     }
@@ -224,7 +214,7 @@ impl TypeRegistry {
             let tag = Expr::named_call("UINT32_C", [Expr::number(variant.to_string())]);
             to_host_cases.push(SwitchCase::case(
                 tag.clone(),
-                Block::new([Statement::return_value(Expr::compound_literal(
+                c_block!((return (rust Expr::compound_literal(
                     host_type.clone(),
                     [
                         Initializer::designated("tag", tag.clone()),
@@ -240,11 +230,11 @@ impl TypeRegistry {
                             ),
                         ),
                     ],
-                ))]),
+                )))),
             ));
             to_raw_cases.push(SwitchCase::case(
                 tag.clone(),
-                Block::new([Statement::return_value(Expr::compound_literal(
+                c_block!((return (rust Expr::compound_literal(
                     raw_type.clone(),
                     [
                         Initializer::designated("tag", tag),
@@ -259,14 +249,14 @@ impl TypeRegistry {
                             ),
                         ),
                     ],
-                ))]),
+                )))),
             ));
         }
         for cases in [&mut to_host_cases, &mut to_raw_cases] {
-            cases.push(SwitchCase::default(Block::new([Statement::call(
-                "mal_call_trap",
-                [Expr::identifier("call"), Expr::string("invalid sum tag")],
-            )])));
+            cases.push(SwitchCase::default(c_block!((call "mal_call_trap";
+                (id "call"),
+                (string "invalid sum tag"),
+            ))));
         }
         let mut output = TranslationUnit::default();
         output.push(FunctionDefinition::from_signature(

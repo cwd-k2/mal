@@ -5,8 +5,8 @@ use super::{
     host_signature::{CompilerSignature, ExternalSignatures},
 };
 use crate::backend::c::syntax::{
-    Block, Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature,
-    Initializer, MacroInvocation, Statement, TranslationUnit,
+    Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer,
+    MacroInvocation, Statement, TranslationUnit, c_block, c_statement,
 };
 
 mod prefix;
@@ -79,23 +79,21 @@ pub(super) fn emit_host(
         let signatures = ExternalSignatures::new(external, types);
         let signature = &signatures.host_body;
         output.blank_line();
-        let mut body = Block::default();
-        for name in signature.parameter_names().into_iter().skip(1) {
-            body.push(Statement::expression(Expr::cast(
-                "void",
-                Expr::identifier(name),
-            )));
-        }
-        body.push(Statement::call(
-            "mal_call_trap",
-            [
-                Expr::identifier("call"),
-                Expr::string(format!(
+        let unused_parameters = signature
+            .parameter_names()
+            .into_iter()
+            .skip(1)
+            .map(|name| c_statement!(expr (cast "void"; (id name))));
+        let body = c_block!(
+            (extend unused_parameters),
+            (call "mal_call_trap";
+                (id "call"),
+                (string format!(
                     "external operation `{}` is not implemented",
                     signatures.host_body.operation_name
                 )),
-            ],
-        ));
+            ),
+        );
         output.push(FunctionDefinition::from_macro(
             host_macro_invocation(signature),
             body,
@@ -140,17 +138,6 @@ fn wrapper_definition(
     external: &crate::core::ast::ExternalOperation,
     types: &TypeRegistry,
 ) -> FunctionDefinition {
-    let mut body = Block::new([Statement::variable(
-        "mal_call_t",
-        "call",
-        Some(Expr::compound_literal(
-            "mal_call_t",
-            [Initializer::designated(
-                "mal_detail_context",
-                Expr::identifier("context"),
-            )],
-        )),
-    )]);
     let mut arguments = vec![Expr::address_of(Expr::identifier("call"))];
     match &external.parameter {
         mal_frontend::check::ast::Type::Unit => {}
@@ -179,11 +166,17 @@ fn wrapper_definition(
         )),
     }
     let call = Expr::named_call(format!("mal_detail_{}", external.name), arguments);
-    if external.result == mal_frontend::check::ast::Type::Unit {
-        body.push(Statement::expression(call));
+    let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
+        Statement::expression(call)
     } else {
-        body.push(Statement::return_value(call));
-    }
+        Statement::return_value(call)
+    };
+    let body = c_block!(
+        (var ("mal_call_t") ("call") = (compound "mal_call_t";
+            (field "mal_detail_context"; (id "context")),
+        )),
+        (rust terminal),
+    );
     FunctionDefinition::from_signature(external_signature(&signatures.compiler, true), body)
 }
 

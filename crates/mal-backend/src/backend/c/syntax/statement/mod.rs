@@ -92,6 +92,7 @@ impl Statement {
 }
 
 impl Block {
+    #[cfg(test)]
     pub(in crate::backend) fn new(statements: impl IntoIterator<Item = Statement>) -> Self {
         Self {
             statements: statements.into_iter().collect(),

@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Block, Expr, FunctionSignature, Initializer, Parameter, Statement, SwitchCase, TranslationUnit,
-    TypeName, c_block,
+    TypeName, c_block, c_statement,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -50,15 +50,6 @@ impl TypeRegistry {
         } else {
             Parameter::named(TypeName::named("mal_call_t").pointer(), "call").maybe_unused()
         };
-        let mut read_body = Block::new([Statement::variable(host_type.clone(), "value", None)]);
-        read_body.push(Statement::call(
-            "memcpy",
-            [
-                Expr::address_of(Expr::identifier("value")),
-                Expr::identifier("source"),
-                Expr::sizeof_value(Expr::identifier("value")),
-            ],
-        ));
         let value = if matches!(ty, Type::Address) {
             Expr::named_call(
                 "mal_Address_return",
@@ -72,7 +63,15 @@ impl TypeRegistry {
         } else {
             Expr::identifier("value")
         };
-        read_body.push(Statement::return_value(value));
+        let read_body = c_block!(
+            (var (host_type.clone()) ("value")),
+            (call "memcpy";
+                (address (id "value")),
+                (id "source"),
+                (sizeof (id "value")),
+            ),
+            (return (rust value)),
+        );
         append_function(
             output,
             FunctionSignature::static_inline(
@@ -86,26 +85,27 @@ impl TypeRegistry {
             read_body,
         );
 
-        let mut write_body = Block::default();
-        if matches!(ty, Type::Address) {
-            write_body.push(Statement::call(
-                "mal_Address_return",
-                [Expr::identifier("call"), Expr::identifier("value")],
-            ));
+        let validation = if matches!(ty, Type::Address) {
+            Some(c_statement!(call "mal_Address_return";
+                (id "call"),
+                (id "value"),
+            ))
         } else if is_bool(ty) {
-            write_body.push(Statement::call(
-                "mal_Bool_return",
-                [Expr::identifier("call"), Expr::identifier("value")],
-            ));
-        }
-        write_body.push(Statement::call(
-            "memcpy",
-            [
-                Expr::identifier("destination"),
-                Expr::address_of(Expr::identifier("value")),
-                Expr::sizeof_value(Expr::identifier("value")),
-            ],
-        ));
+            Some(c_statement!(call "mal_Bool_return";
+                (id "call"),
+                (id "value"),
+            ))
+        } else {
+            None
+        };
+        let write_body = c_block!(
+            (extend validation),
+            (call "memcpy";
+                (id "destination"),
+                (address (id "value")),
+                (sizeof (id "value")),
+            ),
+        );
         append_function(
             output,
             FunctionSignature::static_inline(
@@ -129,28 +129,33 @@ impl TypeRegistry {
         layouts: SourceLayouts,
     ) {
         let host_type = self.host_value_c_type(ty, None);
-        let read_body = match ty {
-            Type::Product(elements) => {
-                let fields = layouts
-                    .product_fields(ty)
-                    .expect("checker-approved memory product has a layout");
-                let mut body = Block::new([Statement::variable(host_type.clone(), "value", None)]);
-                for (field, (element, layout)) in elements.iter().zip(fields).enumerate() {
-                    body.push(Statement::expression(Expr::assign(
-                        Expr::identifier("value").field(format!("field_{field}")),
-                        self.memory_read_value(
-                            element,
-                            Expr::identifier("call"),
-                            offset(Expr::identifier("source"), layout.offset),
-                        ),
-                    )));
+        let read_body =
+            match ty {
+                Type::Product(elements) => {
+                    let fields = layouts
+                        .product_fields(ty)
+                        .expect("checker-approved memory product has a layout");
+                    let field_reads = elements.iter().zip(fields).enumerate().map(
+                        |(field, (element, layout))| {
+                            c_statement!(expr (assign
+                                (field (id "value"); format!("field_{field}"));
+                                (rust self.memory_read_value(
+                                element,
+                                Expr::identifier("call"),
+                                offset(Expr::identifier("source"), layout.offset),
+                            ))
+                            ))
+                        },
+                    );
+                    c_block!(
+                        (var (host_type.clone()) ("value")),
+                        (extend field_reads),
+                        (return (id "value")),
+                    )
                 }
-                body.push(Statement::return_value(Expr::identifier("value")));
-                body
-            }
-            Type::Sum(members) => self.sum_memory_read_body(ty, members, layouts),
-            _ => unreachable!("only aggregate types have representation identities"),
-        };
+                Type::Sum(members) => self.sum_memory_read_body(ty, members, layouts),
+                _ => unreachable!("only aggregate types have representation identities"),
+            };
         append_function(
             output,
             FunctionSignature::static_inline(
@@ -171,7 +176,7 @@ impl TypeRegistry {
                 let fields = layouts
                     .product_fields(ty)
                     .expect("checker-approved memory product has a layout");
-                Block::new(elements.iter().zip(fields).enumerate().map(
+                c_block!((extend elements.iter().zip(fields).enumerate().map(
                     |(field, (element, layout))| {
                         self.memory_write_statement(
                             element,
@@ -180,7 +185,7 @@ impl TypeRegistry {
                             Expr::identifier("value").field(format!("field_{field}")),
                         )
                     },
-                ))
+                )))
             }
             Type::Sum(members) => self.sum_memory_write_body(ty, members, layouts),
             _ => unreachable!("only aggregate types have representation identities"),
@@ -213,7 +218,7 @@ impl TypeRegistry {
             .map(|(variant, member)| {
                 SwitchCase::case(
                     Expr::number(variant.to_string()),
-                    Block::new([Statement::return_value(Expr::compound_literal(
+                    c_block!((return (rust Expr::compound_literal(
                         self.host_value_c_type(ty, None),
                         [
                             Initializer::designated(
@@ -229,7 +234,7 @@ impl TypeRegistry {
                                 ),
                             ),
                         ],
-                    ))]),
+                    )))),
                 )
             })
             .collect::<Vec<_>>();
@@ -259,8 +264,8 @@ impl TypeRegistry {
             .map(|(variant, member)| {
                 SwitchCase::case(
                     Expr::named_call("UINT32_C", [Expr::number(variant.to_string())]),
-                    Block::new([
-                        self.memory_write_statement(
+                    c_block!(
+                        (rust self.memory_write_statement(
                             &tag_type,
                             Expr::identifier("call"),
                             Expr::identifier("destination"),
@@ -268,23 +273,23 @@ impl TypeRegistry {
                                 self.host_value_c_type(&tag_type, None),
                                 Expr::identifier("value").field("tag"),
                             ),
-                        ),
-                        self.memory_write_statement(
+                        )),
+                        (rust self.memory_write_statement(
                             member,
                             Expr::identifier("call"),
                             offset(Expr::identifier("destination"), layout.payload_offset),
                             Expr::identifier("value")
                                 .field("payload")
                                 .field(format!("variant_{variant}")),
-                        ),
-                        Statement::return_void(),
-                    ]),
+                        )),
+                        (return_void),
+                    ),
                 )
             })
-            .chain([SwitchCase::default(Block::new([Statement::call(
-                "mal_call_trap",
-                [Expr::identifier("call"), Expr::string("invalid sum tag")],
-            )]))])
+            .chain([SwitchCase::default(c_block!((call "mal_call_trap";
+                (id "call"),
+                (string "invalid sum tag"),
+            )))])
             .collect();
         c_block!((switch (field (id "value"); "tag"); [
             (extend cases),
@@ -308,22 +313,13 @@ impl TypeRegistry {
             ),
             Expr::multiply(Expr::identifier("index"), Expr::number(stride.to_string())),
         );
-        let mut read_body = Block::default();
-        if stride == 0 {
-            read_body.push(Statement::expression(Expr::cast(
-                "void",
-                Expr::identifier("index"),
-            )));
-        }
-        read_body.push(Statement::call(
-            "mal_Address_return",
-            [Expr::identifier("call"), Expr::identifier("address")],
-        ));
-        read_body.push(Statement::return_value(self.memory_read_value(
-            &alias.ty,
-            Expr::identifier("call"),
-            source,
-        )));
+        let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
+        let read_value = self.memory_read_value(&alias.ty, Expr::identifier("call"), source);
+        let read_body = c_block!(
+            (extend unused_index),
+            (call "mal_Address_return"; (id "call"), (id "address")),
+            (return (rust read_value)),
+        );
         append_function(
             output,
             FunctionSignature::static_inline(
@@ -345,23 +341,18 @@ impl TypeRegistry {
             ),
             Expr::multiply(Expr::identifier("index"), Expr::number(stride.to_string())),
         );
-        let mut write_body = Block::default();
-        if stride == 0 {
-            write_body.push(Statement::expression(Expr::cast(
-                "void",
-                Expr::identifier("index"),
-            )));
-        }
-        write_body.push(Statement::call(
-            "mal_Address_return",
-            [Expr::identifier("call"), Expr::identifier("address")],
-        ));
-        write_body.push(self.memory_write_statement(
+        let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
+        let write_value = self.memory_write_statement(
             &alias.ty,
             Expr::identifier("call"),
             destination,
             Expr::identifier("value"),
-        ));
+        );
+        let write_body = c_block!(
+            (extend unused_index),
+            (call "mal_Address_return"; (id "call"), (id "address")),
+            (rust write_value),
+        );
         append_function(
             output,
             FunctionSignature::static_inline(

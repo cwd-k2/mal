@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
-    Statement, SwitchCase, TranslationUnit, TypeName, c_block,
+    Expr, FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
+    Statement, SwitchCase, TranslationUnit, TypeName, c_block, c_statement,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -202,34 +202,30 @@ impl<'a> Marshalling<'a> {
             .iter()
             .enumerate()
             .map(|(index, field)| {
+                let payload = self.read(
+                    &field.value,
+                    identifier("value"),
+                    field.offset,
+                    identifier("context"),
+                )?;
                 Some(SwitchCase::case(
                     Expr::named_call("UINT32_C", [number(index)]),
-                    Block::new([Statement::return_value(Expr::compound_literal(
-                        c_type.clone(),
-                        [
-                            Initializer::designated(
-                                "tag",
-                                Expr::named_call("UINT32_C", [number(index)]),
-                            ),
-                            Initializer::designated_path(
-                                ["payload", &format!("variant_{index}")],
-                                self.read(
-                                    &field.value,
-                                    identifier("value"),
-                                    field.offset,
-                                    identifier("context"),
-                                )?,
-                            ),
-                        ],
-                    ))]),
+                    c_block!((return (compound c_type.clone();
+                        (field "tag"; (call "UINT32_C"; (number index))),
+                        (path ["payload", &format!("variant_{index}")]; (rust payload)),
+                    ))),
                 ))
             })
             .collect::<Option<Vec<_>>>()?;
         let mut cases = cases;
-        cases.push(SwitchCase::default(Block::new([trap(
+        cases.push(SwitchCase::default(c_block!((rust trap(
             identifier("context"),
             "invalid sum tag at LLVM bridge",
-        )])));
+        )))));
+        let tag = load(
+            TypeName::const_named("uint32_t").pointer(),
+            Expr::add(identifier("value"), number(tag_offset)),
+        );
         self.helpers.push(FunctionDefinition::from_signature(
             FunctionSignature::new(
                 c_type,
@@ -240,17 +236,10 @@ impl<'a> Marshalling<'a> {
                 ],
             )
             .with_specifiers([FunctionSpecifier::Static]),
-            Block::new([
-                variable(
-                    "uint32_t",
-                    "tag",
-                    Some(load(
-                        TypeName::const_named("uint32_t").pointer(),
-                        Expr::add(identifier("value"), number(tag_offset)),
-                    )),
-                ),
-                Statement::switch(identifier("tag"), cases),
-            ]),
+            c_block!(
+                (var ("uint32_t") ("tag") = (rust tag)),
+                (switch (id "tag"); [(extend cases)]),
+            ),
         ));
         self.helpers.blank_line();
         Some(Expr::named_call(helper, [context, pointer]))
@@ -333,16 +322,21 @@ impl<'a> Marshalling<'a> {
                 field.offset,
                 identifier("context"),
             )?;
-            statements.push(Statement::return_void());
+            statements.push(c_statement!(return_void));
             cases.push(SwitchCase::case(
                 Expr::named_call("UINT32_C", [number(index)]),
                 c_block!((extend statements)),
             ));
         }
-        cases.push(SwitchCase::default(Block::new([trap(
+        cases.push(SwitchCase::default(c_block!((rust trap(
             identifier("context"),
             "invalid sum tag at LLVM bridge",
-        )])));
+        )))));
+        let tag_store = store(
+            "uint32_t",
+            Expr::add(identifier("value"), number(tag_offset)),
+            identifier("input").field("tag"),
+        );
         self.helpers.push(FunctionDefinition::from_signature(
             FunctionSignature::new(
                 "void",
@@ -354,17 +348,17 @@ impl<'a> Marshalling<'a> {
                 ],
             )
             .with_specifiers([FunctionSpecifier::Static]),
-            Block::new([
-                store(
-                    "uint32_t",
-                    Expr::add(identifier("value"), number(tag_offset)),
-                    identifier("input").field("tag"),
-                ),
-                Statement::switch(identifier("input").field("tag"), cases),
-            ]),
+            c_block!(
+                (rust tag_store),
+                (switch (field (id "input"); "tag"); [(extend cases)]),
+            ),
         ));
         self.helpers.blank_line();
-        Some(Statement::call(helper, [context, pointer, value]))
+        Some(c_statement!(call helper;
+            (rust context),
+            (rust pointer),
+            (rust value),
+        ))
     }
 }
 
