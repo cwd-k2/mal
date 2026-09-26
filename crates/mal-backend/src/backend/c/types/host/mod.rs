@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Block, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer, Parameter,
-    Statement, SwitchCase, TranslationUnit, TypeName,
+    Statement, SwitchCase, TranslationUnit, TypeName, c_block,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -278,10 +278,9 @@ impl TypeRegistry {
                     Parameter::named(raw_type.clone(), "value"),
                 ],
             ),
-            Block::new([Statement::switch(
-                Expr::identifier("value").field("tag"),
-                to_host_cases,
-            )]),
+            c_block!((switch (field (id "value"); "tag"); [
+                (extend to_host_cases),
+            ])),
         ));
         output.blank_line();
         output.push(FunctionDefinition::from_signature(
@@ -293,10 +292,9 @@ impl TypeRegistry {
                     Parameter::named(host_type, "value"),
                 ],
             ),
-            Block::new([Statement::switch(
-                Expr::identifier("value").field("tag"),
-                to_raw_cases,
-            )]),
+            c_block!((switch (field (id "value"); "tag"); [
+                (extend to_raw_cases),
+            ])),
         ));
         output.blank_line();
         output

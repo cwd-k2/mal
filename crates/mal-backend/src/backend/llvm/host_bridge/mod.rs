@@ -6,7 +6,7 @@ use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
-    Statement, SwitchCase, TranslationUnit, TypeName,
+    Statement, SwitchCase, TranslationUnit, TypeName, c_block,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -89,7 +89,7 @@ pub(super) fn generate(
     marshalling.helpers.blank_line();
     marshalling.helpers.push(FunctionDefinition::from_signature(
         bridge.c_signature(),
-        Block::new(statements),
+        c_block!((extend statements)),
     ));
     Some(Bridge {
         llvm_declaration,
@@ -336,7 +336,7 @@ impl<'a> Marshalling<'a> {
             statements.push(Statement::return_void());
             cases.push(SwitchCase::case(
                 Expr::named_call("UINT32_C", [number(index)]),
-                Block::new(statements),
+                c_block!((extend statements)),
             ));
         }
         cases.push(SwitchCase::default(Block::new([trap(

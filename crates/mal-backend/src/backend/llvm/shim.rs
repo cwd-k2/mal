@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TypeName,
-    VariableDeclaration, c_expr, c_statement,
+    Expr, FunctionDefinition, FunctionSignature, Parameter, TypeName, VariableDeclaration, c_block,
+    c_expr,
 };
 use mal_frontend::check::ast::Type;
 
@@ -27,17 +27,17 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 fn unit_main(entry: &str) -> FunctionDefinition {
     FunctionDefinition::from_signature(
         FunctionSignature::new("int", "main", []),
-        Block::new([
-            variable("MalContext", "context", Some(zero_initializer())),
-            variable("int32_t", "result", None),
-            c_statement!(call entry;
+        c_block!(
+            (var ("MalContext") ("context") = (rust zero_initializer())),
+            (var ("int32_t") ("result")),
+            (call entry;
                 (address (id "context")),
                 (id "NULL"),
                 (address (id "result")),
             ),
-            c_statement!(call "mal_control_destroy"; (address (id "context"))),
-            c_statement!(return (id "result")),
-        ]),
+            (call "mal_control_destroy"; (address (id "context"))),
+            (return (id "result")),
+        ),
     )
 }
 
@@ -60,50 +60,41 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let stride = types.value(element)?.size;
     let value = types.value(parameter)?;
 
-    let body = Block::new([
-        variable("MalContext", "context", Some(zero_initializer())),
-        variable(
-            "size_t",
-            "argument_count",
-            Some(c_expr!(conditional
+    let body = c_block!(
+        (var ("MalContext") ("context") = (rust zero_initializer())),
+        (var ("size_t") ("argument_count") = (conditional
                 (greater (id "mal_argc"); (number 1));
                 (cast "size_t"; (subtract (id "mal_argc"); (number 1)));
                 (number 0)
-            )),
-        ),
-        Statement::variable_declaration(
+        )),
+        (declaration (
             VariableDeclaration::array("uint8_t", "argument", number(value.size))
-                .aligned(number(value.alignment)),
-            Some(zero_initializer()),
-        ),
-        variable(
-            TypeName::named("void").pointer(),
-            "arguments",
-            Some(c_expr!(call "mal_runtime_buffer_from_arguments";
+                .aligned(number(value.alignment))
+        ) = (rust zero_initializer())),
+        (var (TypeName::named("void").pointer()) ("arguments") = (call "mal_runtime_buffer_from_arguments";
                 (address (id "context")),
                 (add (id "mal_argv"); (number 1)),
                 (id "argument_count"),
                 (number stride),
                 (number data_offset),
                 (number length_offset),
-            )),
-        ),
-        c_statement!(call "memcpy";
+        )),
+        (call "memcpy";
             (id "argument"),
             (address (id "arguments")),
             (sizeof (id "arguments")),
         ),
-        variable("int32_t", "result", None),
-        c_statement!(call entry;
+        (var ("int32_t") ("result")),
+        (call entry;
             (address (id "context")),
             (id "argument"),
             (address (id "result")),
         ),
         // The entry only borrows its argument, so the shim drops the buffer and the Symbols it owns.
-        c_statement!(call "mal_runtime_environment_release"; (id "arguments")),
-        c_statement!(call "mal_control_destroy"; (address (id "context"))),
-        c_statement!(return (id "result")),
-    ]);
+        (call "mal_runtime_environment_release"; (id "arguments")),
+        (call "mal_control_destroy"; (address (id "context"))),
+        (return (id "result")),
+    );
 
     Some(FunctionDefinition::from_signature(
         FunctionSignature::new(
@@ -120,14 +111,6 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
 
 fn number(value: impl ToString) -> Expr {
     Expr::number(value.to_string())
-}
-
-fn variable(
-    ty: impl Into<TypeName>,
-    name: impl Into<crate::backend::c::syntax::Identifier>,
-    initializer: Option<Expr>,
-) -> Statement {
-    Statement::variable(ty, name, initializer)
 }
 
 fn zero_initializer() -> Expr {

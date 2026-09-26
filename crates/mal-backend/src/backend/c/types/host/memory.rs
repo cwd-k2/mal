@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Block, Expr, FunctionSignature, Initializer, Parameter, Statement, SwitchCase, TranslationUnit,
-    TypeName,
+    TypeName, c_block,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -207,7 +207,7 @@ impl TypeRegistry {
             .sum(ty)
             .expect("checker-approved memory sum has a layout");
         let tag_type = integer_type(layout.tag_bits);
-        let mut cases = members
+        let cases = members
             .iter()
             .enumerate()
             .map(|(variant, member)| {
@@ -233,21 +233,19 @@ impl TypeRegistry {
                 )
             })
             .collect::<Vec<_>>();
-        cases.push(SwitchCase::default(Block::new([Statement::call(
-            "mal_call_trap",
-            [
-                Expr::identifier("call"),
-                Expr::string("invalid canonical sum tag"),
-            ],
-        )])));
-        Block::new([Statement::switch(
-            self.memory_read_value(
+        c_block!((switch (rust self.memory_read_value(
                 &tag_type,
                 Expr::identifier("call"),
                 Expr::identifier("source"),
-            ),
-            cases,
-        )])
+            )); [
+                (extend cases),
+                (default; [
+                    (call "mal_call_trap";
+                        (id "call"),
+                        (string "invalid canonical sum tag"),
+                    ),
+                ]),
+        ]))
     }
 
     fn sum_memory_write_body(&self, ty: &Type, members: &[Type], layouts: SourceLayouts) -> Block {
@@ -255,7 +253,7 @@ impl TypeRegistry {
             .sum(ty)
             .expect("checker-approved memory sum has a layout");
         let tag_type = integer_type(layout.tag_bits);
-        let cases = members
+        let cases: Vec<_> = members
             .iter()
             .enumerate()
             .map(|(variant, member)| {
@@ -288,10 +286,9 @@ impl TypeRegistry {
                 [Expr::identifier("call"), Expr::string("invalid sum tag")],
             )]))])
             .collect();
-        Block::new([Statement::switch(
-            Expr::identifier("value").field("tag"),
-            cases,
-        )])
+        c_block!((switch (field (id "value"); "tag"); [
+            (extend cases),
+        ]))
     }
 
     fn append_alias_memory_helpers(

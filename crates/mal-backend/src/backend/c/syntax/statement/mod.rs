@@ -101,6 +101,10 @@ impl Block {
     pub(in crate::backend) fn push(&mut self, statement: Statement) {
         self.statements.push(statement);
     }
+
+    pub(in crate::backend) fn extend(&mut self, statements: impl IntoIterator<Item = Statement>) {
+        self.statements.extend(statements);
+    }
 }
 
 impl SwitchCase {

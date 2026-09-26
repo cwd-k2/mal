@@ -1,7 +1,7 @@
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, Attribute, Block, Comment, Declaration, Directive, Expr,
-    FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
-    PreprocessorExpr, Statement, TranslationUnit, TypeName, c_expr, c_statement,
+    AggregateDefinition, AggregateField, Attribute, Comment, Declaration, Directive, Expr,
+    FunctionDefinition, FunctionSignature, FunctionSpecifier, Parameter, PreprocessorExpr,
+    TranslationUnit, TypeName, c_block,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
@@ -176,10 +176,10 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
             FunctionSpecifier::Inline,
             FunctionSpecifier::NoReturn,
         ]),
-        Block::new([c_statement!(call "mal_trap";
-            (pointer_field (id "call"); "mal_detail_context"),
-            (id "message"),
-        )]),
+        c_block!((call "mal_trap";
+                (pointer_field (id "call"); "mal_detail_context"),
+                (id "message"),
+        )),
     ));
     append_builtin_returns(&mut output);
     output
@@ -192,13 +192,9 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
             "mal_Unit_return",
             [Parameter::named(TypeName::named("mal_call_t").pointer(), "call").maybe_unused()],
         ),
-        Block::new([Statement::return_value(Expr::compound_literal(
-            "MalType_Unit",
-            [Initializer::designated(
-                "unused",
-                Expr::named_call("UINT8_C", [Expr::number("0")]),
-            )],
-        ))]),
+        c_block!((return (compound "MalType_Unit";
+            (field "unused"; (call "UINT8_C"; (number 0))),
+        ))),
     ));
     for (raw, host, name) in [
         ("MalType_Int8", "mal_Int8_t", "Int8"),
@@ -224,7 +220,7 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
                     Parameter::named(host, "value"),
                 ],
             ),
-            Block::new([c_statement!(return (id "value"))]),
+            c_block!((return (id "value"))),
         ));
     }
     output.push(FunctionDefinition::from_signature(
@@ -236,16 +232,15 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
                 Parameter::named("mal_Address_t", "value"),
             ],
         ),
-        Block::new([
-            Statement::if_then(
-                c_expr!(equal (id "value"); (number 0)),
-                Block::new([c_statement!(call "mal_call_trap";
+        c_block!(
+            (if (equal (id "value"); (number 0)); [
+                (call "mal_call_trap";
                     (id "call"),
                     (string "invalid Address result"),
-                )]),
-            ),
-            c_statement!(return (id "value")),
-        ]),
+                ),
+            ]),
+            (return (id "value")),
+        ),
     ));
     output.push(FunctionDefinition::from_signature(
         FunctionSignature::static_inline(
@@ -256,18 +251,17 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
                 Parameter::named("mal_Bool_t", "value"),
             ],
         ),
-        Block::new([
-            Statement::if_then(
-                c_expr!(logical_and
+        c_block!(
+            (if (logical_and
                     (not_equal (id "value"); (id "mal_false"));
                     (not_equal (id "value"); (id "mal_true"))
-                ),
-                Block::new([c_statement!(call "mal_call_trap";
+                ); [
+                (call "mal_call_trap";
                     (id "call"),
                     (string "invalid Bool result"),
-                )]),
-            ),
-            c_statement!(return (id "value")),
-        ]),
+                ),
+            ]),
+            (return (id "value")),
+        ),
     ));
 }
