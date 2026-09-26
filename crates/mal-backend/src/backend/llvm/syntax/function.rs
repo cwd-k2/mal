@@ -403,12 +403,14 @@ impl Terminator {
         let condition = condition.into();
         let then_target = then_target.into();
         let else_target = else_target.into();
-        (is_single_line(&condition) && is_valid_name(&then_target) && is_valid_name(&else_target))
-            .then_some(Self::ConditionalBranch {
-                condition,
-                then_target,
-                else_target,
-            })
+        (super::instruction::is_atom(&condition)
+            && is_valid_name(&then_target)
+            && is_valid_name(&else_target))
+        .then_some(Self::ConditionalBranch {
+            condition,
+            then_target,
+            else_target,
+        })
     }
 
     pub(in crate::backend::llvm) fn return_void() -> Self {
@@ -420,7 +422,7 @@ impl Terminator {
         value: impl Into<String>,
     ) -> Option<Self> {
         let value = value.into();
-        is_single_line(&value).then_some(Self::Return { ty, value })
+        super::instruction::is_value(&value).then_some(Self::Return { ty, value })
     }
 
     pub(in crate::backend::llvm) fn switch(
@@ -435,11 +437,11 @@ impl Terminator {
             .into_iter()
             .map(|(value, target)| (value.into(), target.into()))
             .collect::<Vec<_>>();
-        (is_single_line(&value)
+        (super::instruction::is_atom(&value)
             && is_valid_name(&default)
             && cases
                 .iter()
-                .all(|(value, target)| is_single_line(value) && is_valid_name(target)))
+                .all(|(value, target)| super::instruction::is_atom(value) && is_valid_name(target)))
         .then_some(Self::Switch {
             ty,
             value,
@@ -638,6 +640,20 @@ mod tests {
                     [Parameter::named(Type::Pointer, "%bad\nname")],
                 ),
                 vec![block()],
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn rejects_fragments_in_control_operands() {
+        assert!(Terminator::conditional_branch("%condition, label %extra", "yes", "no").is_none());
+        assert!(
+            Terminator::switch(
+                Type::integer(32_u16),
+                "%tag",
+                "other",
+                [("0, label %injected", "zero")],
             )
             .is_none()
         );

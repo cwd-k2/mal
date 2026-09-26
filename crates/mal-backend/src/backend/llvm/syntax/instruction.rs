@@ -171,13 +171,13 @@ impl Instruction {
         alignment: usize,
     ) -> Option<Self> {
         let result = result.into();
-        local_name(&result)
-            .is_some_and(is_valid_name)
-            .then_some(Self::Alloca {
+        (local_name(&result).is_some_and(is_valid_name) && alignment.is_power_of_two()).then_some(
+            Self::Alloca {
                 result,
                 ty,
                 alignment,
-            })
+            },
+        )
     }
 
     pub(in crate::backend::llvm) fn load(
@@ -189,15 +189,16 @@ impl Instruction {
     ) -> Option<Self> {
         let result = result.into();
         let pointer = pointer.into();
-        (local_name(&result).is_some_and(is_valid_name) && is_value(&pointer)).then_some(
-            Self::Load {
-                result,
-                ty,
-                pointer,
-                alignment,
-                metadata: metadata.into_iter().collect(),
-            },
-        )
+        (local_name(&result).is_some_and(is_valid_name)
+            && is_value(&pointer)
+            && alignment.is_power_of_two())
+        .then_some(Self::Load {
+            result,
+            ty,
+            pointer,
+            alignment,
+            metadata: metadata.into_iter().collect(),
+        })
     }
 
     pub(in crate::backend::llvm) fn store(
@@ -209,13 +210,15 @@ impl Instruction {
     ) -> Option<Self> {
         let value = value.into();
         let pointer = pointer.into();
-        (is_value(&value) && is_value(&pointer)).then_some(Self::Store {
-            ty,
-            value,
-            pointer,
-            alignment,
-            metadata: metadata.into_iter().collect(),
-        })
+        (is_value(&value) && is_value(&pointer) && alignment.is_power_of_two()).then_some(
+            Self::Store {
+                ty,
+                value,
+                pointer,
+                alignment,
+                metadata: metadata.into_iter().collect(),
+            },
+        )
     }
 
     pub(in crate::backend) fn call(
@@ -694,7 +697,7 @@ impl Callee {
 
     pub(in crate::backend) fn indirect(value: impl Into<String>) -> Option<Self> {
         let value = value.into();
-        is_value(&value).then_some(Self::Indirect(value))
+        is_atom(&value).then_some(Self::Indirect(value))
     }
 
     fn render_into(&self, output: &mut String) {
@@ -722,8 +725,15 @@ fn local_name(value: &str) -> Option<&str> {
     value.strip_prefix('%')
 }
 
-fn is_value(value: &str) -> bool {
-    is_single_line(value)
+pub(super) fn is_value(value: &str) -> bool {
+    is_single_line(value) && !value.contains([';', '\0'])
+}
+
+pub(super) fn is_atom(value: &str) -> bool {
+    is_value(value)
+        && !value
+            .chars()
+            .any(|character| character.is_whitespace() || ",(){}[]=".contains(character))
 }
 
 fn render_metadata(output: &mut String, metadata: &[MetadataAttachment]) {
@@ -756,6 +766,8 @@ mod tests {
         instruction.render_into(&mut output);
 
         assert_eq!(output, "%storage = alloca { i32, ptr }, align 8");
+        assert!(Instruction::alloca("%storage", Type::integer(32_u16), 0).is_none());
+        assert!(Instruction::alloca("%storage", Type::integer(32_u16), 3).is_none());
     }
 
     #[test]
@@ -849,5 +861,11 @@ mod tests {
         instruction.render_into(&mut output);
 
         assert_eq!(output, "%result = call i8 @observe(ptr %value)");
+    }
+
+    #[test]
+    fn rejects_fragments_in_atom_only_positions() {
+        assert!(super::Callee::indirect("%callee = bitcast ptr %other to ptr").is_none());
+        assert!(TypedValue::new(Type::integer(32_u16), "1; hidden instruction").is_none());
     }
 }
