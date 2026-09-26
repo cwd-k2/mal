@@ -71,4 +71,14 @@ impl Function {
             .join(", ");
         format!("void @{}({parameters})", self.name)
     }
+
+    pub(in crate::backend) fn llvm_declaration(
+        &self,
+    ) -> crate::backend::llvm::syntax::FunctionDeclaration {
+        crate::backend::llvm::syntax::FunctionDeclaration::new(
+            "void",
+            self.name.clone(),
+            self.parameters.iter().map(|_| "ptr"),
+        )
+    }
 }

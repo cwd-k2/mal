@@ -8,6 +8,8 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 |---|---|
 | `target` | target data layout admission and the scalar, pointer, and index layout used by emission |
 | `module` | selection and composition of the LLVM declarations, definitions, metadata, and root bridge required by one program |
+| `module/declaration` | typed environment, control, byte-runtime, and intrinsic declaration groups selected by `module` |
+| `module/entry`, `module/metadata` | the internal root bridge and Buffer alias metadata |
 | `syntax` | LLVM module, function, and basic-block construction followed by textual rendering |
 | `host_bridge`, `host_bridge/plan` | marshalling plan and typed C syntax for converting between LLVM values and public C host values |
 | `shim` | C11 entry point that passes process arguments and calls the internal root bridge |

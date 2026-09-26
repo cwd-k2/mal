@@ -7,7 +7,7 @@ mod host_bridge;
 mod module;
 mod optimization;
 mod shim;
-mod syntax;
+pub(in crate::backend) mod syntax;
 mod target;
 
 pub(crate) use optimization::OptimizationSet;
@@ -71,16 +71,16 @@ pub(crate) fn generate(
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let external_signatures = external_bridges
+    let external_declarations = external_bridges
         .iter()
-        .map(|bridge| bridge.llvm_signature.clone())
+        .map(|bridge| bridge.llvm_declaration.clone())
         .collect::<Vec<_>>();
     let external_definitions = external_bridges
         .iter()
         .map(|bridge| bridge.c_definitions.render())
         .collect::<Vec<_>>()
         .join("\n\n");
-    let module = module::render(&body, target, layout, external_signatures).ok_or(
+    let module = module::render(&body, target, layout, external_declarations).ok_or(
         Error::InconsistentExecutionPlan("entry argument layout".into()),
     )?;
     let types = body::types::Types::for_target(layout);

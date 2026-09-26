@@ -1,14 +1,47 @@
 use super::FunctionDefinition;
 
-pub(in crate::backend::llvm) struct FunctionDeclaration(String);
+#[derive(Clone)]
+pub(in crate::backend) struct FunctionDeclaration {
+    result: String,
+    name: String,
+    parameters: Vec<String>,
+    attributes: Vec<String>,
+}
 
 impl FunctionDeclaration {
-    pub(in crate::backend::llvm) fn new(signature: impl Into<String>) -> Self {
-        Self(signature.into())
+    pub(in crate::backend) fn new(
+        result: impl Into<String>,
+        name: impl Into<String>,
+        parameters: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        Self {
+            result: result.into(),
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            attributes: Vec::new(),
+        }
+    }
+
+    pub(in crate::backend) fn with_attributes(
+        mut self,
+        attributes: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Self {
+        self.attributes = attributes.into_iter().map(Into::into).collect();
+        self
     }
 
     fn render(&self) -> String {
-        format!("declare {}", self.0)
+        let attributes = if self.attributes.is_empty() {
+            String::new()
+        } else {
+            format!(" {}", self.attributes.join(" "))
+        };
+        format!(
+            "declare {} @{}({}){attributes}",
+            self.result,
+            self.name,
+            self.parameters.join(", ")
+        )
     }
 }
 
@@ -98,7 +131,11 @@ mod tests {
     #[test]
     fn renders_only_the_declarations_added_to_a_module() {
         let mut module = Module::new("test-target", "e-p:64:64");
-        module.declare(FunctionDeclaration::new("void @always()"));
+        module.declare(FunctionDeclaration::new(
+            "void",
+            "always",
+            std::iter::empty::<&str>(),
+        ));
         module.define(FunctionDefinition::new(
             "void @entry()",
             vec![BasicBlock::new("entry", ["call void @always()", "ret void"]).unwrap()],
