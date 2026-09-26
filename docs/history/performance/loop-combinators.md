@@ -96,3 +96,16 @@ managed leafはpersistent lenderが全native/frame実行を覆い、かつその
 callee-saved registerを6本退避する点は同じだが、stack allocationは40 byteから8 byteへ減り、再帰call前後の不変引数の退避と再設定が
 消えた。Callgrind instructionは94.57 millionから90.38 millionへ4.4%減り、conditional branchはともに4.232 millionだった。
 guard自体は各activationに残るため、次の対象はparameter ABIと独立にguard頻度を安全に下げる構造である。
+
+同じ変更は029を10回の交互測定で123.92から115.28 msへ7.0%、077を30回で5.607から5.376 msへ4.1%短縮した。
+79問の短いold/new corpus比較（warmup 2、交互3回）は全stdoutが一致し、比のmedianは1.004だった。080は3.73から
+3.26 ms、029は125.41から113.95 msで、5 ms未満のcaseを含むためこの走査はregression検出にだけ用いた。
+
+native実行とframe実行を一定depthごとに交互に使う案も調べた。通常のnative callを積んだ後、そのstackだけを巻き戻して
+continuationを保つには、境界でchunk内のlive localとreturn continuationをexplicit frameへmaterializeする必要がある。固定activation数を
+stack budgetに換算する方法も、machine frameのbyte数がLLVM code generationまで確定しないため一般には安全でない。
+5,000,000段のlinear non-tail fixtureで、再帰return後に`noinline`なexternを呼んでLLVMの再帰消去を防ぐと、既存のframe
+pass-through後のphysical frameは必要な`Int64`一つだけの8 bytesだった。maximum RSSは40,604 KiB、frame functionは
+104.96 million instructionsであり、同じbodyのnative activationはreturn addressを含めて少なくとも32 bytesを使った。この形では
+native chunk反復はmemory量を増やし、chunk境界の変換も追加する。深い再帰については、まずsemantic frameを保ったままfield、tag、
+arena accessを減らす既存方針を続け、continuation chunk化は複数の実workloadでframe trafficが支配的になった場合に再検討する。

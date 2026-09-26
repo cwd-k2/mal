@@ -292,6 +292,12 @@ mod tests {
             .expect("native recursive function");
 
         assert!(execution.native_recursion.borrows_parameter(function.id));
+        let parameter = execution
+            .native_recursion
+            .scalar_parameter(function.id)
+            .expect("native worker with the changing depth leaf");
+        assert_eq!(parameter.varying.len(), 1);
+        assert_eq!(parameter.varying[0].path, [1]);
     }
 
     #[test]
