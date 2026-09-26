@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct FunctionDefinition {
     signature: String,
@@ -8,11 +10,11 @@ impl FunctionDefinition {
     pub(in crate::backend::llvm) fn new(
         signature: impl Into<String>,
         blocks: Vec<BasicBlock>,
-    ) -> Self {
-        Self {
+    ) -> Option<Self> {
+        (!blocks.is_empty()).then(|| Self {
             signature: signature.into(),
             blocks,
-        }
+        })
     }
 
     pub(in crate::backend::llvm) fn render(&self) -> String {
@@ -29,6 +31,7 @@ pub(in crate::backend::llvm) struct FunctionBuilder {
     signature: String,
     entry_prefix: Vec<String>,
     blocks: Vec<BasicBlock>,
+    labels: HashSet<String>,
 }
 
 impl FunctionBuilder {
@@ -37,11 +40,17 @@ impl FunctionBuilder {
             signature: signature.into(),
             entry_prefix: Vec::new(),
             blocks: Vec::new(),
+            labels: HashSet::new(),
         }
     }
 
-    pub(in crate::backend::llvm) fn start_block(&mut self, label: impl Into<String>) {
+    pub(in crate::backend::llvm) fn start_block(&mut self, label: impl Into<String>) -> bool {
+        let label = label.into();
+        if !is_valid_name(&label) || !self.labels.insert(label.clone()) {
+            return false;
+        }
         self.blocks.push(BasicBlock::empty(label));
+        true
     }
 
     pub(in crate::backend::llvm) fn instruction(&mut self, instruction: impl Into<String>) -> bool {
@@ -70,7 +79,7 @@ impl FunctionBuilder {
             .iter()
             .all(|block| block.terminator.is_some())
             .then_some(())?;
-        Some(FunctionDefinition::new(self.signature, self.blocks))
+        FunctionDefinition::new(self.signature, self.blocks)
     }
 }
 
@@ -86,6 +95,8 @@ impl BasicBlock {
         label: impl Into<String>,
         instructions: impl IntoIterator<Item = impl Into<String>>,
     ) -> Option<Self> {
+        let label = label.into();
+        is_valid_name(&label).then_some(())?;
         let mut block = Self::empty(label);
         for instruction in instructions {
             block.push(instruction.into()).then_some(())?;
@@ -127,6 +138,15 @@ impl BasicBlock {
             output.push('\n');
         }
     }
+}
+
+fn is_valid_name(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    bytes
+        .next()
+        .is_some_and(|byte| byte.is_ascii_alphabetic() || matches!(byte, b'_' | b'.' | b'$'))
+        && bytes
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'$' | b'-'))
 }
 
 #[derive(Clone)]
@@ -177,9 +197,9 @@ mod tests {
     #[test]
     fn renders_late_entry_instructions_before_the_existing_entry_body() {
         let mut function = FunctionBuilder::new("internal void @example()");
-        function.start_block("entry");
+        assert!(function.start_block("entry"));
         assert!(function.instruction("br label %body"));
-        function.start_block("body");
+        assert!(function.start_block("body"));
         assert!(function.instruction("ret void"));
         function.entry_instruction("%storage = alloca i32, align 4");
 
@@ -203,8 +223,18 @@ mod tests {
         assert!(BasicBlock::new("entry", ["ret void", "call void @late()"]).is_none());
 
         let mut function = FunctionBuilder::new("void @missing_terminator()");
-        function.start_block("entry");
+        assert!(function.start_block("entry"));
         assert!(function.instruction("call void @work()"));
         assert!(function.finish().is_none());
+    }
+
+    #[test]
+    fn rejects_invalid_and_duplicate_block_labels() {
+        assert!(BasicBlock::new("0invalid", ["ret void"]).is_none());
+
+        let mut function = FunctionBuilder::new("void @duplicate()");
+        assert!(function.start_block("entry"));
+        assert!(function.instruction("ret void"));
+        assert!(!function.start_block("entry"));
     }
 }

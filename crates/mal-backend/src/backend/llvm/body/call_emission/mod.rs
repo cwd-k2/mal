@@ -205,7 +205,7 @@ impl FunctionEmitter<'_> {
             .strip_suffix(':')
             .filter(|label| !label.starts_with(' '))
         {
-            function.start_block(label);
+            self.emission_failed |= !function.start_block(label);
         } else if let Some(instruction) = line.strip_prefix("  ") {
             self.emission_failed |= !function.instruction(instruction);
         } else {

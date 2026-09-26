@@ -136,10 +136,13 @@ mod tests {
             "always",
             std::iter::empty::<&str>(),
         ));
-        module.define(FunctionDefinition::new(
-            "void @entry()",
-            vec![BasicBlock::new("entry", ["call void @always()", "ret void"]).unwrap()],
-        ));
+        module.define(
+            FunctionDefinition::new(
+                "void @entry()",
+                vec![BasicBlock::new("entry", ["call void @always()", "ret void"]).unwrap()],
+            )
+            .unwrap(),
+        );
 
         assert_eq!(
             module.render(),

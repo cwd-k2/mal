@@ -49,8 +49,8 @@ pub(super) fn definition(
         "store i32 %mal_entry_result, ptr %mal_result, align 4".into(),
         "ret void".into(),
     ]);
-    Some(FunctionDefinition::new(
+    FunctionDefinition::new(
         AbiFunction::program_entry().llvm_signature(),
         vec![BasicBlock::new("entry", instructions)?],
-    ))
+    )
 }
