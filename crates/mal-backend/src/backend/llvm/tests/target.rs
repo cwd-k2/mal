@@ -303,6 +303,50 @@ fn rejects_canonical_layouts_larger_than_the_target_index_range() {
 }
 
 #[test]
+fn rejects_external_layouts_larger_than_the_target_index_range() {
+    let mut text = String::from("_T0 :: UInt64;\n");
+    for index in 1..=5 {
+        text.push_str(&format!(
+            "_T{index} :: (_T{}, _T{});\n",
+            index - 1,
+            index - 1
+        ));
+    }
+    text.push_str("extern inspect :: _T5 -> Unit;\nmain :: Unit -> Int32 := () -> 0i32;");
+    let source = SourceFile::new(FileId::new(102), "llvm-external-layout.mal", text);
+    let checked = mal_frontend::analysis::check(&source).expect("check external layout fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+    let error = match generate(
+        &execution,
+        Target {
+            triple: "synthetic-unknown-none",
+            data_layout: "e-p:8:8-i64:64",
+        },
+        OptimizationSet::production(),
+    ) {
+        Ok(_) => panic!("external layout exceeds the 8-bit target range"),
+        Err(error) => error,
+    };
+    let Error::Diagnostic(diagnostic) = error else {
+        panic!("target admission must return a diagnostic")
+    };
+    let primary = diagnostic.primary.expect("external layout diagnostic span");
+    assert_eq!(
+        &source.text()[primary.span.start()..primary.span.end()],
+        "extern inspect :: _T5 -> Unit;"
+    );
+    assert!(primary.message.contains("256"));
+    assert!(primary.message.contains("255"));
+}
+
+#[test]
 fn rejects_oversized_canonical_buffer_elements() {
     let mut text = String::from("_T0 :: UInt64;\n");
     for index in 1..=13 {

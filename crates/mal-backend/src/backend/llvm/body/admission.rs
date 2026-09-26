@@ -55,18 +55,34 @@ fn admit_host_memory_layouts(
         .iter()
         .filter(|alias| alias.host_memory_access)
     {
-        let Some(layout) = layouts.layout(&alias.ty) else {
-            return Err(Diagnostic::error(
-                "canonical memory layout is not representable for the target",
-            )
-            .with_primary(
-                alias.span,
-                "this type's layout exceeds the target object-size range",
-            ));
-        };
-        admit_canonical_stride(layout.stride, alias.span, maximum)?;
+        admit_canonical_layout(&alias.ty, alias.span, layouts, maximum)?;
+    }
+    for external in &program.lowered.interface.externals {
+        for ty in [&external.parameter, &external.result] {
+            if let Some(layout) = layouts.layout(ty) {
+                admit_canonical_stride(layout.stride, external.span, maximum)?;
+            }
+        }
     }
     Ok(())
+}
+
+fn admit_canonical_layout(
+    ty: &Type,
+    span: mal_syntax::source::Span,
+    layouts: SourceLayouts,
+    maximum: u128,
+) -> Result<(), Diagnostic> {
+    let Some(layout) = layouts.layout(ty) else {
+        return Err(Diagnostic::error(
+            "canonical memory layout is not representable for the target",
+        )
+        .with_primary(
+            span,
+            "this type's layout exceeds the target object-size range",
+        ));
+    };
+    admit_canonical_stride(layout.stride, span, maximum)
 }
 
 fn admit_canonical_stride(
@@ -134,16 +150,7 @@ fn admit_operation<'a>(
                 _ => None,
             };
             if let Some(element) = element {
-                let Some(layout) = layouts.layout(element) else {
-                    return Err(Diagnostic::error(
-                        "canonical memory layout is not representable for the target",
-                    )
-                    .with_primary(
-                        span,
-                        "this type's layout exceeds the target object-size range",
-                    ));
-                };
-                admit_canonical_stride(layout.stride, span, maximum)?;
+                admit_canonical_layout(element, span, layouts, maximum)?;
             }
             for operand in operands {
                 admit_atom(operand, maximum)?;
