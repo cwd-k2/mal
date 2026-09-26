@@ -5,7 +5,11 @@ mod macros;
 mod module;
 mod ty;
 
-pub(super) use macros::{llvm_instruction, llvm_value, llvm_values, llvm_values_item};
+pub(super) use macros::{
+    llvm_constant, llvm_instruction, llvm_switch_cases, llvm_switch_cases_item, llvm_terminator,
+    llvm_typed_constant, llvm_typed_constants, llvm_typed_constants_item, llvm_value, llvm_values,
+    llvm_values_item,
+};
 
 pub(super) use constant::{Constant, TypedConstant};
 #[cfg(test)]

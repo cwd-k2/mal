@@ -193,11 +193,10 @@ impl FunctionEmitter<'_> {
                 format!("mal_case_{}_{}", site.0, arm.index),
             )
         });
-        self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-            tag_type,
-            tag,
-            format!("mal_invalid_case_{}", site.0),
-            cases,
+        self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
+            tag_type => tag;
+            default format!("mal_invalid_case_{}", site.0);
+            [(extend cases)]
         ));
         self.block(format!("mal_invalid_case_{}", site.0));
         self.unreachable();

@@ -1,7 +1,7 @@
 use super::super::body;
 use super::super::function_name;
 use super::super::syntax::{
-    FunctionBuilder, FunctionDefinition, Instruction, Terminator, Type, llvm_instruction,
+    FunctionBuilder, FunctionDefinition, Instruction, Type, llvm_instruction, llvm_terminator,
 };
 use crate::backend::abi::Function as AbiFunction;
 
@@ -80,7 +80,7 @@ pub(super) fn definition(
         )?)
         .then_some(())?;
     function
-        .terminate(Terminator::return_void())
+        .terminate(llvm_terminator!(return_void)?)
         .then_some(())?;
     function.finish()
 }

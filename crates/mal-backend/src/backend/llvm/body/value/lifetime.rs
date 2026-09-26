@@ -213,11 +213,10 @@ impl FunctionEmitter<'_> {
             .iter()
             .enumerate()
             .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
-        self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-            crate::backend::llvm::syntax::Type::integer(32_u16),
-            tag,
-            format!("mal_{operation}_{id}_invalid"),
-            cases,
+        self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
+            crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+            default format!("mal_{operation}_{id}_invalid");
+            [(extend cases)]
         ));
         self.block(format!("mal_{operation}_{id}_invalid"));
         self.unreachable();

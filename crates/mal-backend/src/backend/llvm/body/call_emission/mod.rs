@@ -412,15 +412,15 @@ impl FunctionEmitter<'_> {
     }
 
     pub(super) fn unreachable(&mut self) {
-        self.terminate(Some(super::super::syntax::Terminator::unreachable()));
+        self.terminate(super::super::syntax::llvm_terminator!(unreachable));
     }
 
     pub(super) fn return_void(&mut self) {
-        self.terminate(Some(super::super::syntax::Terminator::return_void()));
+        self.terminate(super::super::syntax::llvm_terminator!(return_void));
     }
 
     pub(super) fn branch(&mut self, target: impl Into<String>) {
-        self.terminate(super::super::syntax::Terminator::branch(target));
+        self.terminate(super::super::syntax::llvm_terminator!(branch target));
     }
 
     pub(super) fn conditional_branch(
@@ -429,10 +429,8 @@ impl FunctionEmitter<'_> {
         then_target: impl Into<String>,
         else_target: impl Into<String>,
     ) {
-        self.terminate(super::super::syntax::Terminator::conditional_branch(
-            condition,
-            then_target,
-            else_target,
+        self.terminate(super::super::syntax::llvm_terminator!(conditional
+            condition => then_target, else_target
         ));
     }
 
@@ -441,7 +439,7 @@ impl FunctionEmitter<'_> {
         ty: super::super::syntax::Type,
         value: impl Into<String>,
     ) {
-        self.terminate(super::super::syntax::Terminator::return_value(ty, value));
+        self.terminate(super::super::syntax::llvm_terminator!(return ty => value));
     }
 
     pub(super) fn begin_function(&mut self, signature: super::super::syntax::FunctionSignature) {

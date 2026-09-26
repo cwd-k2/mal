@@ -123,11 +123,10 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-                crate::backend::llvm::syntax::Type::integer(32_u16),
-                tag,
-                format!("{stem}_invalid"),
-                cases,
+            self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
+                crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+                default format!("{stem}_invalid");
+                [(extend cases)]
             ));
             self.block(format!("{stem}_invalid"));
             self.unreachable();
@@ -318,11 +317,10 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-                crate::backend::llvm::syntax::Type::integer(32_u16),
-                tag,
-                format!("{stem}_invalid"),
-                cases,
+            self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
+                crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+                default format!("{stem}_invalid");
+                [(extend cases)]
             ));
             self.block(format!("{stem}_invalid"));
             self.unreachable();

@@ -9,6 +9,7 @@ use super::Slot;
 use super::types::Types;
 use crate::backend::llvm::syntax::{
     BinaryOperator, CastOperator, Constant as LlvmConstant, TypedConstant, UnaryOperator,
+    llvm_constant, llvm_typed_constant,
 };
 
 pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
@@ -81,16 +82,11 @@ impl TopLevelConstants {
             Operation::Atom(atom) => self.atom(atom, values)?,
             Operation::MakeClosure { function, captures } if captures.is_empty() => Constant {
                 ty: result_type.clone(),
-                kind: ConstantKind::Value(LlvmConstant::structure([
-                    TypedConstant::new(
-                        crate::backend::llvm::syntax::Type::Pointer,
-                        LlvmConstant::atom(format!("@{}", super::function_name(*function)))?,
-                    ),
-                    TypedConstant::new(
-                        crate::backend::llvm::syntax::Type::Pointer,
-                        LlvmConstant::atom("null")?,
-                    ),
-                ])),
+                kind: ConstantKind::Value(llvm_constant!(structure [
+                    (typed crate::backend::llvm::syntax::Type::Pointer =>
+                        (atom format!("@{}", super::function_name(*function)))),
+                    (typed crate::backend::llvm::syntax::Type::Pointer => (atom "null")),
+                ])?),
             },
             Operation::NumericConversion { operand } => {
                 let operand = self.atom(operand, values)?;
@@ -127,8 +123,8 @@ impl TopLevelConstants {
                 }
                 let kind = if super::types::is_bool(result_type) {
                     match index {
-                        0 => ConstantKind::Value(LlvmConstant::atom("false")?),
-                        1 => ConstantKind::Value(LlvmConstant::atom("true")?),
+                        0 => ConstantKind::Value(llvm_constant!(atom "false")?),
+                        1 => ConstantKind::Value(llvm_constant!(atom "true")?),
                         _ => return None,
                     }
                 } else {
@@ -147,12 +143,14 @@ impl TopLevelConstants {
                 let scalar = super::scalar::scalar_type(&operand.ty, self.types.index_size())?;
                 let value = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => {
-                        LlvmConstant::unary(UnaryOperator::FNeg, operand.typed(self.types.clone())?)
+                        llvm_constant!(unary UnaryOperator::FNeg;
+                            (rust operand.typed(self.types.clone())?)
+                        )?
                     }
-                    crate::core::ast::UnaryPrimitive::Negate => LlvmConstant::binary(
-                        BinaryOperator::Sub,
-                        TypedConstant::new(scalar.llvm_type(), LlvmConstant::atom("0")?),
-                        operand.typed(self.types.clone())?,
+                    crate::core::ast::UnaryPrimitive::Negate => llvm_constant!(binary
+                        BinaryOperator::Sub;
+                        (typed scalar.llvm_type() => (atom 0));
+                        (rust operand.typed(self.types.clone())?)
                     )?,
                     _ => return None,
                 };
@@ -173,10 +171,9 @@ impl TopLevelConstants {
                 }
                 let scalar = super::scalar::scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = super::scalar::arithmetic_instruction(*operator, scalar)?;
-                let value = LlvmConstant::binary(
-                    instruction,
-                    left.typed(self.types.clone())?,
-                    right.typed(self.types.clone())?,
+                let value = llvm_constant!(binary instruction;
+                    (rust left.typed(self.types.clone())?);
+                    (rust right.typed(self.types.clone())?)
                 )?;
                 Constant {
                     ty: left.ty,
@@ -194,52 +191,43 @@ impl TopLevelConstants {
         values: &HashMap<ValueId, Constant>,
     ) -> Option<Constant> {
         let value = match &atom.kind {
-            AtomKind::Integer(value) => LlvmConstant::atom(super::scalar::integer_literal(
+            AtomKind::Integer(value) => llvm_constant!(atom super::scalar::integer_literal(
                 &atom.ty,
                 *value,
                 self.types.index_size(),
             )?)?,
-            AtomKind::Float(bits) if atom.ty == Type::Float32 => LlvmConstant::atom(format!(
+            AtomKind::Float(bits) if atom.ty == Type::Float32 => llvm_constant!(atom format!(
                 "0x{:016X}",
                 (f32::from_bits(*bits as u32) as f64).to_bits()
             ))?,
             AtomKind::Float(bits) if atom.ty == Type::Float64 => {
-                LlvmConstant::atom(format!("0x{bits:016X}"))?
+                llvm_constant!(atom format!("0x{bits:016X}"))?
             }
-            AtomKind::Symbol(bytes) if bytes.is_empty() => LlvmConstant::ZeroInitializer,
+            AtomKind::Symbol(bytes) if bytes.is_empty() => llvm_constant!(zero)?,
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
                     .push(super::symbol::literal_definition(&name, bytes)?);
-                let address_constant = LlvmConstant::atom(format!("@{name}"))?;
+                let address_constant = llvm_constant!(atom format!("@{name}"))?;
                 let address = || {
-                    TypedConstant::new(
-                        crate::backend::llvm::syntax::Type::Pointer,
-                        address_constant.clone(),
+                    llvm_typed_constant!(typed
+                        crate::backend::llvm::syntax::Type::Pointer =>
+                        (rust address_constant.clone())
                     )
                 };
-                LlvmConstant::structure([
-                    address(),
-                    TypedConstant::new(
-                        crate::backend::llvm::syntax::Type::Pointer,
-                        LlvmConstant::get_element_ptr(
-                            crate::backend::llvm::syntax::Type::integer(8_u16),
-                            address(),
-                            [TypedConstant::new(
-                                self.types.index_llvm_type(),
-                                LlvmConstant::atom(
-                                    super::symbol::STATIC_OWNER_DATA_OFFSET.to_string(),
-                                )?,
-                            )],
-                        ),
+                llvm_constant!(structure [
+                    (rust address()?),
+                    (typed crate::backend::llvm::syntax::Type::Pointer =>
+                        (get_element_ptr crate::backend::llvm::syntax::Type::integer(8_u16);
+                            (rust address()?);
+                            [(typed self.types.index_llvm_type() =>
+                                (atom super::symbol::STATIC_OWNER_DATA_OFFSET))]
+                        )
                     ),
-                    TypedConstant::new(
-                        self.types.index_llvm_type(),
-                        LlvmConstant::atom(bytes.len().to_string())?,
-                    ),
-                ])
+                    (typed self.types.index_llvm_type() => (atom bytes.len())),
+                ])?
             }
-            AtomKind::Unit if atom.ty == Type::Unit => LlvmConstant::atom("0")?,
+            AtomKind::Unit if atom.ty == Type::Unit => llvm_constant!(atom 0)?,
             AtomKind::Reference(Reference::Binding(id)) => return values.get(id).cloned(),
             _ => return None,
         };
@@ -333,10 +321,7 @@ impl Constant {
     }
 
     fn typed(&self, types: Types) -> Option<TypedConstant> {
-        Some(TypedConstant::new(
-            types.value(&self.ty)?.llvm,
-            self.llvm()?.clone(),
-        ))
+        llvm_typed_constant!(typed types.value(&self.ty)?.llvm => (rust self.llvm()?.clone()))
     }
 
     pub(super) fn product(&self) -> Option<&[Constant]> {
@@ -368,9 +353,9 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
         let modulus = 1_i128 << target.bits;
         let residue = value.rem_euclid(modulus);
         if target.signed && residue >= modulus / 2 {
-            LlvmConstant::atom((residue - modulus).to_string())?
+            llvm_constant!(atom residue - modulus)?
         } else {
-            LlvmConstant::atom(residue.to_string())?
+            llvm_constant!(atom residue)?
         }
     } else {
         let instruction = if source.floating && target.floating {
@@ -398,11 +383,10 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
         } else {
             CastOperator::ZExt
         };
-        LlvmConstant::cast(
-            instruction,
-            operand.typed(types.clone())?,
-            target.llvm_type(),
-        )
+        llvm_constant!(cast instruction;
+            (rust operand.typed(types.clone())?);
+            target.llvm_type()
+        )?
     };
     Some(Constant {
         ty: result_type.clone(),

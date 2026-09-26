@@ -179,11 +179,10 @@ impl FunctionEmitter<'_> {
                 })
             })
             .collect::<Option<Vec<_>>>()?;
-        self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-            crate::backend::llvm::syntax::Type::integer(32_u16),
-            tag,
-            format!("mal_invalid_frame_{}", site.0),
-            cases,
+        self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
+            crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
+            default format!("mal_invalid_frame_{}", site.0);
+            [(extend cases)]
         ));
         self.block(format!("mal_invalid_frame_{}", site.0));
         self.unreachable();

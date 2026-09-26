@@ -36,12 +36,14 @@ instructions and supplies typed operands; it does not assemble LLVM source lines
 or rendered text to recover structure. The model admits only the LLVM subset used by mal and validates function-local
 invariants before rendering. Rendering is the only operation that turns that model into LLVM text.
 
-`llvm_instruction!` provides concise construction for the admitted instruction forms after their node constructors have
-checked the local invariants. Typed operand macros below it accept individual preconstructed values and splice dynamic
-value sequences without rendering them. LLVM functions and basic blocks remain under `FunctionBuilder`: unlike the C
-syntax tree, CFG construction has stateful block, terminator, and entry-instruction invariants that should not be hidden in
-a block macro. Dynamic lowering policy therefore stays in ordinary Rust code. The macros remain interchangeable with
-ordinary node construction and never produce LLVM source fragments directly.
+`llvm_constant!`, `llvm_instruction!`, and `llvm_terminator!` provide recursive construction syntax for the admitted
+constant expressions, instructions, and control terminators after their node constructors have checked local invariants.
+Typed-value helpers below the constant and instruction layers accept individual preconstructed values and splice dynamic
+sequences without rendering them. LLVM functions and basic blocks remain under `FunctionBuilder`: unlike the C syntax
+tree, CFG construction has stateful block, terminator, and entry-instruction invariants that should not be hidden in a
+block macro. Module symbol ordering and uniqueness likewise remain under `Module`. Dynamic lowering policy therefore
+stays in ordinary Rust code. The macros remain interchangeable with ordinary node construction and never produce LLVM
+source fragments directly.
 
 `module` builds one logical LLVM module from feature groups. It derives byte-runtime requirements from references in the emitted
 typed call structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source
