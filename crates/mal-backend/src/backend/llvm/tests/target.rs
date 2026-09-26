@@ -92,6 +92,54 @@ fn uses_the_target_size_type_for_control_storage_offsets() {
 }
 
 #[test]
+fn uses_narrow_control_storage_offsets() {
+    let source = SourceFile::new(
+        FileId::new(101),
+        "llvm-16-bit-control.mal",
+        "apply :: ((Int32 -> Int32), Int32) -> Int32 := (operation, value) -> { operation(value); };\n\
+         sum :: Int32 -> Int32 := (value) -> {\n\
+           if (value == 0i32)\n\
+           then { 0i32 }\n\
+           else {\n\
+             rest := apply(sum, value - 1i32);\n\
+             value + rest;\n\
+           };\n\
+         };\n\
+         main :: Unit -> Int32 := () -> { sum(4i32); };"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check 16-bit control fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    for bits in [8, 16] {
+        let data_layout = format!("e-p:{bits}:{bits}-i64:64");
+        let artifacts = generate(
+            &execution,
+            Target {
+                triple: "synthetic-unknown-none",
+                data_layout: &data_layout,
+            },
+            OptimizationSet::production(),
+        )
+        .expect("narrow control fixture is supported");
+
+        assert!(artifacts.module.contains(&format!(
+            "declare ptr @mal_control_reserve_frame(ptr, i{bits}, i{bits})"
+        )));
+        assert!(
+            artifacts
+                .module
+                .contains(&format!("%mal_control_top = alloca i{bits}"))
+        );
+    }
+}
+
+#[test]
 fn aligns_heterogeneous_frames_and_reserves_when_replacement_is_too_small() {
     let source = SourceFile::new(
         FileId::new(95),

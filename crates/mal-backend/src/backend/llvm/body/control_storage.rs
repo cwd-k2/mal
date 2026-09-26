@@ -90,9 +90,11 @@ impl FunctionEmitter<'_> {
         let no_overflow = self.register();
         let frame_size = u64::try_from(frame_size).ok()?;
         let maximum_top = match self.types.index_size() {
+            1 => u64::from(u8::MAX).checked_sub(frame_size)?,
+            2 => u64::from(u16::MAX).checked_sub(frame_size)?,
             4 => u64::from(u32::MAX).checked_sub(frame_size)?,
             8 => u64::MAX.checked_sub(frame_size)?,
-            _ => return None,
+            _ => unreachable!("target layout admits only supported index widths"),
         };
         self.line(format!(
             "  {no_overflow} = icmp ule {index_type} {top}, {maximum_top}"
