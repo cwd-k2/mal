@@ -191,7 +191,7 @@ impl ModuleItem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::backend::llvm::syntax::{BasicBlock, FunctionSignature};
+    use crate::backend::llvm::syntax::{BasicBlock, FunctionSignature, Terminator};
 
     #[test]
     fn renders_only_the_declarations_added_to_a_module() {
@@ -204,7 +204,10 @@ mod tests {
         module.define(
             FunctionDefinition::new(
                 FunctionSignature::new("void", "entry", std::iter::empty::<&str>()),
-                vec![BasicBlock::new("entry", ["call void @always()", "ret void"]).unwrap()],
+                vec![
+                    BasicBlock::new("entry", ["call void @always()"], Terminator::return_void())
+                        .unwrap(),
+                ],
             )
             .unwrap(),
         );

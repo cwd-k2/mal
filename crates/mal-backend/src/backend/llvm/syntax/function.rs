@@ -144,12 +144,7 @@ impl FunctionBuilder {
         let Some(block) = self.blocks.last_mut() else {
             return false;
         };
-        let instruction = instruction.into();
-        if let Some(terminator) = Terminator::from_legacy_text(&instruction) {
-            block.terminate(terminator)
-        } else {
-            block.push_instruction(instruction)
-        }
+        block.push_instruction(instruction.into())
     }
 
     pub(in crate::backend::llvm) fn terminate(&mut self, terminator: Terminator) -> bool {
@@ -164,9 +159,6 @@ impl FunctionBuilder {
         instruction: impl Into<String>,
     ) -> bool {
         let instruction = instruction.into();
-        if Terminator::from_legacy_text(&instruction).is_some() {
-            return false;
-        }
         let Some(instruction) = Instruction::new(instruction) else {
             return false;
         };
@@ -200,19 +192,15 @@ impl BasicBlock {
     pub(in crate::backend::llvm) fn new(
         label: impl Into<String>,
         instructions: impl IntoIterator<Item = impl Into<String>>,
+        terminator: Terminator,
     ) -> Option<Self> {
         let label = label.into();
         is_valid_name(&label).then_some(())?;
         let mut block = Self::empty(label);
         for instruction in instructions {
-            let text = instruction.into();
-            if let Some(terminator) = Terminator::from_legacy_text(&text) {
-                block.terminate(terminator).then_some(())?;
-            } else {
-                block.push_instruction(text).then_some(())?;
-            }
+            block.push_instruction(instruction.into()).then_some(())?;
         }
-        block.terminator.is_some().then_some(block)
+        block.terminate(terminator).then_some(block)
     }
 
     fn empty(label: impl Into<String>) -> Self {
@@ -390,25 +378,6 @@ impl Terminator {
         Self::Unreachable
     }
 
-    fn from_legacy_text(text: &str) -> Option<Self> {
-        if text == "unreachable" {
-            Some(Self::Unreachable)
-        } else if text == "ret void" {
-            Some(Self::ReturnVoid)
-        } else if let Some(target) = text.strip_prefix("br label %") {
-            Self::branch(target)
-        } else if let Some(branch) = text.strip_prefix("br i1 ") {
-            let (condition, targets) = branch.split_once(", label %")?;
-            let (then_target, else_target) = targets.split_once(", label %")?;
-            Self::conditional_branch(condition, then_target, else_target)
-        } else if let Some(value) = text.strip_prefix("ret ") {
-            let (ty, value) = value.split_once(' ')?;
-            Self::return_value(ty, value)
-        } else {
-            None
-        }
-    }
-
     fn render_into(&self, output: &mut String) {
         match self {
             Self::Branch { target } => output.push_str(&format!("br label %{target}")),
@@ -453,9 +422,9 @@ mod tests {
                 .with_linkage("internal"),
         );
         assert!(function.start_block("entry"));
-        assert!(function.instruction("br label %body"));
+        assert!(function.terminate(Terminator::branch("body").unwrap()));
         assert!(function.start_block("body"));
-        assert!(function.instruction("ret void"));
+        assert!(function.terminate(Terminator::return_void()));
         assert!(function.entry_instruction("%storage = alloca i32, align 4"));
 
         assert_eq!(
@@ -474,9 +443,6 @@ mod tests {
 
     #[test]
     fn rejects_missing_terminators_and_instructions_after_a_terminator() {
-        assert!(BasicBlock::new("entry", ["call void @work()"]).is_none());
-        assert!(BasicBlock::new("entry", ["ret void", "call void @late()"]).is_none());
-
         let mut function = FunctionBuilder::new(FunctionSignature::new(
             "void",
             "missing_terminator",
@@ -489,7 +455,14 @@ mod tests {
 
     #[test]
     fn rejects_invalid_and_duplicate_block_labels() {
-        assert!(BasicBlock::new("0invalid", ["ret void"]).is_none());
+        assert!(
+            BasicBlock::new(
+                "0invalid",
+                std::iter::empty::<&str>(),
+                Terminator::return_void(),
+            )
+            .is_none()
+        );
 
         let mut function = FunctionBuilder::new(FunctionSignature::new(
             "void",
@@ -497,10 +470,15 @@ mod tests {
             std::iter::empty::<&str>(),
         ));
         assert!(function.start_block("entry"));
-        assert!(function.instruction("ret void"));
+        assert!(function.terminate(Terminator::return_void()));
         assert!(!function.start_block("entry"));
 
-        let entry = BasicBlock::new("entry", ["ret void"]).unwrap();
+        let entry = BasicBlock::new(
+            "entry",
+            std::iter::empty::<&str>(),
+            Terminator::return_void(),
+        )
+        .unwrap();
         assert!(
             FunctionDefinition::new(
                 FunctionSignature::new("void", "duplicate_direct", std::iter::empty::<&str>(),),
@@ -518,9 +496,8 @@ mod tests {
             std::iter::empty::<&str>(),
         ));
         assert!(function.start_block("entry"));
-        assert!(function.instruction("ret void"));
+        assert!(function.terminate(Terminator::return_void()));
 
-        assert!(!function.entry_instruction("ret void"));
         assert!(!function.entry_instruction("call void @work()\nret void"));
     }
 
@@ -529,7 +506,9 @@ mod tests {
         let signature = || FunctionSignature::new("void", "example", std::iter::empty::<&str>());
         let plain = FunctionDefinition::new(
             signature(),
-            vec![BasicBlock::new("entry", ["call void @work()", "ret void"]).unwrap()],
+            vec![
+                BasicBlock::new("entry", ["call void @work()"], Terminator::return_void()).unwrap(),
+            ],
         )
         .unwrap();
         let bytes = FunctionDefinition::new(
@@ -537,7 +516,8 @@ mod tests {
             vec![
                 BasicBlock::new(
                     "entry",
-                    ["call void @mal_runtime_bytes_release(ptr null)", "ret void"],
+                    ["call void @mal_runtime_bytes_release(ptr null)"],
+                    Terminator::return_void(),
                 )
                 .unwrap(),
             ],
@@ -550,7 +530,14 @@ mod tests {
 
     #[test]
     fn rejects_invalid_function_signature_fragments() {
-        let block = || BasicBlock::new("entry", ["ret void"]).unwrap();
+        let block = || {
+            BasicBlock::new(
+                "entry",
+                std::iter::empty::<&str>(),
+                Terminator::return_void(),
+            )
+            .unwrap()
+        };
         assert!(
             FunctionDefinition::new(
                 FunctionSignature::new("void", "0invalid", std::iter::empty::<&str>()),

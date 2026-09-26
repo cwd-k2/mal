@@ -1,6 +1,6 @@
 use super::super::body;
 use super::super::function_name;
-use super::super::syntax::{BasicBlock, FunctionDefinition};
+use super::super::syntax::{BasicBlock, FunctionDefinition, Terminator};
 use crate::backend::abi::Function as AbiFunction;
 
 pub(super) fn definition(
@@ -47,10 +47,13 @@ pub(super) fn definition(
     instructions.extend([
         format!("%mal_entry_result = {call}"),
         "store i32 %mal_entry_result, ptr %mal_result, align 4".into(),
-        "ret void".into(),
     ]);
     FunctionDefinition::new(
         AbiFunction::program_entry().llvm_definition_signature(),
-        vec![BasicBlock::new("entry", instructions)?],
+        vec![BasicBlock::new(
+            "entry",
+            instructions,
+            Terminator::return_void(),
+        )?],
     )
 }
