@@ -1,4 +1,5 @@
 use super::FunctionDefinition;
+use super::function::{is_single_line, is_valid_name};
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -48,6 +49,19 @@ impl FunctionDeclaration {
     fn name(&self) -> &str {
         &self.name
     }
+
+    fn is_valid(&self) -> bool {
+        is_single_line(&self.result)
+            && is_valid_name(&self.name)
+            && self
+                .parameters
+                .iter()
+                .all(|parameter| is_single_line(parameter))
+            && self
+                .attributes
+                .iter()
+                .all(|attribute| is_single_line(attribute))
+    }
 }
 
 pub(in crate::backend::llvm) struct Module<'a> {
@@ -76,8 +90,10 @@ impl GlobalDefinition {
     ) -> Option<Self> {
         let name = name.into();
         let definition = definition.into();
-        (!name.is_empty() && !definition.trim().is_empty() && !definition.contains(['\n', '\r']))
-            .then_some(Self { name, definition })
+        (is_valid_name(&name)
+            && !definition.trim().is_empty()
+            && !definition.contains(['\n', '\r']))
+        .then_some(Self { name, definition })
     }
 
     fn render(&self) -> String {
@@ -119,7 +135,7 @@ impl<'a> Module<'a> {
         let mut symbols = HashSet::new();
         self.declarations
             .iter()
-            .all(|declaration| symbols.insert(declaration.name()))
+            .all(|declaration| declaration.is_valid() && symbols.insert(declaration.name()))
             .then_some(())?;
         self.items
             .iter()
@@ -220,6 +236,18 @@ mod tests {
         module.declare(FunctionDeclaration::new(
             "void",
             "duplicate",
+            std::iter::empty::<&str>(),
+        ));
+
+        assert!(module.render().is_none());
+    }
+
+    #[test]
+    fn rejects_invalid_declaration_fragments() {
+        let mut module = Module::new("test-target", "e-p:64:64");
+        module.declare(FunctionDeclaration::new(
+            "void",
+            "0invalid",
             std::iter::empty::<&str>(),
         ));
 

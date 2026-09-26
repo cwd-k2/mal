@@ -64,6 +64,22 @@ impl FunctionSignature {
     pub(super) fn name(&self) -> &str {
         &self.name
     }
+
+    fn is_valid(&self) -> bool {
+        self.linkage
+            .as_ref()
+            .is_none_or(|linkage| is_valid_name(linkage))
+            && is_single_line(&self.result)
+            && is_valid_name(&self.name)
+            && self
+                .parameters
+                .iter()
+                .all(|parameter| is_single_line(parameter))
+            && self
+                .attributes
+                .iter()
+                .all(|attribute| is_single_line(attribute))
+    }
 }
 
 impl FunctionDefinition {
@@ -72,7 +88,8 @@ impl FunctionDefinition {
         blocks: Vec<BasicBlock>,
     ) -> Option<Self> {
         let mut labels = HashSet::new();
-        (!blocks.is_empty()
+        (signature.is_valid()
+            && !blocks.is_empty()
             && blocks
                 .iter()
                 .all(|block| labels.insert(block.label.clone())))
@@ -239,13 +256,17 @@ fn is_byte_runtime_reference(text: &str) -> bool {
     .any(|prefix| text.contains(prefix))
 }
 
-fn is_valid_name(name: &str) -> bool {
+pub(super) fn is_valid_name(name: &str) -> bool {
     let mut bytes = name.bytes();
     bytes
         .next()
         .is_some_and(|byte| byte.is_ascii_alphabetic() || matches!(byte, b'_' | b'.' | b'$'))
         && bytes
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'.' | b'$' | b'-'))
+}
+
+pub(super) fn is_single_line(text: &str) -> bool {
+    !text.is_empty() && !text.contains(['\n', '\r'])
 }
 
 #[derive(Clone)]
@@ -400,5 +421,24 @@ mod tests {
 
         assert!(!plain.uses_byte_runtime());
         assert!(bytes.uses_byte_runtime());
+    }
+
+    #[test]
+    fn rejects_invalid_function_signature_fragments() {
+        let block = || BasicBlock::new("entry", ["ret void"]).unwrap();
+        assert!(
+            FunctionDefinition::new(
+                FunctionSignature::new("void", "0invalid", std::iter::empty::<&str>()),
+                vec![block()],
+            )
+            .is_none()
+        );
+        assert!(
+            FunctionDefinition::new(
+                FunctionSignature::new("void\nret void", "invalid", std::iter::empty::<&str>()),
+                vec![block()],
+            )
+            .is_none()
+        );
     }
 }
