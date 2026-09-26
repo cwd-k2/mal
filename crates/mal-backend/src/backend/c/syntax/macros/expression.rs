@@ -1,4 +1,5 @@
 macro_rules! c_initializer {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (rust $initializer:expr) => {
         $initializer
     };
@@ -32,6 +33,12 @@ macro_rules! c_initializers {
 }
 
 macro_rules! c_initializers_item {
+    ($initializers:ident; {{ $($rust:tt)* }}) => {
+        $initializers.extend({ $($rust)* })
+    };
+    ($initializers:ident; { $($rust:tt)* }) => {
+        $initializers.push({ $($rust)* })
+    };
     ($initializers:ident; (extend $more:expr)) => {
         $initializers.extend($more)
     };
@@ -51,6 +58,12 @@ macro_rules! c_exprs {
 }
 
 macro_rules! c_exprs_item {
+    ($expressions:ident; {{ $($rust:tt)* }}) => {
+        $expressions.extend({ $($rust)* })
+    };
+    ($expressions:ident; { $($rust:tt)* }) => {
+        $expressions.push({ $($rust)* })
+    };
     ($expressions:ident; (extend $more:expr)) => {
         $expressions.extend($more)
     };
@@ -60,6 +73,7 @@ macro_rules! c_exprs_item {
 }
 
 macro_rules! c_expr {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (rust $expression:expr) => {
         $expression
     };

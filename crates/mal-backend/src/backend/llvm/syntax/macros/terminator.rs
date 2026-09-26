@@ -1,4 +1,10 @@
 macro_rules! llvm_switch_cases_item {
+    ($cases:ident; {{ $($rust:tt)* }}) => {
+        $cases.extend({ $($rust)* })
+    };
+    ($cases:ident; { $($rust:tt)* }) => {
+        $cases.push({ $($rust)* })
+    };
     ($cases:ident; (extend $more:expr)) => {
         $cases.extend($more)
     };
@@ -21,6 +27,9 @@ macro_rules! llvm_switch_cases {
 }
 
 macro_rules! llvm_terminator {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
     (rust $terminator:expr) => {
         Some($terminator)
     };

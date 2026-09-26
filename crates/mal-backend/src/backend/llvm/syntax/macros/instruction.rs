@@ -1,4 +1,7 @@
 macro_rules! llvm_instruction {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
     (rust $instruction:expr) => {
         Some($instruction)
     };

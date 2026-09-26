@@ -1,4 +1,5 @@
 macro_rules! c_switch_case {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (rust $case:expr) => {
         $case
     };
@@ -26,6 +27,12 @@ macro_rules! c_switch_cases {
 }
 
 macro_rules! c_switch_cases_item {
+    ($cases:ident; {{ $($rust:tt)* }}) => {
+        $cases.extend({ $($rust)* })
+    };
+    ($cases:ident; { $($rust:tt)* }) => {
+        $cases.push({ $($rust)* })
+    };
     ($cases:ident; (extend $more:expr)) => {
         $cases.extend($more)
     };
@@ -35,6 +42,7 @@ macro_rules! c_switch_cases_item {
 }
 
 macro_rules! c_statement {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (rust $statement:expr) => {
         $statement
     };
@@ -105,6 +113,12 @@ macro_rules! c_block {
 }
 
 macro_rules! c_block_item {
+    ($block:ident; {{ $($rust:tt)* }}) => {
+        $block.extend({ $($rust)* })
+    };
+    ($block:ident; { $($rust:tt)* }) => {
+        $block.push({ $($rust)* })
+    };
     ($block:ident; (extend $statements:expr)) => {
         $block.extend($statements)
     };

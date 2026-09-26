@@ -44,7 +44,7 @@ fn splices_runtime_call_arguments_in_order() {
     let middle = [Expr::identifier("second"), Expr::identifier("third")];
     let expression = super::c_expr!(call "observe";
         (id "first"),
-        (extend middle),
+        {{ middle }},
         (id "fourth"),
     );
 
@@ -60,8 +60,8 @@ fn constructs_compound_literals_from_static_and_rust_initializers() {
     let trailing = [Initializer::positional(Expr::number("3"))];
     let expression = super::c_expr!(compound "Pair";
         (field "first"; (number 1)),
-        (rust dynamic),
-        (extend trailing),
+        { dynamic },
+        {{ trailing }},
     );
 
     assert_eq!(
@@ -79,10 +79,10 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
     )];
     let body = super::c_block!(
         (var ("int") ("value") = (number 0)),
-        (extend statements),
+        {{ statements }},
         (if (equal (id "value"); (number 0)); [
             (switch (id "value"); [
-                (extend cases),
+                {{ cases }},
                 (default; [(return (number 3))]),
             ]),
         ]),

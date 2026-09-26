@@ -1,4 +1,5 @@
 macro_rules! c_function {
+    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (rust $definition:expr) => {
         $definition
     };

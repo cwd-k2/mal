@@ -1,4 +1,7 @@
 macro_rules! llvm_typed_constant {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
     (rust $constant:expr) => {
         Some($constant)
     };
@@ -10,6 +13,12 @@ macro_rules! llvm_typed_constant {
 }
 
 macro_rules! llvm_typed_constants_item {
+    ($constants:ident; {{ $($rust:tt)* }}) => {
+        $constants.extend({ $($rust)* })
+    };
+    ($constants:ident; { $($rust:tt)* }) => {
+        $constants.push({ $($rust)* })
+    };
     ($constants:ident; (extend $more:expr)) => {
         $constants.extend($more)
     };
@@ -31,6 +40,9 @@ macro_rules! llvm_typed_constants {
 }
 
 macro_rules! llvm_constant {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
     (rust $constant:expr) => {
         Some($constant)
     };

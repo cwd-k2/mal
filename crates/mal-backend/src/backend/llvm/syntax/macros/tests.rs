@@ -46,9 +46,9 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
     let instruction = super::llvm_instruction!(
         call Some("%result"), false, Type::integer(32_u16), direct "work"; [
             (typed Type::integer(32_u16) => "1"),
-            (rust dynamic()),
+            { dynamic() },
             (typed_extend pairs()),
-            (extend trailing),
+            {{ trailing }},
         ]
     )
     .unwrap();
@@ -71,7 +71,7 @@ fn composes_nested_constants_and_dynamic_fields() {
             (typed Type::integer(32_u16) => (atom 1));
             (typed Type::integer(32_u16) => (atom 2))
         )),
-        (extend trailing),
+        {{ trailing }},
     ])
     .unwrap();
 
@@ -89,7 +89,7 @@ fn composes_switch_cases_and_finishes_the_function() {
                 default "other";
                 [
                     (case 0 => "zero"),
-                    (extend trailing),
+                    {{ trailing }},
                 ]
             )
             .unwrap()

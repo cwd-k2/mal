@@ -1,4 +1,7 @@
 macro_rules! llvm_value {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
     (rust $value:expr) => {
         Some($value)
     };
@@ -8,6 +11,12 @@ macro_rules! llvm_value {
 }
 
 macro_rules! llvm_values_item {
+    ($values:ident; {{ $($rust:tt)* }}) => {
+        $values.extend({ $($rust)* })
+    };
+    ($values:ident; { $($rust:tt)* }) => {
+        $values.push({ $($rust)* })
+    };
     ($values:ident; (rust $value:expr)) => {
         $values.push($value)
     };
