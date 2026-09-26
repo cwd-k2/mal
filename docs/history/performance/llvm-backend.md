@@ -469,12 +469,19 @@ native再帰のpersistent borrowとparameter scalarizationを入れた現行comp
 `new(0)`で逐次構築した旧variantは不要な反復を増やして遅かったが、これは現行の一括`fill`とは異なる。
 
 現行`make<Int64>(capacity)`はcalloc済みcapacityとlogical count 0を作り、直後のzero `fill`はruntimeの`zeroed_until`まで実byteを
-書かずにcountだけ延ばせる。Cと同じ`cellCount * 16` heap entry分をcapacityへ加え、heapの`cellCount * 32`個の`Int64` slotを一度に
-zero `fill`してpush時のgrowthを外す診断variantでは、3 warmup、交互20回のmedianが270.72から249.93 msへ7.7%短縮した。
+書かずにcountだけ延ばせる。最大16 transition / cellと4個のseedを上限としてheap entry capacityを`cellCount * 16 + 4`、slot数を
+その2倍にし、一度のzero `fill`でlogical countを延ばす形へcanonical sourceを変更した。push時のgrowthを外した変更前後は、
+3 warmup、交互20回のmedianが270.72から249.93 msへ7.7%短縮した。
 Callgrind instructionは2,474.73 Mから1,872.54 Mへ24.3%減り、pushは`main`へinlineされた。maximum RSSは81,736対81,732 KiB、
-minor faultはともに20,080で増えなかった。同variantとdirect Cの別の交互20回は248.70対217.97 ms、1.14倍だった。したがってこの部分は
-新しいBuffer APIの不足ではなく、既存のcapacityと連続一括初期化をcanonical sourceが使っていない差である。残る約14%は同じheap容量に
-揃えた上で、loop形状とdata accessを再分析する。
+minor faultはともに20,080で増えなかった。変更後canonicalとdirect Cの交互20回は249.17対217.76 ms、1.14倍だった。したがって
+この部分は新しいBuffer APIの不足ではなく、既存のcapacityと連続一括初期化をsourceが使っていなかった差である。
+
+変更後のconditional branchはMal 226.83 M、C 225.74 M、mispredictは11.49 M、11.32 Mで、heap loopの反復・分岐形状はほぼ揃った。
+一方、Cachegrindのdata referenceはMal 530.05 M、C 333.13 Mで1.59倍だった。LL data missは9.30 M、9.07 Mに留まるため、残差は
+working setやmain memory trafficではなくhot dataの余分なload/storeである。最終assemblyでCは`Entry`のdistanceとstateを`movups`で
+128-bit pairとして移すが、Malの`Buffer<Int64>` heapは二つのscalar load/storeを別々に出す。Malのdirection loopはview offset、
+Buffer owner、data pointer、heap size、gridとdistanceのbaseを同時にliveにし、各directionで複数のstack reloadも生じる。次の比較対象は
+heapを`Buffer<(Int64, Int64)>`としてentry単位で運ぶ表現と、Buffer viewのbase/offsetが作るregister pressureである。
 
 再帰固有の残差は別記録に分離する。080は現行Mal 90.38 M対C 77.79 M instructionsで、conditional branch差約2.10 Mがactivationごとの
 stack guardに一致する。一方068のnative hybridとframe-onlyは16.21 ms対16.43 msで、同問題のC差の主因ではなかった。032には
@@ -483,4 +490,4 @@ Malがbestを再帰resultで返しCがmutable cellへ保存するsource差があ
 
 以上から、現行corpusのC差は一つのbackend overheadではなく、入力・整数storage幅、Bufferの構築方法、再帰guard、
 source algorithm/state表現に分かれる。優先順位は、多数の上位caseへ共通する入力とdata widthを公平化し、043では既存APIによる一括構築を
-canonical sourceへ反映してから、同形の計算だけが残るcaseでLLVM loop形状と再帰guardを再測定する順とする。
+canonical sourceへ反映した上で、同形の計算だけが残るcaseでLLVM loop形状と再帰guardを再測定する順とする。
