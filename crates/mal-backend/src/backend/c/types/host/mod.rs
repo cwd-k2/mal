@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Directive, Expr, FunctionSignature, Parameter, TranslationUnit, TypeName, c_block,
-    c_expr, c_function, c_initializer, c_switch_case,
+    Block, Expr, FunctionSignature, TranslationUnit, TypeName, c_block, c_directive, c_expr,
+    c_function, c_initializer, c_parameters, c_signature, c_switch_case,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -24,15 +24,10 @@ impl TypeRegistry {
             match ty {
                 Type::Product(_) => append_function(
                     &mut output,
-                    FunctionSignature::static_inline(
-                        self.c_type(ty),
-                        format!("mal_repr_product_{index}_return"),
-                        [
-                            Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
-                                .maybe_unused(),
-                            Parameter::named(format!("mal_repr_product_{index}_t"), "value"),
-                        ],
-                    ),
+                    c_signature!(static inline fn { format!("mal_repr_product_{index}_return") }(
+                        "call": ptr(named("mal_call_t")) [maybe_unused],
+                        "value": named(format!("mal_repr_product_{index}_t")),
+                    ) -> { self.c_type(ty) }),
                     c_block!(
                         (return {
                             self.host_to_raw_value(ty, c_expr!(id "call"), c_expr!(id "value"))
@@ -57,35 +52,26 @@ impl TypeRegistry {
             let host_type = format!("mal_{name}_t");
             append_function(
                 &mut output,
-                FunctionSignature::static_inline(
-                    host_type.clone(),
-                    format!("mal_{name}_from_bits"),
-                    [Parameter::named("uintptr_t", "bits")],
-                ),
+                c_signature!(static inline fn { format!("mal_{name}_from_bits") }(
+                    "bits": named("uintptr_t"),
+                ) -> named(host_type.clone())),
                 c_block!((return (compound host_type.clone();
                     (field "mal_detail_bits"; (id "bits")),
                 ))),
             );
             append_function(
                 &mut output,
-                FunctionSignature::static_inline(
-                    "uintptr_t",
-                    format!("mal_{name}_to_bits"),
-                    [Parameter::named(host_type.clone(), "value")],
-                ),
+                c_signature!(static inline fn { format!("mal_{name}_to_bits") }(
+                    "value": named(host_type.clone()),
+                ) -> named("uintptr_t")),
                 c_block!((return (field (id "value"); "mal_detail_bits"))),
             );
             append_function(
                 &mut output,
-                FunctionSignature::static_inline(
-                    format!("MalType_{name}"),
-                    format!("mal_{name}_return"),
-                    [
-                        Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
-                            .maybe_unused(),
-                        Parameter::named(host_type, "value"),
-                    ],
-                ),
+                c_signature!(static inline fn { format!("mal_{name}_return") }(
+                    "call": ptr(named("mal_call_t")) [maybe_unused],
+                    "value": named(host_type),
+                ) -> named(format!("MalType_{name}"))),
                 c_block!((return (compound format!("MalType_{name}");
                     (field "bits"; (field (id "value"); "mal_detail_bits")),
                 ))),
@@ -108,15 +94,10 @@ impl TypeRegistry {
             }
             append_function(
                 &mut output,
-                FunctionSignature::static_inline(
-                    self.header_c_type(&alias.ty, Some(&alias.name)),
-                    format!("mal_{}_return", alias.name),
-                    [
-                        Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
-                            .maybe_unused(),
-                        Parameter::named(format!("mal_{}_t", alias.name), "value"),
-                    ],
-                ),
+                c_signature!(static inline fn { format!("mal_{}_return", alias.name) }(
+                    "call": ptr(named("mal_call_t")) [maybe_unused],
+                    "value": named(format!("mal_{}_t", alias.name)),
+                ) -> { self.header_c_type(&alias.ty, Some(&alias.name)) }),
                 c_block!(
                     (return {
                         self.host_to_raw_value(&alias.ty, c_expr!(id "call"), c_expr!(id "value"))
@@ -141,9 +122,9 @@ impl TypeRegistry {
         };
         for (variant, member) in members.iter().enumerate() {
             let tag_name = format!("mal_{public_name}_tag_{variant}");
-            output.push(Directive::define_expr(
-                tag_name.clone(),
-                c_expr!(call "UINT32_C"; (number variant)),
+            let macro_name = tag_name.clone();
+            output.push(c_directive!(define macro_name =
+                (call "UINT32_C"; (number variant))
             ));
             let (parameters, payload) = if *member == Type::Unit {
                 (
@@ -152,10 +133,9 @@ impl TypeRegistry {
                 )
             } else {
                 (
-                    vec![Parameter::named(
-                        self.host_value_c_type(member, element_aliases[variant].as_deref()),
-                        "value",
-                    )],
+                    c_parameters!("value": {
+                        self.host_value_c_type(member, element_aliases[variant].as_deref())
+                    }),
                     c_expr!(id "value"),
                 )
             };
@@ -165,25 +145,18 @@ impl TypeRegistry {
             );
             append_function(
                 output,
-                FunctionSignature::static_inline(
-                    host_type,
-                    format!("mal_{public_name}_make_{variant}"),
-                    parameters.clone(),
-                ),
+                c_signature!(static inline fn { format!("mal_{public_name}_make_{variant}") }(
+                    {{ parameters.clone() }},
+                ) -> named(host_type)),
                 c_block!((return { host_value.clone() })),
             );
-            let mut return_parameters = vec![Parameter::named(
-                TypeName::named("mal_call_t").pointer(),
-                "call",
-            )];
+            let mut return_parameters = c_parameters!("call": ptr(named("mal_call_t")));
             return_parameters.extend(parameters);
             append_function(
                 output,
-                FunctionSignature::static_inline(
-                    raw_type.clone(),
-                    format!("mal_{public_name}_return_{variant}"),
-                    return_parameters,
-                ),
+                c_signature!(static inline fn { format!("mal_{public_name}_return_{variant}") }(
+                    {{ return_parameters }},
+                ) -> { raw_type.clone() }),
                 c_block!((return { self.host_to_raw_value(ty, c_expr!(id "call"), host_value,) })),
             );
         }
@@ -231,14 +204,10 @@ impl TypeRegistry {
         }
         let mut output = TranslationUnit::default();
         output.push(c_function!(signature {
-            FunctionSignature::static_inline(
-                host_type.clone(),
-                format!("mal_detail_to_host_{index}"),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                    Parameter::named(raw_type.clone(), "value"),
-                ],
-            )
+            c_signature!(static inline fn { format!("mal_detail_to_host_{index}") }(
+                "call": ptr(named("mal_call_t")),
+                "value": { raw_type.clone() },
+            ) -> { host_type.clone() })
         };
             block [(switch (field (id "value"); "tag"); [
                 {{ to_host_cases }},
@@ -246,14 +215,10 @@ impl TypeRegistry {
         ));
         output.blank_line();
         output.push(c_function!(signature {
-            FunctionSignature::static_inline(
-                raw_type,
-                format!("mal_detail_to_raw_{index}"),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                    Parameter::named(host_type, "value"),
-                ],
-            )
+            c_signature!(static inline fn { format!("mal_detail_to_raw_{index}") }(
+                "call": ptr(named("mal_call_t")),
+                "value": { host_type },
+            ) -> { raw_type })
         };
             block [(switch (field (id "value"); "tag"); [
                 {{ to_raw_cases }},

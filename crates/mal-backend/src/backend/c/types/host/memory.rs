@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, FunctionSignature, Parameter, Statement, TranslationUnit, TypeName, c_block,
-    c_expr, c_statement, c_switch_case,
+    Block, Expr, Statement, TranslationUnit, c_block, c_expr, c_parameter, c_signature,
+    c_statement, c_switch_case, c_type,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -46,9 +46,9 @@ impl TypeRegistry {
         let name = scalar_name(ty);
         let host_type = self.host_value_c_type(ty, None);
         let call = if matches!(ty, Type::Address) || is_bool(ty) {
-            Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
+            c_parameter!("call": ptr(named("mal_call_t")))
         } else {
-            Parameter::named(TypeName::named("mal_call_t").pointer(), "call").maybe_unused()
+            c_parameter!("call": ptr(named("mal_call_t")) [maybe_unused])
         };
         let value = if matches!(ty, Type::Address) {
             c_expr!(call "mal_Address_return"; (id "call"), (id "value"))
@@ -68,14 +68,10 @@ impl TypeRegistry {
         );
         append_function(
             output,
-            FunctionSignature::static_inline(
-                host_type.clone(),
-                format!("mal_detail_memory_read_{name}"),
-                [
-                    call.clone(),
-                    Parameter::named(TypeName::const_named("uint8_t").pointer(), "source"),
-                ],
-            ),
+            c_signature!(static inline fn { format!("mal_detail_memory_read_{name}") }(
+                { call.clone() },
+                "source": ptr(const(named("uint8_t"))),
+            ) -> { host_type.clone() }),
             read_body,
         );
 
@@ -102,15 +98,11 @@ impl TypeRegistry {
         );
         append_function(
             output,
-            FunctionSignature::static_inline(
-                "void",
-                format!("mal_detail_memory_write_{name}"),
-                [
-                    call,
-                    Parameter::named(TypeName::named("uint8_t").pointer(), "destination"),
-                    Parameter::named(host_type, "value"),
-                ],
-            ),
+            c_signature!(static inline fn { format!("mal_detail_memory_write_{name}") }(
+                { call },
+                "destination": ptr(named("uint8_t")),
+                "value": { host_type },
+            ) -> named("void")),
             write_body,
         );
     }
@@ -152,16 +144,10 @@ impl TypeRegistry {
             };
         append_function(
             output,
-            FunctionSignature::static_inline(
-                host_type.clone(),
-                format!("mal_detail_memory_read_{index}"),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
-                        .maybe_unused(),
-                    Parameter::named(TypeName::const_named("uint8_t").pointer(), "source")
-                        .maybe_unused(),
-                ],
-            ),
+            c_signature!(static inline fn { format!("mal_detail_memory_read_{index}") }(
+                "call": ptr(named("mal_call_t")) [maybe_unused],
+                "source": ptr(const(named("uint8_t"))) [maybe_unused],
+            ) -> { host_type.clone() }),
             read_body,
         );
 
@@ -191,17 +177,11 @@ impl TypeRegistry {
             };
         append_function(
             output,
-            FunctionSignature::static_inline(
-                "void",
-                format!("mal_detail_memory_write_{index}"),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
-                        .maybe_unused(),
-                    Parameter::named(TypeName::named("uint8_t").pointer(), "destination")
-                        .maybe_unused(),
-                    Parameter::named(host_type, "value"),
-                ],
-            ),
+            c_signature!(static inline fn { format!("mal_detail_memory_write_{index}") }(
+                "call": ptr(named("mal_call_t")) [maybe_unused],
+                "destination": ptr(named("uint8_t")) [maybe_unused],
+                "value": { host_type },
+            ) -> named("void")),
             write_body,
         );
     }
@@ -297,7 +277,7 @@ impl TypeRegistry {
             .expect("checker-approved memory alias has a layout")
             .stride;
         let source = offset(
-            c_expr!(cast TypeName::const_named("uint8_t").pointer(); (id "address")),
+            c_expr!(cast c_type!(ptr(const(named("uint8_t")))); (id "address")),
             c_expr!(multiply (id "index"); (number stride)),
         );
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
@@ -309,20 +289,16 @@ impl TypeRegistry {
         );
         append_function(
             output,
-            FunctionSignature::static_inline(
-                format!("mal_{}_t", alias.name),
-                format!("mal_{}_read", alias.name),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                    Parameter::named("mal_Address_t", "address"),
-                    Parameter::named("mal_USize_t", "index"),
-                ],
-            ),
+            c_signature!(static inline fn { format!("mal_{}_read", alias.name) }(
+                "call": ptr(named("mal_call_t")),
+                "address": named("mal_Address_t"),
+                "index": named("mal_USize_t"),
+            ) -> named(format!("mal_{}_t", alias.name))),
             read_body,
         );
 
         let destination = offset(
-            c_expr!(cast TypeName::named("uint8_t").pointer(); (id "address")),
+            c_expr!(cast c_type!(ptr(named("uint8_t"))); (id "address")),
             c_expr!(multiply (id "index"); (number stride)),
         );
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
@@ -339,16 +315,12 @@ impl TypeRegistry {
         );
         append_function(
             output,
-            FunctionSignature::static_inline(
-                "void",
-                format!("mal_{}_write", alias.name),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                    Parameter::named("mal_Address_t", "address"),
-                    Parameter::named("mal_USize_t", "index"),
-                    Parameter::named(format!("mal_{}_t", alias.name), "value"),
-                ],
-            ),
+            c_signature!(static inline fn { format!("mal_{}_write", alias.name) }(
+                "call": ptr(named("mal_call_t")),
+                "address": named("mal_Address_t"),
+                "index": named("mal_USize_t"),
+                "value": named(format!("mal_{}_t", alias.name)),
+            ) -> named("void")),
             write_body,
         );
     }
