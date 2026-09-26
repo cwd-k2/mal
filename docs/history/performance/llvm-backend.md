@@ -483,6 +483,18 @@ working setやmain memory trafficではなくhot dataの余分なload/storeで�
 Buffer owner、data pointer、heap size、gridとdistanceのbaseを同時にliveにし、各directionで複数のstack reloadも生じる。次の比較対象は
 heapを`Buffer<(Int64, Int64)>`としてentry単位で運ぶ表現と、Buffer viewのbase/offsetが作るregister pressureである。
 
+canonical sourceから手製のheaderと`(Buffer<Int64>, offset)` viewを除き、distancesを`Buffer<Int64>`、direction stepsとheapをそれぞれ
+`Buffer<(Int64, Int64)>`へ分けた。sample 3件とmaximum inputはdirect Cと一致した。旧一括Buffer版と3 warmup、交互30回で比較すると
+medianは258.98から248.40 msへ4.1%短縮した。別の3 warmup、交互20回では自然な版254.67 ms、direct C 233.88 msで1.09倍だった。
+Callgrind instructionは1,872.54 Mから1,561.09 Mへ16.6%、data referenceは530.05 Mから410.23 Mへ22.6%減った。branch数と
+LL data missは変わらず、maximum RSSとminor faultも81,732 KiB、20,080で同じだった。product化により末尾heap nodeの移動は
+128-bit pairになり、offset arithmeticとstack reloadが減ったが、
+child nodeの比較後の移動にはscalar 2本が残る。読みやすさと性能が同じ方向へ改善したため、この自然な表現をcanonicalとした。
+
+同じ手製view、`appendZeroedSlots`、workspace headerのいずれかを持つcanonical sourceは、043を直した後も78問中34問あった。
+これは個々のalgorithmが要求する表現ではなく、Packed/Regionからmanaged Bufferへ移行した時期の共通慣習である。すべてを機械的に分割せず、
+まずC比上位の021、039、003、068、062、026、017、028、013を、sourceの論理collectionとBufferが一対一になる自然な版で再測定する。
+
 再帰固有の残差は別記録に分離する。080は現行Mal 90.38 M対C 77.79 M instructionsで、conditional branch差約2.10 Mがactivationごとの
 stack guardに一致する。一方068のnative hybridとframe-onlyは16.21 ms対16.43 msで、同問題のC差の主因ではなかった。032には
 Malがbestを再帰resultで返しCがmutable cellへ保存するsource差がある。詳細と採らなかったnative/frame選択policyは
