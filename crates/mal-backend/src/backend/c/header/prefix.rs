@@ -1,7 +1,6 @@
 use crate::backend::c::syntax::{
-    Comment, Declaration, Directive, FunctionSignature, FunctionSpecifier, Parameter,
-    TranslationUnit, TypeName, c_aggregate, c_declaration, c_directive, c_expr, c_function,
-    c_signature,
+    TranslationUnit, c_aggregate, c_comment, c_declaration, c_directive, c_expr, c_function,
+    c_signature, c_type,
 };
 
 pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
@@ -29,7 +28,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     output.push(c_directive!(define "MAL_DETAIL_MAYBE_UNUSED"));
     output.push(c_directive!(endif));
     output.blank_line();
-    output.push(Comment::new("Runtime API"));
+    output.push(c_comment!("Runtime API"));
     output.blank_line();
     output.push(c_declaration!(type "MalContext" = struct("MalContext")));
     output.push(c_aggregate!(typedef struct => "MalType_Unit"; [
@@ -50,19 +49,13 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ("size_t", "MalType_ByteSize"),
         ("size_t", "MalType_USize"),
     ] {
-        output.push(Declaration::type_alias(source, alias));
+        output.push(c_declaration!(type alias = { c_type!(named(source)) }));
     }
-    output.push(Declaration::type_alias(
-        TypeName::named("void").pointer(),
-        "MalType_Address",
-    ));
-    output.push(Declaration::static_assert(
-        c_expr!(equal
+    output.push(c_declaration!(type "MalType_Address" = ptr(named("void"))));
+    output.push(c_declaration!(static_assert (equal
             (multiply (sizeof (cast "size_t"; (number 0))); (id "CHAR_BIT"));
             (number index_bits)
-        ),
-        "size_t does not match the mal target pointer index width",
-    ));
+        ) => "size_t does not match the mal target pointer index width"));
     let width_of = |ty: &str, bits: u32| {
         c_expr!(equal
             (multiply (sizeof (cast ty; (number 0))); (id "CHAR_BIT"));
@@ -97,7 +90,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
             "floating-point expressions are evaluated with extra precision",
         ),
     ] {
-        output.push(Declaration::static_assert(condition, message));
+        output.push(c_declaration!(static_assert { condition } => message));
     }
     for (source, alias) in [
         ("MalType_Unit", "mal_Unit_t"),
@@ -116,43 +109,30 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ("MalType_ByteSize", "mal_ByteSize_t"),
         ("MalType_USize", "mal_USize_t"),
     ] {
-        output.push(Declaration::type_alias(source, alias));
+        output.push(c_declaration!(type alias = { c_type!(named(source)) }));
     }
     output.push(c_aggregate!(typedef struct => "mal_call_t"; [
         ("mal_detail_context": ptr(named("MalContext"))),
     ]));
     output.blank_line();
-    output.push(Directive::define_expr(
-        "mal_false",
-        c_expr!(cast "mal_Bool_t"; (call "UINT8_C"; (number 0))),
+    output.push(c_directive!(define "mal_false" =
+        (cast "mal_Bool_t"; (call "UINT8_C"; (number 0)))
     ));
-    output.push(Directive::define_expr(
-        "mal_true",
-        c_expr!(cast "mal_Bool_t"; (call "UINT8_C"; (number 1))),
+    output.push(c_directive!(define "mal_true" =
+        (cast "mal_Bool_t"; (call "UINT8_C"; (number 1)))
     ));
     output.blank_line();
-    output.push(Declaration::function(FunctionSignature::no_return(
-        "void",
-        "mal_trap",
-        [
-            Parameter::named(TypeName::named("MalContext").pointer(), "context"),
-            Parameter::named(TypeName::const_named("char").pointer(), "message"),
-        ],
-    )));
+    output.push(c_declaration!(fn {
+        c_signature!(noreturn fn "mal_trap"(
+            "context": ptr(named("MalContext")),
+            "message": ptr(const(named("char"))),
+        ) -> named("void"))
+    }));
     output.push(c_function!(signature {
-        FunctionSignature::new(
-            "void",
-            "mal_call_trap",
-            [
-                Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                Parameter::named(TypeName::const_named("char").pointer(), "message"),
-            ],
-        )
-        .with_specifiers([
-            FunctionSpecifier::Static,
-            FunctionSpecifier::Inline,
-            FunctionSpecifier::NoReturn,
-        ])
+        c_signature!(static inline noreturn fn "mal_call_trap"(
+            "call": ptr(named("mal_call_t")),
+            "message": ptr(const(named("char"))),
+        ) -> named("void"))
     };
         block [(call "mal_trap";
                 (pointer_field (id "call"); "mal_detail_context"),
@@ -188,28 +168,19 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_USize", "mal_USize_t", "USize"),
     ] {
         output.push(c_function!(signature {
-            FunctionSignature::static_inline(
-                raw,
-                format!("mal_{name}_return"),
-                [
-                    Parameter::named(TypeName::named("mal_call_t").pointer(), "call")
-                        .maybe_unused(),
-                    Parameter::named(host, "value"),
-                ],
-            )
+            c_signature!(static inline fn { format!("mal_{name}_return") }(
+                "call": ptr(named("mal_call_t")) [maybe_unused],
+                "value": named(host),
+            ) -> named(raw))
         };
             block [(return (id "value"))]
         ));
     }
     output.push(c_function!(signature {
-        FunctionSignature::static_inline(
-            "MalType_Address",
-            "mal_Address_return",
-            [
-                Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                Parameter::named("mal_Address_t", "value"),
-            ],
-        )
+        c_signature!(static inline fn "mal_Address_return"(
+            "call": ptr(named("mal_call_t")),
+            "value": named("mal_Address_t"),
+        ) -> named("MalType_Address"))
     };
         block [
             (if (equal (id "value"); (number 0)); [
@@ -222,14 +193,10 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ]
     ));
     output.push(c_function!(signature {
-        FunctionSignature::static_inline(
-            "MalType_Bool",
-            "mal_Bool_return",
-            [
-                Parameter::named(TypeName::named("mal_call_t").pointer(), "call"),
-                Parameter::named("mal_Bool_t", "value"),
-            ],
-        )
+        c_signature!(static inline fn "mal_Bool_return"(
+            "call": ptr(named("mal_call_t")),
+            "value": named("mal_Bool_t"),
+        ) -> named("MalType_Bool"))
     };
         block [
             (if (logical_and

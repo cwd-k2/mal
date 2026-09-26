@@ -1,3 +1,9 @@
+macro_rules! c_comment {
+    ($text:expr) => {
+        $crate::backend::c::syntax::Comment::new($text)
+    };
+}
+
 macro_rules! c_type {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
     (named($name:expr)) => {
@@ -289,10 +295,20 @@ macro_rules! c_signature {
             no_return; $name; [$($parameter)*]; $($result)+
         )
     };
+    (static inline noreturn fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {{
+        let signature = $crate::backend::c::syntax::c_signature!(
+            fn $name($($parameter)*) -> $($result)+
+        );
+        signature.with_specifiers([
+            $crate::backend::c::syntax::FunctionSpecifier::Static,
+            $crate::backend::c::syntax::FunctionSpecifier::Inline,
+            $crate::backend::c::syntax::FunctionSpecifier::NoReturn,
+        ])
+    }};
 }
 
 pub(in crate::backend) use {
-    c_aggregate, c_aggregate_field, c_aggregate_fields, c_aggregate_fields_item, c_declaration,
-    c_parameter, c_parameter_attributes, c_parameters, c_parameters_items, c_signature,
-    c_signature_from_parts, c_type, c_variable,
+    c_aggregate, c_aggregate_field, c_aggregate_fields, c_aggregate_fields_item, c_comment,
+    c_declaration, c_parameter, c_parameter_attributes, c_parameters, c_parameters_items,
+    c_signature, c_signature_from_parts, c_type, c_variable,
 };
