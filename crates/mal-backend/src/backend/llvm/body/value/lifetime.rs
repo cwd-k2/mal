@@ -216,7 +216,7 @@ impl FunctionEmitter<'_> {
         self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
             crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
             default format!("mal_{operation}_{id}_invalid");
-            [(extend cases)]
+            [{{ cases }}]
         ));
         self.block(format!("mal_{operation}_{id}_invalid"));
         self.unreachable();

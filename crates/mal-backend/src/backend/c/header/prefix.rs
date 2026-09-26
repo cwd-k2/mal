@@ -84,22 +84,22 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     for (condition, message) in [
         (
             c_expr!(logical_and
-                (rust width_of("float", 32));
-                (rust macro_equals("FLT_MANT_DIG", "24"))
+                { width_of("float", 32) };
+                { macro_equals("FLT_MANT_DIG", "24") }
             ),
             "float is not IEEE 754 binary32",
         ),
         (
             c_expr!(logical_and
-                (rust width_of("double", 64));
-                (rust macro_equals("DBL_MANT_DIG", "53"))
+                { width_of("double", 64) };
+                { macro_equals("DBL_MANT_DIG", "53") }
             ),
             "double is not IEEE 754 binary64",
         ),
         (
             c_expr!(logical_and
-                (rust macro_equals("FLT_HAS_SUBNORM", "1"));
-                (rust macro_equals("DBL_HAS_SUBNORM", "1"))
+                { macro_equals("FLT_HAS_SUBNORM", "1") };
+                { macro_equals("DBL_HAS_SUBNORM", "1") }
             ),
             "the target does not preserve subnormal floating-point values",
         ),

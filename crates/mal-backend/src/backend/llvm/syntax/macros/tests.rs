@@ -42,12 +42,17 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
         pair_evaluations.set(pair_evaluations.get() + 1);
         [(Type::integer(16_u16), "2")]
     };
+    let pairs = pairs()
+        .into_iter()
+        .map(|(ty, value)| TypedValue::new(ty, value))
+        .collect::<Option<Vec<_>>>()
+        .unwrap();
     let trailing = [TypedValue::new(Type::integer(8_u16), "7").unwrap()];
     let instruction = super::llvm_instruction!(
         call Some("%result"), false, Type::integer(32_u16), direct "work"; [
             (typed Type::integer(32_u16) => "1"),
             { dynamic() },
-            (typed_extend pairs()),
+            {{ pairs }},
             {{ trailing }},
         ]
     )

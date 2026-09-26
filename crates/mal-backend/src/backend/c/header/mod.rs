@@ -85,7 +85,7 @@ pub(super) fn emit_host(
             .skip(1)
             .map(|name| c_statement!(expr (cast "void"; (id name))));
         let body = c_block!(
-            (extend unused_parameters),
+            {{ unused_parameters }},
             (call "mal_call_trap";
                 (id "call"),
                 (string format!(
@@ -145,7 +145,7 @@ fn wrapper_definition(
                 )
             });
             let raw = c_expr!(compound types.c_type(&external.parameter);
-                (extend initializers),
+                {{ initializers }},
             );
             arguments.push(types.raw_to_host_value(
                 &external.parameter,
@@ -161,17 +161,17 @@ fn wrapper_definition(
             c_expr!(id "value"),
         )),
     }
-    let call = c_expr!(call format!("mal_detail_{}", external.name); (extend arguments));
+    let call = c_expr!(call format!("mal_detail_{}", external.name); {{ arguments }});
     let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
-        c_statement!(expr (rust call))
+        c_statement!(expr { call })
     } else {
-        c_statement!(return (rust call))
+        c_statement!(return { call })
     };
     let body = c_block!(
         (var ("mal_call_t") ("call") = (compound "mal_call_t";
             (field "mal_detail_context"; (id "context")),
         )),
-        (rust terminal),
+        { terminal },
     );
     c_function!(signature external_signature(&signatures.compiler, true); body body)
 }

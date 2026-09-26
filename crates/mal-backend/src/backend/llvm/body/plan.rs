@@ -144,13 +144,13 @@ impl TopLevelConstants {
                 let value = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => {
                         llvm_constant!(unary UnaryOperator::FNeg;
-                            (rust operand.typed(self.types.clone())?)
+                            { operand.typed(self.types.clone())? }
                         )?
                     }
                     crate::core::ast::UnaryPrimitive::Negate => llvm_constant!(binary
                         BinaryOperator::Sub;
                         (typed scalar.llvm_type() => (atom 0));
-                        (rust operand.typed(self.types.clone())?)
+                        { operand.typed(self.types.clone())? }
                     )?,
                     _ => return None,
                 };
@@ -172,8 +172,8 @@ impl TopLevelConstants {
                 let scalar = super::scalar::scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = super::scalar::arithmetic_instruction(*operator, scalar)?;
                 let value = llvm_constant!(binary instruction;
-                    (rust left.typed(self.types.clone())?);
-                    (rust right.typed(self.types.clone())?)
+                    { left.typed(self.types.clone())? };
+                    { right.typed(self.types.clone())? }
                 )?;
                 Constant {
                     ty: left.ty,
@@ -212,14 +212,14 @@ impl TopLevelConstants {
                 let address = || {
                     llvm_typed_constant!(typed
                         crate::backend::llvm::syntax::Type::Pointer =>
-                        (rust address_constant.clone())
+                        { address_constant.clone() }
                     )
                 };
                 llvm_constant!(structure [
-                    (rust address()?),
+                    { address()? },
                     (typed crate::backend::llvm::syntax::Type::Pointer =>
                         (get_element_ptr crate::backend::llvm::syntax::Type::integer(8_u16);
-                            (rust address()?);
+                            { address()? };
                             [(typed self.types.index_llvm_type() =>
                                 (atom super::symbol::STATIC_OWNER_DATA_OFFSET))]
                         )
@@ -321,7 +321,7 @@ impl Constant {
     }
 
     fn typed(&self, types: Types) -> Option<TypedConstant> {
-        llvm_typed_constant!(typed types.value(&self.ty)?.llvm => (rust self.llvm()?.clone()))
+        llvm_typed_constant!(typed types.value(&self.ty)?.llvm => { self.llvm()?.clone() })
     }
 
     pub(super) fn product(&self) -> Option<&[Constant]> {
@@ -384,7 +384,7 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
             CastOperator::ZExt
         };
         llvm_constant!(cast instruction;
-            (rust operand.typed(types.clone())?);
+            { operand.typed(types.clone())? };
             target.llvm_type()
         )?
     };

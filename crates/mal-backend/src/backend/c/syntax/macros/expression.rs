@@ -9,9 +9,6 @@ macro_rules! c_expr_child {
 
 macro_rules! c_initializer {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (rust $initializer:expr) => {
-        $initializer
-    };
     (positional $value:tt) => {
         $crate::backend::c::syntax::Initializer::positional(
             $crate::backend::c::syntax::c_expr_child!($value),
@@ -48,9 +45,6 @@ macro_rules! c_initializers_item {
     ($initializers:ident; { $($rust:tt)* }) => {
         $initializers.push({ $($rust)* })
     };
-    ($initializers:ident; (extend $more:expr)) => {
-        $initializers.extend($more)
-    };
     ($initializers:ident; $initializer:tt) => {
         $initializers.extend([$crate::backend::c::syntax::c_initializer! $initializer])
     };
@@ -73,9 +67,6 @@ macro_rules! c_exprs_item {
     ($expressions:ident; { $($rust:tt)* }) => {
         $expressions.push({ $($rust)* })
     };
-    ($expressions:ident; (extend $more:expr)) => {
-        $expressions.extend($more)
-    };
     ($expressions:ident; $expression:tt) => {
         $expressions.extend([$crate::backend::c::syntax::c_expr_child!($expression)])
     };
@@ -83,9 +74,6 @@ macro_rules! c_exprs_item {
 
 macro_rules! c_expr {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (rust $expression:expr) => {
-        $expression
-    };
     (id $name:expr) => {
         $crate::backend::c::syntax::Expr::identifier($name)
     };

@@ -64,7 +64,7 @@ impl TypeRegistry {
                 (id "source"),
                 (sizeof (id "value")),
             ),
-            (return (rust value)),
+            (return { value }),
         );
         append_function(
             output,
@@ -93,7 +93,7 @@ impl TypeRegistry {
             None
         };
         let write_body = c_block!(
-            (extend validation),
+            {{ validation }},
             (call "memcpy";
                 (id "destination"),
                 (address (id "value")),
@@ -133,17 +133,17 @@ impl TypeRegistry {
                         |(field, (element, layout))| {
                             c_statement!(expr (assign
                                 (field (id "value"); format!("field_{field}"));
-                                (rust self.memory_read_value(
+                                { self.memory_read_value(
                                 element,
                                 c_expr!(id "call"),
                                 offset(c_expr!(id "source"), layout.offset),
-                            ))
+                            ) }
                             ))
                         },
                     );
                     c_block!(
                         (var (host_type.clone()) ("value")),
-                        (extend field_reads),
+                        {{ field_reads }},
                         (return (id "value")),
                     )
                 }
@@ -165,25 +165,30 @@ impl TypeRegistry {
             read_body,
         );
 
-        let write_body = match ty {
-            Type::Product(elements) => {
-                let fields = layouts
-                    .product_fields(ty)
-                    .expect("checker-approved memory product has a layout");
-                c_block!((extend elements.iter().zip(fields).enumerate().map(
-                    |(field, (element, layout))| {
-                        self.memory_write_statement(
-                            element,
-                            c_expr!(id "call"),
-                            offset(c_expr!(id "destination"), layout.offset),
-                            c_expr!(field (id "value"); format!("field_{field}")),
-                        )
-                    },
-                )))
-            }
-            Type::Sum(members) => self.sum_memory_write_body(ty, members, layouts),
-            _ => unreachable!("only aggregate types have representation identities"),
-        };
+        let write_body =
+            match ty {
+                Type::Product(elements) => {
+                    let fields = layouts
+                        .product_fields(ty)
+                        .expect("checker-approved memory product has a layout");
+                    c_block!({
+                        {
+                            elements.iter().zip(fields).enumerate().map(
+                                |(field, (element, layout))| {
+                                    self.memory_write_statement(
+                                        element,
+                                        c_expr!(id "call"),
+                                        offset(c_expr!(id "destination"), layout.offset),
+                                        c_expr!(field (id "value"); format!("field_{field}")),
+                                    )
+                                },
+                            )
+                        }
+                    })
+                }
+                Type::Sum(members) => self.sum_memory_write_body(ty, members, layouts),
+                _ => unreachable!("only aggregate types have representation identities"),
+            };
         append_function(
             output,
             FunctionSignature::static_inline(
@@ -214,22 +219,22 @@ impl TypeRegistry {
                     (return (compound self.host_value_c_type(ty, None);
                         (field "tag"; (call "UINT32_C"; (number variant))),
                         (path ["payload".into(), format!("variant_{variant}")];
-                            (rust self.memory_read_value(
+                            { self.memory_read_value(
                                 member,
                                 c_expr!(id "call"),
                                 offset(c_expr!(id "source"), layout.payload_offset),
-                            ))
+                            ) }
                         ),
                     )),
                 ])
             })
             .collect::<Vec<_>>();
-        c_block!((switch (rust self.memory_read_value(
+        c_block!((switch { self.memory_read_value(
                 &tag_type,
                 c_expr!(id "call"),
                 c_expr!(id "source"),
-            )); [
-                (extend cases),
+            ) }; [
+                {{ cases }},
                 (default; [
                     (call "mal_call_trap";
                         (id "call"),
@@ -256,18 +261,18 @@ impl TypeRegistry {
                     format!("variant_{variant}")
                 );
                 c_switch_case!(case (call "UINT32_C"; (number variant)); [
-                    (rust self.memory_write_statement(
+                    { self.memory_write_statement(
                         &tag_type,
                         c_expr!(id "call"),
                         c_expr!(id "destination"),
                         tag_value,
-                    )),
-                    (rust self.memory_write_statement(
+                    ) },
+                    { self.memory_write_statement(
                         member,
                         c_expr!(id "call"),
                         offset(c_expr!(id "destination"), layout.payload_offset),
                         payload,
-                    )),
+                    ) },
                     (return_void),
                 ])
             })
@@ -277,7 +282,7 @@ impl TypeRegistry {
             )])])
             .collect();
         c_block!((switch (field (id "value"); "tag"); [
-            (extend cases),
+            {{ cases }},
         ]))
     }
 
@@ -298,9 +303,9 @@ impl TypeRegistry {
         let unused_index = (stride == 0).then(|| c_statement!(expr (cast "void"; (id "index"))));
         let read_value = self.memory_read_value(&alias.ty, c_expr!(id "call"), source);
         let read_body = c_block!(
-            (extend unused_index),
+            {{ unused_index }},
             (call "mal_Address_return"; (id "call"), (id "address")),
-            (return (rust read_value)),
+            (return { read_value }),
         );
         append_function(
             output,
@@ -328,9 +333,9 @@ impl TypeRegistry {
             c_expr!(id "value"),
         );
         let write_body = c_block!(
-            (extend unused_index),
+            {{ unused_index }},
             (call "mal_Address_return"; (id "call"), (id "address")),
-            (rust write_value),
+            { write_value },
         );
         append_function(
             output,
@@ -353,10 +358,10 @@ impl TypeRegistry {
             Type::Unit => c_expr!(compound "mal_Unit_t"; (positional (number 0))),
             Type::Product(_) | Type::Sum(_) if !is_bool(ty) => c_expr!(call
                 format!("mal_detail_memory_read_{}", self.index(ty));
-                (rust call), (rust source)
+                { call }, { source }
             ),
             _ => c_expr!(call format!("mal_detail_memory_read_{}", scalar_name(ty));
-                (rust call), (rust source)
+                { call }, { source }
             ),
         }
     }
@@ -369,16 +374,16 @@ impl TypeRegistry {
         value: Expr,
     ) -> Statement {
         if matches!(ty, Type::Unit) {
-            return c_statement!(expr (cast "void"; (rust value)));
+            return c_statement!(expr (cast "void"; { value }));
         }
         let name = match ty {
             Type::Product(_) | Type::Sum(_) if !is_bool(ty) => self.index(ty).to_string(),
             _ => scalar_name(ty).into(),
         };
         c_statement!(call format!("mal_detail_memory_write_{name}");
-            (rust call),
-            (rust destination),
-            (rust value),
+            { call },
+            { destination },
+            { value },
         )
     }
 }
@@ -435,7 +440,7 @@ fn integer_type(bits: usize) -> Type {
 }
 
 fn offset(base: Expr, offset: impl Into<Offset>) -> Expr {
-    c_expr!(add (rust base); (rust offset.into().0))
+    c_expr!(add { base }; { offset.into().0 })
 }
 
 struct Offset(Expr);

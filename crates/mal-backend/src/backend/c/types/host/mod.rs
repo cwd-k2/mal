@@ -33,11 +33,11 @@ impl TypeRegistry {
                             Parameter::named(format!("mal_repr_product_{index}_t"), "value"),
                         ],
                     ),
-                    c_block!((return (rust self.host_to_raw_value(
-                        ty,
-                        c_expr!(id "call"),
-                        c_expr!(id "value"),
-                    )))),
+                    c_block!(
+                        (return {
+                            self.host_to_raw_value(ty, c_expr!(id "call"), c_expr!(id "value"))
+                        })
+                    ),
                 ),
                 Type::Sum(members) => {
                     output.extend(self.host_sum_conversion_helpers(index, ty));
@@ -117,11 +117,11 @@ impl TypeRegistry {
                         Parameter::named(format!("mal_{}_t", alias.name), "value"),
                     ],
                 ),
-                c_block!((return (rust self.host_to_raw_value(
-                    &alias.ty,
-                    c_expr!(id "call"),
-                    c_expr!(id "value"),
-                )))),
+                c_block!(
+                    (return {
+                        self.host_to_raw_value(&alias.ty, c_expr!(id "call"), c_expr!(id "value"))
+                    })
+                ),
             );
         }
         output
@@ -161,7 +161,7 @@ impl TypeRegistry {
             };
             let host_value = c_expr!(compound host_type;
                 (field "tag"; (id tag_name)),
-                (path ["payload".into(), format!("variant_{variant}")]; (rust payload)),
+                (path ["payload".into(), format!("variant_{variant}")]; { payload }),
             );
             append_function(
                 output,
@@ -170,7 +170,7 @@ impl TypeRegistry {
                     format!("mal_{public_name}_make_{variant}"),
                     parameters.clone(),
                 ),
-                c_block!((return (rust host_value.clone()))),
+                c_block!((return { host_value.clone() })),
             );
             let mut return_parameters = vec![Parameter::named(
                 TypeName::named("mal_call_t").pointer(),
@@ -184,11 +184,7 @@ impl TypeRegistry {
                     format!("mal_{public_name}_return_{variant}"),
                     return_parameters,
                 ),
-                c_block!((return (rust self.host_to_raw_value(
-                    ty,
-                    c_expr!(id "call"),
-                    host_value,
-                )))),
+                c_block!((return { self.host_to_raw_value(ty, c_expr!(id "call"), host_value,) })),
             );
         }
     }
@@ -209,20 +205,20 @@ impl TypeRegistry {
             );
             let host_payload =
                 self.raw_to_host_value(member, None, c_expr!(id "call"), payload.clone());
-            to_host_cases.push(c_switch_case!(case (rust tag.clone()); [
+            to_host_cases.push(c_switch_case!(case { tag.clone() }; [
                 (return (compound host_type.clone();
-                    (field "tag"; (rust tag.clone())),
+                    (field "tag"; { tag.clone() }),
                     (path ["payload".into(), format!("variant_{variant}")];
-                        (rust host_payload)
+                        { host_payload }
                     ),
                 )),
             ]));
             let raw_payload = self.host_to_raw_value(member, c_expr!(id "call"), payload);
-            to_raw_cases.push(c_switch_case!(case (rust tag.clone()); [
+            to_raw_cases.push(c_switch_case!(case { tag.clone() }; [
                 (return (compound raw_type.clone();
-                    (field "tag"; (rust tag)),
+                    (field "tag"; { tag }),
                     (path ["payload".into(), format!("variant_{variant}")];
-                        (rust raw_payload)
+                        { raw_payload }
                     ),
                 )),
             ]));
@@ -244,7 +240,7 @@ impl TypeRegistry {
                 ],
             );
             block [(switch (field (id "value"); "tag"); [
-                (extend to_host_cases),
+                {{ to_host_cases }},
             ])]
         ));
         output.blank_line();
@@ -258,7 +254,7 @@ impl TypeRegistry {
                 ],
             );
             block [(switch (field (id "value"); "tag"); [
-                (extend to_raw_cases),
+                {{ to_raw_cases }},
             ])]
         ));
         output.blank_line();
@@ -270,22 +266,22 @@ impl TypeRegistry {
             Type::Product(elements) => {
                 let initializers = elements.iter().enumerate().map(|(field, element)| {
                     c_initializer!(field format!("field_{field}");
-                        (rust self.host_to_raw_value(
+                        { self.host_to_raw_value(
                             element,
                             call.clone(),
-                            c_expr!(field (rust value.clone()); format!("field_{field}")),
-                        ))
+                            c_expr!(field { value.clone() }; format!("field_{field}")),
+                        ) }
                     )
                 });
-                c_expr!(compound self.c_type(ty); (extend initializers))
+                c_expr!(compound self.c_type(ty); {{ initializers }})
             }
             Type::Sum(_) if !is_bool(ty) => c_expr!(call
                 format!("mal_detail_to_raw_{}", self.index(ty));
-                (rust call), (rust value)
+                { call }, { value }
             ),
-            Type::Address => c_expr!(call "mal_Address_return"; (rust call), (rust value)),
+            Type::Address => c_expr!(call "mal_Address_return"; { call }, { value }),
             Type::External { .. } => c_expr!(compound self.c_type(ty);
-                (field "bits"; (field (rust value); "mal_detail_bits")),
+                (field "bits"; (field { value }; "mal_detail_bits")),
             ),
             Type::Unit => c_expr!(compound "MalType_Unit"; (positional (number 0))),
             Type::Symbol | Type::Function { .. } => {
@@ -306,23 +302,23 @@ impl TypeRegistry {
             Type::Product(elements) => {
                 let initializers = elements.iter().enumerate().map(|(field, element)| {
                     c_initializer!(field format!("field_{field}");
-                        (rust self.raw_to_host_value(
+                        { self.raw_to_host_value(
                             element,
                             None,
                             call.clone(),
-                            c_expr!(field (rust value.clone()); format!("field_{field}")),
-                        ))
+                            c_expr!(field { value.clone() }; format!("field_{field}")),
+                        ) }
                     )
                 });
-                c_expr!(compound self.host_value_c_type(ty, alias); (extend initializers))
+                c_expr!(compound self.host_value_c_type(ty, alias); {{ initializers }})
             }
             Type::Sum(_) if !is_bool(ty) => c_expr!(call
                 format!("mal_detail_to_host_{}", self.index(ty));
-                (rust call), (rust value)
+                { call }, { value }
             ),
             Type::Address => value,
             Type::External { .. } => c_expr!(compound self.host_value_c_type(ty, alias);
-                (field "mal_detail_bits"; (field (rust value); "bits")),
+                (field "mal_detail_bits"; (field { value }; "bits")),
             ),
             Type::Symbol | Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")

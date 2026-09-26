@@ -5,12 +5,6 @@ macro_rules! llvm_switch_cases_item {
     ($cases:ident; { $($rust:tt)* }) => {
         $cases.push({ $($rust)* })
     };
-    ($cases:ident; (extend $more:expr)) => {
-        $cases.extend($more)
-    };
-    ($cases:ident; (rust $case:expr)) => {
-        $cases.push($case)
-    };
     ($cases:ident; (case $value:expr => $target:expr)) => {
         $cases.push(($value.to_string(), $target.to_string()))
     };
@@ -29,9 +23,6 @@ macro_rules! llvm_switch_cases {
 macro_rules! llvm_terminator {
     ({ $($rust:tt)* }) => {
         Some({ $($rust)* })
-    };
-    (rust $terminator:expr) => {
-        Some($terminator)
     };
     (branch $target:expr) => {
         $crate::backend::llvm::syntax::Terminator::branch($target)

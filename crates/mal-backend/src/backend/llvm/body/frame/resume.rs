@@ -182,7 +182,7 @@ impl FunctionEmitter<'_> {
         self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
             crate::backend::llvm::syntax::Type::integer(32_u16) => tag;
             default format!("mal_invalid_frame_{}", site.0);
-            [(extend cases)]
+            [{{ cases }}]
         ));
         self.block(format!("mal_invalid_frame_{}", site.0));
         self.unreachable();

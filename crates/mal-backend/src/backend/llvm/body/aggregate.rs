@@ -196,7 +196,7 @@ impl FunctionEmitter<'_> {
         self.terminate(crate::backend::llvm::syntax::llvm_terminator!(switch
             tag_type => tag;
             default format!("mal_invalid_case_{}", site.0);
-            [(extend cases)]
+            [{{ cases }}]
         ));
         self.block(format!("mal_invalid_case_{}", site.0));
         self.unreachable();

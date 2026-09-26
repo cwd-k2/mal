@@ -1,13 +1,28 @@
+macro_rules! llvm_constant_child {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
+    ($constant:tt) => {
+        $crate::backend::llvm::syntax::llvm_constant! $constant
+    };
+}
+
+macro_rules! llvm_typed_constant_child {
+    ({ $($rust:tt)* }) => {
+        Some({ $($rust)* })
+    };
+    ($constant:tt) => {
+        $crate::backend::llvm::syntax::llvm_typed_constant! $constant
+    };
+}
+
 macro_rules! llvm_typed_constant {
     ({ $($rust:tt)* }) => {
         Some({ $($rust)* })
     };
-    (rust $constant:expr) => {
-        Some($constant)
-    };
     (typed $ty:expr => $constant:tt) => {{
         let ty = $ty;
-        $crate::backend::llvm::syntax::llvm_constant! $constant
+        $crate::backend::llvm::syntax::llvm_constant_child!($constant)
             .map(|constant| $crate::backend::llvm::syntax::TypedConstant::new(ty, constant))
     }};
 }
@@ -19,11 +34,8 @@ macro_rules! llvm_typed_constants_item {
     ($constants:ident; { $($rust:tt)* }) => {
         $constants.push({ $($rust)* })
     };
-    ($constants:ident; (extend $more:expr)) => {
-        $constants.extend($more)
-    };
     ($constants:ident; $constant:tt) => {
-        $constants.push($crate::backend::llvm::syntax::llvm_typed_constant! $constant?)
+        $constants.push($crate::backend::llvm::syntax::llvm_typed_constant_child!($constant)?)
     };
 }
 
@@ -43,9 +55,6 @@ macro_rules! llvm_constant {
     ({ $($rust:tt)* }) => {
         Some({ $($rust)* })
     };
-    (rust $constant:expr) => {
-        Some($constant)
-    };
     (atom $value:expr) => {
         $crate::backend::llvm::syntax::Constant::atom($value.to_string())
     };
@@ -57,7 +66,7 @@ macro_rules! llvm_constant {
             .map($crate::backend::llvm::syntax::Constant::structure)
     };
     (get_element_ptr $element_type:expr; $pointer:tt; [$($index:tt),* $(,)?]) => {{
-        $crate::backend::llvm::syntax::llvm_typed_constant! $pointer .and_then(|pointer| {
+        $crate::backend::llvm::syntax::llvm_typed_constant_child!($pointer).and_then(|pointer| {
             $crate::backend::llvm::syntax::llvm_typed_constants!($($index),*).map(|indices| {
                 $crate::backend::llvm::syntax::Constant::get_element_ptr(
                     $element_type,
@@ -68,23 +77,24 @@ macro_rules! llvm_constant {
         })
     }};
     (unary $operator:expr; $operand:tt) => {
-        $crate::backend::llvm::syntax::llvm_typed_constant! $operand
+        $crate::backend::llvm::syntax::llvm_typed_constant_child!($operand)
             .map(|operand| $crate::backend::llvm::syntax::Constant::unary($operator, operand))
     };
     (binary $operator:expr; $left:tt; $right:tt) => {{
-        let left = $crate::backend::llvm::syntax::llvm_typed_constant! $left;
-        let right = $crate::backend::llvm::syntax::llvm_typed_constant! $right;
+        let left = $crate::backend::llvm::syntax::llvm_typed_constant_child!($left);
+        let right = $crate::backend::llvm::syntax::llvm_typed_constant_child!($right);
         left.zip(right).and_then(|(left, right)| {
             $crate::backend::llvm::syntax::Constant::binary($operator, left, right)
         })
     }};
     (cast $operator:expr; $operand:tt; $target:expr) => {
-        $crate::backend::llvm::syntax::llvm_typed_constant! $operand.map(|operand| {
+        $crate::backend::llvm::syntax::llvm_typed_constant_child!($operand).map(|operand| {
             $crate::backend::llvm::syntax::Constant::cast($operator, operand, $target)
         })
     };
 }
 
 pub(in crate::backend::llvm) use {
-    llvm_constant, llvm_typed_constant, llvm_typed_constants, llvm_typed_constants_item,
+    llvm_constant, llvm_constant_child, llvm_typed_constant, llvm_typed_constant_child,
+    llvm_typed_constants, llvm_typed_constants_item,
 };

@@ -1,8 +1,5 @@
 macro_rules! c_function {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (rust $definition:expr) => {
-        $definition
-    };
     (signature $signature:expr; body $body:expr) => {
         $crate::backend::c::syntax::FunctionDefinition::from_signature($signature, $body)
     };

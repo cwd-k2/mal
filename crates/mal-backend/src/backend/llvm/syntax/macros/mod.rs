@@ -5,7 +5,8 @@ mod terminator;
 mod value;
 
 pub(in crate::backend::llvm) use constant::{
-    llvm_constant, llvm_typed_constant, llvm_typed_constants, llvm_typed_constants_item,
+    llvm_constant, llvm_constant_child, llvm_typed_constant, llvm_typed_constant_child,
+    llvm_typed_constants, llvm_typed_constants_item,
 };
 pub(in crate::backend::llvm) use declaration::{
     llvm_function_attributes, llvm_function_attributes_items, llvm_parameter,

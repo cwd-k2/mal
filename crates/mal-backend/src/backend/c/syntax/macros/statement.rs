@@ -1,11 +1,8 @@
 macro_rules! c_switch_case {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (rust $case:expr) => {
-        $case
-    };
     (case $label:tt; $body:tt) => {
         $crate::backend::c::syntax::SwitchCase::case(
-            $crate::backend::c::syntax::c_expr! $label,
+            $crate::backend::c::syntax::c_expr_child!($label),
             $crate::backend::c::syntax::c_block! $body,
         )
     };
@@ -33,9 +30,6 @@ macro_rules! c_switch_cases_item {
     ($cases:ident; { $($rust:tt)* }) => {
         $cases.push({ $($rust)* })
     };
-    ($cases:ident; (extend $more:expr)) => {
-        $cases.extend($more)
-    };
     ($cases:ident; $case:tt) => {
         $cases.push($crate::backend::c::syntax::c_switch_case! $case)
     };
@@ -43,12 +37,9 @@ macro_rules! c_switch_cases_item {
 
 macro_rules! c_statement {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
-    (rust $statement:expr) => {
-        $statement
-    };
     (expr $value:tt) => {
         $crate::backend::c::syntax::Statement::expression(
-            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
     (call $name:expr; $($argument:tt),* $(,)?) => {
@@ -68,7 +59,7 @@ macro_rules! c_statement {
         $crate::backend::c::syntax::Statement::variable(
             $ty,
             $name,
-            Some($crate::backend::c::syntax::c_expr! $value),
+            Some($crate::backend::c::syntax::c_expr_child!($value)),
         )
     };
     (declaration ($declaration:expr)) => {
@@ -77,12 +68,12 @@ macro_rules! c_statement {
     (declaration ($declaration:expr) = $value:tt) => {
         $crate::backend::c::syntax::Statement::variable_declaration(
             $declaration,
-            Some($crate::backend::c::syntax::c_expr! $value),
+            Some($crate::backend::c::syntax::c_expr_child!($value)),
         )
     };
     (return $value:tt) => {
         $crate::backend::c::syntax::Statement::return_value(
-            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
     (return_void) => {
@@ -90,13 +81,13 @@ macro_rules! c_statement {
     };
     (if $condition:tt; $body:tt) => {
         $crate::backend::c::syntax::Statement::if_then(
-            $crate::backend::c::syntax::c_expr! $condition,
+            $crate::backend::c::syntax::c_expr_child!($condition),
             $crate::backend::c::syntax::c_block! $body,
         )
     };
     (switch $value:tt; $cases:tt) => {
         $crate::backend::c::syntax::Statement::switch(
-            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_expr_child!($value),
             $crate::backend::c::syntax::c_switch_cases! $cases,
         )
     };
@@ -118,9 +109,6 @@ macro_rules! c_block_item {
     };
     ($block:ident; { $($rust:tt)* }) => {
         $block.push({ $($rust)* })
-    };
-    ($block:ident; (extend $statements:expr)) => {
-        $block.extend($statements)
     };
     ($block:ident; $statement:tt) => {
         $block.push($crate::backend::c::syntax::c_statement! $statement)

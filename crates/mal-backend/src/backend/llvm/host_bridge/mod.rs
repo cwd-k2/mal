@@ -52,10 +52,10 @@ pub(super) fn generate(
     };
     let mut call_arguments = vec![context_cast()];
     call_arguments.extend(arguments);
-    let call = c_expr!(call format!("mal_ext_{}", external.name); (extend call_arguments));
+    let call = c_expr!(call format!("mal_ext_{}", external.name); {{ call_arguments }});
     match &result.kind {
         plan::Kind::Unit => {
-            statements.push(c_statement!(expr (rust call)));
+            statements.push(c_statement!(expr { call }));
             statements.push(store(
                 "uint8_t",
                 identifier("mal_result"),
@@ -63,9 +63,9 @@ pub(super) fn generate(
             ));
         }
         plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
-            statements.push(
-                c_statement!(var (raw_types.c_type(&external.result)) ("result") = (rust call)),
-            );
+            statements.push(c_statement!(
+                var(raw_types.c_type(&external.result))("result") = { call }
+            ));
             statements.extend(marshalling.write(
                 &result,
                 identifier("result"),
@@ -85,7 +85,7 @@ pub(super) fn generate(
     marshalling
         .helpers
         .push(c_function!(signature bridge.c_signature();
-            block [(extend statements)]
+            block [{{ statements }}]
         ));
     Some(Bridge {
         llvm_declaration,
@@ -136,7 +136,7 @@ impl<'a> Marshalling<'a> {
                 (field "unused"; (call "UINT8_C"; (number 0))),
             )),
             plan::Kind::External => Some(c_expr!(compound self.raw_types.c_type(value.ty);
-                (field "bits"; (rust load(TypeName::const_named("uintptr_t").pointer(), pointer))),
+                (field "bits"; { load(TypeName::const_named("uintptr_t").pointer(), pointer) }),
             )),
             plan::Kind::Product(fields) => {
                 let initializers = fields
@@ -144,17 +144,17 @@ impl<'a> Marshalling<'a> {
                     .enumerate()
                     .map(|(index, field)| {
                         Some(c_initializer!(field format!("field_{index}");
-                            (rust self.read(
+                            { self.read(
                                 &field.value,
                                 base.clone(),
                                 offset.checked_add(field.offset)?,
                                 context.clone(),
-                            )?)
+                            )? }
                         ))
                     })
                     .collect::<Option<Vec<_>>>()?;
                 Some(c_expr!(compound self.raw_types.c_type(value.ty);
-                    (extend initializers),
+                    {{ initializers }},
                 ))
             }
             plan::Kind::Sum {
@@ -177,7 +177,7 @@ impl<'a> Marshalling<'a> {
         context: Expr,
     ) -> Option<Expr> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.read_helpers.get(&id)) {
-            return Some(c_expr!(call helper.clone(); (rust context), (rust pointer)));
+            return Some(c_expr!(call helper.clone(); { context }, { pointer }));
         }
         let helper = self.helper_name("read");
         if let Some(id) = ty.shared_id() {
@@ -197,16 +197,16 @@ impl<'a> Marshalling<'a> {
                 Some(c_switch_case!(case (call "UINT32_C"; (number index)); [
                     (return (compound c_type.clone();
                         (field "tag"; (call "UINT32_C"; (number index))),
-                        (path ["payload", &format!("variant_{index}")]; (rust payload)),
+                        (path ["payload", &format!("variant_{index}")]; { payload }),
                     )),
                 ]))
             })
             .collect::<Option<Vec<_>>>()?;
         let mut cases = cases;
-        cases.push(c_switch_case!(default; [(rust trap(
+        cases.push(c_switch_case!(default; [{ trap(
             identifier("context"),
             "invalid sum tag at LLVM bridge",
-        ))]));
+        ) }]));
         let tag = load(
             TypeName::const_named("uint32_t").pointer(),
             c_expr!(add (id "value"); (number tag_offset)),
@@ -222,12 +222,12 @@ impl<'a> Marshalling<'a> {
             )
             .with_specifiers([FunctionSpecifier::Static]);
             block [
-                (var ("uint32_t") ("tag") = (rust tag)),
-                (switch (id "tag"); [(extend cases)]),
+                (var ("uint32_t") ("tag") = { tag }),
+                (switch (id "tag"); [{{ cases }}]),
             ]
         ));
         self.helpers.blank_line();
-        Some(c_expr!(call helper; (rust context), (rust pointer)))
+        Some(c_expr!(call helper; { context }, { pointer }))
     }
 
     fn write(
@@ -258,7 +258,7 @@ impl<'a> Marshalling<'a> {
             plan::Kind::External => Some(vec![store(
                 "uintptr_t",
                 pointer,
-                c_expr!(field (rust value); "bits"),
+                c_expr!(field { value }; "bits"),
             )]),
             plan::Kind::Product(fields) => {
                 let mut statements = Vec::new();
@@ -266,7 +266,7 @@ impl<'a> Marshalling<'a> {
                     statements.extend(self.write_at(
                         &field.value,
                         base.clone(),
-                        c_expr!(field (rust value.clone()); format!("field_{index}")),
+                        c_expr!(field { value.clone() }; format!("field_{index}")),
                         offset.checked_add(field.offset)?,
                         context.clone(),
                     )?);
@@ -294,9 +294,9 @@ impl<'a> Marshalling<'a> {
     ) -> Option<Statement> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.write_helpers.get(&id)) {
             return Some(c_statement!(call helper.clone();
-                (rust context),
-                (rust pointer),
-                (rust value),
+                { context },
+                { pointer },
+                { value },
             ));
         }
         let helper = self.helper_name("write");
@@ -318,13 +318,13 @@ impl<'a> Marshalling<'a> {
             )?;
             statements.push(c_statement!(return_void));
             cases.push(c_switch_case!(case (call "UINT32_C"; (number index)); [
-                (extend statements),
+                {{ statements }},
             ]));
         }
-        cases.push(c_switch_case!(default; [(rust trap(
+        cases.push(c_switch_case!(default; [{ trap(
             identifier("context"),
             "invalid sum tag at LLVM bridge",
-        ))]));
+        ) }]));
         let tag_store = store(
             "uint32_t",
             c_expr!(add (id "value"); (number tag_offset)),
@@ -342,15 +342,15 @@ impl<'a> Marshalling<'a> {
             )
             .with_specifiers([FunctionSpecifier::Static]);
             block [
-                (rust tag_store),
-                (switch (field (id "input"); "tag"); [(extend cases)]),
+                { tag_store },
+                (switch (field (id "input"); "tag"); [{{ cases }}]),
             ]
         ));
         self.helpers.blank_line();
         Some(c_statement!(call helper;
-            (rust context),
-            (rust pointer),
-            (rust value),
+            { context },
+            { pointer },
+            { value },
         ))
     }
 }
@@ -361,11 +361,11 @@ fn bridge_pointer(base: Expr, offset: usize, read_only: bool) -> Expr {
     } else {
         TypeName::named("uint8_t").pointer()
     };
-    let pointer = c_expr!(cast ty; (rust base));
+    let pointer = c_expr!(cast ty; { base });
     if offset == 0 {
         pointer
     } else {
-        c_expr!(add (rust pointer); (number offset))
+        c_expr!(add { pointer }; (number offset))
     }
 }
 
@@ -374,13 +374,13 @@ fn context_cast() -> Expr {
 }
 
 fn load(ty: TypeName, pointer: Expr) -> Expr {
-    c_expr!(dereference (cast ty; (rust pointer)))
+    c_expr!(dereference (cast ty; { pointer }))
 }
 
 fn store(ty: impl Into<TypeName>, pointer: Expr, value: Expr) -> Statement {
     c_statement!(expr (assign
-        (dereference (cast ty.into().pointer(); (rust pointer)));
-        (rust value)
+        (dereference (cast ty.into().pointer(); { pointer }));
+        { value }
     ))
 }
 
@@ -389,7 +389,7 @@ fn identifier(name: impl Into<crate::backend::c::syntax::Identifier>) -> Expr {
 }
 
 fn trap(context: Expr, message: &str) -> Statement {
-    c_statement!(call "mal_trap"; (rust context), (string message))
+    c_statement!(call "mal_trap"; { context }, (string message))
 }
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {

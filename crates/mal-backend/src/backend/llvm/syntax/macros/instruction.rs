@@ -2,9 +2,6 @@ macro_rules! llvm_instruction {
     ({ $($rust:tt)* }) => {
         Some({ $($rust)* })
     };
-    (rust $instruction:expr) => {
-        Some($instruction)
-    };
     (alloca $result:expr, $ty:expr, $alignment:expr $(,)?) => {
         $crate::backend::llvm::syntax::Instruction::alloca($result, $ty, $alignment)
     };
@@ -34,9 +31,13 @@ macro_rules! llvm_instruction {
         })
     }};
     (call $result:expr, $tail:expr, $result_type:expr, direct $callee:expr, $arguments:expr) => {
-        $crate::backend::llvm::syntax::llvm_instruction!(
-            call $result, $tail, $result_type, direct $callee; [(typed_extend $arguments)]
-        )
+        $arguments
+            .into_iter()
+            .map(|(ty, value)| $crate::backend::llvm::syntax::TypedValue::new(ty, value))
+            .collect::<Option<Vec<_>>>()
+            .and_then(|arguments| $crate::backend::llvm::syntax::llvm_instruction!(
+                call $result, $tail, $result_type, direct $callee; [{{ arguments }}]
+            ))
     };
     (call $result:expr, $tail:expr, $result_type:expr, indirect $callee:expr; [$($argument:tt),* $(,)?]) => {{
         $crate::backend::llvm::syntax::Callee::indirect($callee).and_then(|callee| {
@@ -54,9 +55,13 @@ macro_rules! llvm_instruction {
         })
     }};
     (call $result:expr, $tail:expr, $result_type:expr, indirect $callee:expr, $arguments:expr) => {
-        $crate::backend::llvm::syntax::llvm_instruction!(
-            call $result, $tail, $result_type, indirect $callee; [(typed_extend $arguments)]
-        )
+        $arguments
+            .into_iter()
+            .map(|(ty, value)| $crate::backend::llvm::syntax::TypedValue::new(ty, value))
+            .collect::<Option<Vec<_>>>()
+            .and_then(|arguments| $crate::backend::llvm::syntax::llvm_instruction!(
+                call $result, $tail, $result_type, indirect $callee; [{{ arguments }}]
+            ))
     };
     (unary $result:expr, $operator:expr; $ty:expr => $value:expr $(,)?) => {{
         $crate::backend::llvm::syntax::llvm_value!(typed $ty => $value).and_then(|value| {
@@ -95,9 +100,13 @@ macro_rules! llvm_instruction {
         })
     }};
     (get_element_ptr $result:expr, $inbounds:expr, $element_type:expr, $pointer:expr, $indices:expr $(,)?) => {
-        $crate::backend::llvm::syntax::llvm_instruction!(
-            get_element_ptr $result, $inbounds, $element_type, $pointer; [(typed_extend $indices)]
-        )
+        $indices
+            .into_iter()
+            .map(|(ty, value)| $crate::backend::llvm::syntax::TypedValue::new(ty, value))
+            .collect::<Option<Vec<_>>>()
+            .and_then(|indices| $crate::backend::llvm::syntax::llvm_instruction!(
+                get_element_ptr $result, $inbounds, $element_type, $pointer; [{{ indices }}]
+            ))
     };
     (insert_value $result:expr; $aggregate_type:expr => $aggregate:expr, $element_type:expr => $element:expr, $indices:expr $(,)?) => {{
         let aggregate =

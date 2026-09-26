@@ -28,7 +28,7 @@ fn unit_main(entry: &str) -> FunctionDefinition {
     c_function!(signature
         c_signature!(fn "main"() -> named("int"));
         block [
-            (var ("MalContext") ("context") = (rust zero_initializer())),
+            (var ("MalContext") ("context") = { zero_initializer() }),
             (var ("int32_t") ("result")),
             (call entry;
                 (address (id "context")),
@@ -61,7 +61,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let value = types.value(parameter)?;
 
     let body = c_block!(
-        (var ("MalContext") ("context") = (rust zero_initializer())),
+        (var ("MalContext") ("context") = { zero_initializer() }),
         (var ("size_t") ("argument_count") = (conditional
                 (greater (id "mal_argc"); (number 1));
                 (cast "size_t"; (subtract (id "mal_argc"); (number 1)));
@@ -70,7 +70,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         (declaration (
             VariableDeclaration::array("uint8_t", "argument", number(value.size))
                 .aligned(number(value.alignment))
-        ) = (rust zero_initializer())),
+        ) = { zero_initializer() }),
         (var (TypeName::named("void").pointer()) ("arguments") = (call "mal_runtime_buffer_from_arguments";
                 (address (id "context")),
                 (add (id "mal_argv"); (number 1)),
