@@ -248,25 +248,27 @@ impl TypeRegistry {
             .iter()
             .enumerate()
             .map(|(variant, member)| {
+                let tag_value = c_expr!(cast self.host_value_c_type(&tag_type, None);
+                    (field (id "value"); "tag")
+                );
+                let payload = c_expr!(field
+                    (field (id "value"); "payload");
+                    format!("variant_{variant}")
+                );
                 c_switch_case!(case (call "UINT32_C"; (number variant)); [
-                        (rust self.memory_write_statement(
-                            &tag_type,
-                            c_expr!(id "call"),
-                            c_expr!(id "destination"),
-                            c_expr!(cast self.host_value_c_type(&tag_type, None);
-                                (field (id "value"); "tag")
-                            ),
-                        )),
-                        (rust self.memory_write_statement(
-                            member,
-                            c_expr!(id "call"),
-                            offset(c_expr!(id "destination"), layout.payload_offset),
-                            c_expr!(field
-                                (field (id "value"); "payload");
-                                format!("variant_{variant}")
-                            ),
-                        )),
-                        (return_void),
+                    (rust self.memory_write_statement(
+                        &tag_type,
+                        c_expr!(id "call"),
+                        c_expr!(id "destination"),
+                        tag_value,
+                    )),
+                    (rust self.memory_write_statement(
+                        member,
+                        c_expr!(id "call"),
+                        offset(c_expr!(id "destination"), layout.payload_offset),
+                        payload,
+                    )),
+                    (return_void),
                 ])
             })
             .chain([c_switch_case!(default; [(call "mal_call_trap";

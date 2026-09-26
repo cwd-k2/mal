@@ -203,28 +203,26 @@ impl TypeRegistry {
         let mut to_raw_cases = Vec::new();
         for (variant, member) in members.iter().enumerate() {
             let tag = c_expr!(call "UINT32_C"; (number variant));
+            let payload = c_expr!(field
+                (field (id "value"); "payload");
+                format!("variant_{variant}")
+            );
+            let host_payload =
+                self.raw_to_host_value(member, None, c_expr!(id "call"), payload.clone());
             to_host_cases.push(c_switch_case!(case (rust tag.clone()); [
                 (return (compound host_type.clone();
                     (field "tag"; (rust tag.clone())),
                     (path ["payload".into(), format!("variant_{variant}")];
-                        (rust self.raw_to_host_value(
-                            member,
-                            None,
-                            c_expr!(id "call"),
-                            c_expr!(field (field (id "value"); "payload"); format!("variant_{variant}")),
-                        ))
+                        (rust host_payload)
                     ),
                 )),
             ]));
+            let raw_payload = self.host_to_raw_value(member, c_expr!(id "call"), payload);
             to_raw_cases.push(c_switch_case!(case (rust tag.clone()); [
                 (return (compound raw_type.clone();
                     (field "tag"; (rust tag)),
                     (path ["payload".into(), format!("variant_{variant}")];
-                        (rust self.host_to_raw_value(
-                            member,
-                            c_expr!(id "call"),
-                            c_expr!(field (field (id "value"); "payload"); format!("variant_{variant}")),
-                        ))
+                        (rust raw_payload)
                     ),
                 )),
             ]));

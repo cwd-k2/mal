@@ -42,8 +42,10 @@ Typed-value helpers below the constant and instruction layers accept individual 
 sequences without rendering them. LLVM functions and basic blocks remain under `FunctionBuilder`: unlike the C syntax
 tree, CFG construction has stateful block, terminator, and entry-instruction invariants that should not be hidden in a
 block macro. Module symbol ordering and uniqueness likewise remain under `Module`. Dynamic lowering policy therefore
-stays in ordinary Rust code. The macros remain interchangeable with ordinary node construction and never produce LLVM
-source fragments directly.
+stays in ordinary Rust code. Types, signatures, parameters, declarations, globals, and metadata remain typed leaf
+builders; macros cover the recursively nested syntax whose constructor form otherwise obscures the generated LLVM
+structure. The macros remain interchangeable with ordinary node construction and never produce LLVM source fragments
+directly.
 
 `module` builds one logical LLVM module from feature groups. It derives byte-runtime requirements from references in the emitted
 typed call structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source
