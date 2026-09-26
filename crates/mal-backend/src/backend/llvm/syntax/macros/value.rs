@@ -26,7 +26,8 @@ macro_rules! llvm_values {
     ($($value:tt),* $(,)?) => {{
         #[allow(clippy::redundant_closure_call)]
         (|| {
-            let mut values = Vec::new();
+            #[allow(unused_mut)]
+            let mut values = Vec::from([]);
             $(
                 $crate::backend::llvm::syntax::llvm_values_item!(values; $value);
             )*

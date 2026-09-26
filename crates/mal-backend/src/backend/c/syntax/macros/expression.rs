@@ -30,7 +30,8 @@ macro_rules! c_initializer {
 
 macro_rules! c_initializers {
     ($($initializer:tt),* $(,)?) => {{
-        let mut initializers = Vec::new();
+        #[allow(unused_mut)]
+        let mut initializers = Vec::from([]);
         $(
             $crate::backend::c::syntax::c_initializers_item!(initializers; $initializer);
         )*
@@ -52,7 +53,8 @@ macro_rules! c_initializers_item {
 
 macro_rules! c_exprs {
     ($($expression:tt),* $(,)?) => {{
-        let mut expressions = Vec::new();
+        #[allow(unused_mut)]
+        let mut expressions = Vec::from([]);
         $(
             $crate::backend::c::syntax::c_exprs_item!(expressions; $expression);
         )*

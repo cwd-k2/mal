@@ -15,7 +15,8 @@ macro_rules! llvm_switch_cases_item {
 
 macro_rules! llvm_switch_cases {
     ($($case:tt),* $(,)?) => {{
-        let mut cases = Vec::new();
+        #[allow(unused_mut)]
+        let mut cases = Vec::from([]);
         $(
             $crate::backend::llvm::syntax::llvm_switch_cases_item!(cases; $case);
         )*

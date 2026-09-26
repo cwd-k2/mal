@@ -43,7 +43,8 @@ macro_rules! llvm_typed_constants {
     ($($constant:tt),* $(,)?) => {{
         #[allow(clippy::redundant_closure_call)]
         (|| {
-            let mut constants = Vec::new();
+            #[allow(unused_mut)]
+            let mut constants = Vec::from([]);
             $(
                 $crate::backend::llvm::syntax::llvm_typed_constants_item!(constants; $constant);
             )*
