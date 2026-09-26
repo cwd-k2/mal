@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement, TypeName,
-    VariableDeclaration,
+    VariableDeclaration, c_expr, c_statement,
 };
 use mal_frontend::check::ast::Type;
 
@@ -30,19 +30,13 @@ fn unit_main(entry: &str) -> FunctionDefinition {
         Block::new([
             variable("MalContext", "context", Some(zero_initializer())),
             variable("int32_t", "result", None),
-            call(
-                entry,
-                [
-                    Expr::address_of(identifier("context")),
-                    identifier("NULL"),
-                    Expr::address_of(identifier("result")),
-                ],
+            c_statement!(call entry;
+                (address (id "context")),
+                (id "NULL"),
+                (address (id "result")),
             ),
-            call(
-                "mal_control_destroy",
-                [Expr::address_of(identifier("context"))],
-            ),
-            Statement::return_value(identifier("result")),
+            c_statement!(call "mal_control_destroy"; (address (id "context"))),
+            c_statement!(return (id "result")),
         ]),
     )
 }
@@ -71,10 +65,10 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         variable(
             "size_t",
             "argument_count",
-            Some(Expr::conditional(
-                Expr::greater(identifier("mal_argc"), number(1)),
-                Expr::cast("size_t", Expr::subtract(identifier("mal_argc"), number(1))),
-                number(0),
+            Some(c_expr!(conditional
+                (greater (id "mal_argc"); (number 1));
+                (cast "size_t"; (subtract (id "mal_argc"); (number 1)));
+                (number 0)
             )),
         ),
         Statement::variable_declaration(
@@ -85,42 +79,30 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         variable(
             TypeName::named("void").pointer(),
             "arguments",
-            Some(Expr::named_call(
-                "mal_runtime_buffer_from_arguments",
-                [
-                    Expr::address_of(identifier("context")),
-                    Expr::add(identifier("mal_argv"), number(1)),
-                    identifier("argument_count"),
-                    number(stride),
-                    number(data_offset),
-                    number(length_offset),
-                ],
+            Some(c_expr!(call "mal_runtime_buffer_from_arguments";
+                (address (id "context")),
+                (add (id "mal_argv"); (number 1)),
+                (id "argument_count"),
+                (number stride),
+                (number data_offset),
+                (number length_offset),
             )),
         ),
-        call(
-            "memcpy",
-            [
-                identifier("argument"),
-                Expr::address_of(identifier("arguments")),
-                Expr::sizeof_value(identifier("arguments")),
-            ],
+        c_statement!(call "memcpy";
+            (id "argument"),
+            (address (id "arguments")),
+            (sizeof (id "arguments")),
         ),
         variable("int32_t", "result", None),
-        call(
-            entry,
-            [
-                Expr::address_of(identifier("context")),
-                identifier("argument"),
-                Expr::address_of(identifier("result")),
-            ],
+        c_statement!(call entry;
+            (address (id "context")),
+            (id "argument"),
+            (address (id "result")),
         ),
         // The entry only borrows its argument, so the shim drops the buffer and the Symbols it owns.
-        call("mal_runtime_environment_release", [identifier("arguments")]),
-        call(
-            "mal_control_destroy",
-            [Expr::address_of(identifier("context"))],
-        ),
-        Statement::return_value(identifier("result")),
+        c_statement!(call "mal_runtime_environment_release"; (id "arguments")),
+        c_statement!(call "mal_control_destroy"; (address (id "context"))),
+        c_statement!(return (id "result")),
     ]);
 
     Some(FunctionDefinition::from_signature(
@@ -136,10 +118,6 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     ))
 }
 
-fn identifier(name: impl Into<crate::backend::c::syntax::Identifier>) -> Expr {
-    Expr::identifier(name)
-}
-
 fn number(value: impl ToString) -> Expr {
     Expr::number(value.to_string())
 }
@@ -152,13 +130,6 @@ fn variable(
     Statement::variable(ty, name, initializer)
 }
 
-fn call(
-    name: impl Into<crate::backend::c::syntax::Identifier>,
-    arguments: impl IntoIterator<Item = Expr>,
-) -> Statement {
-    Statement::call(name, arguments)
-}
-
 fn zero_initializer() -> Expr {
-    Expr::initializer_list([number(0)])
+    c_expr!(initializer (number 0))
 }

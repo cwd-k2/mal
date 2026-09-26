@@ -280,24 +280,8 @@ impl FunctionEmitter<'_> {
         callee: impl Into<String>,
         arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        let Some(callee) = super::super::syntax::Callee::direct(callee) else {
-            self.emission_failed = true;
-            return;
-        };
-        let Some(arguments) = arguments
-            .into_iter()
-            .map(|(ty, value)| super::super::syntax::TypedValue::new(ty, value))
-            .collect::<Option<Vec<_>>>()
-        else {
-            self.emission_failed = true;
-            return;
-        };
-        self.structured_instruction(super::super::syntax::Instruction::call(
-            result,
-            tail,
-            result_type,
-            callee,
-            arguments,
+        self.structured_instruction(super::super::syntax::llvm_instruction!(
+            call result, tail, result_type, direct callee, arguments
         ));
     }
 
@@ -309,24 +293,8 @@ impl FunctionEmitter<'_> {
         callee: impl Into<String>,
         arguments: impl IntoIterator<Item = (super::super::syntax::Type, String)>,
     ) {
-        let Some(callee) = super::super::syntax::Callee::indirect(callee) else {
-            self.emission_failed = true;
-            return;
-        };
-        let Some(arguments) = arguments
-            .into_iter()
-            .map(|(ty, value)| super::super::syntax::TypedValue::new(ty, value))
-            .collect::<Option<Vec<_>>>()
-        else {
-            self.emission_failed = true;
-            return;
-        };
-        self.structured_instruction(super::super::syntax::Instruction::call(
-            result,
-            tail,
-            result_type,
-            callee,
-            arguments,
+        self.structured_instruction(super::super::syntax::llvm_instruction!(
+            call result, tail, result_type, indirect callee, arguments
         ));
     }
 
@@ -337,10 +305,9 @@ impl FunctionEmitter<'_> {
         ty: super::super::syntax::Type,
         value: impl Into<String>,
     ) {
-        let operand = super::super::syntax::TypedValue::new(ty, value);
-        self.structured_instruction(operand.and_then(|operand| {
-            super::super::syntax::Instruction::unary(result, operator, operand)
-        }));
+        self.structured_instruction(super::super::syntax::llvm_instruction!(
+            typed unary(result, operator); ty => value
+        ));
     }
 
     pub(super) fn binary(
@@ -378,10 +345,9 @@ impl FunctionEmitter<'_> {
         source: impl Into<String>,
         target: super::super::syntax::Type,
     ) {
-        let operand = super::super::syntax::TypedValue::new(source_type, source);
-        self.structured_instruction(operand.and_then(|operand| {
-            super::super::syntax::Instruction::cast(result, operator, operand, target)
-        }));
+        self.structured_instruction(super::super::syntax::llvm_instruction!(
+            typed cast(result, operator); source_type => source, target
+        ));
     }
 
     pub(super) fn get_element_ptr(
@@ -414,10 +380,9 @@ impl FunctionEmitter<'_> {
         aggregate: impl Into<String>,
         indices: impl IntoIterator<Item = usize>,
     ) {
-        let aggregate = super::super::syntax::TypedValue::new(aggregate_type, aggregate);
-        self.structured_instruction(aggregate.and_then(|aggregate| {
-            super::super::syntax::Instruction::extract_value(result, aggregate, indices)
-        }));
+        self.structured_instruction(super::super::syntax::llvm_instruction!(
+            typed extract_value(result); aggregate_type => aggregate, indices
+        ));
     }
 
     pub(super) fn insert_value(

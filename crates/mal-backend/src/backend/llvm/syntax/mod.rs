@@ -3,6 +3,52 @@ mod instruction;
 mod module;
 mod ty;
 
+macro_rules! llvm_instruction {
+    (call $result:expr, $tail:expr, $result_type:expr, direct $callee:expr, $arguments:expr) => {{
+        $crate::backend::llvm::syntax::Callee::direct($callee).and_then(|callee| {
+            $arguments
+                .into_iter()
+                .map(|(ty, value)| $crate::backend::llvm::syntax::TypedValue::new(ty, value))
+                .collect::<Option<Vec<_>>>()
+                .and_then(|arguments| {
+                $crate::backend::llvm::syntax::Instruction::call(
+                    $result,
+                    $tail,
+                    $result_type,
+                    callee,
+                    arguments,
+                )
+            })
+        })
+    }};
+    (call $result:expr, $tail:expr, $result_type:expr, indirect $callee:expr, $arguments:expr) => {{
+        $crate::backend::llvm::syntax::Callee::indirect($callee).and_then(|callee| {
+            $arguments
+                .into_iter()
+                .map(|(ty, value)| $crate::backend::llvm::syntax::TypedValue::new(ty, value))
+                .collect::<Option<Vec<_>>>()
+                .and_then(|arguments| {
+                $crate::backend::llvm::syntax::Instruction::call(
+                    $result,
+                    $tail,
+                    $result_type,
+                    callee,
+                    arguments,
+                )
+            })
+        })
+    }};
+    (typed $constructor:ident($($leading:expr),*); $ty:expr => $value:expr $(, $trailing:expr)* $(,)? ) => {{
+        $crate::backend::llvm::syntax::TypedValue::new($ty, $value).and_then(|value| {
+            $crate::backend::llvm::syntax::Instruction::$constructor(
+                $($leading,)* value $(, $trailing)*
+            )
+        })
+    }};
+}
+
+pub(super) use llvm_instruction;
+
 #[cfg(test)]
 pub(super) use function::BasicBlock;
 pub(super) use function::{

@@ -837,4 +837,17 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn instruction_macro_builds_typed_calls() {
+        let instruction = super::super::llvm_instruction!(
+            call Some("%result".to_owned()), false, Type::integer(8_u16), direct "observe",
+            [(Type::Pointer, "%value".to_owned())]
+        )
+        .unwrap();
+        let mut output = String::new();
+        instruction.render_into(&mut output);
+
+        assert_eq!(output, "%result = call i8 @observe(ptr %value)");
+    }
 }
