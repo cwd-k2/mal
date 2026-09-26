@@ -178,7 +178,11 @@ impl FunctionEmitter<'_> {
         register
     }
 
-    pub(super) fn entry_alloca(&mut self, llvm: &str, alignment: usize) -> String {
+    pub(super) fn entry_alloca(
+        &mut self,
+        llvm: &impl std::fmt::Display,
+        alignment: usize,
+    ) -> String {
         let storage = format!("%mal_alloca_{}", self.next_entry_alloca);
         self.next_entry_alloca += 1;
         let Some(function) = self.current_definition.as_mut() else {
@@ -259,7 +263,7 @@ impl FunctionEmitter<'_> {
         ));
     }
 
-    pub(super) fn return_value(&mut self, ty: impl Into<String>, value: impl Into<String>) {
+    pub(super) fn return_value(&mut self, ty: impl std::fmt::Display, value: impl Into<String>) {
         self.terminate(super::super::syntax::Terminator::return_value(ty, value));
     }
 

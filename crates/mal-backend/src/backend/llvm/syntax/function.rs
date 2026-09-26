@@ -17,13 +17,13 @@ pub(in crate::backend) struct FunctionSignature {
 
 impl FunctionSignature {
     pub(in crate::backend) fn new(
-        result: impl Into<String>,
+        result: impl std::fmt::Display,
         name: impl Into<String>,
         parameters: impl IntoIterator<Item = impl Into<String>>,
     ) -> Self {
         Self {
             linkage: None,
-            result: result.into(),
+            result: result.to_string(),
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             attributes: Vec::new(),
@@ -339,10 +339,10 @@ impl Terminator {
     }
 
     pub(in crate::backend::llvm) fn return_value(
-        ty: impl Into<String>,
+        ty: impl std::fmt::Display,
         value: impl Into<String>,
     ) -> Option<Self> {
-        let ty = ty.into();
+        let ty = ty.to_string();
         let value = value.into();
         (is_single_line(&ty) && is_single_line(&value)).then_some(Self::Return { ty, value })
     }

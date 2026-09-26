@@ -4,10 +4,11 @@ use mal_frontend::check::ast::{SharedTypeId, Type};
 
 use super::scalar::scalar_type;
 use crate::backend::llvm::TargetLayout;
+use crate::backend::llvm::syntax::Type as LlvmType;
 
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct ValueType {
-    pub(in crate::backend::llvm) llvm: String,
+    pub(in crate::backend::llvm) llvm: LlvmType,
     pub(in crate::backend::llvm) alignment: usize,
     pub(in crate::backend::llvm) size: usize,
 }
@@ -56,43 +57,53 @@ impl Types {
         }
         if let Some(scalar) = scalar_type(ty, self.target.index_size) {
             return Some(ValueType {
-                llvm: scalar.llvm.into(),
+                llvm: if scalar.floating {
+                    match scalar.bits {
+                        32 => LlvmType::Float,
+                        64 => LlvmType::Double,
+                        _ => return None,
+                    }
+                } else {
+                    LlvmType::integer(u16::from(scalar.bits))
+                },
                 alignment: self.target.scalar_alignment(scalar.bits, scalar.floating)?,
                 size: usize::from(scalar.bits) / 8,
             });
         }
         let value = match ty {
             Type::Unit => Some(ValueType {
-                llvm: "i8".into(),
+                llvm: LlvmType::integer(8_u16),
                 alignment: 1,
                 size: 1,
             }),
             Type::Address | Type::Buffer(_) => Some(ValueType {
-                llvm: "ptr".into(),
+                llvm: LlvmType::Pointer,
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
             Type::Symbol => self.byte_view(),
             Type::External { .. } => Some(ValueType {
-                llvm: format!("i{}", self.target.pointer_size.checked_mul(8)?),
+                llvm: LlvmType::integer(
+                    u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()?,
+                ),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
             Type::Function { .. } => aggregate_type(vec![
                 ValueType {
-                    llvm: "ptr".into(),
+                    llvm: LlvmType::Pointer,
                     alignment: self.target.pointer_alignment,
                     size: self.target.pointer_size,
                 },
                 ValueType {
-                    llvm: "ptr".into(),
+                    llvm: LlvmType::Pointer,
                     alignment: self.target.pointer_alignment,
                     size: self.target.pointer_size,
                 },
             ]),
             Type::Product(elements) => self.product(elements, cache),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
-                llvm: "i1".into(),
+                llvm: LlvmType::integer(1_u16),
                 alignment: 1,
                 size: 1,
             }),
@@ -108,17 +119,19 @@ impl Types {
     fn byte_view(&self) -> Option<ValueType> {
         aggregate_type(vec![
             ValueType {
-                llvm: "ptr".into(),
+                llvm: LlvmType::Pointer,
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: "ptr".into(),
+                llvm: LlvmType::Pointer,
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: self.index_integer(),
+                llvm: LlvmType::integer(
+                    u16::try_from(self.target.index_size.checked_mul(8)?).ok()?,
+                ),
                 alignment: self.index_alignment(),
                 size: self.target.index_size,
             },
@@ -175,7 +188,7 @@ impl Types {
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<ValueType> {
         let mut fields = vec![ValueType {
-            llvm: "i32".into(),
+            llvm: LlvmType::integer(32_u16),
             alignment: 4,
             size: 4,
         }];
@@ -197,7 +210,7 @@ impl Types {
             return None;
         };
         let tag = ValueType {
-            llvm: "i32".into(),
+            llvm: LlvmType::integer(32_u16),
             alignment: 4,
             size: 4,
         };
@@ -236,7 +249,7 @@ impl Types {
             .into_iter()
             .max();
         Some(size.map(|size| ValueType {
-            llvm: format!("[{size} x i8]"),
+            llvm: LlvmType::array(size, LlvmType::integer(8_u16)),
             alignment: 1,
             size,
         }))
@@ -255,14 +268,7 @@ fn aggregate_type(fields: Vec<ValueType>) -> Option<ValueType> {
         size = size.checked_add(field.size)?;
     }
     Some(ValueType {
-        llvm: format!(
-            "{{ {} }}",
-            fields
-                .iter()
-                .map(|field| field.llvm.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
+        llvm: LlvmType::structure(fields.iter().map(|field| field.llvm.clone())),
         alignment,
         size: align(size, alignment)?,
     })
@@ -303,7 +309,7 @@ mod tests {
         let value = types.value(&ty).unwrap();
         let fields = types.sum_fields(&ty).unwrap();
 
-        assert_eq!(value.llvm, "{ i32, [8 x i8] }");
+        assert_eq!(value.llvm.to_string(), "{ i32, [8 x i8] }");
         assert_eq!(value.size, 12);
         assert_eq!(
             fields.iter().map(|field| field.offset).collect::<Vec<_>>(),
@@ -321,7 +327,7 @@ mod tests {
         let value = Types::new(8).unwrap().value(&ty).unwrap();
 
         assert_eq!(value.size, 256);
-        assert!(value.llvm.len() < 1_500);
+        assert!(value.llvm.to_string().len() < 1_500);
     }
 
     #[test]
