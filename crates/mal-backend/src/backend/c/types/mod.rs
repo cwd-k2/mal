@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     AggregateField, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_aggregate_fields,
-    c_declaration,
+    c_declaration, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 use mal_frontend::resolve::ast::TypeId;
@@ -57,27 +57,27 @@ enum ElementKey {
 impl TypeRegistry {
     pub(super) fn c_type(&self, ty: &Type) -> TypeName {
         if is_bool(ty) {
-            return TypeName::named("MalType_Bool");
+            return c_type!(named("MalType_Bool"));
         }
         match ty {
-            Type::Unit => TypeName::named("MalType_Unit"),
-            Type::Int8 => TypeName::named("MalType_Int8"),
-            Type::Int16 => TypeName::named("MalType_Int16"),
-            Type::Int32 => TypeName::named("MalType_Int32"),
-            Type::Int64 => TypeName::named("MalType_Int64"),
-            Type::UInt8 => TypeName::named("MalType_UInt8"),
-            Type::UInt16 => TypeName::named("MalType_UInt16"),
-            Type::UInt32 => TypeName::named("MalType_UInt32"),
-            Type::UInt64 => TypeName::named("MalType_UInt64"),
-            Type::Float32 => TypeName::named("MalType_Float32"),
-            Type::Float64 => TypeName::named("MalType_Float64"),
-            Type::Address => TypeName::named("MalType_Address"),
-            Type::ByteSize => TypeName::named("MalType_ByteSize"),
-            Type::USize => TypeName::named("MalType_USize"),
-            Type::External { name, .. } => TypeName::named(format!("MalType_{name}")),
-            Type::Product(_) => TypeName::named(format!("MalRepr_Product_{}", self.index(ty))),
-            Type::Sum(_) => TypeName::named(format!("MalRepr_Sum_{}", self.index(ty))),
-            Type::Function { .. } => TypeName::named(format!("MalRepr_Closure_{}", self.index(ty))),
+            Type::Unit => c_type!(named("MalType_Unit")),
+            Type::Int8 => c_type!(named("MalType_Int8")),
+            Type::Int16 => c_type!(named("MalType_Int16")),
+            Type::Int32 => c_type!(named("MalType_Int32")),
+            Type::Int64 => c_type!(named("MalType_Int64")),
+            Type::UInt8 => c_type!(named("MalType_UInt8")),
+            Type::UInt16 => c_type!(named("MalType_UInt16")),
+            Type::UInt32 => c_type!(named("MalType_UInt32")),
+            Type::UInt64 => c_type!(named("MalType_UInt64")),
+            Type::Float32 => c_type!(named("MalType_Float32")),
+            Type::Float64 => c_type!(named("MalType_Float64")),
+            Type::Address => c_type!(named("MalType_Address")),
+            Type::ByteSize => c_type!(named("MalType_ByteSize")),
+            Type::USize => c_type!(named("MalType_USize")),
+            Type::External { name, .. } => c_type!(named(format!("MalType_{name}"))),
+            Type::Product(_) => c_type!(named(format!("MalRepr_Product_{}", self.index(ty)))),
+            Type::Sum(_) => c_type!(named(format!("MalRepr_Sum_{}", self.index(ty)))),
+            Type::Function { .. } => c_type!(named(format!("MalRepr_Closure_{}", self.index(ty)))),
             Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                 unreachable!("these types never enter the C host registry")
             }
@@ -86,29 +86,29 @@ impl TypeRegistry {
 
     pub(super) fn host_value_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
         if let Some(alias) = alias {
-            return TypeName::named(format!("mal_{alias}_t"));
+            return c_type!(named(format!("mal_{alias}_t")));
         }
         if is_bool(ty) {
-            return TypeName::named("mal_Bool_t");
+            return c_type!(named("mal_Bool_t"));
         }
         match ty {
-            Type::Unit => TypeName::named("mal_Unit_t"),
-            Type::Int8 => TypeName::named("mal_Int8_t"),
-            Type::Int16 => TypeName::named("mal_Int16_t"),
-            Type::Int32 => TypeName::named("mal_Int32_t"),
-            Type::Int64 => TypeName::named("mal_Int64_t"),
-            Type::UInt8 => TypeName::named("mal_UInt8_t"),
-            Type::UInt16 => TypeName::named("mal_UInt16_t"),
-            Type::UInt32 => TypeName::named("mal_UInt32_t"),
-            Type::UInt64 => TypeName::named("mal_UInt64_t"),
-            Type::Float32 => TypeName::named("mal_Float32_t"),
-            Type::Float64 => TypeName::named("mal_Float64_t"),
-            Type::Address => TypeName::named("mal_Address_t"),
-            Type::ByteSize => TypeName::named("mal_ByteSize_t"),
-            Type::USize => TypeName::named("mal_USize_t"),
-            Type::External { name, .. } => TypeName::named(format!("mal_{name}_t")),
-            Type::Product(_) => TypeName::named(format!("mal_repr_product_{}_t", self.index(ty))),
-            Type::Sum(_) => TypeName::named(format!("mal_repr_sum_{}_t", self.index(ty))),
+            Type::Unit => c_type!(named("mal_Unit_t")),
+            Type::Int8 => c_type!(named("mal_Int8_t")),
+            Type::Int16 => c_type!(named("mal_Int16_t")),
+            Type::Int32 => c_type!(named("mal_Int32_t")),
+            Type::Int64 => c_type!(named("mal_Int64_t")),
+            Type::UInt8 => c_type!(named("mal_UInt8_t")),
+            Type::UInt16 => c_type!(named("mal_UInt16_t")),
+            Type::UInt32 => c_type!(named("mal_UInt32_t")),
+            Type::UInt64 => c_type!(named("mal_UInt64_t")),
+            Type::Float32 => c_type!(named("mal_Float32_t")),
+            Type::Float64 => c_type!(named("mal_Float64_t")),
+            Type::Address => c_type!(named("mal_Address_t")),
+            Type::ByteSize => c_type!(named("mal_ByteSize_t")),
+            Type::USize => c_type!(named("mal_USize_t")),
+            Type::External { name, .. } => c_type!(named(format!("mal_{name}_t"))),
+            Type::Product(_) => c_type!(named(format!("mal_repr_product_{}_t", self.index(ty)))),
+            Type::Sum(_) => c_type!(named(format!("mal_repr_sum_{}_t", self.index(ty)))),
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
@@ -262,24 +262,24 @@ mod tests {
         ] {
             assert_eq!(
                 registry.host_value_c_type(&ty, None),
-                TypeName::named(expected)
+                c_type!(named(expected))
             );
         }
         assert_eq!(
             registry.host_value_c_type(&product, None),
-            TypeName::named("mal_repr_product_0_t")
+            c_type!(named("mal_repr_product_0_t"))
         );
         assert_eq!(
             registry.host_value_c_type(&sum, None),
-            TypeName::named("mal_repr_sum_1_t")
+            c_type!(named("mal_repr_sum_1_t"))
         );
         assert_eq!(
             registry.host_value_c_type(&Type::UInt64, Some("Count")),
-            TypeName::named("mal_Count_t")
+            c_type!(named("mal_Count_t"))
         );
         assert_eq!(
             registry.host_value_c_type(&product, Some("Packet")),
-            TypeName::named("mal_Packet_t")
+            c_type!(named("mal_Packet_t"))
         );
     }
 
@@ -288,7 +288,7 @@ mod tests {
         let bool_type = Type::Sum(vec![Type::Unit, Type::Unit].into());
         assert_eq!(
             TypeRegistry::default().host_value_c_type(&bool_type, None),
-            TypeName::named("mal_Bool_t")
+            c_type!(named("mal_Bool_t"))
         );
     }
 

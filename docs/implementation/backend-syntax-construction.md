@@ -34,7 +34,9 @@ checked interface / execution plan
 `TranslationUnit`、`Module`、`FunctionBuilder`はstateful rootである。順序、section間の空行、symbol重複、
 basic blockの一意性、terminator、entry prefixを所有するため、通常のRust control flowで操作する。その内側の
 type、declaration、signature、parameter、aggregate、expression、statement、constant、instruction、terminator、
-global、metadataはmacroから構築できる。既存nodeのconstructorはmacro展開先および動的policyの実装手段として残す。
+global、metadataはmacroから構築できる。
+backendのproduction call siteはstateful root以外をmacroから構築する。動的policyは`{}`と`{{}}`で構築済みnodeを
+渡し、call siteでconstructorを直接組み合わせない。既存nodeのconstructorはmacro展開先とsyntax自身の検証で使う。
 
 ## 共通記法
 
@@ -89,10 +91,8 @@ let call = llvm_instruction!(call
 | statement、block、switch case | `c_statement!`、`c_block!`、`c_switch_case!` | block内をsource順に構築 |
 | function definition | `c_function!` | signatureとblockを結ぶ |
 | preprocessor、macro invocation | `c_directive!`、`c_macro_invocation!` | directive順は`TranslationUnit`が所有 |
+| comment | `c_comment!` | 検証済みの単一payloadをitemへ変換 |
 | translation unit、section spacing | なし | stateful rootとしてRustで操作 |
-
-commentは再帰構文を持たない単一payloadなので`Comment::new`を使う。専用macroを置いても構造や検証境界が
-明確にならないためcoverageの例外とする。
 
 ## LLVMのcoverage
 
@@ -130,3 +130,4 @@ optimization passはtyped syntax構築より前の`execution` decision、また�
 - renderer以外に`format!`やline assemblyによるC/LLVM source構築を置かない。
 - stateful invariantをmacro展開へ隠さず、root builderを唯一のownerに保つ。
 - 静的構文のためにRustのconstructor chainを反復せず、動的policyのためにDSL内へ独自control flowを増やさない。
+- production call siteでstateful root以外のsyntax constructorを直接呼ばない。

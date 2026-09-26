@@ -4,7 +4,7 @@ use mal_frontend::check::ast::{SharedTypeId, Type};
 
 use super::scalar::scalar_type;
 use crate::backend::llvm::TargetLayout;
-use crate::backend::llvm::syntax::Type as LlvmType;
+use crate::backend::llvm::syntax::{Type as LlvmType, llvm_type};
 
 #[derive(Clone)]
 pub(in crate::backend::llvm) struct ValueType {
@@ -59,12 +59,12 @@ impl Types {
             return Some(ValueType {
                 llvm: if scalar.floating {
                     match scalar.bits {
-                        32 => LlvmType::Float,
-                        64 => LlvmType::Double,
+                        32 => llvm_type!(float),
+                        64 => llvm_type!(double),
                         _ => return None,
                     }
                 } else {
-                    LlvmType::integer(u16::from(scalar.bits))
+                    llvm_type!(int(u16::from(scalar.bits)))
                 },
                 alignment: self.target.scalar_alignment(scalar.bits, scalar.floating)?,
                 size: usize::from(scalar.bits) / 8,
@@ -72,38 +72,38 @@ impl Types {
         }
         let value = match ty {
             Type::Unit => Some(ValueType {
-                llvm: LlvmType::integer(8_u16),
+                llvm: llvm_type!(int(8_u16)),
                 alignment: 1,
                 size: 1,
             }),
             Type::Address | Type::Buffer(_) => Some(ValueType {
-                llvm: LlvmType::Pointer,
+                llvm: llvm_type!(ptr),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
             Type::Symbol => self.byte_view(),
             Type::External { .. } => Some(ValueType {
-                llvm: LlvmType::integer(
-                    u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()?,
-                ),
+                llvm: llvm_type!(int(
+                    u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()?
+                )),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
             Type::Function { .. } => aggregate_type(vec![
                 ValueType {
-                    llvm: LlvmType::Pointer,
+                    llvm: llvm_type!(ptr),
                     alignment: self.target.pointer_alignment,
                     size: self.target.pointer_size,
                 },
                 ValueType {
-                    llvm: LlvmType::Pointer,
+                    llvm: llvm_type!(ptr),
                     alignment: self.target.pointer_alignment,
                     size: self.target.pointer_size,
                 },
             ]),
             Type::Product(elements) => self.product(elements, cache),
             Type::Sum(_) if is_bool(ty) => Some(ValueType {
-                llvm: LlvmType::integer(1_u16),
+                llvm: llvm_type!(int(1_u16)),
                 alignment: 1,
                 size: 1,
             }),
@@ -119,19 +119,19 @@ impl Types {
     fn byte_view(&self) -> Option<ValueType> {
         aggregate_type(vec![
             ValueType {
-                llvm: LlvmType::Pointer,
+                llvm: llvm_type!(ptr),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: LlvmType::Pointer,
+                llvm: llvm_type!(ptr),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: LlvmType::integer(
-                    u16::try_from(self.target.index_size.checked_mul(8)?).ok()?,
-                ),
+                llvm: llvm_type!(int(
+                    u16::try_from(self.target.index_size.checked_mul(8)?).ok()?
+                )),
                 alignment: self.index_alignment(),
                 size: self.target.index_size,
             },
@@ -139,15 +139,15 @@ impl Types {
     }
 
     pub(in crate::backend::llvm) fn index_llvm_type(&self) -> LlvmType {
-        LlvmType::integer(
-            u16::try_from(self.target.index_size * 8).expect("supported index width fits u16"),
-        )
+        llvm_type!(int(
+            u16::try_from(self.target.index_size * 8).expect("supported index width fits u16")
+        ))
     }
 
     pub(in crate::backend::llvm) fn pointer_representation_llvm_type(&self) -> LlvmType {
-        LlvmType::integer(
-            u16::try_from(self.target.pointer_size * 8).expect("supported pointer width fits u16"),
-        )
+        llvm_type!(int(
+            u16::try_from(self.target.pointer_size * 8).expect("supported pointer width fits u16")
+        ))
     }
 
     pub(in crate::backend::llvm) fn pointer_size(&self) -> usize {
@@ -192,7 +192,7 @@ impl Types {
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<ValueType> {
         let mut fields = vec![ValueType {
-            llvm: LlvmType::integer(32_u16),
+            llvm: llvm_type!(int(32_u16)),
             alignment: 4,
             size: 4,
         }];
@@ -214,7 +214,7 @@ impl Types {
             return None;
         };
         let tag = ValueType {
-            llvm: LlvmType::integer(32_u16),
+            llvm: llvm_type!(int(32_u16)),
             alignment: 4,
             size: 4,
         };
@@ -253,7 +253,7 @@ impl Types {
             .into_iter()
             .max();
         Some(size.map(|size| ValueType {
-            llvm: LlvmType::array(size, LlvmType::integer(8_u16)),
+            llvm: llvm_type!(array(size, int(8_u16))),
             alignment: 1,
             size,
         }))
