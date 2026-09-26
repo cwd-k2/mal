@@ -204,8 +204,9 @@ impl TopLevelConstants {
                     .push_str(&super::symbol::literal_definition(&name, bytes));
                 let index = self.types.index_integer();
                 format!(
-                    "{{ ptr @{name}, ptr getelementptr (i8, ptr @{name}, {index} 24), {index} {} }}",
-                    bytes.len()
+                    "{{ ptr @{name}, ptr getelementptr (i8, ptr @{name}, {index} {}), {index} {} }}",
+                    super::symbol::STATIC_OWNER_DATA_OFFSET,
+                    bytes.len(),
                 )
             }
             AtomKind::Unit if atom.ty == Type::Unit => "0".into(),

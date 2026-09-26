@@ -369,6 +369,27 @@ fn admit_operation<'a>(
 }
 
 fn admit_atom(atom: &Atom, maximum: u128) -> Result<(), Diagnostic> {
+    if let (Type::Symbol, AtomKind::Symbol(bytes)) = (&atom.ty, &atom.kind) {
+        let storage = super::symbol::literal_storage_size(bytes.len());
+        if storage.is_some_and(|storage| storage as u128 <= maximum) {
+            return Ok(());
+        }
+        return Err(
+            Diagnostic::error("Symbol literal storage is not representable for the target")
+                .with_primary(
+                    atom.span,
+                    storage.map_or_else(
+                        || "this Symbol literal's storage exceeds the target object-size range"
+                            .into(),
+                        |storage| {
+                            format!(
+                                "this Symbol literal needs {storage} bytes, exceeding the target maximum {maximum}"
+                            )
+                        },
+                    ),
+                ),
+        );
+    }
     let value = match (&atom.ty, &atom.kind) {
         (Type::ByteSize | Type::USize, AtomKind::Integer(value)) => u128::try_from(*value).ok(),
         _ => return Ok(()),

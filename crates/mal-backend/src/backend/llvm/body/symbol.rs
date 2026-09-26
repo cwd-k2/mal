@@ -4,6 +4,16 @@ use mal_frontend::check::ast::Type;
 
 use super::{EmittedValue, FunctionEmitter, memory::ByteViewFields};
 
+pub(super) const STATIC_OWNER_DATA_OFFSET: usize = 24;
+const STATIC_OWNER_ALIGNMENT: usize = 8;
+
+pub(super) fn literal_storage_size(length: usize) -> Option<usize> {
+    super::types::align(
+        STATIC_OWNER_DATA_OFFSET.checked_add(length)?,
+        STATIC_OWNER_ALIGNMENT,
+    )
+}
+
 pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
     let contents = bytes
         .iter()
@@ -13,7 +23,7 @@ pub(super) fn literal_definition(name: &str, bytes: &[u8]) -> String {
         })
         .collect::<String>();
     format!(
-        "@{name} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align 8\n",
+        "@{name} = private constant {{ i64, i64, i8, [7 x i8], [{} x i8] }} {{ i64 -1, i64 {}, i8 0, [7 x i8] zeroinitializer, [{} x i8] c\"{contents}\" }}, align {STATIC_OWNER_ALIGNMENT}\n",
         bytes.len(),
         bytes.len(),
         bytes.len()

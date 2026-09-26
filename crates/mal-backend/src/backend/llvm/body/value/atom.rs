@@ -41,7 +41,10 @@ impl FunctionEmitter<'_> {
                 self.globals
                     .push_str(&super::super::symbol::literal_definition(&name, bytes));
                 let data = self.register();
-                self.line(format!("  {data} = getelementptr i8, ptr @{name}, i64 24"));
+                self.line(format!(
+                    "  {data} = getelementptr i8, ptr @{name}, i64 {}",
+                    super::super::symbol::STATIC_OWNER_DATA_OFFSET
+                ));
                 self.make_byte_view(
                     &Type::Symbol,
                     &format!("@{name}"),
