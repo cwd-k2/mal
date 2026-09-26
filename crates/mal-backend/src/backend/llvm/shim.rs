@@ -1,5 +1,5 @@
 use crate::backend::c::syntax::{
-    Expr, FunctionDefinition, c_block, c_expr, c_function, c_signature, c_type, c_variable,
+    Expr, FunctionDefinition, c_block, c_expr, c_function, c_type, c_variable,
 };
 use mal_frontend::check::ast::Type;
 
@@ -24,9 +24,7 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 }
 
 fn unit_main(entry: &str) -> FunctionDefinition {
-    c_function!(signature {
-        c_signature!(fn "main"() -> named("int"))
-    };
+    c_function!(fn "main"() -> named("int")
         block [
             (var ("MalContext") ("context") = { zero_initializer() }),
             (var ("int32_t") ("result")),
@@ -96,12 +94,10 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         (return (id "result")),
     );
 
-    Some(c_function!(signature {
-        c_signature!(fn "main"(
+    Some(c_function!(fn "main"(
             "mal_argc": named("int"),
             "mal_argv": ptr(ptr(named("char"))),
-        ) -> named("int"))
-    };
+        ) -> named("int")
         body { body }
     ))
 }

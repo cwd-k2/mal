@@ -128,12 +128,11 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
             "message": ptr(const(named("char"))),
         ) -> named("void"))
     }));
-    output.push(c_function!(signature {
-        c_signature!(static inline noreturn fn "mal_call_trap"(
+    output.push(c_function!(
+        static inline noreturn fn "mal_call_trap"(
             "call": ptr(named("mal_call_t")),
             "message": ptr(const(named("char"))),
-        ) -> named("void"))
-    };
+        ) -> named("void")
         block [(call "mal_trap";
                 (pointer_field (id "call"); "mal_detail_context"),
                 (id "message"),
@@ -144,11 +143,10 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
 }
 
 fn append_builtin_returns(output: &mut TranslationUnit) {
-    output.push(c_function!(signature {
-        c_signature!(static inline fn "mal_Unit_return"(
+    output.push(c_function!(
+        static inline fn "mal_Unit_return"(
             "call": ptr(named("mal_call_t")) [maybe_unused],
-        ) -> named("MalType_Unit"))
-    };
+        ) -> named("MalType_Unit")
         block [(return (compound "MalType_Unit";
             (field "unused"; (call "UINT8_C"; (number 0))),
         ))]
@@ -167,21 +165,19 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_ByteSize", "mal_ByteSize_t", "ByteSize"),
         ("MalType_USize", "mal_USize_t", "USize"),
     ] {
-        output.push(c_function!(signature {
-            c_signature!(static inline fn { format!("mal_{name}_return") }(
+        output.push(c_function!(
+            static inline fn { format!("mal_{name}_return") }(
                 "call": ptr(named("mal_call_t")) [maybe_unused],
                 "value": named(host),
-            ) -> named(raw))
-        };
+            ) -> named(raw)
             block [(return (id "value"))]
         ));
     }
-    output.push(c_function!(signature {
-        c_signature!(static inline fn "mal_Address_return"(
+    output.push(c_function!(
+        static inline fn "mal_Address_return"(
             "call": ptr(named("mal_call_t")),
             "value": named("mal_Address_t"),
-        ) -> named("MalType_Address"))
-    };
+        ) -> named("MalType_Address")
         block [
             (if (equal (id "value"); (number 0)); [
                 (call "mal_call_trap";
@@ -192,12 +188,11 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
             (return (id "value")),
         ]
     ));
-    output.push(c_function!(signature {
-        c_signature!(static inline fn "mal_Bool_return"(
+    output.push(c_function!(
+        static inline fn "mal_Bool_return"(
             "call": ptr(named("mal_call_t")),
             "value": named("mal_Bool_t"),
-        ) -> named("MalType_Bool"))
-    };
+        ) -> named("MalType_Bool")
         block [
             (if (logical_and
                     (not_equal (id "value"); (id "mal_false"));

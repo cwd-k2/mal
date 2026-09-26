@@ -145,3 +145,18 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
         )
     );
 }
+
+#[test]
+fn function_macro_embeds_signature_grammar_directly() {
+    let function = super::c_function!(
+        static inline fn "identity"(
+            "value": named("uint32_t"),
+        ) -> named("uint32_t")
+        block [(return (id "value"))]
+    );
+
+    assert_eq!(
+        function.render(),
+        "static inline uint32_t identity(uint32_t value) {\n    return value;\n}\n"
+    );
+}

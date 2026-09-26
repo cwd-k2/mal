@@ -203,23 +203,21 @@ impl TypeRegistry {
             )]));
         }
         let mut output = TranslationUnit::default();
-        output.push(c_function!(signature {
-            c_signature!(static inline fn { format!("mal_detail_to_host_{index}") }(
+        output.push(c_function!(
+            static inline fn { format!("mal_detail_to_host_{index}") }(
                 "call": ptr(named("mal_call_t")),
                 "value": { raw_type.clone() },
-            ) -> { host_type.clone() })
-        };
+            ) -> { host_type.clone() }
             block [(switch (field (id "value"); "tag"); [
                 {{ to_host_cases }},
             ])]
         ));
         output.blank_line();
-        output.push(c_function!(signature {
-            c_signature!(static inline fn { format!("mal_detail_to_raw_{index}") }(
+        output.push(c_function!(
+            static inline fn { format!("mal_detail_to_raw_{index}") }(
                 "call": ptr(named("mal_call_t")),
                 "value": { host_type },
-            ) -> { raw_type })
-        };
+            ) -> { raw_type }
             block [(switch (field (id "value"); "tag"); [
                 {{ to_raw_cases }},
             ])]

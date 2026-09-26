@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
-    Expr, Statement, TranslationUnit, TypeName, c_expr, c_function, c_initializer, c_signature,
-    c_statement, c_switch_case, c_type,
+    Expr, Statement, TranslationUnit, TypeName, c_expr, c_function, c_initializer, c_statement,
+    c_switch_case, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -211,12 +211,11 @@ impl<'a> Marshalling<'a> {
             c_type!(ptr(const(named("uint32_t")))),
             c_expr!(add (id "value"); (number tag_offset)),
         );
-        self.helpers.push(c_function!(signature {
-            c_signature!(static fn { helper.clone() }(
+        self.helpers.push(c_function!(
+            static fn { helper.clone() }(
                 "context": ptr(named("MalContext")),
                 "value": ptr(const(named("uint8_t"))),
-            ) -> { c_type })
-        };
+            ) -> { c_type }
             block [
                 (var ("uint32_t") ("tag") = { tag }),
                 (switch (id "tag"); [{{ cases }}]),
@@ -326,13 +325,12 @@ impl<'a> Marshalling<'a> {
             c_expr!(add (id "value"); (number tag_offset)),
             c_expr!(field (id "input"); "tag"),
         );
-        self.helpers.push(c_function!(signature {
-            c_signature!(static fn { helper.clone() }(
+        self.helpers.push(c_function!(
+            static fn { helper.clone() }(
                 "context": ptr(named("MalContext")),
                 "value": ptr(named("uint8_t")),
                 "input": { c_type },
-            ) -> named("void"))
-        };
+            ) -> named("void")
             block [
                 { tag_store },
                 (switch (field (id "input"); "tag"); [{{ cases }}]),
