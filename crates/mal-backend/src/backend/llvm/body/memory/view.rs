@@ -18,11 +18,16 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let count = self.register();
-        self.line(format!(
-            "  {count} = call {} @mal_runtime_buffer_count(ptr {})",
-            self.types.index_integer(),
-            buffer.representation
-        ));
+        self.direct_call(
+            Some(count.clone()),
+            false,
+            self.types.index_llvm_type(),
+            "mal_runtime_buffer_count",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                buffer.representation.clone(),
+            )],
+        );
         Some(EmittedValue {
             ty: Type::USize,
             representation: count,
@@ -40,20 +45,39 @@ impl FunctionEmitter<'_> {
         }
         let data = self.active_buffer_data(buffer);
         let count = self.register();
-        self.line(format!(
-            "  {count} = call {} @mal_runtime_buffer_count(ptr {})",
-            self.types.index_integer(),
-            buffer.representation
-        ));
+        self.direct_call(
+            Some(count.clone()),
+            false,
+            self.types.index_llvm_type(),
+            "mal_runtime_buffer_count",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                buffer.representation.clone(),
+            )],
+        );
         let owner = self.register();
-        self.line(format!(
-            "  {owner} = call ptr @mal_runtime_bytes_read(ptr %mal_context, ptr {data}, {} {count})",
-            self.types.index_integer()
-        ));
+        self.direct_call(
+            Some(owner.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_runtime_bytes_read",
+            [
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (crate::backend::llvm::syntax::Type::Pointer, data),
+                (self.types.index_llvm_type(), count.clone()),
+            ],
+        );
         let copied_data = self.register();
-        self.line(format!(
-            "  {copied_data} = call ptr @mal_runtime_bytes_data(ptr {owner})"
-        ));
+        self.direct_call(
+            Some(copied_data.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_runtime_bytes_data",
+            [(crate::backend::llvm::syntax::Type::Pointer, owner.clone())],
+        );
         self.make_byte_view(&Type::Symbol, &owner, &copied_data, &count, true)
     }
 
@@ -67,12 +91,22 @@ impl FunctionEmitter<'_> {
         }
         let fields = self.byte_view_fields(symbol)?;
         let buffer = self.register();
-        let index = self.types.index_integer();
-        self.line(format!(
-            "  {buffer} = call ptr @mal_runtime_buffer_from(ptr %mal_context, ptr {data}, {index} 0, {index} {count}, {index} 1)",
-            data = fields.data,
-            count = fields.count,
-        ));
+        self.direct_call(
+            Some(buffer.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_runtime_buffer_from",
+            [
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (crate::backend::llvm::syntax::Type::Pointer, fields.data),
+                (self.types.index_llvm_type(), "0".into()),
+                (self.types.index_llvm_type(), fields.count),
+                (self.types.index_llvm_type(), "1".into()),
+            ],
+        );
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: buffer,

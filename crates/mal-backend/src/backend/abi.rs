@@ -62,14 +62,22 @@ impl Function {
         FunctionSignature::new("void", self.name.clone(), parameters)
     }
 
-    pub(crate) fn llvm_signature(&self) -> String {
-        let parameters = self
-            .parameters
-            .iter()
-            .map(|parameter| format!("ptr %mal_{}", parameter.name))
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("void @{}({parameters})", self.name)
+    pub(in crate::backend) fn llvm_call(
+        &self,
+        arguments: [String; 3],
+    ) -> Option<crate::backend::llvm::syntax::Instruction> {
+        use crate::backend::llvm::syntax::{Callee, Instruction, Type, TypedValue};
+
+        Instruction::call(
+            None::<String>,
+            false,
+            Type::Void,
+            Callee::direct(self.name.clone())?,
+            arguments
+                .into_iter()
+                .map(|argument| TypedValue::new(Type::Pointer, argument))
+                .collect::<Option<Vec<_>>>()?,
+        )
     }
 
     pub(in crate::backend) fn llvm_definition_signature(

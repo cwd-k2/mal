@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend::llvm) enum Type {
+pub(in crate::backend) enum Type {
     Void,
     Integer(u16),
     Float,

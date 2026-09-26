@@ -27,11 +27,11 @@ impl FunctionEmitter<'_> {
             [],
         );
         let bridge = crate::backend::abi::Function::external_bridge(id);
-        let call = bridge
-            .llvm_signature()
-            .replace("%mal_argument", "%mal_bridge_argument")
-            .replace("%mal_result", "%mal_bridge_result");
-        self.line(format!("  call {call}"));
+        self.structured_instruction(bridge.llvm_call([
+            "%mal_context".into(),
+            "%mal_bridge_argument".into(),
+            "%mal_bridge_result".into(),
+        ]));
         let register = self.register();
         self.load(
             register.clone(),

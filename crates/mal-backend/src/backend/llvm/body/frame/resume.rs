@@ -13,9 +13,13 @@ impl FunctionEmitter<'_> {
         if frame_sites.is_empty() {
             if self.common_region.is_some() {
                 let environment = self.active_environment();
-                self.line(format!(
-                    "  call void @mal_runtime_environment_release(ptr {environment})"
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Void,
+                    "mal_runtime_environment_release",
+                    [(crate::backend::llvm::syntax::Type::Pointer, environment)],
+                );
             }
             if result.ty != self.result_type {
                 return None;
@@ -46,9 +50,13 @@ impl FunctionEmitter<'_> {
         self.sync_control_top()?;
         if self.common_region.is_some() {
             let environment = self.active_environment();
-            self.line(format!(
-                "  call void @mal_runtime_environment_release(ptr {environment})"
-            ));
+            self.direct_call(
+                None,
+                false,
+                crate::backend::llvm::syntax::Type::Void,
+                "mal_runtime_environment_release",
+                [(crate::backend::llvm::syntax::Type::Pointer, environment)],
+            );
         }
         if result.ty == self.result_type {
             let result_type = self.types.value(&self.result_type)?;
@@ -80,9 +88,13 @@ impl FunctionEmitter<'_> {
             ));
             if self.common_region.is_some() {
                 let active = self.active_environment();
-                self.line(format!(
-                    "  call void @mal_runtime_environment_release(ptr {active})"
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Void,
+                    "mal_runtime_environment_release",
+                    [(crate::backend::llvm::syntax::Type::Pointer, active)],
+                );
             }
             self.branch(format!("mal_frame_{}_from_{}", frame_site.0, site.0));
             return self.emit_frame_resume(site, *frame_site, result, &frame_pointer, false);
@@ -117,9 +129,13 @@ impl FunctionEmitter<'_> {
         ));
         if self.common_region.is_some() {
             let active = self.active_environment();
-            self.line(format!(
-                "  call void @mal_runtime_environment_release(ptr {active})"
-            ));
+            self.direct_call(
+                None,
+                false,
+                crate::backend::llvm::syntax::Type::Void,
+                "mal_runtime_environment_release",
+                [(crate::backend::llvm::syntax::Type::Pointer, active)],
+            );
         }
         let tag = self.register();
         self.load(

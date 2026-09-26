@@ -12,9 +12,16 @@ impl FunctionEmitter<'_> {
             return;
         }
         let storage = self.register();
-        self.line(format!(
-            "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
-        ));
+        self.direct_call(
+            Some(storage.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_control_storage",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_context".into(),
+            )],
+        );
         self.store(
             crate::backend::llvm::syntax::Type::Pointer,
             storage,
@@ -22,11 +29,17 @@ impl FunctionEmitter<'_> {
             self.types.pointer_alignment(),
             [],
         );
-        let index_type = self.types.index_integer();
         let capacity = self.register();
-        self.line(format!(
-            "  {capacity} = call {index_type} @mal_control_capacity(ptr %mal_context)"
-        ));
+        self.direct_call(
+            Some(capacity.clone()),
+            false,
+            self.types.index_llvm_type(),
+            "mal_control_capacity",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_context".into(),
+            )],
+        );
         self.store(
             self.types.index_llvm_type(),
             capacity,
@@ -47,9 +60,16 @@ impl FunctionEmitter<'_> {
                 [],
             );
         } else {
-            self.line(format!(
-                "  {storage} = call ptr @mal_control_storage(ptr %mal_context)"
-            ));
+            self.direct_call(
+                Some(storage.clone()),
+                false,
+                crate::backend::llvm::syntax::Type::Pointer,
+                "mal_control_storage",
+                [(
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                )],
+            );
         }
         storage
     }
@@ -82,9 +102,20 @@ impl FunctionEmitter<'_> {
         }
         if !self.local_control_storage {
             let storage = self.register();
-            self.line(format!(
-                "  {storage} = call ptr @mal_control_reserve_frame(ptr %mal_context, {index_type} {top}, {index_type} {frame_size})"
-            ));
+            self.direct_call(
+                Some(storage.clone()),
+                false,
+                crate::backend::llvm::syntax::Type::Pointer,
+                "mal_control_reserve_frame",
+                [
+                    (
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        "%mal_context".into(),
+                    ),
+                    (self.types.index_llvm_type(), top.clone()),
+                    (self.types.index_llvm_type(), frame_size.to_string()),
+                ],
+            );
             return Some(ControlReservation {
                 top,
                 next_top,
@@ -131,9 +162,20 @@ impl FunctionEmitter<'_> {
         self.branch(format!("mal_control_ready_{label}"));
         self.block(format!("mal_control_slow_{label}"));
         let grown = self.register();
-        self.line(format!(
-            "  {grown} = call ptr @mal_control_reserve_frame(ptr %mal_context, {index_type} {top}, {index_type} {frame_size})"
-        ));
+        self.direct_call(
+            Some(grown.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_control_reserve_frame",
+            [
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (self.types.index_llvm_type(), top.clone()),
+                (self.types.index_llvm_type(), frame_size.to_string()),
+            ],
+        );
         self.store(
             crate::backend::llvm::syntax::Type::Pointer,
             grown.as_str(),
@@ -142,9 +184,16 @@ impl FunctionEmitter<'_> {
             [],
         );
         let grown_capacity = self.register();
-        self.line(format!(
-            "  {grown_capacity} = call {index_type} @mal_control_capacity(ptr %mal_context)"
-        ));
+        self.direct_call(
+            Some(grown_capacity.clone()),
+            false,
+            self.types.index_llvm_type(),
+            "mal_control_capacity",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_context".into(),
+            )],
+        );
         self.store(
             self.types.index_llvm_type(),
             grown_capacity,

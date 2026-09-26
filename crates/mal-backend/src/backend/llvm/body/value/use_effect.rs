@@ -104,9 +104,13 @@ impl FunctionEmitter<'_> {
         let mut value = self.atom(atom)?;
         let environment = self.active_environment();
         let unique = self.register();
-        self.line(format!(
-            "  {unique} = call i8 @mal_runtime_environment_is_unique(ptr {environment})"
-        ));
+        self.direct_call(
+            Some(unique.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            "mal_runtime_environment_is_unique",
+            [(crate::backend::llvm::syntax::Type::Pointer, environment)],
+        );
         let condition = self.register();
         self.line(format!("  {condition} = trunc i8 {unique} to i1"));
         let label = self.label_id();

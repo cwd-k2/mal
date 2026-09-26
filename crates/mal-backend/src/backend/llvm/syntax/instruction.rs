@@ -2,7 +2,7 @@ use super::Type;
 use super::function::{is_single_line, is_valid_name};
 
 #[derive(Clone)]
-pub(in crate::backend::llvm) enum Instruction {
+pub(in crate::backend) enum Instruction {
     Alloca {
         result: String,
         ty: Type,
@@ -33,19 +33,19 @@ pub(in crate::backend::llvm) enum Instruction {
 }
 
 #[derive(Clone)]
-pub(in crate::backend::llvm) enum Callee {
+pub(in crate::backend) enum Callee {
     Direct(String),
     Indirect(String),
 }
 
 #[derive(Clone)]
-pub(in crate::backend::llvm) struct TypedValue {
+pub(in crate::backend) struct TypedValue {
     ty: Type,
     value: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::backend::llvm) enum MetadataAttachment {
+pub(in crate::backend) enum MetadataAttachment {
     Tbaa(usize),
     AliasScope(usize),
     NoAlias(usize),
@@ -105,7 +105,7 @@ impl Instruction {
         })
     }
 
-    pub(in crate::backend::llvm) fn call(
+    pub(in crate::backend) fn call(
         result: Option<impl Into<String>>,
         tail: bool,
         result_type: Type,
@@ -200,24 +200,18 @@ impl Instruction {
         match self {
             Self::Alloca { .. } | Self::Load { .. } | Self::Store { .. } => false,
             Self::Call { callee, .. } => callee.uses_byte_runtime(),
-            Self::Raw(text) => [
-                "@mal_runtime_bytes_",
-                "@mal_runtime_buffer_",
-                "@mal_runtime_symbol_",
-            ]
-            .iter()
-            .any(|prefix| text.contains(prefix)),
+            Self::Raw(_) => false,
         }
     }
 }
 
 impl Callee {
-    pub(in crate::backend::llvm) fn direct(name: impl Into<String>) -> Option<Self> {
+    pub(in crate::backend) fn direct(name: impl Into<String>) -> Option<Self> {
         let name = name.into();
         is_valid_name(&name).then_some(Self::Direct(name))
     }
 
-    pub(in crate::backend::llvm) fn indirect(value: impl Into<String>) -> Option<Self> {
+    pub(in crate::backend) fn indirect(value: impl Into<String>) -> Option<Self> {
         let value = value.into();
         is_value(&value).then_some(Self::Indirect(value))
     }
@@ -237,7 +231,7 @@ impl Callee {
 }
 
 impl TypedValue {
-    pub(in crate::backend::llvm) fn new(ty: Type, value: impl Into<String>) -> Option<Self> {
+    pub(in crate::backend) fn new(ty: Type, value: impl Into<String>) -> Option<Self> {
         let value = value.into();
         is_value(&value).then_some(Self { ty, value })
     }

@@ -78,13 +78,25 @@ impl FunctionEmitter<'_> {
             self.product_fields(argument, [&Type::Address, &Type::USize, &Type::USize])?;
         let stride = self.source_layouts.layout(element)?.stride;
         let representation = self.register();
-        let index = self.types.index_integer();
-        self.line(format!(
-            "  {representation} = call ptr @mal_runtime_buffer_from(ptr %mal_context, ptr {address}, {index} {offset}, {index} {length}, {index} {stride})",
-            address = address.representation,
-            offset = offset.representation,
-            length = length.representation,
-        ));
+        self.direct_call(
+            Some(representation.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_runtime_buffer_from",
+            [
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    address.representation,
+                ),
+                (self.types.index_llvm_type(), offset.representation),
+                (self.types.index_llvm_type(), length.representation),
+                (self.types.index_llvm_type(), stride.to_string()),
+            ],
+        );
         Some(emitted_buffer(representation, result_type.clone()))
     }
 
@@ -114,14 +126,29 @@ impl FunctionEmitter<'_> {
             [buffer_type, address_type, offset_type, length_type],
         )?;
         let stride = self.source_layouts.layout(element)?.stride;
-        let index = self.types.index_integer();
-        self.line(format!(
-            "  call void @mal_runtime_buffer_into(ptr %mal_context, ptr {buffer}, ptr {address}, {index} {offset}, {index} {length}, {index} {stride})",
-            buffer = buffer.representation,
-            address = address.representation,
-            offset = offset.representation,
-            length = length.representation,
-        ));
+        self.direct_call(
+            None,
+            false,
+            crate::backend::llvm::syntax::Type::Void,
+            "mal_runtime_buffer_into",
+            [
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    buffer.representation,
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    address.representation,
+                ),
+                (self.types.index_llvm_type(), offset.representation),
+                (self.types.index_llvm_type(), length.representation),
+                (self.types.index_llvm_type(), stride.to_string()),
+            ],
+        );
         Some(EmittedValue {
             ty: Type::Unit,
             representation: "0".into(),
@@ -150,15 +177,49 @@ impl FunctionEmitter<'_> {
                 let buffer = self.register();
                 if let ElementStorage::Managed { .. } = storage {
                     let number = self.index.managed_buffer_elements.number(element)?;
-                    self.line(format!(
-                        "  {buffer} = call ptr @mal_runtime_buffer_make_managed(ptr %mal_context, {0} {stride}, {0} {1}, ptr @mal_buffer_retain_{number}, ptr @mal_buffer_release_{number})",
-                        self.types.index_integer(), capacity.representation
-                    ));
+                    self.direct_call(
+                        Some(buffer.clone()),
+                        false,
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        "mal_runtime_buffer_make_managed",
+                        [
+                            (
+                                crate::backend::llvm::syntax::Type::Pointer,
+                                "%mal_context".into(),
+                            ),
+                            (self.types.index_llvm_type(), stride.to_string()),
+                            (
+                                self.types.index_llvm_type(),
+                                capacity.representation.clone(),
+                            ),
+                            (
+                                crate::backend::llvm::syntax::Type::Pointer,
+                                format!("@mal_buffer_retain_{number}"),
+                            ),
+                            (
+                                crate::backend::llvm::syntax::Type::Pointer,
+                                format!("@mal_buffer_release_{number}"),
+                            ),
+                        ],
+                    );
                 } else {
-                    self.line(format!(
-                        "  {buffer} = call ptr @mal_runtime_buffer_make(ptr %mal_context, {0} {stride}, {0} {1})",
-                        self.types.index_integer(), capacity.representation
-                    ));
+                    self.direct_call(
+                        Some(buffer.clone()),
+                        false,
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        "mal_runtime_buffer_make",
+                        [
+                            (
+                                crate::backend::llvm::syntax::Type::Pointer,
+                                "%mal_context".into(),
+                            ),
+                            (self.types.index_llvm_type(), stride.to_string()),
+                            (
+                                self.types.index_llvm_type(),
+                                capacity.representation.clone(),
+                            ),
+                        ],
+                    );
                 }
                 Some(emitted_buffer(buffer, buffer_type))
             }
@@ -172,10 +233,24 @@ impl FunctionEmitter<'_> {
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
                 let function = storage.runtime("new");
-                self.line(format!(
-                    "  {index} = call {0} @{function}(ptr %mal_context, ptr {1}, ptr {value_pointer}, {0} {stride})",
-                    self.types.index_integer(), buffer.representation
-                ));
+                self.direct_call(
+                    Some(index.clone()),
+                    false,
+                    self.types.index_llvm_type(),
+                    function,
+                    [
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            "%mal_context".into(),
+                        ),
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            buffer.representation.clone(),
+                        ),
+                        (crate::backend::llvm::syntax::Type::Pointer, value_pointer),
+                        (self.types.index_llvm_type(), stride.to_string()),
+                    ],
+                );
                 Some(EmittedValue {
                     ty: Type::USize,
                     representation: index,
@@ -241,14 +316,27 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
-                let index = self.types.index_integer();
                 let function = storage.runtime("fill");
-                self.line(format!(
-                    "  call void @{function}(ptr %mal_context, ptr {buffer}, {index} {offset}, {index} {length}, ptr {value_pointer}, {index} {stride})",
-                    buffer = buffer.representation,
-                    offset = offset.representation,
-                    length = length.representation,
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Void,
+                    function,
+                    [
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            "%mal_context".into(),
+                        ),
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            buffer.representation.clone(),
+                        ),
+                        (self.types.index_llvm_type(), offset.representation.clone()),
+                        (self.types.index_llvm_type(), length.representation.clone()),
+                        (crate::backend::llvm::syntax::Type::Pointer, value_pointer),
+                        (self.types.index_llvm_type(), stride.to_string()),
+                    ],
+                );
                 Some(emitted_unit())
             }
             BufferOperation::Copy => {
@@ -271,16 +359,37 @@ impl FunctionEmitter<'_> {
                 {
                     return None;
                 }
-                let index = self.types.index_integer();
                 let function = storage.runtime("copy");
-                self.line(format!(
-                    "  call void @{function}(ptr %mal_context, ptr {destination}, {index} {destination_offset}, ptr {source}, {index} {source_offset}, {index} {length}, {index} {stride})",
-                    destination = destination.representation,
-                    destination_offset = destination_offset.representation,
-                    source = source.representation,
-                    source_offset = source_offset.representation,
-                    length = length.representation,
-                ));
+                self.direct_call(
+                    None,
+                    false,
+                    crate::backend::llvm::syntax::Type::Void,
+                    function,
+                    [
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            "%mal_context".into(),
+                        ),
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            destination.representation.clone(),
+                        ),
+                        (
+                            self.types.index_llvm_type(),
+                            destination_offset.representation.clone(),
+                        ),
+                        (
+                            crate::backend::llvm::syntax::Type::Pointer,
+                            source.representation.clone(),
+                        ),
+                        (
+                            self.types.index_llvm_type(),
+                            source_offset.representation.clone(),
+                        ),
+                        (self.types.index_llvm_type(), length.representation.clone()),
+                        (self.types.index_llvm_type(), stride.to_string()),
+                    ],
+                );
                 Some(emitted_unit())
             }
         }
@@ -291,10 +400,16 @@ impl FunctionEmitter<'_> {
         buffer: &EmittedValue,
     ) -> String {
         let slot = self.register();
-        self.line(format!(
-            "  {slot} = call ptr @mal_runtime_buffer_data_slot(ptr {})",
-            buffer.representation
-        ));
+        self.direct_call(
+            Some(slot.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::Pointer,
+            "mal_runtime_buffer_data_slot",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                buffer.representation.clone(),
+            )],
+        );
         let data = self.register();
         self.load(
             data.clone(),

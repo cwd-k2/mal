@@ -237,9 +237,13 @@ impl FunctionEmitter<'_> {
         self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
         if !preserve_environment {
             let previous = self.active_environment();
-            self.line(format!(
-                "  call void @mal_runtime_environment_release(ptr {previous})"
-            ));
+            self.direct_call(
+                None,
+                false,
+                crate::backend::llvm::syntax::Type::Void,
+                "mal_runtime_environment_release",
+                [(crate::backend::llvm::syntax::Type::Pointer, previous)],
+            );
         }
         self.store(
             crate::backend::llvm::syntax::Type::Pointer,
@@ -300,21 +304,33 @@ impl FunctionEmitter<'_> {
             .any(|target| !targets.contains(target));
         if has_native_target {
             let result_type = self.types.value(result)?;
-            let arguments = if argument.ty == Type::Unit {
-                format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
-            } else {
+            let mut arguments = vec![
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_control_top".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    environment.into(),
+                ),
+            ];
+            if argument.ty != Type::Unit {
                 let argument_type = self.types.value(&argument.ty)?;
-                format!(
-                    "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
-                    argument_type.llvm, argument.representation
-                )
-            };
+                arguments.push((argument_type.llvm, argument.representation.clone()));
+            }
             let returned = self.register();
             self.sync_control_top()?;
-            self.line(format!(
-                "  {returned} = call {} {code}({arguments})",
-                result_type.llvm
-            ));
+            self.indirect_call(
+                Some(returned.clone()),
+                false,
+                result_type.llvm,
+                code,
+                arguments,
+            );
             if self
                 .optimizations
                 .site_may_relocate_control_storage(&self.execution.applications, site)

@@ -73,12 +73,29 @@ impl FunctionEmitter<'_> {
                         self.emit_product(captures, &environment_type, &effects)?;
                     let environment_layout = self.types.value(&environment_type)?;
                     let environment = self.register();
-                    self.line(format!(
-                        "  {environment} = call ptr @mal_runtime_environment_allocate(ptr %mal_context, {} {}, ptr @mal_destroy_environment_{})",
-                        self.types.index_integer(),
-                        environment_layout.size,
-                        super::function_number(*function)
-                    ));
+                    self.direct_call(
+                        Some(environment.clone()),
+                        false,
+                        crate::backend::llvm::syntax::Type::Pointer,
+                        "mal_runtime_environment_allocate",
+                        [
+                            (
+                                crate::backend::llvm::syntax::Type::Pointer,
+                                "%mal_context".into(),
+                            ),
+                            (
+                                self.types.index_llvm_type(),
+                                environment_layout.size.to_string(),
+                            ),
+                            (
+                                crate::backend::llvm::syntax::Type::Pointer,
+                                format!(
+                                    "@mal_destroy_environment_{}",
+                                    super::function_number(*function)
+                                ),
+                            ),
+                        ],
+                    );
                     self.store(
                         environment_layout.llvm,
                         environment_value.value.representation.as_str(),
@@ -183,14 +200,18 @@ impl FunctionEmitter<'_> {
                         let left = self.byte_view_fields(&left)?;
                         let right = self.byte_view_fields(&right)?;
                         let equality = self.register();
-                        let index_type = self.types.index_integer();
-                        self.line(format!(
-                            "  {equality} = call i8 @mal_runtime_symbol_equal(ptr {}, {index_type} {}, ptr {}, {index_type} {})",
-                            left.data,
-                            left.count,
-                            right.data,
-                            right.count
-                        ));
+                        self.direct_call(
+                            Some(equality.clone()),
+                            false,
+                            crate::backend::llvm::syntax::Type::integer(8_u16),
+                            "mal_runtime_symbol_equal",
+                            [
+                                (crate::backend::llvm::syntax::Type::Pointer, left.data),
+                                (self.types.index_llvm_type(), left.count),
+                                (crate::backend::llvm::syntax::Type::Pointer, right.data),
+                                (self.types.index_llvm_type(), right.count),
+                            ],
+                        );
                         let predicate = match operator {
                             crate::core::ast::BinaryPrimitive::Equal => "ne",
                             crate::core::ast::BinaryPrimitive::NotEqual => "eq",

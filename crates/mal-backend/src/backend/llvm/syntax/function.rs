@@ -514,25 +514,30 @@ mod tests {
     #[test]
     fn derives_byte_runtime_requirements_from_emitted_instructions() {
         let signature = || FunctionSignature::new("void", "example", std::iter::empty::<&str>());
-        let plain = FunctionDefinition::new(
-            signature(),
-            vec![
-                BasicBlock::new("entry", ["call void @work()"], Terminator::return_void()).unwrap(),
-            ],
-        )
-        .unwrap();
-        let bytes = FunctionDefinition::new(
-            signature(),
-            vec![
-                BasicBlock::new(
-                    "entry",
-                    ["call void @mal_runtime_bytes_release(ptr null)"],
-                    Terminator::return_void(),
-                )
-                .unwrap(),
-            ],
-        )
-        .unwrap();
+        let call = |callee, arguments: Vec<super::super::TypedValue>| {
+            Instruction::call(
+                None::<String>,
+                false,
+                Type::Void,
+                super::super::Callee::direct(callee).unwrap(),
+                arguments,
+            )
+            .unwrap()
+        };
+        let mut plain = FunctionBuilder::new(signature());
+        assert!(plain.start_block("entry"));
+        assert!(plain.structured_instruction(call("work", Vec::new())));
+        assert!(plain.terminate(Terminator::return_void()));
+        let plain = plain.finish().unwrap();
+
+        let mut bytes = FunctionBuilder::new(signature());
+        assert!(bytes.start_block("entry"));
+        assert!(bytes.structured_instruction(call(
+            "mal_runtime_bytes_release",
+            vec![super::super::TypedValue::new(Type::Pointer, "null").unwrap()],
+        )));
+        assert!(bytes.terminate(Terminator::return_void()));
+        let bytes = bytes.finish().unwrap();
 
         assert!(!plain.uses_byte_runtime());
         assert!(bytes.uses_byte_runtime());

@@ -54,11 +54,16 @@ impl FunctionEmitter<'_> {
         let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::USize])?;
         let data = self.byte_view_fields(&symbol)?.data;
         let result = self.register();
-        self.line(format!(
-            "  {result} = call i8 @mal_runtime_symbol_at(ptr {data}, {} {})",
-            self.types.index_integer(),
-            index.representation
-        ));
+        self.direct_call(
+            Some(result.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            "mal_runtime_symbol_at",
+            [
+                (crate::backend::llvm::syntax::Type::Pointer, data),
+                (self.types.index_llvm_type(), index.representation),
+            ],
+        );
         Some(EmittedValue {
             ty: Type::UInt8,
             representation: result,
@@ -111,10 +116,28 @@ impl FunctionEmitter<'_> {
         } else {
             "mal_runtime_symbol_concatenate"
         };
-        self.line(format!(
-            "  call void @{operation}(ptr %mal_context, ptr {result_storage}, ptr {left_owner}, ptr {left_data}, {0} {left_length}, ptr {right_owner}, ptr {right_data}, {0} {right_length})",
-            self.types.index_integer()
-        ));
+        self.direct_call(
+            None,
+            false,
+            crate::backend::llvm::syntax::Type::Void,
+            operation,
+            [
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    "%mal_context".into(),
+                ),
+                (
+                    crate::backend::llvm::syntax::Type::Pointer,
+                    result_storage.into(),
+                ),
+                (crate::backend::llvm::syntax::Type::Pointer, left_owner),
+                (crate::backend::llvm::syntax::Type::Pointer, left_data),
+                (self.types.index_llvm_type(), left_length),
+                (crate::backend::llvm::syntax::Type::Pointer, right_owner),
+                (crate::backend::llvm::syntax::Type::Pointer, right_data),
+                (self.types.index_llvm_type(), right_length),
+            ],
+        );
         let result = self.register();
         self.load(
             result.clone(),

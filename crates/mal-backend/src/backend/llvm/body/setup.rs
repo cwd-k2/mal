@@ -293,9 +293,19 @@ impl<'a> FunctionEmitter<'a> {
                 self.types.pointer_alignment(),
             ));
             let environment = self.register();
-            self.line(format!(
-                "  {environment} = call ptr @mal_runtime_environment_retain(ptr %mal_context, ptr %mal_environment)"
-            ));
+            self.direct_call(
+                Some(environment.clone()),
+                false,
+                super::super::syntax::Type::Pointer,
+                "mal_runtime_environment_retain",
+                [
+                    (super::super::syntax::Type::Pointer, "%mal_context".into()),
+                    (
+                        super::super::syntax::Type::Pointer,
+                        "%mal_environment".into(),
+                    ),
+                ],
+            );
             self.store(
                 super::super::syntax::Type::Pointer,
                 environment,

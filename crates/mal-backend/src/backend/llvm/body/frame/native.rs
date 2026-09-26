@@ -61,9 +61,18 @@ impl FunctionEmitter<'_> {
         // The callee's entry keeps its own reference to a managed argument, so a reference this call site takes for the
         // ownership plan's handoff (a share or a move) is released once the call returns.
         let mut handed_over = None;
-        let arguments = if self.function.parameter.ty == Type::Unit {
-            format!("ptr %mal_context, ptr %mal_control_top, ptr {environment}")
-        } else {
+        let mut arguments = vec![
+            (
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_context".into(),
+            ),
+            (
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_control_top".into(),
+            ),
+            (crate::backend::llvm::syntax::Type::Pointer, environment),
+        ];
+        if self.function.parameter.ty != Type::Unit {
             let argument = if crate::execution::ownership::is_managed(&argument.ty) {
                 let effect = self.ownership.terminator_use(
                     site,
@@ -81,18 +90,13 @@ impl FunctionEmitter<'_> {
                 self.atom(argument)?
             };
             let argument_type = self.types.value(&argument.ty)?;
-            format!(
-                "ptr %mal_context, ptr %mal_control_top, ptr {environment}, {} {}",
-                argument_type.llvm, argument.representation
-            )
-        };
+            arguments.push((argument_type.llvm, argument.representation));
+        }
         let result_type = self.current_result_type()?;
         let result_llvm = self.types.value(&result_type)?.llvm;
         let name = super::super::function_name(self.function.id);
         let register = self.register();
-        self.line(format!(
-            "  {register} = call {result_llvm} @{name}({arguments})"
-        ));
+        self.direct_call(Some(register.clone()), false, result_llvm, name, arguments);
         if let Some(value) = handed_over {
             self.release_value(&value.ty, &value.representation)?;
         }
@@ -110,33 +114,63 @@ impl FunctionEmitter<'_> {
 impl FunctionEmitter<'_> {
     /// Continues the activation in the frames version when the native stack is used up.
     pub(in crate::backend::llvm::body) fn emit_native_entry_guard(&mut self) -> Option<()> {
-        let parameter = if self.function.parameter.ty == Type::Unit {
-            "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment".to_string()
-        } else {
+        let mut parameters = vec![
+            (
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_context".into(),
+            ),
+            (
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_control_top".into(),
+            ),
+            (
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_environment".into(),
+            ),
+        ];
+        if self.function.parameter.ty != Type::Unit {
             let value = self.types.value(&self.function.parameter.ty)?;
-            format!(
-                "ptr %mal_context, ptr %mal_control_top, ptr %mal_environment, {} %mal_parameter",
-                value.llvm
-            )
-        };
+            parameters.push((value.llvm, "%mal_parameter".into()));
+        }
         let result_llvm = self.types.value(&self.result_type)?.llvm;
         let name = super::super::function_name(self.function.id);
         let flag = self.register();
-        self.line(format!(
-            "  {flag} = call i8 @mal_native_stack_is_deep(ptr %mal_context)"
-        ));
+        self.direct_call(
+            Some(flag.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::integer(8_u16),
+            "mal_native_stack_is_deep",
+            [(
+                crate::backend::llvm::syntax::Type::Pointer,
+                "%mal_context".into(),
+            )],
+        );
         let deep = self.register();
         self.line(format!("  {deep} = icmp ne i8 {flag}, 0"));
         let expected = self.register();
-        self.line(format!(
-            "  {expected} = call i1 @llvm.expect.i1(i1 {deep}, i1 false)"
-        ));
+        self.direct_call(
+            Some(expected.clone()),
+            false,
+            crate::backend::llvm::syntax::Type::integer(1_u16),
+            "llvm.expect.i1",
+            [
+                (crate::backend::llvm::syntax::Type::integer(1_u16), deep),
+                (
+                    crate::backend::llvm::syntax::Type::integer(1_u16),
+                    "false".into(),
+                ),
+            ],
+        );
         self.conditional_branch(expected, "mal_deep_entry", "mal_native_entry");
         self.block("mal_deep_entry");
         let continued = self.register();
-        self.line(format!(
-            "  {continued} = call {result_llvm} @{name}_frames({parameter})"
-        ));
+        self.direct_call(
+            Some(continued.clone()),
+            false,
+            result_llvm.clone(),
+            format!("{name}_frames"),
+            parameters,
+        );
         self.return_value(result_llvm, continued);
         self.block("mal_native_entry");
         Some(())
