@@ -1,41 +1,45 @@
 use super::declaration;
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::{FunctionAttribute, Module, Type};
+use crate::backend::llvm::syntax::{Module, llvm_function_attributes, llvm_type};
 
 pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     let index = types.index_llvm_type();
     module.declare(declaration(
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_control_reserve_frame",
-        [Type::Pointer, index.clone(), index.clone()],
+        [llvm_type!(ptr), index.clone(), index.clone()],
     ));
     module.declare(declaration(
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_control_storage",
-        [Type::Pointer],
+        [llvm_type!(ptr)],
     ));
-    module.declare(declaration(index, "mal_control_capacity", [Type::Pointer]));
     module.declare(declaration(
-        Type::Void,
+        index,
+        "mal_control_capacity",
+        [llvm_type!(ptr)],
+    ));
+    module.declare(declaration(
+        llvm_type!(void),
         "mal_native_stack_begin",
-        [Type::Pointer],
+        [llvm_type!(ptr)],
     ));
     module.declare(
         declaration(
-            Type::integer(8_u16),
+            llvm_type!(int(8_u16)),
             "mal_native_stack_is_deep",
-            [Type::Pointer],
+            [llvm_type!(ptr)],
         )
-        .with_attributes([
-            FunctionAttribute::NoFree,
-            FunctionAttribute::NoUnwind,
-            FunctionAttribute::WillReturn,
-            FunctionAttribute::MemoryArgMemRead,
-        ]),
+        .with_attributes(llvm_function_attributes!(
+            nofree,
+            nounwind,
+            willreturn,
+            memory_argmem_read
+        )),
     );
     module.declare(declaration(
-        Type::integer(1_u16),
+        llvm_type!(int(1_u16)),
         "llvm.expect.i1",
-        [Type::integer(1_u16), Type::integer(1_u16)],
+        [llvm_type!(int(1_u16)), llvm_type!(int(1_u16))],
     ));
 }

@@ -1,59 +1,59 @@
 use super::{add_declaration, declaration};
 use crate::backend::llvm::body;
-use crate::backend::llvm::syntax::{FunctionAttribute, Module, Type};
+use crate::backend::llvm::syntax::{Module, llvm_function_attributes, llvm_type};
 
 pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     let index = types.index_llvm_type();
-    let read_only = [
-        FunctionAttribute::NoFree,
-        FunctionAttribute::NoUnwind,
-        FunctionAttribute::WillReturn,
-        FunctionAttribute::MemoryArgMemRead,
-    ];
     module.declare(
-        declaration(Type::Pointer, "mal_runtime_bytes_data", [Type::Pointer])
-            .with_attributes(read_only),
+        declaration(llvm_type!(ptr), "mal_runtime_bytes_data", [llvm_type!(ptr)]).with_attributes(
+            llvm_function_attributes!(nofree, nounwind, willreturn, memory_argmem_read),
+        ),
     );
     add_declaration(
         module,
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_runtime_bytes_read",
-        [Type::Pointer, Type::Pointer, index.clone()],
+        [llvm_type!(ptr), llvm_type!(ptr), index.clone()],
     );
     add_declaration(
         module,
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_runtime_bytes_retain",
-        [Type::Pointer, Type::Pointer],
+        [llvm_type!(ptr), llvm_type!(ptr)],
     );
     add_declaration(
         module,
-        Type::Void,
+        llvm_type!(void),
         "mal_runtime_bytes_release",
-        [Type::Pointer],
+        [llvm_type!(ptr)],
     );
     add_declaration(
         module,
-        Type::Void,
+        llvm_type!(void),
         "mal_runtime_bytes_write",
-        [Type::Pointer, Type::Pointer, index.clone(), index.clone()],
+        [
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            index.clone(),
+            index.clone(),
+        ],
     );
     add_declaration(
         module,
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_runtime_buffer_make",
-        [Type::Pointer, index.clone(), index.clone()],
+        [llvm_type!(ptr), index.clone(), index.clone()],
     );
     add_declaration(
         module,
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_runtime_buffer_make_managed",
         [
-            Type::Pointer,
+            llvm_type!(ptr),
             index.clone(),
             index.clone(),
-            Type::Pointer,
-            Type::Pointer,
+            llvm_type!(ptr),
+            llvm_type!(ptr),
         ],
     );
     for name in ["mal_runtime_buffer_new_managed", "mal_runtime_buffer_new"] {
@@ -61,20 +61,25 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             module,
             index.clone(),
             name,
-            [Type::Pointer, Type::Pointer, Type::Pointer, index.clone()],
+            [
+                llvm_type!(ptr),
+                llvm_type!(ptr),
+                llvm_type!(ptr),
+                index.clone(),
+            ],
         );
     }
     for name in ["mal_runtime_buffer_fill_managed", "mal_runtime_buffer_fill"] {
         add_declaration(
             module,
-            Type::Void,
+            llvm_type!(void),
             name,
             [
-                Type::Pointer,
-                Type::Pointer,
+                llvm_type!(ptr),
+                llvm_type!(ptr),
                 index.clone(),
                 index.clone(),
-                Type::Pointer,
+                llvm_type!(ptr),
                 index.clone(),
             ],
         );
@@ -82,13 +87,13 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     for name in ["mal_runtime_buffer_copy_managed", "mal_runtime_buffer_copy"] {
         add_declaration(
             module,
-            Type::Void,
+            llvm_type!(void),
             name,
             [
-                Type::Pointer,
-                Type::Pointer,
+                llvm_type!(ptr),
+                llvm_type!(ptr),
                 index.clone(),
-                Type::Pointer,
+                llvm_type!(ptr),
                 index.clone(),
                 index.clone(),
                 index.clone(),
@@ -97,28 +102,29 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     }
     module.declare(
         declaration(
-            Type::Pointer,
+            llvm_type!(ptr),
             "mal_runtime_buffer_data_slot",
-            [Type::Pointer],
+            [llvm_type!(ptr)],
         )
-        .with_attributes([
-            FunctionAttribute::NoFree,
-            FunctionAttribute::NoUnwind,
-            FunctionAttribute::WillReturn,
-            FunctionAttribute::MemoryNone,
-        ]),
+        .with_attributes(llvm_function_attributes!(
+            nofree,
+            nounwind,
+            willreturn,
+            memory_none
+        )),
     );
     module.declare(
-        declaration(index.clone(), "mal_runtime_buffer_count", [Type::Pointer])
-            .with_attributes(read_only),
+        declaration(index.clone(), "mal_runtime_buffer_count", [llvm_type!(ptr)]).with_attributes(
+            llvm_function_attributes!(nofree, nounwind, willreturn, memory_argmem_read),
+        ),
     );
     add_declaration(
         module,
-        Type::Pointer,
+        llvm_type!(ptr),
         "mal_runtime_buffer_from",
         [
-            Type::Pointer,
-            Type::Pointer,
+            llvm_type!(ptr),
+            llvm_type!(ptr),
             index.clone(),
             index.clone(),
             index.clone(),
@@ -126,12 +132,12 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     );
     add_declaration(
         module,
-        Type::Void,
+        llvm_type!(void),
         "mal_runtime_buffer_into",
         [
-            Type::Pointer,
-            Type::Pointer,
-            Type::Pointer,
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            llvm_type!(ptr),
             index.clone(),
             index.clone(),
             index.clone(),
@@ -139,9 +145,9 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     );
     add_declaration(
         module,
-        Type::integer(8_u16),
+        llvm_type!(int(8_u16)),
         "mal_runtime_symbol_at",
-        [Type::Pointer, index.clone()],
+        [llvm_type!(ptr), index.clone()],
     );
     for name in [
         "mal_runtime_symbol_concatenate",
@@ -150,24 +156,24 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     ] {
         add_declaration(
             module,
-            Type::Void,
+            llvm_type!(void),
             name,
             [
-                Type::Pointer,
-                Type::Pointer,
-                Type::Pointer,
-                Type::Pointer,
+                llvm_type!(ptr),
+                llvm_type!(ptr),
+                llvm_type!(ptr),
+                llvm_type!(ptr),
                 index.clone(),
-                Type::Pointer,
-                Type::Pointer,
+                llvm_type!(ptr),
+                llvm_type!(ptr),
                 index.clone(),
             ],
         );
     }
     add_declaration(
         module,
-        Type::integer(8_u16),
+        llvm_type!(int(8_u16)),
         "mal_runtime_symbol_equal",
-        [Type::Pointer, index.clone(), Type::Pointer, index],
+        [llvm_type!(ptr), index.clone(), llvm_type!(ptr), index],
     );
 }
