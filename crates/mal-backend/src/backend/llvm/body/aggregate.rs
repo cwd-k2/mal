@@ -182,7 +182,11 @@ impl FunctionEmitter<'_> {
             );
             tag
         };
-        let tag_type = if is_bool(&scrutinee.ty) { "i1" } else { "i32" };
+        let tag_type = crate::backend::llvm::syntax::Type::integer(if is_bool(&scrutinee.ty) {
+            1_u16
+        } else {
+            32_u16
+        });
         let cases = arms.iter().map(|arm| {
             (
                 arm.index.to_string(),

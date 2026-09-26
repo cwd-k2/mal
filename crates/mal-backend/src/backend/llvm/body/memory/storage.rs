@@ -124,7 +124,7 @@ impl FunctionEmitter<'_> {
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
             self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-                "i32",
+                crate::backend::llvm::syntax::Type::integer(32_u16),
                 tag,
                 format!("{stem}_invalid"),
                 cases,
@@ -319,7 +319,7 @@ impl FunctionEmitter<'_> {
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
             self.terminate(crate::backend::llvm::syntax::Terminator::switch(
-                "i32",
+                crate::backend::llvm::syntax::Type::integer(32_u16),
                 tag,
                 format!("{stem}_invalid"),
                 cases,

@@ -377,11 +377,11 @@ pub(in crate::backend::llvm) enum Terminator {
     },
     ReturnVoid,
     Return {
-        ty: String,
+        ty: Type,
         value: String,
     },
     Switch {
-        ty: String,
+        ty: Type,
         value: String,
         default: String,
         cases: Vec<(String, String)>,
@@ -416,29 +416,26 @@ impl Terminator {
     }
 
     pub(in crate::backend::llvm) fn return_value(
-        ty: impl std::fmt::Display,
+        ty: Type,
         value: impl Into<String>,
     ) -> Option<Self> {
-        let ty = ty.to_string();
         let value = value.into();
-        (is_single_line(&ty) && is_single_line(&value)).then_some(Self::Return { ty, value })
+        is_single_line(&value).then_some(Self::Return { ty, value })
     }
 
     pub(in crate::backend::llvm) fn switch(
-        ty: impl Into<String>,
+        ty: Type,
         value: impl Into<String>,
         default: impl Into<String>,
         cases: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
     ) -> Option<Self> {
-        let ty = ty.into();
         let value = value.into();
         let default = default.into();
         let cases = cases
             .into_iter()
             .map(|(value, target)| (value.into(), target.into()))
             .collect::<Vec<_>>();
-        (is_single_line(&ty)
-            && is_single_line(&value)
+        (is_single_line(&value)
             && is_valid_name(&default)
             && cases
                 .iter()

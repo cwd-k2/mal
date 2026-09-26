@@ -447,7 +447,11 @@ impl FunctionEmitter<'_> {
         ));
     }
 
-    pub(super) fn return_value(&mut self, ty: impl std::fmt::Display, value: impl Into<String>) {
+    pub(super) fn return_value(
+        &mut self,
+        ty: super::super::syntax::Type,
+        value: impl Into<String>,
+    ) {
         self.terminate(super::super::syntax::Terminator::return_value(ty, value));
     }
 
