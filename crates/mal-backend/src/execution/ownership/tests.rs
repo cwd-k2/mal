@@ -39,7 +39,7 @@ fn validates_the_exact_binding_drop_facts() {
         &execution.parameters,
         &execution.control_calls,
         &execution.control_regions,
-        &execution.control_frames,
+        RecursionPlans::new(&execution.control_frames, &execution.native_recursion),
     )));
     let point = *execution
         .ownership
@@ -55,7 +55,7 @@ fn validates_the_exact_binding_drop_facts() {
         &execution.parameters,
         &execution.control_calls,
         &execution.control_regions,
-        &execution.control_frames,
+        RecursionPlans::new(&execution.control_frames, &execution.native_recursion),
     )));
 }
 

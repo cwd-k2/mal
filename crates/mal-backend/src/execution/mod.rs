@@ -23,7 +23,9 @@ pub(crate) use environment_alias::EnvironmentAliasPlan;
 pub(crate) use frame::{ControlFrame, ControlFramePlan, FrameResume};
 pub(crate) use native_recursion::NativeRecursionPlan;
 pub(crate) use optimization::{OptimizationPlan, OptimizationSet, Technique};
-pub(crate) use ownership::{Inputs as OwnershipInputs, Plan as OwnershipPlan};
+pub(crate) use ownership::{
+    Inputs as OwnershipInputs, Plan as OwnershipPlan, RecursionPlans as OwnershipRecursionPlans,
+};
 pub(crate) use parameter::{ParameterDestination, ParameterPlan};
 pub(crate) use region::{ControlRegionId, ControlRegionPlan};
 pub(crate) use self_tail_parameter::SelfTailParameterPlan;
@@ -99,7 +101,7 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         &parameters,
         &control_calls,
         &control_regions,
-        &control_frames,
+        OwnershipRecursionPlans::new(&control_frames, &native_recursion),
     ));
     let self_tail_parameters =
         SelfTailParameterPlan::new(&control, &applications, &control_calls, &ownership);
@@ -116,7 +118,7 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         &parameters,
         &control_calls,
         &control_regions,
-        &control_frames,
+        OwnershipRecursionPlans::new(&control_frames, &native_recursion),
     )));
     Program {
         lowered,

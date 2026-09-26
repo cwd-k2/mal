@@ -74,6 +74,10 @@ frame sizeをこの値へ丸める。そのため
 
 自分自身だけを再帰的に呼ぶfunction（`execution/native_recursion`が`Technique::NativeRecursion`のもとで決める）は、native版とframe版の二つを出力する。managedなparameterのcall siteは、ownership planの受け渡し（`Share`または`Consume`）で得た値をnative版へ渡し、calleeの入口が自分の参照を取るので、戻った後にcaller側の参照をreleaseする。native版は関数本来の名前を持ち、再帰呼び出しをnative callで入れ子にし、入口で`llvm.stacksave`が返すlogical stack pointerを起動時のlimitと比較して、予算を使い切ったactivationをframe版（`<name>_frames`）へ渡す。stack pointerの観測にframe pointerを使わないため、leaf activationへ不要なframe prologueを要求しない。native版のactivationはcontrol arenaに触れないため、最適化器には通常の再帰関数に見える。予算は起動時にprocess entryから一定量（64 KiB）と定めるので、native stack使用量は再帰の深さに比例しない。frame版は従来どおりframeを積み、native版へ戻らない。
 
+全self edgeがすべてのmanaged parameter leafをそのまま転送するfunctionでは、外側の同期callerがnative版とframe版の完了まで
+authorityを保持する。この場合、両版の各activationはparameter leafをborrowし、再帰depthに比例するretain/releaseを作らない。
+一つでもmanaged leafを変更するself edgeがあれば通常のparameter ownershipを使う。
+
 tail edgeはframeをpushしない。region外callはnative stackを使ってよいが、region condensation graphが非循環なのでMal recursion depthに
 比例したnative recursionを作らない。region内non-tail recursionはprogram固有のtyped frameをgenericなgrowable byte storageへ積む。
 storageのcapacity、growth、overflow、releaseはC runtime、tag、layout、owner transfer、resume targetはLLVM IRが所有する。

@@ -43,6 +43,7 @@ impl ParameterBorrows {
         calls: &ControlCallPlan,
         regions: &ControlRegionPlan,
         frames: &ControlFramePlan,
+        native_recursion: &super::super::NativeRecursionPlan,
     ) -> Self {
         let mut functions = control
             .functions
@@ -76,6 +77,13 @@ impl ParameterBorrows {
                 functions.extend(regions.functions(region));
             }
         }
+        functions.extend(
+            control
+                .functions
+                .iter()
+                .map(|function| function.id)
+                .filter(|function| native_recursion.borrows_parameter(*function)),
+        );
         let owned = OwnedConvention::new(control, applications, calls, regions, frames);
         functions.retain(|function| !owned.functions.contains(function));
         let bindings = control

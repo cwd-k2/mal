@@ -75,6 +75,21 @@ pub(crate) struct Inputs<'a> {
     calls: &'a ControlCallPlan,
     regions: &'a ControlRegionPlan,
     frames: &'a ControlFramePlan,
+    native_recursion: &'a super::NativeRecursionPlan,
+}
+
+pub(crate) struct RecursionPlans<'a> {
+    frames: &'a ControlFramePlan,
+    native: &'a super::NativeRecursionPlan,
+}
+
+impl<'a> RecursionPlans<'a> {
+    pub(crate) fn new(
+        frames: &'a ControlFramePlan,
+        native: &'a super::NativeRecursionPlan,
+    ) -> Self {
+        Self { frames, native }
+    }
 }
 
 impl<'a> Inputs<'a> {
@@ -85,7 +100,7 @@ impl<'a> Inputs<'a> {
         parameters: &'a ParameterPlan,
         calls: &'a ControlCallPlan,
         regions: &'a ControlRegionPlan,
-        frames: &'a ControlFramePlan,
+        recursion: RecursionPlans<'a>,
     ) -> Self {
         Self {
             control,
@@ -94,7 +109,8 @@ impl<'a> Inputs<'a> {
             parameters,
             calls,
             regions,
-            frames,
+            frames: recursion.frames,
+            native_recursion: recursion.native,
         }
     }
 }
@@ -137,17 +153,25 @@ impl Plan {
             calls,
             regions,
             frames,
+            native_recursion,
         } = inputs;
         let effective = fused_arguments(control, calls);
         let control = &*effective;
-        let parameter_borrows =
-            ParameterBorrows::new(control, applications, calls, regions, frames);
+        let parameter_borrows = ParameterBorrows::new(
+            control,
+            applications,
+            calls,
+            regions,
+            frames,
+            native_recursion,
+        );
         let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);
         let environment_aliases = EnvironmentAliasPlan::new(control, optimizations);
         let borrows = BorrowPlan::new(
             control,
             &parameter_borrows,
             &self_tail_parameters,
+            native_recursion,
             &environment_aliases,
         );
         let live_in = borrows.live_in(control);

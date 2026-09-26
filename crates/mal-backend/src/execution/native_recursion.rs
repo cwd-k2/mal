@@ -4,10 +4,14 @@
 //! room: the native version nests a native call for each recursive call and hands the activation to the frames
 //! version, which keeps suspended callers in the control arena, once the native budget is used up. The frames
 //! version always exists, so a region this plan does not admit simply keeps running on frames.
+//! When every managed parameter leaf passes through every self edge, the synchronous caller remains a lender for
+//! the entire recursive invocation and the ownership plan can borrow those leaves at every activation.
 
 use std::collections::HashSet;
 
+use crate::anf::ast::ValueId;
 use crate::closure::ast::FunctionId;
+use crate::closure::ast::Pattern;
 use crate::control::ast::{Program, StateId, Terminator};
 
 use super::optimization::{OptimizationSet, Technique};
@@ -16,6 +20,8 @@ use super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPla
 #[derive(Debug, Default, Eq, PartialEq)]
 pub(crate) struct NativeRecursionPlan {
     functions: HashSet<FunctionId>,
+    borrowed_parameters: HashSet<FunctionId>,
+    persistent_lenders: HashSet<ValueId>,
 }
 
 impl NativeRecursionPlan {
@@ -53,11 +59,188 @@ impl NativeRecursionPlan {
                             && calls.mode(*site) == Some(ControlCallMode::DirectRegion(*function))
                     })
             })
+            .collect::<HashSet<_>>();
+        let pass_through = super::pass_through::ParameterPassThrough::new(control);
+        let borrowed_parameters = control
+            .functions
+            .iter()
+            .filter(|function| functions.contains(&function.id))
+            .filter_map(|function| {
+                let parameter = function.parameter.binding?;
+                let pattern = pass_through.parameter_pattern(control, function.entry, parameter)?;
+                let managed = managed_bindings(pattern);
+                if managed.is_empty() {
+                    return None;
+                }
+                let preserved = function
+                    .states
+                    .iter()
+                    .filter_map(|site| match calls.mode(*site) {
+                        Some(ControlCallMode::DirectRegion(target)) if target == function.id => {
+                            let Terminator::Call { argument, .. } =
+                                &control.states[site.0].terminator
+                            else {
+                                return None;
+                            };
+                            Some(pass_through.fields(pattern, argument))
+                        }
+                        Some(ControlCallMode::DirectSelfTail) => {
+                            let Terminator::TailCall { argument, .. } =
+                                &control.states[site.0].terminator
+                            else {
+                                return None;
+                            };
+                            Some(pass_through.fields(pattern, argument))
+                        }
+                        _ => None,
+                    })
+                    .reduce(|left, right| left.intersection(&right).copied().collect())?;
+                managed.is_subset(&preserved).then_some(function.id)
+            })
+            .collect::<HashSet<FunctionId>>();
+        let persistent_lenders = control
+            .functions
+            .iter()
+            .filter(|function| borrowed_parameters.contains(&function.id))
+            .filter_map(|function| {
+                let parameter = function.parameter.binding?;
+                let pattern = pass_through.parameter_pattern(control, function.entry, parameter)?;
+                Some(managed_bindings(pattern))
+            })
+            .flatten()
             .collect();
-        Self { functions }
+        Self {
+            functions,
+            borrowed_parameters,
+            persistent_lenders,
+        }
     }
 
     pub(crate) fn has_native_version(&self, function: FunctionId) -> bool {
         self.functions.contains(&function)
+    }
+
+    /// Whether every managed leaf of the parameter is preserved by every self edge. The synchronous
+    /// caller then remains its lender for the complete native/frames execution of the recursive call.
+    pub(crate) fn borrows_parameter(&self, function: FunctionId) -> bool {
+        self.borrowed_parameters.contains(&function)
+    }
+
+    pub(crate) fn persistent_lenders(&self) -> &HashSet<ValueId> {
+        &self.persistent_lenders
+    }
+}
+
+fn managed_bindings(pattern: &Pattern) -> HashSet<ValueId> {
+    let mut result = HashSet::new();
+    collect_managed_bindings(pattern, &mut result);
+    result
+}
+
+fn collect_managed_bindings(pattern: &Pattern, result: &mut HashSet<ValueId>) {
+    match pattern {
+        Pattern::Binding { id, ty } if super::ownership::is_managed(ty) => {
+            result.insert(*id);
+        }
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_managed_bindings(element, result);
+            }
+        }
+        Pattern::Binding { .. } | Pattern::Wildcard { .. } => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mal_syntax::source::{FileId, SourceFile};
+
+    fn lower(source: &str) -> super::super::Program {
+        let source = SourceFile::new(FileId::new(108), "native-parameter.mal", source.into());
+        let checked =
+            mal_frontend::analysis::check(&source).expect("check native parameter fixture");
+        let core = crate::core::lower(
+            &mal_frontend::check::specialize(checked).expect("specialize native parameter fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        super::super::lower(
+            crate::closure::convert(&anf),
+            super::super::OptimizationSet::production(),
+        )
+    }
+
+    #[test]
+    fn borrows_a_managed_parameter_preserved_by_every_native_self_edge() {
+        let execution = lower(
+            "walk :: (Buffer<Int32>, Int32) -> Int32 := (values, depth) -> {
+               if (depth == 0i32) then { values.get(0usize) } else {
+                 child := walk(values, depth - 1i32);
+                 child + values.get(0usize);
+               };
+             };
+             main :: Unit -> Int32 := () -> {
+               values := make<Int32>(1usize);
+               values.new(1i32);
+               walk(values, 2i32) - 3i32;
+             };",
+        );
+        let function = execution
+            .control
+            .functions
+            .iter()
+            .find(|function| execution.native_recursion.has_native_version(function.id))
+            .expect("native recursive function");
+
+        assert!(execution.native_recursion.borrows_parameter(function.id));
+    }
+
+    #[test]
+    fn owns_a_managed_parameter_changed_by_a_native_self_edge() {
+        let execution = lower(
+            "walk :: (Symbol, Int32) -> Int32 := (text, depth) -> {
+               if (depth == 0i32) then { (#text).i32 } else {
+                 next := text + \"x\";
+                 child := walk(next, depth - 1i32);
+                 child + (#text).i32;
+               };
+             };
+             main :: Unit -> Int32 := () -> { walk(\"a\", 2i32) - 6i32; };",
+        );
+        let function = execution
+            .control
+            .functions
+            .iter()
+            .find(|function| execution.native_recursion.has_native_version(function.id))
+            .expect("native recursive function");
+
+        assert!(!execution.native_recursion.borrows_parameter(function.id));
+    }
+
+    #[test]
+    fn borrows_nested_preserved_buffers_with_a_discarded_alias() {
+        let execution = lower(
+            "walk :: ((Buffer<Int32>, Buffer<Int32>), Int32) -> Int32 := (index, depth) -> {
+               (values, _) := index;
+               if (depth == 0i32) then { values.get(0usize) } else {
+                 child := walk(index, depth - 1i32);
+                 child + values.get(0usize);
+               };
+             };
+             main :: Unit -> Int32 := () -> {
+               values := make<Int32>(1usize);
+               unused := make<Int32>(1usize);
+               values.new(1i32);
+               unused.new(0i32);
+               walk((values, unused), 2i32) - 3i32;
+             };",
+        );
+        let function = execution
+            .control
+            .functions
+            .iter()
+            .find(|function| execution.native_recursion.has_native_version(function.id))
+            .expect("native recursive function");
+
+        assert!(execution.native_recursion.borrows_parameter(function.id));
     }
 }

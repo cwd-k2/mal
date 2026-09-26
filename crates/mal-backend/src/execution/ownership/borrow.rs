@@ -8,7 +8,7 @@ use super::liveness::{
     local_bindings, managed_binding_id, remove_pattern_bindings, terminator_live,
 };
 use super::parameter::ParameterBorrows;
-use crate::execution::{EnvironmentAliasPlan, SelfTailParameterPlan};
+use crate::execution::{EnvironmentAliasPlan, NativeRecursionPlan, SelfTailParameterPlan};
 
 #[derive(Default)]
 pub(super) struct BorrowPlan {
@@ -20,15 +20,18 @@ impl BorrowPlan {
         control: &Program,
         parameters: &ParameterBorrows,
         self_tail_parameters: &SelfTailParameterPlan,
+        native_recursion: &NativeRecursionPlan,
         environment: &EnvironmentAliasPlan,
     ) -> Self {
         let initial = Self::default();
         let live_in = initial.live_in(control);
+        let mut persistent_lenders = self_tail_parameters.persistent_lenders(&parameters.functions);
+        persistent_lenders.extend(native_recursion.persistent_lenders());
         let authorities = super::authority::collect(
             control,
             parameters,
             &live_in,
-            &self_tail_parameters.persistent_lenders(&parameters.functions),
+            &persistent_lenders,
             environment,
         );
         Self { authorities }

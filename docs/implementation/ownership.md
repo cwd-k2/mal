@@ -85,9 +85,11 @@ entryで`Share`し、owned handoffで`Consume`または`Drop`する。borrowed p
 escapeするuseも`Share`する。edge dropは通常livenessを再計算せずborrow provenanceで閉じたlivenessを使い、aliasが最後に使われる
 edgeでlender responsibilityを終了する。詳細は[`D058`](../history/decisions/D058.md)を正とする。
 
-全direct self-tail edgeが同じmanaged parameter leafを転送する場合、そのleafはinvocation中のpersistent lenderになる。純粋な
-`Atom`分解で得たnested field aliasは、通常のstate livenessからlenderが一時的に消えるpathでもこのauthorityをborrowできる。
-back edgeは同じcarrierを再分解するためのshareとreleaseを作らず、fieldが独立ownerへescapeする場合だけ通常どおり`Share`する。
+全direct self-tail edgeが同じmanaged parameter leafを転送する場合、そのleafはinvocation中のpersistent lenderになる。native版を持つ
+non-tail self recursionでも、全self edgeがすべてのmanaged parameter leafを転送するなら、同期的な外側のcallerがnative版とframe版の
+完了まで同じauthorityを保持する。これらのleafはactivationごとにownerを複製せずborrowする。純粋な`Atom`分解で得たnested field
+aliasは、通常のstate livenessからlenderが一時的に消えるpathでもこのauthorityをborrowできる。back edgeは同じcarrierを再分解する
+ためのshareとreleaseを作らず、fieldが変化するself edgeまたは独立ownerへescapeするuseだけが通常どおり`Share`する。
 
 callee が managed parameter を保持する（return する、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。従来はcalleeが入口で参照を取り、callerが呼び出し後にreleaseしていたため、callerが不要な値では`retain`と`release`の対が生じた。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetは従来のborrowed conventionのままで、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。
 

@@ -400,3 +400,54 @@ fn self_recursive_functions_have_a_native_and_a_frames_version_only_when_the_tec
         "baseline runs recursion on frames only"
     );
 }
+
+#[test]
+fn native_recursion_borrows_managed_parameter_leaves_preserved_by_every_self_edge() {
+    let source = SourceFile::new(
+        FileId::new(108),
+        "native-recursion-borrow.mal",
+        "walk :: ((Buffer<Int32>, Buffer<Int32>), Int32) -> Int32 := (index, depth) -> {
+           (values, _) := index;
+           if (depth == 0i32) then { values.get(0usize) } else {
+             child := walk(index, depth - 1i32);
+             child + values.get(0usize);
+           };
+         };
+         main :: Unit -> Int32 := () -> {
+           values := make<Int32>(1usize);
+           unused := make<Int32>(1usize);
+           values.new(1i32);
+           unused.new(0i32);
+           walk((values, unused), 2i32) - 3i32;
+         };"
+        .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check native borrow fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize native borrow fixture"),
+    );
+    let anf = crate::anf::lower(&core);
+    let execution = crate::execution::lower(
+        crate::closure::convert(&anf),
+        crate::execution::OptimizationSet::production(),
+    );
+    let module = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::production(),
+    )
+    .expect("native borrow fixture is supported")
+    .module;
+    let native = module
+        .split("\ndefine internal ")
+        .find(|definition| definition.contains("call ptr @llvm.stacksave()"))
+        .expect("native recursive definition")
+        .split_once("\n}\n")
+        .map_or("", |(body, _)| body);
+
+    assert!(!native.contains("mal_runtime_environment_retain"));
+    assert!(!native.contains("mal_runtime_environment_release"));
+}

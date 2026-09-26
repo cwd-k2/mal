@@ -14,8 +14,8 @@ use mal_frontend::check::ast::Type;
 use super::super::{EmissionMode, EmittedValue, FunctionEmitter};
 
 impl FunctionEmitter<'_> {
-    /// Whether the function can also be emitted as a native version: it recurses only into itself through frames,
-    /// and its parameter is not managed, so a native call needs no ownership handoff.
+    /// Whether the function can also be emitted as a native version: every framed recursion edge targets the
+    /// function itself, so the same body can use native calls until it reaches the stack budget.
     pub(in crate::backend::llvm::body) fn has_native_version(&self) -> bool {
         self.mode == EmissionMode::Standard
             && self.common_region.is_none()
