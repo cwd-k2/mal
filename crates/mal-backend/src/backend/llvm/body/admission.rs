@@ -333,13 +333,7 @@ fn admit_operation<'a>(
                     | crate::core::ast::BufferOperation::Put
                     | crate::core::ast::BufferOperation::Fill
             ) {
-                admit_runtime_storage(
-                    element,
-                    span,
-                    types,
-                    maximum,
-                    "Buffer element temporary",
-                )?;
+                admit_runtime_storage(element, span, types, maximum, "Buffer element temporary")?;
             }
             for operand in operands {
                 admit_atom(operand, maximum)?;
@@ -350,13 +344,7 @@ fn admit_operation<'a>(
             admit_atom(argument, maximum)?;
         }
         Operation::Case { scrutinee, arms } => {
-            admit_runtime_storage(
-                &scrutinee.ty,
-                span,
-                types,
-                maximum,
-                "sum temporary",
-            )?;
+            admit_runtime_storage(&scrutinee.ty, span, types, maximum, "sum temporary")?;
             admit_atom(scrutinee, maximum)?;
             blocks.extend(arms.iter().map(|arm| &arm.value));
         }
