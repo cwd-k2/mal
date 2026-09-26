@@ -72,7 +72,7 @@ startのalignmentはtarget上の全runtime value alignmentの最大値と4-byte 
 frame sizeをこの値へ丸める。そのため
 初期topと各frame末尾が同じalignment invariantを保ち、退役frameのstartは後続frameの全fieldに有効なbaseとなる。
 
-自分自身だけを再帰的に呼ぶfunction（`execution/native_recursion`が`Technique::NativeRecursion`のもとで決める）は、native版とframe版の二つを出力する。managedなparameterのcall siteは、ownership planの受け渡し（`Share`または`Consume`）で得た値をnative版へ渡し、calleeの入口が自分の参照を取るので、戻った後にcaller側の参照をreleaseする。native版は関数本来の名前を持ち、再帰呼び出しをnative callで入れ子にし、入口で残りのnative stackを検査して、予算を使い切ったactivationをframe版（`<name>_frames`）へ渡す。native版のactivationはcontrol arenaに触れないため、最適化器には通常の再帰関数に見える。予算は起動時にprocess entryから一定量（64 KiB）と定めるので、native stack使用量は再帰の深さに比例しない。frame版は従来どおりframeを積み、native版へ戻らない。
+自分自身だけを再帰的に呼ぶfunction（`execution/native_recursion`が`Technique::NativeRecursion`のもとで決める）は、native版とframe版の二つを出力する。managedなparameterのcall siteは、ownership planの受け渡し（`Share`または`Consume`）で得た値をnative版へ渡し、calleeの入口が自分の参照を取るので、戻った後にcaller側の参照をreleaseする。native版は関数本来の名前を持ち、再帰呼び出しをnative callで入れ子にし、入口で`llvm.stacksave`が返すlogical stack pointerを起動時のlimitと比較して、予算を使い切ったactivationをframe版（`<name>_frames`）へ渡す。stack pointerの観測にframe pointerを使わないため、leaf activationへ不要なframe prologueを要求しない。native版のactivationはcontrol arenaに触れないため、最適化器には通常の再帰関数に見える。予算は起動時にprocess entryから一定量（64 KiB）と定めるので、native stack使用量は再帰の深さに比例しない。frame版は従来どおりframeを積み、native版へ戻らない。
 
 tail edgeはframeをpushしない。region外callはnative stackを使ってよいが、region condensation graphが非循環なのでMal recursion depthに
 比例したnative recursionを作らない。region内non-tail recursionはprogram固有のtyped frameをgenericなgrowable byte storageへ積む。

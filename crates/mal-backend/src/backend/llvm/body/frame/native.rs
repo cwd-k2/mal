@@ -127,6 +127,15 @@ impl FunctionEmitter<'_> {
         }
         let result_llvm = self.types.value(&self.result_type)?.llvm;
         let name = super::super::function_name(self.function.id);
+        let stack = self.register();
+        emit_instruction!(
+            self;
+            call { Some(stack.clone()) },
+            false,
+            (ptr),
+            direct "llvm.stacksave";
+            []
+        );
         let flag = self.register();
         emit_instruction!(
             self;
@@ -136,6 +145,7 @@ impl FunctionEmitter<'_> {
             direct "mal_native_stack_is_deep";
             [
                 (typed (ptr) => "%mal_context"),
+                (typed (ptr) => { stack }),
             ]
         );
         let deep = self.register();

@@ -28,7 +28,7 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
         declaration(
             llvm_type!(int(8_u16)),
             "mal_native_stack_is_deep",
-            [llvm_type!(ptr)],
+            [llvm_type!(ptr), llvm_type!(ptr)],
         )
         .with_attributes(llvm_function_attributes!(
             nofree,
@@ -37,6 +37,7 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             memory_argmem_read
         )),
     );
+    module.declare(declaration(llvm_type!(ptr), "llvm.stacksave", []));
     module.declare(declaration(
         llvm_type!(int(1_u16)),
         "llvm.expect.i1",

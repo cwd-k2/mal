@@ -378,7 +378,8 @@ fn self_recursive_functions_have_a_native_and_a_frames_version_only_when_the_tec
         2,
         "each native version continues there once"
     );
-    assert!(module.contains("call i8 @mal_native_stack_is_deep"));
+    assert!(module.contains("call ptr @llvm.stacksave()"));
+    assert!(module.contains("call i8 @mal_native_stack_is_deep(ptr %mal_context, ptr"));
 
     let baseline = crate::execution::lower(
         crate::closure::convert(&anf),

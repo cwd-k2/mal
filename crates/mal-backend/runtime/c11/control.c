@@ -65,6 +65,6 @@ void mal_native_stack_begin(MalContext *context) {
 }
 
 __attribute__((always_inline))
-uint8_t mal_native_stack_is_deep(MalContext *context) {
-    return (uintptr_t)__builtin_frame_address(0) < context->native_stack_limit;
+uint8_t mal_native_stack_is_deep(MalContext *context, void *stack_address) {
+    return (uintptr_t)stack_address < context->native_stack_limit;
 }

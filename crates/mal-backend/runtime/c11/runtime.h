@@ -59,7 +59,7 @@ size_t mal_control_capacity(MalContext *context);
 /* Records the native stack budget of a program run, measured from the process entry. */
 void mal_native_stack_begin(MalContext *context);
 /* Whether the native stack is used up, so a recursive call must push a frame instead of nesting a native call. */
-uint8_t mal_native_stack_is_deep(MalContext *context);
+uint8_t mal_native_stack_is_deep(MalContext *context, void *stack_address);
 
 /* Byte owners: reference-counted, immutable once shared. Static owners emitted for literals are immortal. */
 const uint8_t *mal_runtime_bytes_data(const void *owner);
