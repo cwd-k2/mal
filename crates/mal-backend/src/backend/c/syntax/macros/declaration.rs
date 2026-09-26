@@ -113,6 +113,12 @@ macro_rules! c_aggregate_fields_item {
 
 macro_rules! c_aggregate {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
+    (struct $tag:tt => [$($field:tt),* $(,)?]) => {
+        $crate::backend::c::syntax::AggregateDefinition::structure(
+            $tag,
+            $crate::backend::c::syntax::c_aggregate_fields!($($field),*),
+        )
+    };
     (struct $tag:tt; [$($field:tt),* $(,)?]) => {
         $crate::backend::c::syntax::AggregateDefinition::structure(
             $tag,

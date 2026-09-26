@@ -1,5 +1,5 @@
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, Declaration, TranslationUnit, TypeName,
+    Declaration, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_declaration, c_type,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -14,11 +14,10 @@ impl TypeRegistry {
     ) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for name in &host.opaque_names {
-            output.push(AggregateDefinition::typedef_structure(
-                None,
-                [AggregateField::variable("uintptr_t", "mal_detail_bits")],
-                format!("mal_{name}_t"),
-            ));
+            let alias = format!("mal_{name}_t");
+            output.push(c_aggregate!(typedef struct => alias; [
+                ("mal_detail_bits": named("uintptr_t")),
+            ]));
         }
         for (index, ty) in self.aggregates.iter().enumerate() {
             if !host.contains(ty) || is_bool(ty) {
@@ -30,9 +29,9 @@ impl TypeRegistry {
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
             };
-            output.push(Declaration::type_alias(
-                TypeName::structure(format!("mal_detail_repr_{kind}_{index}")),
-                format!("mal_repr_{kind}_{index}_t"),
+            let alias = format!("mal_repr_{kind}_{index}_t");
+            output.push(c_declaration!(type alias =
+                struct(format!("mal_detail_repr_{kind}_{index}"))
             ));
         }
         for alias in aliases {
@@ -48,22 +47,20 @@ impl TypeRegistry {
                 continue;
             }
             match ty {
-                Type::Product(elements) => output.push(AggregateDefinition::structure(
-                    format!("mal_detail_repr_product_{index}"),
-                    elements.iter().enumerate().map(|(field, ty)| {
-                        AggregateField::variable(
-                            self.host_value_c_type(ty, None),
-                            format!("field_{field}"),
-                        )
-                    }),
-                )),
+                Type::Product(elements) => {
+                    let fields = elements.iter().enumerate().map(|(field, ty)| {
+                        let name = format!("field_{field}");
+                        c_aggregate_field!(name : { self.host_value_c_type(ty, None) })
+                    });
+                    let tag = format!("mal_detail_repr_product_{index}");
+                    output.push(c_aggregate!(struct tag => [{{ fields }}]));
+                }
                 Type::Sum(members) => {
-                    output.push(AggregateDefinition::structure(
-                        format!("mal_detail_repr_sum_{index}"),
-                        sum_representation_fields(members, |member| {
-                            self.host_value_c_type(member, None)
-                        }),
-                    ));
+                    let fields = sum_representation_fields(members, |member| {
+                        self.host_value_c_type(member, None)
+                    });
+                    let tag = format!("mal_detail_repr_sum_{index}");
+                    output.push(c_aggregate!(struct tag => [{{ fields }}]));
                 }
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
@@ -74,20 +71,19 @@ impl TypeRegistry {
     }
 
     fn host_alias_declaration(&self, alias: &TypeAlias) -> Declaration {
-        Declaration::type_alias(
-            self.host_value_c_type(&alias.ty, None),
-            format!("mal_{}_t", alias.name),
-        )
+        let name = format!("mal_{}_t", alias.name);
+        c_declaration!(type name = {
+            self.host_value_c_type(&alias.ty, None)
+        })
     }
 
     pub(in crate::backend::c) fn header_declarations(&self, host: &HostTypes) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for name in &host.opaque_names {
-            output.push(AggregateDefinition::typedef_structure(
-                None,
-                [AggregateField::variable("uintptr_t", "bits")],
-                format!("MalType_{name}"),
-            ));
+            let alias = format!("MalType_{name}");
+            output.push(c_aggregate!(typedef struct => alias; [
+                ("bits": named("uintptr_t")),
+            ]));
         }
         if !host.opaque_names.is_empty() {
             output.blank_line();
@@ -104,10 +100,10 @@ impl TypeRegistry {
         let mut output = TranslationUnit::default();
         for alias in aliases {
             if host.exposes_external_alias(alias) {
-                output.push(Declaration::type_alias(
-                    self.c_type(&alias.ty),
-                    format!("MalType_{}", alias.name),
-                ));
+                let name = format!("MalType_{}", alias.name);
+                output.push(c_declaration!(type name = {
+                    self.c_type(&alias.ty)
+                }));
             }
         }
         if !output.is_empty() {
@@ -119,7 +115,7 @@ impl TypeRegistry {
     pub(in crate::backend::c) fn header_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
         alias.map_or_else(
             || self.c_type(ty),
-            |alias| TypeName::named(format!("MalType_{alias}")),
+            |alias| c_type!(named(format!("MalType_{alias}"))),
         )
     }
 }

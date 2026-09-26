@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, AggregateKind, Declaration, Parameter, TranslationUnit,
-    TypeName,
+    AggregateField, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_aggregate_fields,
+    c_declaration,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 use mal_frontend::resolve::ast::TypeId;
@@ -147,10 +147,8 @@ impl TypeRegistry {
                     unreachable!("these types never enter the C host registry")
                 }
             };
-            output.push(Declaration::type_alias(
-                TypeName::structure(format!("{kind}_{index}")),
-                format!("{kind}_{index}"),
-            ));
+            let name = format!("{kind}_{index}");
+            output.push(c_declaration!(type name = struct(format!("{kind}_{index}"))));
         }
         if !output.is_empty() {
             output.blank_line();
@@ -162,51 +160,34 @@ impl TypeRegistry {
             match ty {
                 Type::Product(elements) => {
                     let fields = elements.iter().enumerate().map(|(element_index, element)| {
-                        AggregateField::variable(
-                            self.c_type(element),
-                            format!("field_{element_index}"),
-                        )
+                        let name = format!("field_{element_index}");
+                        c_aggregate_field!(name : { self.c_type(element) })
                     });
-                    output.push(AggregateDefinition::structure(
-                        format!("MalRepr_Product_{index}"),
-                        fields,
-                    ));
+                    let tag = format!("MalRepr_Product_{index}");
+                    output.push(c_aggregate!(struct tag => [{{ fields }}]));
                     output.blank_line();
                 }
                 Type::Sum(members) => {
-                    output.push(AggregateDefinition::structure(
-                        format!("MalRepr_Sum_{index}"),
-                        sum_representation_fields(members, |member| self.c_type(member)),
-                    ));
+                    let tag = format!("MalRepr_Sum_{index}");
+                    let fields = sum_representation_fields(members, |member| self.c_type(member));
+                    output.push(c_aggregate!(struct tag => [{{ fields }}]));
                     output.blank_line();
                 }
                 Type::Function { parameter, result } => {
-                    output.push(AggregateDefinition::structure(
-                        format!("MalRepr_Closure_{index}"),
-                        [
-                            AggregateField::function_pointer(
-                                self.c_type(result),
-                                "call",
-                                [
-                                    Parameter::unnamed(TypeName::named("MalContext").pointer()),
-                                    Parameter::unnamed(TypeName::const_named("void").pointer()),
-                                    Parameter::unnamed(self.c_type(parameter)),
-                                ],
-                            ),
-                            AggregateField::variable(
-                                TypeName::const_named("void").pointer(),
-                                "environment",
-                            ),
-                            AggregateField::function_pointer(
-                                "void",
-                                "destroy_environment",
-                                [
-                                    Parameter::unnamed(TypeName::named("MalContext").pointer()),
-                                    Parameter::unnamed(TypeName::const_named("void").pointer()),
-                                ],
-                            ),
-                        ],
-                    ));
+                    let tag = format!("MalRepr_Closure_{index}");
+                    let fields = c_aggregate_fields!(
+                        (fn "call"(
+                            _: ptr(named("MalContext")),
+                            _: ptr(const(named("void"))),
+                            _: { self.c_type(parameter) },
+                        ) -> { self.c_type(result) }),
+                        ("environment": ptr(const(named("void")))),
+                        (fn "destroy_environment"(
+                            _: ptr(named("MalContext")),
+                            _: ptr(const(named("void"))),
+                        ) -> named("void")),
+                    );
+                    output.push(c_aggregate!(struct tag => [{{ fields }}]));
                     output.blank_line();
                 }
                 Type::External { .. }
@@ -237,15 +218,13 @@ fn sum_representation_fields(
     members: &[Type],
     c_type: impl Fn(&Type) -> TypeName,
 ) -> Vec<AggregateField> {
-    let mut fields = vec![AggregateField::variable("uint32_t", "tag")];
+    let mut fields = c_aggregate_fields!(("tag": named("uint32_t")));
     if !members.is_empty() {
-        fields.push(AggregateField::aggregate(
-            AggregateKind::Union,
-            members.iter().enumerate().map(|(index, member)| {
-                AggregateField::variable(c_type(member), format!("variant_{index}"))
-            }),
-            "payload",
-        ));
+        let members = members.iter().enumerate().map(|(index, member)| {
+            let name = format!("variant_{index}");
+            c_aggregate_field!(name : { c_type(member) })
+        });
+        fields.push(c_aggregate_field!(union "payload"; [{{ members }}]));
     }
     fields
 }
