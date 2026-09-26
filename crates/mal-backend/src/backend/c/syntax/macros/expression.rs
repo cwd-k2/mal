@@ -1,3 +1,12 @@
+macro_rules! c_expr_child {
+    ({ $($rust:tt)* }) => {
+        { $($rust)* }
+    };
+    ($syntax:tt) => {
+        $crate::backend::c::syntax::c_expr! $syntax
+    };
+}
+
 macro_rules! c_initializer {
     ({ $($rust:tt)* }) => {{ $($rust)* }};
     (rust $initializer:expr) => {
@@ -5,19 +14,19 @@ macro_rules! c_initializer {
     };
     (positional $value:tt) => {
         $crate::backend::c::syntax::Initializer::positional(
-            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
     (field $name:expr; $value:tt) => {
         $crate::backend::c::syntax::Initializer::designated(
             $name,
-            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
     (path $path:expr; $value:tt) => {
         $crate::backend::c::syntax::Initializer::designated_path(
             $path,
-            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
 }
@@ -68,7 +77,7 @@ macro_rules! c_exprs_item {
         $expressions.extend($more)
     };
     ($expressions:ident; $expression:tt) => {
-        $expressions.extend([$crate::backend::c::syntax::c_expr! $expression])
+        $expressions.extend([$crate::backend::c::syntax::c_expr_child!($expression)])
     };
 }
 
@@ -87,22 +96,22 @@ macro_rules! c_expr {
         $crate::backend::c::syntax::Expr::string($value)
     };
     (address $value:tt) => {
-        $crate::backend::c::syntax::Expr::address_of($crate::backend::c::syntax::c_expr! $value)
+        $crate::backend::c::syntax::Expr::address_of($crate::backend::c::syntax::c_expr_child!($value))
     };
     (dereference $value:tt) => {
-        $crate::backend::c::syntax::Expr::dereference($crate::backend::c::syntax::c_expr! $value)
+        $crate::backend::c::syntax::Expr::dereference($crate::backend::c::syntax::c_expr_child!($value))
     };
     (field $value:tt; $name:expr) => {
-        ($crate::backend::c::syntax::c_expr! $value).field($name)
+        ($crate::backend::c::syntax::c_expr_child!($value)).field($name)
     };
     (pointer_field $value:tt; $name:expr) => {
-        ($crate::backend::c::syntax::c_expr! $value).pointer_field($name)
+        ($crate::backend::c::syntax::c_expr_child!($value)).pointer_field($name)
     };
     (sizeof $value:tt) => {
-        $crate::backend::c::syntax::Expr::sizeof_value($crate::backend::c::syntax::c_expr! $value)
+        $crate::backend::c::syntax::Expr::sizeof_value($crate::backend::c::syntax::c_expr_child!($value))
     };
     (cast $ty:expr; $value:tt) => {
-        $crate::backend::c::syntax::Expr::cast($ty, $crate::backend::c::syntax::c_expr! $value)
+        $crate::backend::c::syntax::Expr::cast($ty, $crate::backend::c::syntax::c_expr_child!($value))
     };
     (call $name:expr; $($argument:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::named_call(
@@ -112,63 +121,63 @@ macro_rules! c_expr {
     };
     (invoke $callee:tt; $($argument:tt),* $(,)?) => {
         $crate::backend::c::syntax::Expr::call(
-            $crate::backend::c::syntax::c_expr! $callee,
+            $crate::backend::c::syntax::c_expr_child!($callee),
             $crate::backend::c::syntax::c_exprs!($($argument),*),
         )
     };
     (add $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::add(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (subtract $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::subtract(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (multiply $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::multiply(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (assign $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::assign(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (equal $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::equal(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (not_equal $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::not_equal(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (greater $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::greater(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (logical_and $left:tt; $right:tt) => {
         $crate::backend::c::syntax::Expr::logical_and(
-            $crate::backend::c::syntax::c_expr! $left,
-            $crate::backend::c::syntax::c_expr! $right,
+            $crate::backend::c::syntax::c_expr_child!($left),
+            $crate::backend::c::syntax::c_expr_child!($right),
         )
     };
     (conditional $condition:tt; $then:tt; $otherwise:tt) => {
         $crate::backend::c::syntax::Expr::conditional(
-            $crate::backend::c::syntax::c_expr! $condition,
-            $crate::backend::c::syntax::c_expr! $then,
-            $crate::backend::c::syntax::c_expr! $otherwise,
+            $crate::backend::c::syntax::c_expr_child!($condition),
+            $crate::backend::c::syntax::c_expr_child!($then),
+            $crate::backend::c::syntax::c_expr_child!($otherwise),
         )
     };
     (initializer $($element:tt),* $(,)?) => {
@@ -185,5 +194,5 @@ macro_rules! c_expr {
 }
 
 pub(in crate::backend) use {
-    c_expr, c_exprs, c_exprs_item, c_initializer, c_initializers, c_initializers_item,
+    c_expr, c_expr_child, c_exprs, c_exprs_item, c_initializer, c_initializers, c_initializers_item,
 };

@@ -28,7 +28,7 @@ fn embeds_rust_expressions_once_inside_structured_expressions() {
 
     let expression = super::c_expr!(conditional
         (greater (id "count"); (number 0));
-        (add (rust dynamic()); (number 1));
+        (add { dynamic() }; (number 1));
         (cast "size_t"; (number 0))
     );
 
