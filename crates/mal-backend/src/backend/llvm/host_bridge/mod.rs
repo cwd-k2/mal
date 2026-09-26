@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
-    Expr, FunctionDefinition, FunctionSignature, FunctionSpecifier, Initializer, Parameter,
-    Statement, SwitchCase, TranslationUnit, TypeName, c_block, c_statement,
+    Expr, FunctionSignature, FunctionSpecifier, Initializer, Parameter, Statement, SwitchCase,
+    TranslationUnit, TypeName, c_block, c_function, c_statement,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -82,10 +82,11 @@ pub(super) fn generate(
         }
     }
     marshalling.helpers.blank_line();
-    marshalling.helpers.push(FunctionDefinition::from_signature(
-        bridge.c_signature(),
-        c_block!((extend statements)),
-    ));
+    marshalling
+        .helpers
+        .push(c_function!(signature bridge.c_signature();
+            block [(extend statements)]
+        ));
     Some(Bridge {
         llvm_declaration,
         c_definitions: marshalling.helpers,
@@ -221,7 +222,7 @@ impl<'a> Marshalling<'a> {
             TypeName::const_named("uint32_t").pointer(),
             Expr::add(identifier("value"), number(tag_offset)),
         );
-        self.helpers.push(FunctionDefinition::from_signature(
+        self.helpers.push(c_function!(signature
             FunctionSignature::new(
                 c_type,
                 helper.clone(),
@@ -230,11 +231,11 @@ impl<'a> Marshalling<'a> {
                     Parameter::named(TypeName::const_named("uint8_t").pointer(), "value"),
                 ],
             )
-            .with_specifiers([FunctionSpecifier::Static]),
-            c_block!(
+            .with_specifiers([FunctionSpecifier::Static]);
+            block [
                 (var ("uint32_t") ("tag") = (rust tag)),
                 (switch (id "tag"); [(extend cases)]),
-            ),
+            ]
         ));
         self.helpers.blank_line();
         Some(Expr::named_call(helper, [context, pointer]))
@@ -336,7 +337,7 @@ impl<'a> Marshalling<'a> {
             Expr::add(identifier("value"), number(tag_offset)),
             identifier("input").field("tag"),
         );
-        self.helpers.push(FunctionDefinition::from_signature(
+        self.helpers.push(c_function!(signature
             FunctionSignature::new(
                 "void",
                 helper.clone(),
@@ -346,11 +347,11 @@ impl<'a> Marshalling<'a> {
                     Parameter::named(c_type, "input"),
                 ],
             )
-            .with_specifiers([FunctionSpecifier::Static]),
-            c_block!(
+            .with_specifiers([FunctionSpecifier::Static]);
+            block [
                 (rust tag_store),
                 (switch (field (id "input"); "tag"); [(extend cases)]),
-            ),
+            ]
         ));
         self.helpers.blank_line();
         Some(c_statement!(call helper;

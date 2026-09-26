@@ -6,7 +6,7 @@ use super::{
 };
 use crate::backend::c::syntax::{
     Comment, Declaration, Directive, Expr, FunctionDefinition, FunctionSignature, Initializer,
-    MacroInvocation, TranslationUnit, c_block, c_expr, c_statement,
+    MacroInvocation, TranslationUnit, c_block, c_expr, c_function, c_statement,
 };
 
 mod prefix;
@@ -94,10 +94,7 @@ pub(super) fn emit_host(
                 )),
             ),
         );
-        output.push(FunctionDefinition::from_macro(
-            host_macro_invocation(signature),
-            body,
-        ));
+        output.push(c_function!(macro host_macro_invocation(signature); body body));
     }
     output.render()
 }
@@ -177,7 +174,7 @@ fn wrapper_definition(
         )),
         (rust terminal),
     );
-    FunctionDefinition::from_signature(external_signature(&signatures.compiler, true), body)
+    c_function!(signature external_signature(&signatures.compiler, true); body body)
 }
 
 fn host_macro_invocation(

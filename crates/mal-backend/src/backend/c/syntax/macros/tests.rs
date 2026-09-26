@@ -1,8 +1,6 @@
 use std::cell::Cell;
 
-use crate::backend::c::syntax::{
-    Expr, FunctionDefinition, FunctionSignature, Initializer, SwitchCase,
-};
+use crate::backend::c::syntax::{Expr, FunctionSignature, Initializer, SwitchCase};
 
 #[test]
 fn embeds_rust_expressions_once_inside_structured_expressions() {
@@ -58,8 +56,10 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
             ]),
         ]),
     );
-    let function =
-        FunctionDefinition::from_signature(FunctionSignature::new("int", "example", []), body);
+    let function = super::c_function!(signature
+        FunctionSignature::new("int", "example", []);
+        body body
+    );
 
     assert_eq!(
         function.render(),

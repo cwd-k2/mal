@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Expr, FunctionDefinition, FunctionSignature, Parameter, TypeName, VariableDeclaration, c_block,
-    c_expr,
+    c_expr, c_function,
 };
 use mal_frontend::check::ast::Type;
 
@@ -25,9 +25,9 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 }
 
 fn unit_main(entry: &str) -> FunctionDefinition {
-    FunctionDefinition::from_signature(
-        FunctionSignature::new("int", "main", []),
-        c_block!(
+    c_function!(signature
+        FunctionSignature::new("int", "main", []);
+        block [
             (var ("MalContext") ("context") = (rust zero_initializer())),
             (var ("int32_t") ("result")),
             (call entry;
@@ -37,7 +37,7 @@ fn unit_main(entry: &str) -> FunctionDefinition {
             ),
             (call "mal_control_destroy"; (address (id "context"))),
             (return (id "result")),
-        ),
+        ]
     )
 }
 
@@ -96,7 +96,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         (return (id "result")),
     );
 
-    Some(FunctionDefinition::from_signature(
+    Some(c_function!(signature
         FunctionSignature::new(
             "int",
             "main",
@@ -104,8 +104,8 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
                 Parameter::named("int", "mal_argc"),
                 Parameter::named(TypeName::named("char").pointer().pointer(), "mal_argv"),
             ],
-        ),
-        body,
+        );
+        body body
     ))
 }
 

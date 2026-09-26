@@ -11,8 +11,8 @@ mod translation_unit;
 mod unit;
 
 pub(in crate::backend) use macros::{
-    c_block, c_block_item, c_expr, c_initializer, c_initializers, c_initializers_item, c_statement,
-    c_switch_case, c_switch_cases, c_switch_cases_item,
+    c_block, c_block_item, c_expr, c_function, c_initializer, c_initializers, c_initializers_item,
+    c_statement, c_switch_case, c_switch_cases, c_switch_cases_item,
 };
 
 pub(in crate::backend) use self::declaration::{
