@@ -1,10 +1,10 @@
 use super::super::types::{Types, ValueType, align};
 
-pub(super) struct FrameLayout {
+pub(in crate::backend::llvm::body) struct FrameLayout {
     pub(super) fields: Vec<FieldLayout>,
     pub(super) environment: Option<usize>,
     pub(super) footer: Option<usize>,
-    pub(super) size: usize,
+    pub(in crate::backend::llvm::body) size: usize,
 }
 
 pub(super) struct FieldLayout {
@@ -14,7 +14,7 @@ pub(super) struct FieldLayout {
 }
 
 impl FrameLayout {
-    pub(super) fn new(
+    pub(in crate::backend::llvm::body) fn new(
         frame: &crate::execution::ControlFrame,
         types: Types,
         tagged: bool,

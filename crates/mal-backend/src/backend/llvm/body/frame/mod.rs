@@ -8,7 +8,23 @@ mod layout;
 mod native;
 mod resume;
 
-use layout::FrameLayout;
+pub(super) use layout::FrameLayout;
+
+pub(super) fn physical_frame_pass_through(
+    frame: &crate::execution::ControlFrame,
+    ownership: &crate::execution::OwnershipPlan,
+) -> std::collections::HashSet<crate::anf::ast::ValueId> {
+    frame
+        .fields
+        .iter()
+        .filter(|field| {
+            frame.pass_through.contains(&field.id)
+                && (!crate::execution::ownership::is_managed(&field.ty)
+                    || ownership.binding_is_borrowed(field.id))
+        })
+        .map(|field| field.id)
+        .collect()
+}
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_frame_call(
@@ -134,16 +150,7 @@ impl FunctionEmitter<'_> {
         &self,
         frame: &crate::execution::ControlFrame,
     ) -> std::collections::HashSet<crate::anf::ast::ValueId> {
-        frame
-            .fields
-            .iter()
-            .filter(|field| {
-                frame.pass_through.contains(&field.id)
-                    && (!crate::execution::ownership::is_managed(&field.ty)
-                        || self.ownership.binding_is_borrowed(field.id))
-            })
-            .map(|field| field.id)
-            .collect()
+        physical_frame_pass_through(frame, self.ownership)
     }
 
     pub(super) fn emit_region_transition(

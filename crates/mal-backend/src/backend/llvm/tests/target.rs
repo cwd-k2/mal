@@ -140,6 +140,60 @@ fn uses_narrow_control_storage_offsets() {
 }
 
 #[test]
+fn rejects_control_frames_larger_than_the_target_index_range() {
+    let elements = std::iter::repeat_n("Symbol", 86)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let values = std::iter::repeat_n("value", 86)
+        .collect::<Vec<_>>()
+        .join(", ");
+    let text = format!(
+        "_Wide :: ({elements});\n\
+         consume :: _Wide -> Int32 := (_) -> 0i32;\n\
+         walk :: (Int32, Symbol) -> Int32 := (depth, value) -> {{\n\
+           wide := ({values});\n\
+           if (depth == 0i32) then {{ 0i32 }} else {{\n\
+             rest := walk(depth - 1i32, value);\n\
+             consume(wide) + rest;\n\
+           }};\n\
+         }};\n\
+         main :: Unit -> Int32 := () -> walk(1i32, \"x\");"
+    );
+    let source = SourceFile::new(FileId::new(103), "llvm-control-layout.mal", text);
+    let checked = mal_frontend::analysis::check(&source).expect("check control layout fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+
+    let error = match generate(
+        &execution,
+        Target {
+            triple: "synthetic-unknown-none",
+            data_layout: "e-p:8:8-i64:64",
+        },
+        OptimizationSet::production(),
+    ) {
+        Ok(_) => panic!("control frame exceeds the 8-bit target range"),
+        Err(error) => error,
+    };
+    let Error::Diagnostic(diagnostic) = error else {
+        panic!("target admission must return a diagnostic")
+    };
+    let primary = diagnostic.primary.expect("control frame diagnostic span");
+    assert!(
+        source.text()[primary.span.start()..primary.span.end()]
+            .contains("walk(depth - 1i32, value)"),
+        "diagnostic points at the suspended call"
+    );
+    assert!(primary.message.contains("264"));
+    assert!(primary.message.contains("255"));
+}
+
+#[test]
 fn aligns_heterogeneous_frames_and_reserves_when_replacement_is_too_small() {
     let source = SourceFile::new(
         FileId::new(95),

@@ -17,6 +17,7 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
     let layouts = SourceLayouts::new(target);
     let types = Types::for_target(target);
     admit_host_memory_layouts(program, layouts, maximum)?;
+    admit_control_frames(program, &types, maximum)?;
     let mut blocks = program
         .lowered
         .bindings
@@ -38,6 +39,68 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
                 &types,
                 &mut blocks,
             )?;
+        }
+    }
+    Ok(())
+}
+
+fn admit_control_frames(
+    program: &execution::Program,
+    types: &Types,
+    maximum: u128,
+) -> Result<(), Diagnostic> {
+    for function in &program.control.functions {
+        let common_region = program
+            .control_regions
+            .function_region(function.id)
+            .filter(|region| program.control_calls.requires_common_control(*region));
+        let function_ids = common_region.map_or_else(
+            || vec![function.id],
+            |region| program.control_regions.functions(region).to_vec(),
+        );
+        let frame_sites = function_ids
+            .iter()
+            .filter_map(|id| {
+                program
+                    .control
+                    .functions
+                    .iter()
+                    .find(|candidate| candidate.id == *id)
+            })
+            .flat_map(|function| function.states.iter().copied())
+            .filter(|site| program.control_frames.frame(*site).is_some())
+            .collect::<Vec<_>>();
+        let tagged = frame_sites.len() != 1;
+        for site in frame_sites {
+            let frame = program
+                .control_frames
+                .frame(site)
+                .expect("collected control frame site");
+            let pass_through = super::frame::physical_frame_pass_through(frame, &program.ownership);
+            let span = program.control.states[site.0].span;
+            let Some(layout) =
+                super::frame::FrameLayout::new(frame, types.clone(), tagged, &pass_through)
+            else {
+                return Err(Diagnostic::error(
+                    "control frame layout is not representable for the target",
+                )
+                .with_primary(
+                    span,
+                    "this suspended call's frame exceeds the target object-size range",
+                ));
+            };
+            if layout.size as u128 > maximum {
+                return Err(Diagnostic::error(
+                    "control frame layout is not representable for the target",
+                )
+                .with_primary(
+                    span,
+                    format!(
+                        "this suspended call needs a {}-byte frame, exceeding the target maximum {maximum}",
+                        layout.size
+                    ),
+                ));
+            }
         }
     }
     Ok(())
