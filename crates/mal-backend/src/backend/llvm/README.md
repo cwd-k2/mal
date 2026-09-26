@@ -29,7 +29,19 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/scalar` | integer and floating-point widths, literals, and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |
 
+## Construction boundary
+
+`syntax` owns a restricted, typed model of every LLVM construct emitted by this backend. Body lowering selects
+instructions and supplies typed operands; it does not assemble LLVM source lines or rely on indentation, opcode prefixes,
+or rendered text to recover structure. The model admits only the LLVM subset used by mal and validates function-local
+invariants before rendering. Rendering is the only operation that turns that model into LLVM text.
+
+Small declarative macros may provide concise construction syntax after the corresponding node constructors and invariants
+are stable. Such macros expand to typed syntax nodes, remain interchangeable with ordinary Rust construction, and never
+produce LLVM source fragments directly. Dynamic lowering policy stays in ordinary Rust code rather than being hidden in a
+macro grammar.
+
 `module` builds one logical LLVM module from feature groups. It derives byte-runtime requirements from references in the emitted
-function structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source
+typed call structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source
 selection uses the union of both artifacts. The renderer currently writes the logical module to the single `program.ll` artifact;
 physical partitioning into several `.ll` inputs is a delivery choice and does not change feature selection or body lowering.
