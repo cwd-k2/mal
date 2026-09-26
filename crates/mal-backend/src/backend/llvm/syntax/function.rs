@@ -419,6 +419,7 @@ impl Terminator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::llvm::syntax::Type;
 
     #[test]
     fn renders_late_entry_instructions_before_the_existing_entry_body() {
@@ -430,7 +431,9 @@ mod tests {
         assert!(function.terminate(Terminator::branch("body").unwrap()));
         assert!(function.start_block("body"));
         assert!(function.terminate(Terminator::return_void()));
-        assert!(function.entry_instruction("%storage = alloca i32, align 4"));
+        function.structured_entry_instruction(
+            Instruction::alloca("%storage", Type::integer(32_u16), 4).unwrap(),
+        );
 
         assert_eq!(
             function.finish().unwrap().render(),
