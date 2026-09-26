@@ -466,14 +466,21 @@ native再帰のpersistent borrowとparameter scalarizationを入れた現行comp
 `mal_function_14`として残り、4,992,769回呼ばれた。Bufferのlogical countが過去最大heap sizeへ達した2,992,773回は、2個の`Int64`を
 `fill`してcountを伸ばす。`mal_runtime_buffer_count`は17.96 M、`mal_runtime_buffer_fill`は287.31 M instructionsを使い、push worker全体は
 1,251.98 M instructionsだった。direct Cは最大capacityを一度`malloc`し、同じheap loopから未初期化slotへ直接書く。Malで最大領域を
-先に`fill`する旧variantは不要なpageまで初期化して遅くなったため、解はbounds checkの除去ではなく、capacity reservationと初期化済み範囲を
-区別するconstruction authorityである。
+`new(0)`で逐次構築した旧variantは不要な反復を増やして遅かったが、これは現行の一括`fill`とは異なる。
+
+現行`make<Int64>(capacity)`はcalloc済みcapacityとlogical count 0を作り、直後のzero `fill`はruntimeの`zeroed_until`まで実byteを
+書かずにcountだけ延ばせる。Cと同じ`cellCount * 16` heap entry分をcapacityへ加え、heapの`cellCount * 32`個の`Int64` slotを一度に
+zero `fill`してpush時のgrowthを外す診断variantでは、3 warmup、交互20回のmedianが270.72から249.93 msへ7.7%短縮した。
+Callgrind instructionは2,474.73 Mから1,872.54 Mへ24.3%減り、pushは`main`へinlineされた。maximum RSSは81,736対81,732 KiB、
+minor faultはともに20,080で増えなかった。同variantとdirect Cの別の交互20回は248.70対217.97 ms、1.14倍だった。したがってこの部分は
+新しいBuffer APIの不足ではなく、既存のcapacityと連続一括初期化をcanonical sourceが使っていない差である。残る約14%は同じheap容量に
+揃えた上で、loop形状とdata accessを再分析する。
 
 再帰固有の残差は別記録に分離する。080は現行Mal 90.38 M対C 77.79 M instructionsで、conditional branch差約2.10 Mがactivationごとの
 stack guardに一致する。一方068のnative hybridとframe-onlyは16.21 ms対16.43 msで、同問題のC差の主因ではなかった。032には
 Malがbestを再帰resultで返しCがmutable cellへ保存するsource差がある。詳細と採らなかったnative/frame選択policyは
 [loop combinatorのperformance測定履歴](loop-combinators.md)を参照する。
 
-以上から、現行corpusのC差は一つのbackend overheadではなく、入力・整数storage幅、Buffer construction authority、再帰guard、
-source algorithm/state表現に分かれる。優先順位は、多数の上位caseへ共通する入力とdata widthを公平化し、次に043のconstruction境界を
-一般化し、その後に同形の計算だけが残るcaseでLLVM loop形状と再帰guardを再測定する順とする。
+以上から、現行corpusのC差は一つのbackend overheadではなく、入力・整数storage幅、Bufferの構築方法、再帰guard、
+source algorithm/state表現に分かれる。優先順位は、多数の上位caseへ共通する入力とdata widthを公平化し、043では既存APIによる一括構築を
+canonical sourceへ反映してから、同形の計算だけが残るcaseでLLVM loop形状と再帰guardを再測定する順とする。
