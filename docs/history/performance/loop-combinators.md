@@ -58,3 +58,30 @@ spec corpusをValgrind Memcheckで実行する。
 ## 非tail再帰のハイブリッド実行
 
 C版の`fib(40)`は175 ms、frame方式のmalは591 msだった。C prototypeで深さの判定を比べると、stack pointerの比較は負荷が測れず、メモリ上のcounterは2.65倍、深さを引数で運ぶ方法は13%遅かった。native版を入口のstack pointer比較付きで出し、予算を使い切ったらframe版へ渡す形にすると、`fib(40)`は245 msになった。call siteごとに分岐する形（366 ms）は、native activationがcontrol arenaの記録を毎回更新し、二つの再帰呼び出しの合流が最適化器の再帰除去を妨げたため採らなかった。50M段の再帰は、OSのstackを128 KiBに絞っても392 MBで完走し、frame方式のメモリ効率が保たれる。typical90の79問は出力が全て一致し、時間比のmedianは1.002だった。
+
+## 2026-09-26 — native再帰のstack観測とpersistent parameter
+
+Typical90のmaximum-order corpusを再調査すると、非tail self recursionの差はframe版へ実際に切り替わるcostではなく、浅いnative
+activationが毎回払うstack guardとmanaged parameter ownershipに分かれた。029、032、068、077、080はいずれもmaximum inputでは
+64 KiBのnative予算内に収まり、frame版への動的切替は発生しなかった。native recursionを無効にした比較では、029は150.14から
+146.39 msへわずかに短縮した一方、032は41.79から52.32 msへ悪化したため、frame方式への一律な復帰は採らない。
+
+stack guardがruntime helper内の`__builtin_frame_address(0)`を読む形では、inlining後もnative functionへframe pointerを要求した。
+LLVM IR側で`llvm.stacksave`のlogical stack pointerを読み、runtimeへ値として渡す形へ変えると、029は10回の交互測定で
+150.29から144.31 ms、Callgrind instructionは3,218 millionから3,139 millionへ減った。guardを外す診断版の080は
+3.80から2.48 ms、conditional branchは4.23 millionから2.13 millionへ減ったが、bounded native stackを失うため採れない。
+guardをself call siteへ移す版も3.9 msに対して4.0 msで改善せず、coldなframe fallbackが存在する限りcallee-saved registerの
+退避と通常ABIのcontext引数がleaf activationにも残った。固定depth引数、call-site切替、専用worker contextは、いずれも安全性を
+保つ代わりにhot pathの別のcostへ置き換えるため採らなかった。
+
+029の主要差は、全self edgeで同じ二つのBufferを転送するにもかかわらず、各activationのparameter分解が二つをretainし、終了時に
+releaseすることだった。`execution/native_recursion`で全self edgeのparameter対応を取り、使用するmanaged leafがすべて保持される
+functionだけをborrowed parameterとしてownership planへ渡した。同期callerはnative版からframe版へ切り替わった後もcall完了まで
+authorityを保持するため、nested aliasの通常livenessからlenderが消えるpathでもpersistent lenderとして使える。managed leafを
+変更するedgeは従来のownershipに残す。
+
+この変更後の029は144.8から119.7 msへ17%、Callgrind instructionは3,139 millionから2,391 millionへ24%、conditional branchは
+388.59 millionから229.28 millionへ41%減った。maximum inputの25万行は変更前と一致した。78問の短い再走査（warmup 1、交互3回）も
+すべてstdoutがCと一致し、029のmedian比は1.44倍から1.09倍へ下がった。小さいOS stackとValgrind Memcheckを組み合わせたmanaged
+recursion fixtureも全件通過した。080に残るguard costは、bounded stackを維持したまま再帰不変fieldをnative内部ABIから分離する
+一般的なparameter scalarizationなしには除かない。
