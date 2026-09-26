@@ -1,0 +1,118 @@
+macro_rules! c_switch_case {
+    (rust $case:expr) => {
+        $case
+    };
+    (case $label:tt; $body:tt) => {
+        $crate::backend::c::syntax::SwitchCase::case(
+            $crate::backend::c::syntax::c_expr! $label,
+            $crate::backend::c::syntax::c_block! $body,
+        )
+    };
+    (default; $body:tt) => {
+        $crate::backend::c::syntax::SwitchCase::default(
+            $crate::backend::c::syntax::c_block! $body,
+        )
+    };
+}
+
+macro_rules! c_switch_cases {
+    ($($case:tt),* $(,)?) => {{
+        let mut cases = Vec::new();
+        $(
+            $crate::backend::c::syntax::c_switch_cases_item!(cases; $case);
+        )*
+        cases
+    }};
+}
+
+macro_rules! c_switch_cases_item {
+    ($cases:ident; (extend $more:expr)) => {
+        $cases.extend($more)
+    };
+    ($cases:ident; $case:tt) => {
+        $cases.push($crate::backend::c::syntax::c_switch_case! $case)
+    };
+}
+
+macro_rules! c_statement {
+    (rust $statement:expr) => {
+        $statement
+    };
+    (expr $value:tt) => {
+        $crate::backend::c::syntax::Statement::expression(
+            $crate::backend::c::syntax::c_expr! $value,
+        )
+    };
+    (call $name:expr; $($argument:tt),* $(,)?) => {
+        $crate::backend::c::syntax::Statement::expression($crate::backend::c::syntax::c_expr!(
+            call $name; $($argument),*
+        ))
+    };
+    (invoke $callee:tt; $($argument:tt),* $(,)?) => {
+        $crate::backend::c::syntax::Statement::expression($crate::backend::c::syntax::c_expr!(
+            invoke $callee; $($argument),*
+        ))
+    };
+    (var ($ty:expr) ($name:expr)) => {
+        $crate::backend::c::syntax::Statement::variable($ty, $name, None)
+    };
+    (var ($ty:expr) ($name:expr) = $value:tt) => {
+        $crate::backend::c::syntax::Statement::variable(
+            $ty,
+            $name,
+            Some($crate::backend::c::syntax::c_expr! $value),
+        )
+    };
+    (declaration ($declaration:expr)) => {
+        $crate::backend::c::syntax::Statement::variable_declaration($declaration, None)
+    };
+    (declaration ($declaration:expr) = $value:tt) => {
+        $crate::backend::c::syntax::Statement::variable_declaration(
+            $declaration,
+            Some($crate::backend::c::syntax::c_expr! $value),
+        )
+    };
+    (return $value:tt) => {
+        $crate::backend::c::syntax::Statement::return_value(
+            $crate::backend::c::syntax::c_expr! $value,
+        )
+    };
+    (return_void) => {
+        $crate::backend::c::syntax::Statement::return_void()
+    };
+    (if $condition:tt; $body:tt) => {
+        $crate::backend::c::syntax::Statement::if_then(
+            $crate::backend::c::syntax::c_expr! $condition,
+            $crate::backend::c::syntax::c_block! $body,
+        )
+    };
+    (switch $value:tt; $cases:tt) => {
+        $crate::backend::c::syntax::Statement::switch(
+            $crate::backend::c::syntax::c_expr! $value,
+            $crate::backend::c::syntax::c_switch_cases! $cases,
+        )
+    };
+}
+
+macro_rules! c_block {
+    ($($statement:tt),* $(,)?) => {{
+        let mut block = $crate::backend::c::syntax::Block::default();
+        $(
+            $crate::backend::c::syntax::c_block_item!(block; $statement);
+        )*
+        block
+    }};
+}
+
+macro_rules! c_block_item {
+    ($block:ident; (extend $statements:expr)) => {
+        $block.extend($statements)
+    };
+    ($block:ident; $statement:tt) => {
+        $block.push($crate::backend::c::syntax::c_statement! $statement)
+    };
+}
+
+pub(in crate::backend) use c_block;
+pub(in crate::backend) use c_statement;
+pub(in crate::backend) use {c_block_item, c_switch_case, c_switch_cases, c_switch_cases_item};
