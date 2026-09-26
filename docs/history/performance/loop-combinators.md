@@ -109,3 +109,13 @@ pass-through後のphysical frameは必要な`Int64`一つだけの8 bytesだっ�
 104.96 million instructionsであり、同じbodyのnative activationはreturn addressを含めて少なくとも32 bytesを使った。この形では
 native chunk反復はmemory量を増やし、chunk境界の変換も追加する。深い再帰については、まずsemantic frameを保ったままfield、tag、
 arena accessを減らす既存方針を続け、continuation chunk化は複数の実workloadでframe trafficが支配的になった場合に再検討する。
+
+現行compilerから`NativeRecursion`だけを外して同じ`-O2 -flto`で比較すると、`fib(40)`はnative hybrid 236.18 msに対して
+frame-only 595.32 ms（nativeが2.52倍）、080は3.234 msに対して4.573 ms（nativeが1.41倍）だった。一方、上記の
+5,000,000段linear fixtureは20.38 msに対して17.39 msでframe-onlyが1.17倍速かった。frame-onlyではmachine recursionを含まない
+function全体がrootへinlineされ、arenaとextern bridgeを跨ぐloop最適化を受けたため、Callgrind instructionはhybridの150.31 millionに
+対して54.06 millionだった。これはstack storage単独ではなく、現行のhot/cold function境界を含む比較である。
+
+self call siteが一つのlinear functionを常にframe-onlyにするpolicyも試したが、79問の短い比較で032が42.76から55.38 msへ29.5%
+悪化した。深いlinear fixtureは改善しても、site数だけでは実行depthとresume workを表せないため採らなかった。native chunkから
+continuationをmaterializeして一度unwindしない限り、浅いnativeの利点と深いframe loopのroot-level最適化を一つの実行で同時には得られない。
