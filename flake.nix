@@ -48,6 +48,7 @@
         nativeBuildInputs = [ pkgs.makeWrapper ];
         nativeCheckInputs = [ pkgs.clang pkgs.lld ];
         postInstall = ''
+          install -Dm644 $src/crates/mal-backend/include/mal.h $out/include/mal.h
           wrapProgram $out/bin/malc \
             --prefix PATH : ${lib.makeBinPath [ pkgs.clang pkgs.lld ]}
         '';
@@ -122,6 +123,7 @@
 
       toolchain-check = pkgs.runCommand "mal-toolchain-check" { } ''
         test -x ${toolchain}/bin/malc
+        test -s ${toolchain}/include/mal.h
         test -x ${toolchain}/bin/mal-fmt
         test -x ${toolchain}/bin/mal-lsp
         test -s ${toolchain}/parser/mal.so

@@ -141,4 +141,5 @@ fn reports_required_c_source_and_c_compiler_failures() {
     assert!(artifacts.join("program.ll").is_file());
     assert!(artifacts.join("program-shim.c").is_file());
     assert!(artifacts.join("program.mal.h").is_file());
+    assert!(artifacts.join("mal.h").is_file());
 }

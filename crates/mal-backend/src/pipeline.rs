@@ -2,7 +2,9 @@ use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::{SourceFile, SourceGraph};
 
 pub use crate::backend::artifact::{LlvmArtifacts, RuntimeSource};
-pub use crate::backend::c::{GENERATED_HEADER_NAME, is_valid_header_name};
+pub use crate::backend::c::{
+    COMMON_HEADER, COMMON_HEADER_NAME, GENERATED_HEADER_NAME, common_header, is_valid_header_name,
+};
 pub use crate::backend::llvm::{Error as BackendError, Target};
 
 /// Generates the public C header from the checked host interface. No `main` is required and value bindings are not lowered.

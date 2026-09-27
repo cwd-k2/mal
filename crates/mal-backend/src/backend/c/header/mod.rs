@@ -10,9 +10,14 @@ use crate::backend::c::syntax::{
     c_statement,
 };
 
+mod common;
 mod prefix;
 
 use self::prefix::emit_prefix;
+
+pub(super) fn emit_common() -> String {
+    common::emit()
+}
 
 pub(super) fn emit(
     interface: &ProgramInterface,

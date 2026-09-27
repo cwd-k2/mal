@@ -123,12 +123,15 @@ fn generate_build_inputs(
     let module_path = build_directory.join("program.ll");
     let shim_path = build_directory.join("program-shim.c");
     let header_path = build_directory.join(mal_backend::pipeline::GENERATED_HEADER_NAME);
+    let common_header_path = build_directory.join(mal_backend::pipeline::COMMON_HEADER_NAME);
     fs::write(&module_path, generated.module)
         .map_err(|error| Error::io("write generated LLVM module", &module_path, error))?;
     fs::write(&shim_path, generated.shim)
         .map_err(|error| Error::io("write generated C shim", &shim_path, error))?;
     fs::write(&header_path, generated.header)
         .map_err(|error| Error::io("write generated header", &header_path, error))?;
+    fs::write(&common_header_path, mal_backend::pipeline::common_header())
+        .map_err(|error| Error::io("write common C header", &common_header_path, error))?;
     let mut generated_inputs = vec![module_path, shim_path];
     for runtime in generated.runtime {
         let path = build_directory.join(runtime.name);

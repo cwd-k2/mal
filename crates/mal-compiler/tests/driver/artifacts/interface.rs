@@ -42,7 +42,8 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(!header.contains("mal__Internal_read"));
     assert!(!header.contains("mal__Internal_t"));
     assert!(!header.contains("mal_Managed_read"));
-    assert!(header.contains("#define MAL_C_ABI_VERSION 0x000800u"));
+    assert!(header.contains("#include <mal.h>"));
+    assert!(header.contains("MAL_C_ABI_VERSION == 0x000900u"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN_consume 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN__privateConsume 1"));
@@ -72,6 +73,8 @@ fn emit_header_prints_to_stdout_without_output() {
     let header = String::from_utf8(output.stdout).unwrap();
     assert!(header.contains("#define MAL_DEFINE_print(call, value)"));
     assert!(!directory.join("source/program.mal.h").exists());
+    assert!(header.contains("#include <mal.h>"));
+    assert!(!header.contains("FLT_MANT_DIG"));
     for requirement in [
         "FLT_MANT_DIG == 24",
         "DBL_MANT_DIG == 53",
@@ -79,7 +82,7 @@ fn emit_header_prints_to_stdout_without_output() {
         "FLT_EVAL_METHOD == 0",
     ] {
         assert!(
-            header.contains(requirement),
+            mal_backend::pipeline::COMMON_HEADER.contains(requirement),
             "missing assertion for {requirement}"
         );
     }
@@ -144,9 +147,12 @@ fn emit_host_prints_compilable_external_operation_stubs() {
     assert!(host.contains("external operation `increment` is not implemented"));
 
     directory.write("host.c", &host);
+    directory.write("mal.h", mal_backend::pipeline::COMMON_HEADER);
     let object = directory.join("host.o");
     let compilation = std::process::Command::new("clang")
         .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-c"])
+        .arg("-I")
+        .arg(directory.join(""))
         .arg(directory.join("host.c"))
         .arg("-o")
         .arg(object)

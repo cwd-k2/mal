@@ -278,7 +278,7 @@ fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
             .unwrap()
             .contains("MAL_DEFINE_sine")
     );
-    for runtime in ["runtime.h", "core.c", "control.c"] {
+    for runtime in ["mal.h", "runtime.h", "core.c", "control.c"] {
         assert!(artifacts.join(runtime).is_file(), "missing {runtime}");
     }
     for runtime in BYTE_RUNTIME {
