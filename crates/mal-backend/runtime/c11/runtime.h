@@ -39,9 +39,6 @@ void *mal_runtime_environment_allocate(
     size_t size,
     void (*destroy)(void *)
 );
-/* Environment storage without a reference count for a closure that does not escape; the caller frees it. */
-void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size);
-void mal_runtime_scoped_environment_deallocate(void *environment);
 void *mal_runtime_environment_retain(MalContext *context, void *environment);
 void mal_runtime_environment_release(void *environment);
 uint8_t mal_runtime_environment_is_unique(const void *environment);

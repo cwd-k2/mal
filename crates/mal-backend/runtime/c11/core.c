@@ -81,14 +81,6 @@ uint8_t mal_runtime_environment_is_unique(const void *environment) {
     return header->references == 1;
 }
 
-void *mal_runtime_scoped_environment_allocate(MalContext *context, size_t size) {
-    return mal_runtime_allocate(context, size);
-}
-
-void mal_runtime_scoped_environment_deallocate(void *environment) {
-    free(environment);
-}
-
 _Noreturn void mal_trap(MalContext *context, const char *message) {
     (void)context;
     fputs("mal trap: ", stderr);
