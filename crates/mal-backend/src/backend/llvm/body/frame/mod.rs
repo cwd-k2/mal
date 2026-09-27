@@ -188,7 +188,12 @@ impl FunctionEmitter<'_> {
                 crate::execution::ownership::ParameterEntry::OwnedHandoff,
             )?;
             self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-            emit_terminator!(self; branch { format!("mal_state_{}", self.function.entry.0) });
+            emit_terminator!(
+                self;
+                branch {
+                    target: {{ format!("mal_state_{}", self.function.entry.0) }},
+                };
+            );
             Some(())
         }
     }
@@ -334,10 +339,13 @@ impl FunctionEmitter<'_> {
                 };
             );
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
-            emit_terminator!(self; conditional
-                { matched } =>
-                { format!("mal_region_target_{}_{index}", site.0) },
-                { next.clone() }
+            emit_terminator!(
+                self;
+                branch {
+                    condition: {{ matched }},
+                    then: {{ format!("mal_region_target_{}_{index}", site.0) }},
+                    otherwise: {{ next.clone() }},
+                };
             );
             self.block(next);
         }
@@ -360,13 +368,14 @@ impl FunctionEmitter<'_> {
             }
             let returned = self.register();
             self.sync_control_top()?;
+            let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
             emit_instruction!(
                 self;
                 let {{ returned.clone() }} = call {
                     tail: false,
                     result_type: {{ result_type.llvm }},
                     callee: indirect({{ code }}),
-                    arguments: pairs({{ arguments }}),
+                    arguments: [...{{ arguments }}],
                 };
             );
             if self
@@ -387,7 +396,10 @@ impl FunctionEmitter<'_> {
                 },
             )?;
         } else {
-            emit_terminator!(self; unreachable);
+            emit_terminator!(
+                self;
+                unreachable;
+            );
         }
         for (index, target) in targets.iter().enumerate() {
             self.block(format!("mal_region_target_{}_{index}", site.0));
@@ -404,7 +416,12 @@ impl FunctionEmitter<'_> {
             argument,
             crate::execution::ownership::ParameterEntry::OwnedHandoff,
         )?;
-        emit_terminator!(self; branch { format!("mal_state_{}", entry.0) });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_state_{}", entry.0) }},
+            };
+        );
         Some(())
     }
 }

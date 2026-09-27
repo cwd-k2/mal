@@ -50,13 +50,14 @@ impl FunctionEmitter<'_> {
         let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
         self.sync_control_top()?;
+        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
         emit_instruction!(
             self;
             let {{ register.clone() }} = call {
                 tail: {{ tail }},
                 result_type: {{ result_value_type.llvm }},
                 callee: direct({{ function_name(target.id) }}),
-                arguments: pairs({{ arguments }}),
+                arguments: [...{{ arguments }}],
             };
         );
         if self.optimizations.localizes_control_storage(target.id) {
@@ -129,13 +130,14 @@ impl FunctionEmitter<'_> {
         let result_type = self.types.value(result)?;
         let register = self.register();
         self.sync_control_top()?;
+        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
         emit_instruction!(
             self;
             let {{ register.clone() }} = call {
                 tail: {{ tail }},
                 result_type: {{ result_type.llvm }},
                 callee: indirect({{ code }}),
-                arguments: pairs({{ arguments }}),
+                arguments: [...{{ arguments }}],
             };
         );
         if self

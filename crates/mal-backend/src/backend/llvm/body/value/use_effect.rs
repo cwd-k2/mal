@@ -126,10 +126,13 @@ impl FunctionEmitter<'_> {
             };
         );
         let label = self.label_id();
-        emit_terminator!(self; conditional
-            { condition } =>
-            { format!("mal_capture_take_{label}") },
-            { format!("mal_capture_share_{label}") }
+        emit_terminator!(
+            self;
+            branch {
+                condition: {{ condition }},
+                then: {{ format!("mal_capture_take_{label}") }},
+                otherwise: {{ format!("mal_capture_share_{label}") }},
+            };
         );
         self.block(format!("mal_capture_take_{label}"));
         let pointer = self.capture_pointer(index, &atom.ty)?;
@@ -143,10 +146,20 @@ impl FunctionEmitter<'_> {
                 metadata: [],
             };
         );
-        emit_terminator!(self; branch { format!("mal_capture_ready_{label}") });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_capture_ready_{label}") }},
+            };
+        );
         self.block(format!("mal_capture_share_{label}"));
         self.retain_if_borrowed(&mut value)?;
-        emit_terminator!(self; branch { format!("mal_capture_ready_{label}") });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_capture_ready_{label}") }},
+            };
+        );
         self.block(format!("mal_capture_ready_{label}"));
         value.owned = true;
         Some(PreparedValue {

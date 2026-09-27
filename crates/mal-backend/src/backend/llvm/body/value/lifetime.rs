@@ -255,13 +255,18 @@ impl FunctionEmitter<'_> {
             .iter()
             .enumerate()
             .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
-        emit_terminator!(self; switch
-            (int(32_u16)) => { tag };
-            default { format!("mal_{operation}_{id}_invalid") };
-            [{{ cases }}]
+        emit_terminator!(
+            self;
+            switch typed((int(32_u16)), {{ tag }})  {
+                cases: [...{{ cases }}],
+                default: {{ format!("mal_{operation}_{id}_invalid") }},
+            };
         );
         self.block(format!("mal_{operation}_{id}_invalid"));
-        emit_terminator!(self; unreachable);
+        emit_terminator!(
+            self;
+            unreachable;
+        );
         for (index, member) in members.iter().enumerate() {
             self.block(format!("mal_{operation}_{id}_{index}"));
             if crate::execution::ownership::is_managed(member) {
@@ -272,7 +277,12 @@ impl FunctionEmitter<'_> {
                     self.release_value(member, &payload)?;
                 }
             }
-            emit_terminator!(self; branch { format!("mal_{operation}_{id}_done") });
+            emit_terminator!(
+                self;
+                branch {
+                    target: {{ format!("mal_{operation}_{id}_done") }},
+                };
+            );
         }
         self.block(format!("mal_{operation}_{id}_done"));
         Some(())

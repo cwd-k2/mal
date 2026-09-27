@@ -273,7 +273,7 @@ impl FunctionEmitter<'_> {
                 emit_instruction!(
                     self;
                     store {
-                        value: typed({{ llvm_type!(array({ stride }, int(8_u16))) }}, "zeroinitializer"),
+                        value: typed({{ llvm_type!(array({{ stride }}, int(8_u16))) }}, "zeroinitializer"),
                         pointer: {{ storage }},
                         alignment: {{ layout.alignment }},
                         metadata: [],

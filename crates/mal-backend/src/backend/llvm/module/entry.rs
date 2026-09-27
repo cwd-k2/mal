@@ -46,9 +46,9 @@ pub(super) fn definition(
         "null"
     };
     let mut arguments = vec![
-        (llvm_type!(ptr), "%mal_context".into()),
-        (llvm_type!(ptr), control_top.into()),
-        (llvm_type!(ptr), "null".into()),
+        (llvm_type!(ptr), "%mal_context".to_owned()),
+        (llvm_type!(ptr), control_top.to_owned()),
+        (llvm_type!(ptr), "null".to_owned()),
     ];
     match &body.main_parameter {
         mal_frontend::check::ast::Type::Unit => {}
@@ -67,13 +67,14 @@ pub(super) fn definition(
             arguments.push((value.llvm, "%mal_entry_argument".into()));
         }
     }
+    let arguments = super::super::syntax::TypedValue::many(arguments)?;
     function
         .structured_instruction(llvm_instruction!(
             let "%mal_entry_result" = call {
                 tail: false,
                 result_type: (int(32_u16)),
                 callee: direct({{ function_name(body.main) }}),
-                arguments: pairs({{ arguments }}),
+                arguments: [...{{ arguments }}],
             };
         )?)
         .then_some(())?;
@@ -88,7 +89,7 @@ pub(super) fn definition(
         )?)
         .then_some(())?;
     function
-        .terminate(llvm_terminator!(return_void)?)
+        .terminate(llvm_terminator!(return;)?)
         .then_some(())?;
     function.finish()
 }

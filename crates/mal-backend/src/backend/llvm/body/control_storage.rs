@@ -182,13 +182,21 @@ impl FunctionEmitter<'_> {
             };
         );
         let label = self.label_id();
-        emit_terminator!(self; conditional
-            { fast } =>
-            { format!("mal_control_fast_{label}") },
-            { format!("mal_control_slow_{label}") }
+        emit_terminator!(
+            self;
+            branch {
+                condition: {{ fast }},
+                then: {{ format!("mal_control_fast_{label}") }},
+                otherwise: {{ format!("mal_control_slow_{label}") }},
+            };
         );
         self.block(format!("mal_control_fast_{label}"));
-        emit_terminator!(self; branch { format!("mal_control_ready_{label}") });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_control_ready_{label}") }},
+            };
+        );
         self.block(format!("mal_control_slow_{label}"));
         let grown = self.register();
         emit_instruction!(
@@ -228,7 +236,12 @@ impl FunctionEmitter<'_> {
                 metadata: [],
             };
         );
-        emit_terminator!(self; branch { format!("mal_control_ready_{label}") });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_control_ready_{label}") }},
+            };
+        );
         self.block(format!("mal_control_ready_{label}"));
         let storage = self.register();
         emit_instruction!(

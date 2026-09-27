@@ -1,12 +1,10 @@
 macro_rules! llvm_scalar {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
-    ({ $($rust:tt)* }) => {{ $($rust)* }};
     ($literal:literal) => { $literal };
 }
 
 macro_rules! llvm_type {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
-    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (void) => { $crate::backend::llvm::syntax::Type::Void };
     (ptr) => { $crate::backend::llvm::syntax::Type::Pointer };
     (float) => { $crate::backend::llvm::syntax::Type::Float };
@@ -45,10 +43,6 @@ macro_rules! llvm_types_items {
         $crate::backend::llvm::syntax::llvm_types_items!($fields; $($($rest)*)?);
     };
     ($fields:ident; {{ $($rust:tt)* }} $(, $($rest:tt)*)?) => {
-        $fields.extend({ $($rust)* });
-        $crate::backend::llvm::syntax::llvm_types_items!($fields; $($($rest)*)?);
-    };
-    ($fields:ident; { $($rust:tt)* } $(, $($rest:tt)*)?) => {
         $fields.push({ $($rust)* });
         $crate::backend::llvm::syntax::llvm_types_items!($fields; $($($rest)*)?);
     };
@@ -64,7 +58,6 @@ macro_rules! llvm_types_items {
 
 macro_rules! llvm_parameter {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
-    ({ $($rust:tt)* }) => {{ $($rust)* }};
     (#[immarg] $($parameter:tt)+) => {{
         $crate::backend::llvm::syntax::llvm_parameter!($($parameter)+)
             .with_attribute($crate::backend::llvm::syntax::ParameterAttribute::ImmArg)
@@ -82,9 +75,6 @@ macro_rules! llvm_parameter {
     (_ : {{ $($ty:tt)* }}) => {
         $crate::backend::llvm::syntax::Parameter::unnamed({ $($ty)* })
     };
-    (_ : { $($ty:tt)* }) => {
-        $crate::backend::llvm::syntax::Parameter::unnamed({ $($ty)* })
-    };
     ($name:tt : $kind:ident($($ty:tt)*)) => {
         $crate::backend::llvm::syntax::Parameter::named(
             $crate::backend::llvm::syntax::llvm_type!($kind($($ty)*)),
@@ -98,12 +88,6 @@ macro_rules! llvm_parameter {
         )
     };
     ($name:tt : {{ $($ty:tt)* }}) => {
-        $crate::backend::llvm::syntax::Parameter::named(
-            { $($ty)* },
-            $crate::backend::llvm::syntax::llvm_scalar!($name),
-        )
-    };
-    ($name:tt : { $($ty:tt)* }) => {
         $crate::backend::llvm::syntax::Parameter::named(
             { $($ty)* },
             $crate::backend::llvm::syntax::llvm_scalar!($name),

@@ -28,7 +28,10 @@ impl FunctionEmitter<'_> {
                 return None;
             }
             let result_type = self.types.value(&self.result_type)?;
-            emit_terminator!(self; return { result_type.llvm } => { result.representation.as_str() });
+            emit_terminator!(
+                self;
+                return typed({{ result_type.llvm }}, {{ result.representation.as_str() }});
+            );
             return Some(());
         }
         let top = self.register();
@@ -52,10 +55,13 @@ impl FunctionEmitter<'_> {
                 right: "%mal_control_base",
             };
         );
-        emit_terminator!(self; conditional
-            { finished } =>
-            { format!("mal_return_done_{}", site.0) },
-            { format!("mal_return_pop_{}", site.0) }
+        emit_terminator!(
+            self;
+            branch {
+                condition: {{ finished }},
+                then: {{ format!("mal_return_done_{}", site.0) }},
+                otherwise: {{ format!("mal_return_pop_{}", site.0) }},
+            };
         );
         self.block(format!("mal_return_done_{}", site.0));
         self.sync_control_top()?;
@@ -73,9 +79,15 @@ impl FunctionEmitter<'_> {
         }
         if result.ty == self.result_type {
             let result_type = self.types.value(&self.result_type)?;
-            emit_terminator!(self; return { result_type.llvm } => { result.representation.as_str() });
+            emit_terminator!(
+                self;
+                return typed({{ result_type.llvm }}, {{ result.representation.as_str() }});
+            );
         } else {
-            emit_terminator!(self; unreachable);
+            emit_terminator!(
+                self;
+                unreachable;
+            );
         }
         self.block(format!("mal_return_pop_{}", site.0));
         let storage = self.current_control_storage();
@@ -124,7 +136,12 @@ impl FunctionEmitter<'_> {
                     };
                 );
             }
-            emit_terminator!(self; branch { format!("mal_frame_{}_from_{}", frame_site.0, site.0) });
+            emit_terminator!(
+                self;
+                branch {
+                    target: {{ format!("mal_frame_{}_from_{}", frame_site.0, site.0) }},
+                };
+            );
             return self.emit_frame_resume(site, *frame_site, result, &frame_pointer, false);
         }
         let footer_offset = self.register();
@@ -210,13 +227,18 @@ impl FunctionEmitter<'_> {
                 })
             })
             .collect::<Option<Vec<_>>>()?;
-        emit_terminator!(self; switch
-            (int(32_u16)) => { tag };
-            default { format!("mal_invalid_frame_{}", site.0) };
-            [{{ cases }}]
+        emit_terminator!(
+            self;
+            switch typed((int(32_u16)), {{ tag }})  {
+                cases: [...{{ cases }}],
+                default: {{ format!("mal_invalid_frame_{}", site.0) }},
+            };
         );
         self.block(format!("mal_invalid_frame_{}", site.0));
-        emit_terminator!(self; unreachable);
+        emit_terminator!(
+            self;
+            unreachable;
+        );
         for frame_site in frame_sites {
             self.emit_frame_resume(site, frame_site, result, &frame_pointer, true)?;
         }
@@ -242,7 +264,10 @@ impl FunctionEmitter<'_> {
         {
             crate::execution::FrameResume::Resume => {}
             crate::execution::FrameResume::Unreachable => {
-                emit_terminator!(self; unreachable);
+                emit_terminator!(
+                    self;
+                    unreachable;
+                );
                 return Some(());
             }
         }
@@ -323,7 +348,12 @@ impl FunctionEmitter<'_> {
                 owned: true,
             }),
         )?;
-        emit_terminator!(self; branch { format!("mal_state_{}", frame.resume.0) });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_state_{}", frame.resume.0) }},
+            };
+        );
         Some(())
     }
 }

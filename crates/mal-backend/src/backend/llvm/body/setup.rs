@@ -333,7 +333,7 @@ impl<'a> FunctionEmitter<'a> {
             );
         }
         if let Some((size, alignment)) = self.external_storage {
-            let storage_type = llvm_type!(array({ size }, int(8)));
+            let storage_type = llvm_type!(array({ { size } }, int(8)));
             emit_instruction!(
                 self;
                 let "%mal_bridge_argument" = alloca {
@@ -363,7 +363,7 @@ impl<'a> FunctionEmitter<'a> {
             emit_instruction!(
                 self;
                 let "%mal_buffer_value" = alloca {
-                    ty: {{ llvm_type!(array({ size }, int(8_u16))) }},
+                    ty: {{ llvm_type!(array({{ size }}, int(8_u16))) }},
                     alignment: {{ alignment }},
                 };
             );
@@ -390,7 +390,12 @@ impl<'a> FunctionEmitter<'a> {
             };
             self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
         }
-        emit_terminator!(self; branch { format!("mal_state_{}", self.function.entry.0) });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_state_{}", self.function.entry.0) }},
+            };
+        );
 
         for site in self.states.clone() {
             self.emit_state(site)?;

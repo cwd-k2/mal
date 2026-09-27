@@ -8,15 +8,6 @@ macro_rules! llvm_value {
             $crate::backend::llvm::syntax::llvm_instruction_atom!($value),
         )
     };
-    ({ $($rust:tt)* }) => {
-        Some({ $($rust)* })
-    };
-    (typed $ty:tt => $value:tt) => {
-        $crate::backend::llvm::syntax::TypedValue::new(
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($value),
-        )
-    };
 }
 
 macro_rules! llvm_values_item {
@@ -29,15 +20,6 @@ macro_rules! llvm_values_item {
     ($values:ident; typed($ty:tt, $value:tt)) => {
         $values.push($crate::backend::llvm::syntax::llvm_value!(typed($ty, $value))?)
     };
-    ($values:ident; {{ $($rust:tt)* }}) => {
-        $values.extend({ $($rust)* })
-    };
-    ($values:ident; { $($rust:tt)* }) => {
-        $values.push({ $($rust)* })
-    };
-    ($values:ident; (typed $ty:tt => $value:tt)) => {
-        $values.push($crate::backend::llvm::syntax::llvm_value!(typed $ty => $value)?)
-    };
 }
 
 macro_rules! llvm_values {
@@ -47,17 +29,6 @@ macro_rules! llvm_values {
             #[allow(unused_mut)]
             let mut values = Vec::from([]);
             $crate::backend::llvm::syntax::llvm_values_items!(values; $($value)*);
-            Some(values)
-        })()
-    }};
-    ($($value:tt),* $(,)?) => {{
-        #[allow(clippy::redundant_closure_call)]
-        (|| {
-            #[allow(unused_mut)]
-            let mut values = Vec::from([]);
-            $(
-                $crate::backend::llvm::syntax::llvm_values_item!(values; $value);
-            )*
             Some(values)
         })()
     }};

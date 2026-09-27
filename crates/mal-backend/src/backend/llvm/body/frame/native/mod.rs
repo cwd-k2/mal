@@ -109,8 +109,8 @@ impl FunctionEmitter<'_> {
             vec![(llvm_type!(ptr), "%mal_native_context".into())]
         } else {
             vec![
-                (llvm_type!(ptr), "%mal_context".into()),
-                (llvm_type!(ptr), "%mal_control_top".into()),
+                (llvm_type!(ptr), "%mal_context".to_owned()),
+                (llvm_type!(ptr), "%mal_control_top".to_owned()),
                 (llvm_type!(ptr), environment),
             ]
         };
@@ -152,13 +152,14 @@ impl FunctionEmitter<'_> {
         let result_llvm = self.types.value(&result_type)?.llvm;
         let name = self.native_worker_name();
         let register = self.register();
+        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
         emit_instruction!(
             self;
             let {{ register.clone() }} = call {
                 tail: false,
                 result_type: {{ result_llvm }},
                 callee: direct({{ name }}),
-                arguments: pairs({{ arguments }}),
+                arguments: [...{{ arguments }}],
             };
         );
         if let Some(value) = handed_over {
@@ -170,7 +171,12 @@ impl FunctionEmitter<'_> {
             representation: register,
         };
         self.store_input_pattern(resume, Some(&result))?;
-        emit_terminator!(self; branch { format!("mal_state_{}", resume.0) });
+        emit_terminator!(
+            self;
+            branch {
+                target: {{ format!("mal_state_{}", resume.0) }},
+            };
+        );
         Some(())
     }
 }
@@ -250,16 +256,20 @@ impl FunctionEmitter<'_> {
             arguments.push((self.types.value(&leaf.ty)?.llvm, register));
         }
         let returned = self.register();
+        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
         emit_instruction!(
             self;
             let {{ returned.clone() }} = call {
                 tail: false,
                 result_type: {{ result.llvm.clone() }},
                 callee: direct({{ self.native_worker_name() }}),
-                arguments: pairs({{ arguments }}),
+                arguments: [...{{ arguments }}],
             };
         );
-        emit_terminator!(self; return { result.llvm } => { returned });
+        emit_terminator!(
+            self;
+            return typed({{ result.llvm }}, {{ returned }});
+        );
         self.finish_function()?;
         (!self.emission_failed).then_some(super::super::EmittedFunction {
             globals: self.globals,
@@ -337,13 +347,13 @@ impl FunctionEmitter<'_> {
     /// Continues the activation in the frames version when the native stack is used up.
     pub(in crate::backend::llvm::body) fn emit_native_entry_guard(&mut self) -> Option<()> {
         let mut parameters = vec![
-            (llvm_type!(ptr), "%mal_context".into()),
-            (llvm_type!(ptr), "%mal_control_top".into()),
-            (llvm_type!(ptr), "%mal_environment".into()),
+            (llvm_type!(ptr), "%mal_context".to_owned()),
+            (llvm_type!(ptr), "%mal_control_top".to_owned()),
+            (llvm_type!(ptr), "%mal_environment".to_owned()),
         ];
         if self.function.parameter.ty != Type::Unit {
             let value = self.types.value(&self.function.parameter.ty)?;
-            parameters.push((value.llvm, "%mal_parameter".into()));
+            parameters.push((value.llvm, "%mal_parameter".to_owned()));
         }
         let result_llvm = self.types.value(&self.result_type)?.llvm;
         let name = super::super::function_name(self.function.id);
@@ -388,21 +398,30 @@ impl FunctionEmitter<'_> {
                 arguments: [typed((int(1_u16)), {{ deep }}), typed((int(1_u16)), "false")],
             };
         );
-        emit_terminator!(self; conditional
-            { expected } => "mal_deep_entry", "mal_native_entry"
+        emit_terminator!(
+            self;
+            branch {
+                condition: {{ expected }},
+                then: "mal_deep_entry",
+                otherwise: "mal_native_entry",
+            };
         );
         self.block("mal_deep_entry");
         let continued = self.register();
+        let parameters = crate::backend::llvm::syntax::TypedValue::many(parameters)?;
         emit_instruction!(
             self;
             let {{ continued.clone() }} = call {
                 tail: false,
                 result_type: {{ result_llvm.clone() }},
                 callee: direct({{ format!("{name}_frames") }}),
-                arguments: pairs({{ parameters }}),
+                arguments: [...{{ parameters }}],
             };
         );
-        emit_terminator!(self; return { result_llvm } => { continued });
+        emit_terminator!(
+            self;
+            return typed({{ result_llvm }}, {{ continued }});
+        );
         self.block("mal_native_entry");
         Some(())
     }

@@ -190,10 +190,12 @@ impl FunctionEmitter<'_> {
             tag
         };
         let tag_type = llvm_type!(int({
-            if is_bool(&scrutinee.ty) {
-                1_u16
-            } else {
-                32_u16
+            {
+                if is_bool(&scrutinee.ty) {
+                    1_u16
+                } else {
+                    32_u16
+                }
             }
         }));
         let cases = arms.iter().map(|arm| {
@@ -202,13 +204,18 @@ impl FunctionEmitter<'_> {
                 format!("mal_case_{}_{}", site.0, arm.index),
             )
         });
-        emit_terminator!(self; switch
-            { tag_type } => { tag };
-            default { format!("mal_invalid_case_{}", site.0) };
-            [{{ cases }}]
+        emit_terminator!(
+            self;
+            switch typed({{ tag_type }}, {{ tag }})  {
+                cases: [...{{ cases }}],
+                default: {{ format!("mal_invalid_case_{}", site.0) }},
+            };
         );
         self.block(format!("mal_invalid_case_{}", site.0));
-        emit_terminator!(self; unreachable);
+        emit_terminator!(
+            self;
+            unreachable;
+        );
         for (arm_ordinal, arm) in arms.iter().enumerate() {
             let member = members.get(arm.index)?;
             self.block(format!("mal_case_{}_{}", site.0, arm.index));
@@ -234,7 +241,12 @@ impl FunctionEmitter<'_> {
                 site,
                 crate::execution::ownership::ControlPath::CaseArm(arm_ordinal),
             )?;
-            emit_terminator!(self; branch { format!("mal_state_{}", arm.target.0) });
+            emit_terminator!(
+                self;
+                branch {
+                    target: {{ format!("mal_state_{}", arm.target.0) }},
+                };
+            );
         }
         Some(())
     }

@@ -34,7 +34,10 @@ impl FunctionEmitter<'_> {
             };
         );
         self.release_value(&environment_type, &environment)?;
-        emit_terminator!(self; return_void);
+        emit_terminator!(
+            self;
+            return;
+        );
         self.finish_function()?;
         self.next_register = 0;
         Some(())

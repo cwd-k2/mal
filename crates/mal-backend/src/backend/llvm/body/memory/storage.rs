@@ -72,7 +72,7 @@ impl FunctionEmitter<'_> {
             emit_instruction!(
                 self;
                 let {{ source_tag.clone() }} = load {
-                    ty: {{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }},
+                    ty: {{ llvm_type!(int({{ u16::try_from(layout.tag_bits).ok()? }})) }},
                     pointer: {{ pointer }},
                     alignment: {{ alignment }},
                     metadata: {{ metadata.iter().copied() }},
@@ -102,7 +102,7 @@ impl FunctionEmitter<'_> {
                     self;
                     let {{ extended.clone() }} = cast {
                         operator: {{ CastOperator::ZExt }},
-                        value: typed({{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }}, {{ source_tag }}),
+                        value: typed({{ llvm_type!(int({{ u16::try_from(layout.tag_bits).ok()? }})) }}, {{ source_tag }}),
                         to: (int(32_u16)),
                     };
                 );
@@ -128,13 +128,18 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            emit_terminator!(self; switch
-                (int(32_u16)) => { tag };
-                default { format!("{stem}_invalid") };
-                [{{ cases }}]
+            emit_terminator!(
+                self;
+                switch typed((int(32_u16)), {{ tag }})  {
+                    cases: [...{{ cases }}],
+                    default: {{ format!("{stem}_invalid") }},
+                };
             );
             self.block(format!("{stem}_invalid"));
-            emit_terminator!(self; unreachable);
+            emit_terminator!(
+                self;
+                unreachable;
+            );
             for (index, variant) in variants.iter().enumerate() {
                 self.block(format!("{stem}_variant_{index}"));
                 let payload = self.emit_source_load_at_with_alignment(
@@ -153,7 +158,12 @@ impl FunctionEmitter<'_> {
                         metadata: [],
                     };
                 );
-                emit_terminator!(self; branch { format!("{stem}_loaded") });
+                emit_terminator!(
+                    self;
+                    branch {
+                        target: {{ format!("{stem}_loaded") }},
+                    };
+                );
             }
             self.block(format!("{stem}_loaded"));
             let result = self.register();
@@ -311,7 +321,7 @@ impl FunctionEmitter<'_> {
                     let {{ narrowed.clone() }} = cast {
                         operator: {{ CastOperator::Trunc }},
                         value: typed((int(32_u16)), {{ &tag }}),
-                        to: {{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }},
+                        to: {{ llvm_type!(int({{ u16::try_from(layout.tag_bits).ok()? }})) }},
                     };
                 );
                 narrowed
@@ -335,7 +345,7 @@ impl FunctionEmitter<'_> {
             emit_instruction!(
                 self;
                 store {
-                    value: typed({{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }}, {{ source_tag }}),
+                    value: typed({{ llvm_type!(int({{ u16::try_from(layout.tag_bits).ok()? }})) }}, {{ source_tag }}),
                     pointer: {{ pointer }},
                     alignment: {{ alignment }},
                     metadata: {{ metadata.iter().copied() }},
@@ -348,13 +358,18 @@ impl FunctionEmitter<'_> {
                 .iter()
                 .enumerate()
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
-            emit_terminator!(self; switch
-                (int(32_u16)) => { tag };
-                default { format!("{stem}_invalid") };
-                [{{ cases }}]
+            emit_terminator!(
+                self;
+                switch typed((int(32_u16)), {{ tag }})  {
+                    cases: [...{{ cases }}],
+                    default: {{ format!("{stem}_invalid") }},
+                };
             );
             self.block(format!("{stem}_invalid"));
-            emit_terminator!(self; unreachable);
+            emit_terminator!(
+                self;
+                unreachable;
+            );
             for (index, variant) in variants.iter().enumerate() {
                 self.block(format!("{stem}_variant_{index}"));
                 let payload = self.emit_sum_payload(&value.ty, variant, &value.representation)?;
@@ -368,7 +383,12 @@ impl FunctionEmitter<'_> {
                     aligned,
                     metadata,
                 )?;
-                emit_terminator!(self; branch { format!("{stem}_stored") });
+                emit_terminator!(
+                    self;
+                    branch {
+                        target: {{ format!("{stem}_stored") }},
+                    };
+                );
             }
             self.block(format!("{stem}_stored"));
             return Some(());

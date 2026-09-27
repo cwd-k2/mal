@@ -87,7 +87,10 @@ impl FunctionEmitter<'_> {
         } else {
             self.release_value(element, &value)?;
         }
-        emit_terminator!(self; return_void);
+        emit_terminator!(
+            self;
+            return;
+        );
         self.finish_function()
     }
 }
