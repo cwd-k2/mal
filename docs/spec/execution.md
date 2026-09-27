@@ -134,7 +134,7 @@ precondition違反はtrapではなく、特定の実行結果を保証しない�
 internal invariant failureはこの言語上のtrap条件に含めない。
 
 `malc`のC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
-host adapterは回復不能なcontract violationをgenerated headerの`mal_trap`で同じ終了へ写像できる。
+host adapterは回復不能なcontract violationを`mal.h`の`mal_call_trap`で同じ終了へ写像できる。
 
 Addressを使うcopyの範囲、permission、initialization、lifetime違反はhost contract違反であり、Buffer accessのindexと
 copy offsetのprecondition違反も特定の実行結果を保証しない。詳細は[memory](memory.md)に定める。

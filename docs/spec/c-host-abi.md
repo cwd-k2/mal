@@ -1,23 +1,26 @@
 # C host ABI
 
-Status: Accepted ABI 0x000800 for mal v0.6
+Status: Accepted ABI 0x000900 for mal v0.6
 
-この文書はmal v0.6の`malc`が生成するC host interfaceを定める。`0x000800`はC ABI自体の
+この文書はmal v0.6の`malc`が生成するC host interfaceを定める。`0x000900`はC ABI自体の
 versionであり、source languageのversionではない。言語側のextern semanticsは
 [`extern`](extern.md)、authorityは[`engrams`](engrams.md)、外部memoryは[`memory`](memory.md)を正とする。
 
 ## Build model
 
-`malc`はmal sourceからprogram固有headerを生成し、`build`ではLLVM module、C shim、C runtimeを構成する。host implementationはheaderを
-includeし、生成artifactと同じtarget ABIでcompileする。`.mal` sourceから推移的にrequireされた`.c` fileは`build`のlink入力に
-なる。build時には今回生成したheaderをC translation unitへ先に読み込み、host sourceの隣にある保存済みheaderが生成物を
-置き換えない。既存libraryには薄いC adapterを介して接続し、必要なlibrary、object、archive、include path、macroなどの
-toolchain argumentは`malc`の明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。
+toolchainはprogram非依存の`mal.h`を提供する。`malc emit header file.mal`はrequire graphを検査し、指定したsource fileが所有する
+C interfaceをfile headerとして生成する。file headerは`mal.h`と、直接requireした`.mal` fileに対応するfile headerをincludeする。
+host implementationは自身を所有するfile headerをincludeし、生成artifactと同じtarget ABIでcompileする。
 
-generated headerと対応するbuild artifactは一組であり、異なるcompiler出力を組み合わせてはならない。ABI versionは次で判定する。
+`build`では各file interfaceと同等の宣言を持つ内部umbrella header、LLVM module、C shim、C runtimeを構成する。`.mal` sourceから
+推移的にrequireされた`.c` fileはlink入力になる。build時には今回生成したumbrella headerをC translation unitへ先に読み込み、host
+sourceの隣にある保存済みfile headerが生成物を置き換えない。既存libraryには薄いC adapterを介して接続し、必要なlibrary、object、
+archive、include path、macroなどのtoolchain argumentは`malc`の明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。
+
+`mal.h`とfile headerはABI versionを検査し、異なるversionを組み合わせてはならない。ABI versionは次で判定する。
 
 ```c
-#define MAL_C_ABI_VERSION 0x000800u
+#define MAL_C_ABI_VERSION 0x000900u
 ```
 
 `main :: Unit -> Int32`は`main(void)`へ、`main :: Buffer<Symbol> -> Int32`は`main(int, char **)`へlowerする。
@@ -100,9 +103,10 @@ external opaque type `T`は一machine wordのcopyable handleである。hostは
 検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
 境界通過によって変化しない。`Buffer`はpublic C ABIへ出せない。
 
-public headerはHostMappableなbuiltin carrierとhelper、extern signatureから到達できるHostMappableなaggregateとopaque型、および
-後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Buffer`、function、およびそれらを含む
-aggregateの型名、内部carrier、ownership helperを宣言しない。
+`mal.h`はHostMappableなbuiltin carrierとhelperを宣言する。file headerは指定fileのextern signatureから到達できる
+HostMappableなaggregateとopaque型、および後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Buffer`、function、
+およびそれらを含むaggregateの型名、内部carrier、ownership helperを宣言しない。anonymous productとsumのC名は展開済みの構造だけから
+決まるfingerprintを持ち、source graphのload orderや別fileの宣言追加では変化しない。
 
 可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
 指定範囲をcall中だけborrowし、書き込みではhostが所有する範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
@@ -111,9 +115,8 @@ postconditionは[AddressとBuffer](memory.md)とoperation固有のcontractを正
 
 ## Canonical memory access
 
-entry sourceで宣言されたpublicなnongeneric type alias `T`が`HostMappable(T)`と`Representable(T)`をともに満たす場合、generated headerは
-次のhelperを生成する。require先で宣言されたaliasは、同名の独立したmodule APIが衝突しないよう、extern signatureから要求される場合を除いて
-entry programのC surfaceへ自動的に再公開しない。
+header生成対象のsource fileで宣言されたpublicなnongeneric type alias `T`が`HostMappable(T)`と`Representable(T)`をともに満たす場合、
+file headerは次のhelperを生成する。別fileで宣言されたaliasの宣言とhelperは、そのfile headerが所有する。
 
 ```c
 mal_T_t mal_T_read(mal_call_t *call, mal_Address_t address, mal_USize_t index);
@@ -154,5 +157,5 @@ C runtimeのcontextとmanaged valueはthread-confinedである。同じcall capa
 function、constantに使う。`MAL_DEFINE_<name>`が展開するcompiler-facing declarationと`mal_detail_` memberは実装detailであり、
 host contractとして直接参照してはならない。
 
-generated headerおよびlinked artifactのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。host sourceと`.mal`
-sourceをauthorityとし、compiler更新後には生成物を組で再生成する。
+`mal.h`、generated file header、およびlinked artifactのsource compatibilityまたはbinary compatibilityを異なるC ABI version間で
+保証しない。host sourceと`.mal` sourceをauthorityとし、compilerのC ABI version更新後にはfile headerを再生成する。

@@ -61,7 +61,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `call_pattern` | closure-converted programを書き換える唯一の最適化。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、複製したbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
-| `backend/c` | `ProgramInterface`からpublic C headerとhost stubへの変換 |
+| `backend/c` | file別`ProgramInterface`からpublic C file header、build用umbrella header、host stubへの変換 |
 | `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、canonical storage、runtime slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
 | `backend/source_layout` | runtime value layoutと独立に、canonical memoryのstride、alignment、offsetをtarget data layoutから構成 |
@@ -103,11 +103,11 @@ public use caseごとに必要なstageだけを構成する。後段を通すこ
 | `check`、diagnostic | `source -> lexer -> parser -> resolve -> check` | checked programまたはstructured diagnostic |
 | editor semantic query | frontendのresolved programとchecked program `-> editor` | source identityに基づくsemantic index |
 | `mal-fmt` | `source -> lossless lexer -> parser -> formatter` | canonical source textまたはstructured diagnostic |
-| `emit header`、`emit host` | frontend `-> core::ProgramInterface -> backend/c` | checked host interfaceだけから生成したC headerまたはadapter stub |
+| `emit header`、`emit host` | frontend `-> core::ProgramInterface -> backend/c` | 指定fileが所有するchecked host interfaceだけから生成したC file headerまたはadapter stub |
 | `build` | frontend `-> execution -> LLVM module + C shim/runtime -> pinned Clang` | executableまたはexternal-boundary error |
 | `emit atcoder` | `build`と同じ生成入力 `-> pinned Clang/LLD -> assembly carrier` | mal sourceをcommentに保持した単一C++ sourceまたはexternal-boundary error |
 
-`ProgramInterface`はchecked programからcore境界で一度だけ抽出する。type alias、external type、external operationの
+`ProgramInterface`はchecked programからcore境界で一度だけ抽出する。各itemの宣言元file identityと、type alias、external type、external operationの
 source-level metadataを持ち、ANFとclosure conversionは内容を変更しない。host interfaceだけを生成する経路は
 value bindingをlowerせず、このmetadataを直接`backend/c`へ渡す。`build`では同じ`ProgramInterface`をLLVM executable bodyと
 C shimの共通ABI planへ渡す。
@@ -131,7 +131,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | LLVM Buffer element | 要素のstorage layoutを選び、`Symbol`を含む要素にはretainとreleaseのcallbackを生成してruntimeへ渡し、`get`と`put`のreference操作を出力する |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
-| C interface | HostMappableな型だけをABI 0x000800とpublic headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
+| C interface | HostMappableな型だけをABI 0x000900のfile headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
 | process shim | `argv + 1`をcopyして作ったargument Bufferを`Buffer<Symbol>` rootへ渡し、return後に解放する |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを

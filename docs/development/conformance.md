@@ -46,7 +46,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C host ABI](../spec/c-host-abi.md) | ABI `0x000800`、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
+| [C host ABI](../spec/c-host-abi.md) | ABI `0x000900`、共通`mal.h`、file header、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
 | [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Addressと長さで借りたexternal bytesのadmissionとobservation |
 
 ## Specification cases

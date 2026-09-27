@@ -14,7 +14,7 @@ Status: Current implementation design
 
 - LLVM IRは、解析済みMal programに固有の実行計画を所有する。
 - C runtimeは、programによらないstorageと汎用operationを所有する。
-- C shimとgenerated headerは、hostへ公開するC ABIを所有する。
+- 共通`mal.h`、C shim、generated file headerは、hostへ公開するC ABIを所有する。
 
 `malc`が使用するtarget toolchainはpinned Clang/LLVMに限定し、runtime、shim、host adapterのsource languageはC11とする。
 GCCその他のC compilerとのsource compatibility、option compatibility、ABI compatibilityは設計条件にしない。
@@ -41,7 +41,8 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 | Generated LLVM IR | function body、basic block、call、branch、dispatch、self-tail parameterの物理leaf、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
 | C runtime | allocation、reference count機構、control storage growth、共通flat byte ownerとSymbol汎用操作、fatal resource failure |
 | Generated C shim | process entry、LLVM moduleのroot呼出し、extern call marshalling、terminal return、public valueと内部valueの変換 |
-| Generated C header | host-visible type、operation definition macro、observer、constructor、public C ABI version |
+| Common `mal.h` | program非依存のbuiltin carrier、call capability、trap、public C ABI version |
+| Generated C file header | file固有のhost-visible type、operation definition macro、observer、constructor、target assertion |
 | Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink、明示された外部toolchain argumentとinspection artifactの配送 |
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの

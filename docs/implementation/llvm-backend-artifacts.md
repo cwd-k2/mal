@@ -24,7 +24,8 @@ backendは概ね次のartifactを構成する。
 ```text
 program.ll          program固有の実行計画
 program-shim.c      process entryとextern marshalling
-program.mal.h       host向けpublic C interface
+program.mal.h       build内部でfile interfaceをまとめるumbrella C interface
+mal.h               program非依存のpublic C ABI
 runtime C objects   allocation、control storage、Symbol
 ```
 
@@ -142,4 +143,5 @@ int main(void) {
 いずれのentry形でも第三parameterは`Int32` resultの格納先である。
 
 extern callもLLVMからgenerated C bridgeを呼び、bridgeがpublic host valueへの変換とterminal returnを実行する。host implementationは
-`program.mal.h`の`MAL_DEFINE_<name>`だけを使い、LLVM module、bridge signature、runtime carrierを参照しない。
+対応するfile headerの`MAL_DEFINE_<name>`だけを使い、LLVM module、bridge signature、runtime carrierを参照しない。build内部では
+同じ宣言をまとめた`program.mal.h`をpreincludeする。

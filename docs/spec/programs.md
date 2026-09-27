@@ -31,7 +31,7 @@ shadowできる。
 
 top-levelのtype identifierまたはvalue identifierは、先頭が`_`ならそのfileだけから参照できるprivate名、それ以外なら
 require元へ導入できるpublic名である。このvisibilityはmal source間のname lookupだけに作用し、必要なextern declarationや
-host-visible typeをgenerated headerから除去しない。private型の値は、名前を参照できないfileでもpublic operationの引数や
+host-visible typeを宣言元fileのgenerated headerから除去しない。private型の値は、名前を参照できないfileでもpublic operationの引数や
 結果として受け渡せる。
 
 ## top-level item

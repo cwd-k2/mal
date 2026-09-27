@@ -44,6 +44,6 @@ For representation and relation modeling, start with `relation-views`, continue 
 example; `mini-database`, `socket-packet`, and `brainfuck-llvm` show the same boundary in larger
 programs.
 
-All `.mal` files are formatter fixtures. Checked-in `program.mal.h` files are compiler-generated host
+All `.mal` files are formatter fixtures. Checked-in `program.mal.h` files are compiler-generated file host
 interfaces and are compared byte-for-byte with current compiler output. Representative directories
 also build and execute through the public compiler driver tests.

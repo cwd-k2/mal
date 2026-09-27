@@ -12,7 +12,8 @@ Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository�
 environmentと、そこに含まれるClangである。repository rootから`nix develop`を使うと同じRust compiler、
 Cargo、Clangへ入れる。
 
-C shim、runtime、generated header、host sourceはC11を要求する。generated headerは浮動小数点の要件を`_Static_assert`で検査し、
+C shim、runtime、`mal.h`、generated file header、host sourceはC11を要求する。`mal.h`は浮動小数点の要件を、file headerはtarget固有の要件を
+`_Static_assert`で検査し、
 満たさないtargetをcompile-timeに拒否する（要件は[C host ABI](../spec/c-host-abi.md#host-value-mapping)に定める）。
 他のOS、architecture、C compilerは検証対象外である。
 
@@ -42,7 +43,7 @@ malc build source.mal -o program
 malc build source.mal -o program --optimization baseline
 malc build source.mal -o program --artifact-dir artifacts
 malc build source.mal -o program --clang-arg '-lm'
-malc emit header source.mal -o program.mal.h
+malc emit header source.mal -o source.mal.h
 malc emit host source.mal -o host.c
 malc emit host source.mal --header custom.h
 malc emit atcoder source.mal -o Main.cpp
@@ -57,10 +58,13 @@ sourceを型検査する。成功時には生成物を作らない。
 
 ### `emit header`と`emit host`
 
-`emit header`はhost implementation用のgenerated headerを出す。`extern` interfaceが型検査できればよく、実行可能な`main` bindingは要求しない。
-host sourceが`program.mal.h`をincludeする前提で、`emit header -o program.mal.h`のように保存する。
+`emit header`はhost implementation用のfile headerを出す。require graph全体を型検査するが、指定したsource fileが所有するalias、external
+type、external operationだけを生成する。直接requireした`.mal` fileのheaderは、require pathの末尾を`.mal.h`にしたquoted includeで
+参照する。実行可能な`main` bindingは要求しない。host sourceの隣へ`emit header source.mal -o source.mal.h`のように保存する。
+file headerはtoolchainが提供する`mal.h`をincludeし、要求するC ABI versionを検査する。
 
-`emit host`は各external operationを`MAL_DEFINE_<name>`で定義したC stubを出す。stubは`program.mal.h`をincludeし、未実装のoperationを
+`emit host`は指定fileの各external operationを`MAL_DEFINE_<name>`で定義したC stubを出す。stubは既定でsource file名に`.h`を加えた
+file headerをincludeし、未実装のoperationを
 `mal_call_trap`させるため、そのまま保存して実装の開始点にできる。別名のheaderを生成した場合は、`--header name`でstubのquoted include名を
 合わせる。`emit header`と同様に`main` bindingは要求しない。
 
@@ -124,12 +128,12 @@ stderrへ出す。後者ではtoolchainのstderrも保持する。
 
 ## Host adapterとshared object
 
-host C sourceは対象programが生成した`program.mal.h`をincludeし、LLVM moduleとshimと同じtarget ABIでcompileする。対応する
+host C sourceは自身を所有する`.mal` fileのfile headerをincludeし、LLVM moduleとshimと同じtarget ABIでcompileする。対応する
 `.mal` fileからhost C sourceをrequireする。
 新しいadapterは`malc emit host source.mal -o host.c`で雛形を作成できる。既存fileを置き換えるcommandなので、
 編集済みの`host.c`に対して再実行してはならない。
-`build`は生成直後のheaderを各C translation unitへpreincludeし、同名の隣接headerが今回の生成物を置き換えないようにする。
-host sourceの明示的な`#include "program.mal.h"`は単独でのeditor supportとcompileのために維持する。
+`build`は各file interfaceから構成した生成直後のumbrella headerを各C translation unitへpreincludeし、隣接する保存済みfile headerが
+今回の生成物を置き換えないようにする。host sourceの明示的なfile header includeは単独でのeditor supportとcompileのために維持する。
 
 Mal sourceのrequirementとしてのshared object、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
 link時に必要なshared libraryは`--clang-arg`で明示する。
@@ -138,11 +142,11 @@ link時に必要なshared libraryは`--clang-arg`で明示する。
 
 ## 生成物policy
 
-generated headerとbuild artifactのsource compatibilityまたはbinary compatibilityを異なる`malc` version間で保証しない。
+`mal.h`、generated file header、build artifactのsource compatibilityまたはbinary compatibilityを異なるC ABI version間で保証しない。
 配布や調査のため保持してよいが、source of truthは`.mal` sourceとhost adapterであり、compiler更新後には組で
-再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねて`program.mal.h`をversion controlに含め、testで
+再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねてfile headerをversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
-`--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、`program.mal.h`、`runtime.h`、`core.c`、`control.c`を保持し、
+`--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、build内部のumbrella `program.mal.h`、`mal.h`、`runtime.h`、`core.c`、`control.c`を保持し、
 Symbolまたは`Buffer`を使うprogramでは`bytes.c`、`bytes_internal.h`、`buffer.c`、`buffer_range.c`、`buffer_host.c`、`buffer_internal.h`、`symbol.c`も保持する。`emit atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
 inspection用artifactであり、version間の互換性を保証しない。
 
