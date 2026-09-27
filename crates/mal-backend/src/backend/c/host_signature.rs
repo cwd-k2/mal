@@ -109,7 +109,7 @@ impl<'a> CompilerSignature<'a> {
             .iter()
             .map(|parameter| {
                 let name = parameter.default_name.clone();
-                let declaration = c_parameter!({ name } : { parameter.c_type.clone() });
+                let declaration = c_parameter!({{ name }} : {{ parameter.c_type.clone() }});
                 if definition && parameter.is_context {
                     declaration.maybe_unused()
                 } else {
@@ -154,11 +154,11 @@ impl<'a> HostBodySignature<'a> {
     pub(super) fn signature(&self) -> FunctionSignature {
         let mut parameters = c_parameters!("call": ptr(named("mal_call_t")));
         if let Some(parameter) = &self.parameter {
-            parameters.push(c_parameter!("value": { parameter.c_type.clone() }));
+            parameters.push(c_parameter!("value": {{ parameter.c_type.clone() }}));
         }
-        c_signature!(static fn { format!("mal_detail_{}", self.operation_name) }(
-            {{ parameters }},
-        ) -> { self.raw_result_type.clone() })
+        c_signature!(#[static] fn {{ format!("mal_detail_{}", self.operation_name) }}(
+            ...{{ parameters }},
+        ) -> {{ self.raw_result_type.clone() }})
     }
 
     fn represents(&self, external: &ExternalOperation, types: &TypeRegistry) -> bool {

@@ -56,11 +56,11 @@ impl Function {
                     PointerAccess::ReadOnly => c_type!(ptr(const(named("void")))),
                     PointerAccess::ReadWrite => c_type!(ptr(named("void"))),
                 };
-                c_parameter!({ format!("mal_{}", parameter.name) } : { ty })
+                c_parameter!({{ format!("mal_{}", parameter.name) }} : {{ ty }})
             })
             .collect::<Vec<_>>();
-        c_signature!(fn { self.name.clone() }(
-            {{ parameters }}
+        c_signature!(fn {{ self.name.clone() }}(
+            ...{{ parameters }}
         ) -> named("void"))
     }
 

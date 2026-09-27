@@ -1,5 +1,5 @@
 macro_rules! c_preprocessor_expr {
-    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (defined($name:tt)) => {
         $crate::backend::c::syntax::PreprocessorExpr::defined(
             $crate::backend::c::syntax::c_scalar!($name),
@@ -8,7 +8,7 @@ macro_rules! c_preprocessor_expr {
 }
 
 macro_rules! c_directive {
-    ({ $($rust:tt)* }) => {{ $($rust)* }};
+    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (include(system $path:tt)) => {
         $crate::backend::c::syntax::Directive::include_system(
             $crate::backend::c::syntax::c_scalar!($path),
@@ -19,19 +19,19 @@ macro_rules! c_directive {
             $crate::backend::c::syntax::c_scalar!($path),
         )
     };
-    (define $name:tt = unused) => {
+    (define $name:tt = unused;) => {
         $crate::backend::c::syntax::Directive::define_attribute(
             $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::Attribute::Unused,
         )
     };
-    (define $name:tt = $value:tt) => {
+    (define $name:tt = $value:tt;) => {
         $crate::backend::c::syntax::Directive::define_expr(
             $crate::backend::c::syntax::c_scalar!($name),
             $crate::backend::c::syntax::c_expr_child!($value),
         )
     };
-    (define $name:tt) => {
+    (define $name:tt;) => {
         $crate::backend::c::syntax::Directive::define_empty(
             $crate::backend::c::syntax::c_scalar!($name),
         )
@@ -52,12 +52,12 @@ macro_rules! c_directive {
     (endif) => {
         $crate::backend::c::syntax::Directive::Endif
     };
-    (define_items $name:tt;
-        parameters { $($parameters:tt)* };
-        declarations { $($declarations:tt)* };
-        definitions { $($definitions:tt)* };
-        trailing { $($trailing:tt)* }
-    ) => {
+    (define_items $name:tt {
+        parameters: {{ $($parameters:tt)* }},
+        declarations: {{ $($declarations:tt)* }},
+        definitions: {{ $($definitions:tt)* }},
+        trailing: {{ $($trailing:tt)* }},
+    }) => {
         $crate::backend::c::syntax::Directive::function_items_define(
             $crate::backend::c::syntax::c_scalar!($name),
             { $($parameters)* },
@@ -69,11 +69,11 @@ macro_rules! c_directive {
 }
 
 macro_rules! c_macro_invocation {
-    ({ $($rust:tt)* }) => {{ $($rust)* }};
-    ($name:tt; [$($argument:tt),* $(,)?]) => {
+    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+    ($name:tt([$($argument:tt)*])) => {
         $crate::backend::c::syntax::MacroInvocation::new(
             $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_exprs!($($argument),*),
+            $crate::backend::c::syntax::c_exprs!([$($argument)*]),
         )
     };
 }
