@@ -52,11 +52,12 @@ impl FunctionEmitter<'_> {
         self.sync_control_top()?;
         emit_instruction!(
             self;
-            call { Some(register.clone()) },
-            { tail },
-            { result_value_type.llvm },
-            direct { function_name(target.id) },
-            {{ arguments }}
+            let {{ register.clone() }} = call {
+                tail: {{ tail }},
+                result_type: {{ result_value_type.llvm }},
+                callee: direct({{ function_name(target.id) }}),
+                arguments: pairs({{ arguments }}),
+            };
         );
         if self.optimizations.localizes_control_storage(target.id) {
             self.refresh_control_storage();
@@ -95,16 +96,18 @@ impl FunctionEmitter<'_> {
         let code = self.register();
         emit_instruction!(
             self;
-            extract_value { code.clone() };
-            { closure_type.llvm.clone() } => { callee.representation.clone() },
-            [0]
+            let {{ code.clone() }} = extract_value {
+                aggregate: typed({{ closure_type.llvm.clone() }}, {{ callee.representation.clone() }}),
+                indices: [0],
+            };
         );
         let environment = self.register();
         emit_instruction!(
             self;
-            extract_value { environment.clone() };
-            { closure_type.llvm } => { callee.representation },
-            [1]
+            let {{ environment.clone() }} = extract_value {
+                aggregate: typed({{ closure_type.llvm }}, {{ callee.representation }}),
+                indices: [1],
+            };
         );
         let mut arguments = vec![
             (llvm_type!(ptr), "%mal_context".into()),
@@ -128,11 +131,12 @@ impl FunctionEmitter<'_> {
         self.sync_control_top()?;
         emit_instruction!(
             self;
-            call { Some(register.clone()) },
-            { tail },
-            { result_type.llvm },
-            indirect { code },
-            {{ arguments }}
+            let {{ register.clone() }} = call {
+                tail: {{ tail }},
+                result_type: {{ result_type.llvm }},
+                callee: indirect({{ code }}),
+                arguments: pairs({{ arguments }}),
+            };
         );
         if self
             .optimizations
@@ -205,7 +209,10 @@ impl FunctionEmitter<'_> {
             return storage;
         };
         let Some(instruction) = llvm_instruction!(
-            alloca { storage.clone() }, { llvm.clone() }, { alignment }
+            let {{ storage.clone() }} = alloca {
+                ty: {{ llvm.clone() }},
+                alignment: {{ alignment }},
+            };
         ) else {
             self.emission_failed = true;
             return storage;

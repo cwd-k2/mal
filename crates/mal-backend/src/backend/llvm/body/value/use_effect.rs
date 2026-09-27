@@ -41,11 +41,12 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         emit_instruction!(
             self;
-            load { register.clone() },
-            { value_type.llvm },
-            { format!("%mal_slot_{}", slot.index) },
-            { value_type.alignment },
-            []
+            let {{ register.clone() }} = load {
+                ty: {{ value_type.llvm }},
+                pointer: {{ format!("%mal_slot_{}", slot.index) }},
+                alignment: {{ value_type.alignment }},
+                metadata: [],
+            };
         );
         let mut value = EmittedValue {
             ty: slot.ty.clone(),
@@ -108,21 +109,21 @@ impl FunctionEmitter<'_> {
         let unique = self.register();
         emit_instruction!(
             self;
-            call { Some(unique.clone()) },
-            false,
-            (int(8_u16)),
-            direct "mal_runtime_environment_is_unique";
-            [
-                (typed (ptr) => { environment }),
-            ]
+            let {{ unique.clone() }} = call {
+                tail: false,
+                result_type: (int(8_u16)),
+                callee: direct("mal_runtime_environment_is_unique"),
+                arguments: [typed((ptr), {{ environment }})],
+            };
         );
         let condition = self.register();
         emit_instruction!(
             self;
-            cast { condition.clone() },
-            { CastOperator::Trunc };
-            (int(8_u16)) => { unique },
-            (int(1_u16))
+            let {{ condition.clone() }} = cast {
+                operator: {{ CastOperator::Trunc }},
+                value: typed((int(8_u16)), {{ unique }}),
+                to: (int(1_u16)),
+            };
         );
         let label = self.label_id();
         emit_terminator!(self; conditional
@@ -135,11 +136,12 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&atom.ty)?;
         emit_instruction!(
             self;
-            store { value_type.llvm },
-            "zeroinitializer",
-            { pointer },
-            { value_type.alignment },
-            []
+            store {
+                value: typed({{ value_type.llvm }}, "zeroinitializer"),
+                pointer: {{ pointer }},
+                alignment: {{ value_type.alignment }},
+                metadata: [],
+            };
         );
         emit_terminator!(self; branch { format!("mal_capture_ready_{label}") });
         self.block(format!("mal_capture_share_{label}"));
@@ -161,11 +163,12 @@ impl FunctionEmitter<'_> {
             let value_type = self.types.value(&slot.ty)?;
             emit_instruction!(
                 self;
-                store { value_type.llvm },
-                "zeroinitializer",
-                { format!("%mal_slot_{}", slot.index) },
-                { value_type.alignment },
-                []
+                store {
+                    value: typed({{ value_type.llvm }}, "zeroinitializer"),
+                    pointer: {{ format!("%mal_slot_{}", slot.index) }},
+                    alignment: {{ value_type.alignment }},
+                    metadata: [],
+                };
             );
         }
         Some(())

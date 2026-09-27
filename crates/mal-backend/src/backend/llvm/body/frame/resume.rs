@@ -16,13 +16,12 @@ impl FunctionEmitter<'_> {
                 let environment = self.active_environment();
                 emit_instruction!(
                     self;
-                    call None,
-                    false,
-                    (void),
-                    direct "mal_runtime_environment_release";
-                    [
-                        (typed (ptr) => { environment }),
-                    ]
+                    call {
+                        tail: false,
+                        result_type: (void),
+                        callee: direct("mal_runtime_environment_release"),
+                        arguments: [typed((ptr), {{ environment }})],
+                    };
                 );
             }
             if result.ty != self.result_type {
@@ -35,21 +34,23 @@ impl FunctionEmitter<'_> {
         let top = self.register();
         emit_instruction!(
             self;
-            load { top.clone() },
-            { self.types.index_llvm_type() },
-            { self.control_top_pointer() },
-            { self.types.index_alignment() },
-            []
+            let {{ top.clone() }} = load {
+                ty: {{ self.types.index_llvm_type() }},
+                pointer: {{ self.control_top_pointer() }},
+                alignment: {{ self.types.index_alignment() }},
+                metadata: [],
+            };
         );
         let finished = self.register();
         emit_instruction!(
             self;
-            compare { finished.clone() },
-            { ComparisonKind::Integer },
-            { ComparisonPredicate::Eq },
-            { self.types.index_llvm_type() },
-            { top.clone() },
-            "%mal_control_base"
+            let {{ finished.clone() }} = compare {
+                kind: {{ ComparisonKind::Integer }},
+                predicate: {{ ComparisonPredicate::Eq }},
+                ty: {{ self.types.index_llvm_type() }},
+                left: {{ top.clone() }},
+                right: "%mal_control_base",
+            };
         );
         emit_terminator!(self; conditional
             { finished } =>
@@ -62,13 +63,12 @@ impl FunctionEmitter<'_> {
             let environment = self.active_environment();
             emit_instruction!(
                 self;
-                call None,
-                false,
-                (void),
-                direct "mal_runtime_environment_release";
-                [
-                    (typed (ptr) => { environment }),
-                ]
+                call {
+                    tail: false,
+                    result_type: (void),
+                    callee: direct("mal_runtime_environment_release"),
+                    arguments: [typed((ptr), {{ environment }})],
+                };
             );
         }
         if result.ty == self.result_type {
@@ -86,42 +86,42 @@ impl FunctionEmitter<'_> {
             let previous_top = self.register();
             emit_instruction!(
                 self;
-                binary { previous_top.clone() },
-                { BinaryOperator::Sub },
-                { self.types.index_llvm_type() },
-                { top.clone() },
-                { layout.size.to_string() }
+                let {{ previous_top.clone() }} = binary {
+                    operator: {{ BinaryOperator::Sub }},
+                    ty: {{ self.types.index_llvm_type() }},
+                    left: {{ top.clone() }},
+                    right: {{ layout.size.to_string() }},
+                };
             );
             emit_instruction!(
                 self;
-                store { self.types.index_llvm_type() },
-                { previous_top.as_str() },
-                { self.control_top_pointer() },
-                { self.types.index_alignment() },
-                []
+                store {
+                    value: typed({{ self.types.index_llvm_type() }}, {{ previous_top.as_str() }}),
+                    pointer: {{ self.control_top_pointer() }},
+                    alignment: {{ self.types.index_alignment() }},
+                    metadata: [],
+                };
             );
             let frame_pointer = self.register();
             emit_instruction!(
                 self;
-                get_element_ptr { frame_pointer.clone() },
-                false,
-                (int(8_u16)),
-                { storage };
-                [
-                    (typed { self.types.index_llvm_type() } => { previous_top }),
-                ]
+                let {{ frame_pointer.clone() }} = get_element_ptr {
+                    inbounds: false,
+                    element_type: (int(8_u16)),
+                    pointer: {{ storage }},
+                    indices: [typed({{ self.types.index_llvm_type() }}, {{ previous_top }})],
+                };
             );
             if self.common_region.is_some() {
                 let active = self.active_environment();
                 emit_instruction!(
                     self;
-                    call None,
-                    false,
-                    (void),
-                    direct "mal_runtime_environment_release";
-                    [
-                        (typed (ptr) => { active }),
-                    ]
+                    call {
+                        tail: false,
+                        result_type: (void),
+                        callee: direct("mal_runtime_environment_release"),
+                        arguments: [typed((ptr), {{ active }})],
+                    };
                 );
             }
             emit_terminator!(self; branch { format!("mal_frame_{}_from_{}", frame_site.0, site.0) });
@@ -130,72 +130,73 @@ impl FunctionEmitter<'_> {
         let footer_offset = self.register();
         emit_instruction!(
             self;
-            binary { footer_offset.clone() },
-            { BinaryOperator::Sub },
-            { self.types.index_llvm_type() },
-            { top },
-            { self.types.index_size().to_string() }
+            let {{ footer_offset.clone() }} = binary {
+                operator: {{ BinaryOperator::Sub }},
+                ty: {{ self.types.index_llvm_type() }},
+                left: {{ top }},
+                right: {{ self.types.index_size().to_string() }},
+            };
         );
         let footer = self.register();
         emit_instruction!(
             self;
-            get_element_ptr { footer.clone() },
-            false,
-            (int(8_u16)),
-            { storage.clone() };
-            [
-                (typed { self.types.index_llvm_type() } => { footer_offset }),
-            ]
+            let {{ footer.clone() }} = get_element_ptr {
+                inbounds: false,
+                element_type: (int(8_u16)),
+                pointer: {{ storage.clone() }},
+                indices: [typed({{ self.types.index_llvm_type() }}, {{ footer_offset }})],
+            };
         );
         let previous_top = self.register();
         emit_instruction!(
             self;
-            load { previous_top.clone() },
-            { self.types.index_llvm_type() },
-            { footer },
-            { self.types.index_alignment() },
-            []
+            let {{ previous_top.clone() }} = load {
+                ty: {{ self.types.index_llvm_type() }},
+                pointer: {{ footer }},
+                alignment: {{ self.types.index_alignment() }},
+                metadata: [],
+            };
         );
         emit_instruction!(
             self;
-            store { self.types.index_llvm_type() },
-            { previous_top.as_str() },
-            { self.control_top_pointer() },
-            { self.types.index_alignment() },
-            []
+            store {
+                value: typed({{ self.types.index_llvm_type() }}, {{ previous_top.as_str() }}),
+                pointer: {{ self.control_top_pointer() }},
+                alignment: {{ self.types.index_alignment() }},
+                metadata: [],
+            };
         );
         let frame_pointer = self.register();
         emit_instruction!(
             self;
-            get_element_ptr { frame_pointer.clone() },
-            false,
-            (int(8_u16)),
-            { storage };
-            [
-                (typed { self.types.index_llvm_type() } => { previous_top }),
-            ]
+            let {{ frame_pointer.clone() }} = get_element_ptr {
+                inbounds: false,
+                element_type: (int(8_u16)),
+                pointer: {{ storage }},
+                indices: [typed({{ self.types.index_llvm_type() }}, {{ previous_top }})],
+            };
         );
         if self.common_region.is_some() {
             let active = self.active_environment();
             emit_instruction!(
                 self;
-                call None,
-                false,
-                (void),
-                direct "mal_runtime_environment_release";
-                [
-                    (typed (ptr) => { active }),
-                ]
+                call {
+                    tail: false,
+                    result_type: (void),
+                    callee: direct("mal_runtime_environment_release"),
+                    arguments: [typed((ptr), {{ active }})],
+                };
             );
         }
         let tag = self.register();
         emit_instruction!(
             self;
-            load { tag.clone() },
-            (int(32_u16)),
-            { frame_pointer.as_str() },
-            4,
-            []
+            let {{ tag.clone() }} = load {
+                ty: (int(32_u16)),
+                pointer: {{ frame_pointer.as_str() }},
+                alignment: 4,
+                metadata: [],
+            };
         );
         let cases = frame_sites
             .iter()
@@ -250,31 +251,32 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction!(
                 self;
-                get_element_ptr { pointer.clone() },
-                false,
-                (int(8_u16)),
-                { frame_pointer };
-                [
-                    (typed (int(64_u16)) => { layout.offset.to_string() }),
-                ]
+                let {{ pointer.clone() }} = get_element_ptr {
+                    inbounds: false,
+                    element_type: (int(8_u16)),
+                    pointer: {{ frame_pointer }},
+                    indices: [typed((int(64_u16)), {{ layout.offset.to_string() }})],
+                };
             );
             let value = self.register();
             emit_instruction!(
                 self;
-                load { value.clone() },
-                { layout.value_type.llvm.clone() },
-                { pointer },
-                { layout.value_type.alignment },
-                []
+                let {{ value.clone() }} = load {
+                    ty: {{ layout.value_type.llvm.clone() }},
+                    pointer: {{ pointer }},
+                    alignment: {{ layout.value_type.alignment }},
+                    metadata: [],
+                };
             );
             let slot = self.slots.get(&field.id)?.clone();
             emit_instruction!(
                 self;
-                store { layout.value_type.llvm.clone() },
-                { value },
-                { format!("%mal_slot_{}", slot.index) },
-                { layout.value_type.alignment },
-                []
+                store {
+                    value: typed({{ layout.value_type.llvm.clone() }}, {{ value }}),
+                    pointer: {{ format!("%mal_slot_{}", slot.index) }},
+                    alignment: {{ layout.value_type.alignment }},
+                    metadata: [],
+                };
             );
         }
         if self.common_region.is_some() {
@@ -282,22 +284,22 @@ impl FunctionEmitter<'_> {
                 let pointer = self.register();
                 emit_instruction!(
                     self;
-                    get_element_ptr { pointer.clone() },
-                    false,
-                    (int(8_u16)),
-                    { frame_pointer };
-                    [
-                        (typed (int(64_u16)) => { offset.to_string() }),
-                    ]
+                    let {{ pointer.clone() }} = get_element_ptr {
+                        inbounds: false,
+                        element_type: (int(8_u16)),
+                        pointer: {{ frame_pointer }},
+                        indices: [typed((int(64_u16)), {{ offset.to_string() }})],
+                    };
                 );
                 let environment = self.register();
                 emit_instruction!(
                     self;
-                    load { environment.clone() },
-                    (ptr),
-                    { pointer },
-                    { self.types.pointer_alignment() },
-                    []
+                    let {{ environment.clone() }} = load {
+                        ty: (ptr),
+                        pointer: {{ pointer }},
+                        alignment: {{ self.types.pointer_alignment() }},
+                        metadata: [],
+                    };
                 );
                 environment
             } else {
@@ -305,11 +307,12 @@ impl FunctionEmitter<'_> {
             };
             emit_instruction!(
                 self;
-                store (ptr),
-                { environment },
-                "%mal_active_environment",
-                { self.types.pointer_alignment() },
-                []
+                store {
+                    value: typed((ptr), {{ environment }}),
+                    pointer: "%mal_active_environment",
+                    alignment: {{ self.types.pointer_alignment() }},
+                    metadata: [],
+                };
             );
         }
         self.store_input_pattern(

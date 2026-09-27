@@ -38,10 +38,11 @@ impl FunctionEmitter<'_> {
             let register = self.register();
             emit_instruction!(
                 self;
-                insert_value { register.clone() };
-                { aggregate_type.llvm.clone() } => { aggregate },
-                { element_type.llvm } => { element.value.representation },
-                [{ index }]
+                let {{ register.clone() }} = insert_value {
+                    aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ aggregate }}),
+                    element: typed({{ element_type.llvm }}, {{ element.value.representation }}),
+                    indices: [{{ index }}],
+                };
             );
             aggregate = register;
         }
@@ -110,48 +111,50 @@ impl FunctionEmitter<'_> {
         let tag = self.register();
         emit_instruction!(
             self;
-            insert_value { tag.clone() };
-            { sum_type.llvm.clone() } => "zeroinitializer",
-            (int(32_u16)) => { index.to_string() },
-            [0]
+            let {{ tag.clone() }} = insert_value {
+                aggregate: typed({{ sum_type.llvm.clone() }}, "zeroinitializer"),
+                element: typed((int(32_u16)), {{ index.to_string() }}),
+                indices: [0],
+            };
         );
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
         emit_instruction!(
             self;
-            store { sum_type.llvm.clone() },
-            { tag },
-            { storage.as_str() },
-            { sum_type.alignment },
-            []
+            store {
+                value: typed({{ sum_type.llvm.clone() }}, {{ tag }}),
+                pointer: {{ storage.as_str() }},
+                alignment: {{ sum_type.alignment }},
+                metadata: [],
+            };
         );
         let payload = self.register();
         emit_instruction!(
             self;
-            get_element_ptr { payload.clone() },
-            true,
-            { sum_type.llvm.clone() },
-            { storage.clone() };
-            [
-                (typed (int(32_u16)) => "0"),
-                (typed (int(32_u16)) => "1"),
-            ]
+            let {{ payload.clone() }} = get_element_ptr {
+                inbounds: true,
+                element_type: {{ sum_type.llvm.clone() }},
+                pointer: {{ storage.clone() }},
+                indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "1")],
+            };
         );
         emit_instruction!(
             self;
-            store { member_type.llvm },
-            { value.representation },
-            { payload },
-            1,
-            []
+            store {
+                value: typed({{ member_type.llvm }}, {{ value.representation }}),
+                pointer: {{ payload }},
+                alignment: 1,
+                metadata: [],
+            };
         );
         let result = self.register();
         emit_instruction!(
             self;
-            load { result.clone() },
-            { sum_type.llvm.clone() },
-            { storage },
-            { sum_type.alignment },
-            []
+            let {{ result.clone() }} = load {
+                ty: {{ sum_type.llvm.clone() }},
+                pointer: {{ storage }},
+                alignment: {{ sum_type.alignment }},
+                metadata: [],
+            };
         );
         let owned = value.owned;
         Some(EmittedValue {
@@ -179,9 +182,10 @@ impl FunctionEmitter<'_> {
             let tag = self.register();
             emit_instruction!(
                 self;
-                extract_value { tag.clone() };
-                { sum_type.llvm.clone() } => { scrutinee.representation.clone() },
-                [0]
+                let {{ tag.clone() }} = extract_value {
+                    aggregate: typed({{ sum_type.llvm.clone() }}, {{ scrutinee.representation.clone() }}),
+                    indices: [0],
+                };
             );
             tag
         };
@@ -282,32 +286,32 @@ impl FunctionEmitter<'_> {
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
         emit_instruction!(
             self;
-            store { sum_type.llvm.clone() },
-            { value },
-            { storage.as_str() },
-            { sum_type.alignment },
-            []
+            store {
+                value: typed({{ sum_type.llvm.clone() }}, {{ value }}),
+                pointer: {{ storage.as_str() }},
+                alignment: {{ sum_type.alignment }},
+                metadata: [],
+            };
         );
         let pointer = self.register();
         emit_instruction!(
             self;
-            get_element_ptr { pointer.clone() },
-            true,
-            { sum_type.llvm },
-            { storage };
-            [
-                (typed (int(32_u16)) => "0"),
-                (typed (int(32_u16)) => "1"),
-            ]
+            let {{ pointer.clone() }} = get_element_ptr {
+                inbounds: true,
+                element_type: {{ sum_type.llvm }},
+                pointer: {{ storage }},
+                indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "1")],
+            };
         );
         let payload = self.register();
         emit_instruction!(
             self;
-            load { payload.clone() },
-            { member_type.llvm },
-            { pointer },
-            1,
-            []
+            let {{ payload.clone() }} = load {
+                ty: {{ member_type.llvm }},
+                pointer: {{ pointer }},
+                alignment: 1,
+                metadata: [],
+            };
         );
         Some(payload)
     }

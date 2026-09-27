@@ -238,40 +238,45 @@ impl<'a> FunctionEmitter<'a> {
         if !self.frame_sites.is_empty() {
             emit_instruction!(
                 self;
-                load "%mal_control_base",
-                { self.types.index_llvm_type() },
-                "%mal_control_top",
-                { self.types.index_alignment() },
-                []
+                let "%mal_control_base" = load {
+                    ty: {{ self.types.index_llvm_type() }},
+                    pointer: "%mal_control_top",
+                    alignment: {{ self.types.index_alignment() }},
+                    metadata: [],
+                };
             );
             if self.local_control_top {
                 emit_instruction!(
                     self;
-                    alloca "%mal_local_control_top",
-                    { self.types.index_llvm_type() },
-                    { self.types.index_alignment() }
+                    let "%mal_local_control_top" = alloca {
+                        ty: {{ self.types.index_llvm_type() }},
+                        alignment: {{ self.types.index_alignment() }},
+                    };
                 );
                 emit_instruction!(
                     self;
-                    store { self.types.index_llvm_type() },
-                    "%mal_control_base",
-                    "%mal_local_control_top",
-                    { self.types.index_alignment() },
-                    []
+                    store {
+                        value: typed({{ self.types.index_llvm_type() }}, "%mal_control_base"),
+                        pointer: "%mal_local_control_top",
+                        alignment: {{ self.types.index_alignment() }},
+                        metadata: [],
+                    };
                 );
             }
             if self.local_control_storage {
                 emit_instruction!(
                     self;
-                    alloca "%mal_local_control_storage",
-                    (ptr),
-                    { self.types.pointer_alignment() }
+                    let "%mal_local_control_storage" = alloca {
+                        ty: (ptr),
+                        alignment: {{ self.types.pointer_alignment() }},
+                    };
                 );
                 emit_instruction!(
                     self;
-                    alloca "%mal_local_control_capacity",
-                    { self.types.index_llvm_type() },
-                    { self.types.index_alignment() }
+                    let "%mal_local_control_capacity" = alloca {
+                        ty: {{ self.types.index_llvm_type() }},
+                        alignment: {{ self.types.index_alignment() }},
+                    };
                 );
                 self.refresh_control_storage();
             }
@@ -282,79 +287,85 @@ impl<'a> FunctionEmitter<'a> {
             let value_type = self.types.value(&slot.ty)?;
             emit_instruction!(
                 self;
-                alloca { format!("%mal_slot_{}", slot.index) },
-                { value_type.llvm.clone() },
-                { value_type.alignment }
+                let {{ format!("%mal_slot_{}", slot.index) }} = alloca {
+                    ty: {{ value_type.llvm.clone() }},
+                    alignment: {{ value_type.alignment }},
+                };
             );
             if crate::execution::ownership::is_managed(&slot.ty) {
                 emit_instruction!(
                     self;
-                    store { value_type.llvm },
-                    "zeroinitializer",
-                    { format!("%mal_slot_{}", slot.index) },
-                    { value_type.alignment },
-                    []
+                    store {
+                        value: typed({{ value_type.llvm }}, "zeroinitializer"),
+                        pointer: {{ format!("%mal_slot_{}", slot.index) }},
+                        alignment: {{ value_type.alignment }},
+                        metadata: [],
+                    };
                 );
             }
         }
         if self.common_region.is_some() {
             emit_instruction!(
                 self;
-                alloca "%mal_active_environment",
-                (ptr),
-                { self.types.pointer_alignment() }
+                let "%mal_active_environment" = alloca {
+                    ty: (ptr),
+                    alignment: {{ self.types.pointer_alignment() }},
+                };
             );
             let environment = self.register();
             emit_instruction!(
                 self;
-                call { Some(environment.clone()) },
-                false,
-                (ptr),
-                direct "mal_runtime_environment_retain";
-                [
-                    (typed (ptr) => "%mal_context"),
-                    (typed (ptr) => "%mal_environment"),
-                ]
+                let {{ environment.clone() }} = call {
+                    tail: false,
+                    result_type: (ptr),
+                    callee: direct("mal_runtime_environment_retain"),
+                    arguments: [typed((ptr), "%mal_context"), typed((ptr), "%mal_environment")],
+                };
             );
             emit_instruction!(
                 self;
-                store (ptr),
-                { environment },
-                "%mal_active_environment",
-                { self.types.pointer_alignment() },
-                []
+                store {
+                    value: typed((ptr), {{ environment }}),
+                    pointer: "%mal_active_environment",
+                    alignment: {{ self.types.pointer_alignment() }},
+                    metadata: [],
+                };
             );
         }
         if let Some((size, alignment)) = self.external_storage {
             let storage_type = llvm_type!(array({ size }, int(8)));
             emit_instruction!(
                 self;
-                alloca "%mal_bridge_argument",
-                { storage_type.clone() },
-                { alignment }
+                let "%mal_bridge_argument" = alloca {
+                    ty: {{ storage_type.clone() }},
+                    alignment: {{ alignment }},
+                };
             );
             emit_instruction!(
                 self;
-                alloca "%mal_bridge_result",
-                { storage_type },
-                { alignment }
+                let "%mal_bridge_result" = alloca {
+                    ty: {{ storage_type }},
+                    alignment: {{ alignment }},
+                };
             );
         }
         if self.needs_symbol_result_slot {
             let symbol = self.types.value(&Type::Symbol)?;
             emit_instruction!(
                 self;
-                alloca "%mal_symbol_result",
-                { symbol.llvm },
-                { symbol.alignment }
+                let "%mal_symbol_result" = alloca {
+                    ty: {{ symbol.llvm }},
+                    alignment: {{ symbol.alignment }},
+                };
             );
         }
         if let Some((size, alignment)) = self.buffer_value_storage {
             emit_instruction!(
                 self;
-                alloca "%mal_buffer_value",
-                { llvm_type!(array({ size }, int(8_u16))) },
-                { alignment }
+                let "%mal_buffer_value" = alloca {
+                    ty: {{ llvm_type!(array({ size }, int(8_u16))) }},
+                    alignment: {{ alignment }},
+                };
             );
         }
         if self.mode == EmissionMode::Native && self.native_worker_parameters().is_some() {

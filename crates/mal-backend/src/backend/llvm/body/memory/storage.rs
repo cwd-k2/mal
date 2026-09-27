@@ -47,10 +47,11 @@ impl FunctionEmitter<'_> {
                 let inserted = self.register();
                 emit_instruction!(
                     self;
-                    insert_value { inserted.clone() };
-                    { product_type.llvm.clone() } => { product },
-                    { llvm_type.llvm } => { field_value.representation },
-                    [{ index }]
+                    let {{ inserted.clone() }} = insert_value {
+                        aggregate: typed({{ product_type.llvm.clone() }}, {{ product }}),
+                        element: typed({{ llvm_type.llvm }}, {{ field_value.representation }}),
+                        indices: [{{ index }}],
+                    };
                 );
                 product = inserted;
             }
@@ -70,20 +71,22 @@ impl FunctionEmitter<'_> {
             };
             emit_instruction!(
                 self;
-                load { source_tag.clone() },
-                { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
-                { pointer },
-                { alignment },
-                {{ metadata.iter().copied() }}
+                let {{ source_tag.clone() }} = load {
+                    ty: {{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }},
+                    pointer: {{ pointer }},
+                    alignment: {{ alignment }},
+                    metadata: {{ metadata.iter().copied() }},
+                };
             );
             if super::super::types::is_bool(element) {
                 let value = self.register();
                 emit_instruction!(
                     self;
-                    cast { value.clone() },
-                    { CastOperator::Trunc };
-                    (int(8_u16)) => { source_tag },
-                    (int(1_u16))
+                    let {{ value.clone() }} = cast {
+                        operator: {{ CastOperator::Trunc }},
+                        value: typed((int(8_u16)), {{ source_tag }}),
+                        to: (int(1_u16)),
+                    };
                 );
                 return Some(EmittedValue {
                     ty: element.clone(),
@@ -97,20 +100,22 @@ impl FunctionEmitter<'_> {
                 let extended = self.register();
                 emit_instruction!(
                     self;
-                    cast { extended.clone() },
-                    { CastOperator::ZExt };
-                    { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) } => { source_tag },
-                    (int(32_u16))
+                    let {{ extended.clone() }} = cast {
+                        operator: {{ CastOperator::ZExt }},
+                        value: typed({{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }}, {{ source_tag }}),
+                        to: (int(32_u16)),
+                    };
                 );
                 extended
             } else {
                 let narrowed = self.register();
                 emit_instruction!(
                     self;
-                    cast { narrowed.clone() },
-                    { CastOperator::Trunc };
-                    (int(64_u16)) => { source_tag },
-                    (int(32_u16))
+                    let {{ narrowed.clone() }} = cast {
+                        operator: {{ CastOperator::Trunc }},
+                        value: typed((int(64_u16)), {{ source_tag }}),
+                        to: (int(32_u16)),
+                    };
                 );
                 narrowed
             };
@@ -141,11 +146,12 @@ impl FunctionEmitter<'_> {
                 let sum = self.emit_sum_value(index, payload, element, false)?;
                 emit_instruction!(
                     self;
-                    store { runtime.llvm.clone() },
-                    { sum.representation },
-                    { storage.as_str() },
-                    { runtime.alignment },
-                    []
+                    store {
+                        value: typed({{ runtime.llvm.clone() }}, {{ sum.representation }}),
+                        pointer: {{ storage.as_str() }},
+                        alignment: {{ runtime.alignment }},
+                        metadata: [],
+                    };
                 );
                 emit_terminator!(self; branch { format!("{stem}_loaded") });
             }
@@ -153,11 +159,12 @@ impl FunctionEmitter<'_> {
             let result = self.register();
             emit_instruction!(
                 self;
-                load { result.clone() },
-                { runtime.llvm },
-                { storage },
-                { runtime.alignment },
-                []
+                let {{ result.clone() }} = load {
+                    ty: {{ runtime.llvm }},
+                    pointer: {{ storage }},
+                    alignment: {{ runtime.alignment }},
+                    metadata: [],
+                };
             );
             return Some(EmittedValue {
                 ty: element.clone(),
@@ -192,11 +199,12 @@ impl FunctionEmitter<'_> {
         let value = self.register();
         emit_instruction!(
             self;
-            load { value.clone() },
-            { value_type.llvm },
-            { pointer },
-            { alignment },
-            {{ metadata.iter().copied() }}
+            let {{ value.clone() }} = load {
+                ty: {{ value_type.llvm }},
+                pointer: {{ pointer }},
+                alignment: {{ alignment }},
+                metadata: {{ metadata.iter().copied() }},
+            };
         );
         Some(EmittedValue {
             ty: element.clone(),
@@ -243,9 +251,10 @@ impl FunctionEmitter<'_> {
                 let field_value = self.register();
                 emit_instruction!(
                     self;
-                    extract_value { field_value.clone() };
-                    { runtime.llvm.clone() } => { value.representation.clone() },
-                    [{ index }]
+                    let {{ field_value.clone() }} = extract_value {
+                        aggregate: typed({{ runtime.llvm.clone() }}, {{ value.representation.clone() }}),
+                        indices: [{{ index }}],
+                    };
                 );
                 let field_pointer = self.source_pointer_offset(pointer, field.offset);
                 self.emit_source_store_at_with_alignment(
@@ -267,18 +276,20 @@ impl FunctionEmitter<'_> {
                 let tag = self.register();
                 emit_instruction!(
                     self;
-                    cast { tag.clone() },
-                    { CastOperator::ZExt };
-                    (int(1_u16)) => { value.representation.clone() },
-                    (int(8_u16))
+                    let {{ tag.clone() }} = cast {
+                        operator: {{ CastOperator::ZExt }},
+                        value: typed((int(1_u16)), {{ value.representation.clone() }}),
+                        to: (int(8_u16)),
+                    };
                 );
                 emit_instruction!(
                     self;
-                    store (int(8_u16)),
-                    { &tag },
-                    { pointer },
-                    1,
-                    {{ metadata.iter().copied() }}
+                    store {
+                        value: typed((int(8_u16)), {{ &tag }}),
+                        pointer: {{ pointer }},
+                        alignment: 1,
+                        metadata: {{ metadata.iter().copied() }},
+                    };
                 );
                 return Some(());
             }
@@ -286,9 +297,10 @@ impl FunctionEmitter<'_> {
             let tag = self.register();
             emit_instruction!(
                 self;
-                extract_value { tag.clone() };
-                { runtime.llvm } => { value.representation.clone() },
-                [0]
+                let {{ tag.clone() }} = extract_value {
+                    aggregate: typed({{ runtime.llvm }}, {{ value.representation.clone() }}),
+                    indices: [0],
+                };
             );
             let source_tag = if layout.tag_bits == 32 {
                 tag.clone()
@@ -296,20 +308,22 @@ impl FunctionEmitter<'_> {
                 let narrowed = self.register();
                 emit_instruction!(
                     self;
-                    cast { narrowed.clone() },
-                    { CastOperator::Trunc };
-                    (int(32_u16)) => { &tag },
-                    { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }
+                    let {{ narrowed.clone() }} = cast {
+                        operator: {{ CastOperator::Trunc }},
+                        value: typed((int(32_u16)), {{ &tag }}),
+                        to: {{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }},
+                    };
                 );
                 narrowed
             } else {
                 let extended = self.register();
                 emit_instruction!(
                     self;
-                    cast { extended.clone() },
-                    { CastOperator::ZExt };
-                    (int(32_u16)) => { &tag },
-                    (int(64_u16))
+                    let {{ extended.clone() }} = cast {
+                        operator: {{ CastOperator::ZExt }},
+                        value: typed((int(32_u16)), {{ &tag }}),
+                        to: (int(64_u16)),
+                    };
                 );
                 extended
             };
@@ -320,11 +334,12 @@ impl FunctionEmitter<'_> {
             };
             emit_instruction!(
                 self;
-                store { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
-                { source_tag },
-                { pointer },
-                { alignment },
-                {{ metadata.iter().copied() }}
+                store {
+                    value: typed({{ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }}, {{ source_tag }}),
+                    pointer: {{ pointer }},
+                    alignment: {{ alignment }},
+                    metadata: {{ metadata.iter().copied() }},
+                };
             );
             let stem = self.register();
             let stem = stem.trim_start_matches('%').to_string();
@@ -384,11 +399,12 @@ impl FunctionEmitter<'_> {
         };
         emit_instruction!(
             self;
-            store { value_type.llvm },
-            { value.representation.as_str() },
-            { pointer },
-            { alignment },
-            {{ metadata.iter().copied() }}
+            store {
+                value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
+                pointer: {{ pointer }},
+                alignment: {{ alignment }},
+                metadata: {{ metadata.iter().copied() }},
+            };
         );
         Some(())
     }
@@ -400,13 +416,12 @@ impl FunctionEmitter<'_> {
         let field = self.register();
         emit_instruction!(
             self;
-            get_element_ptr { field.clone() },
-            false,
-            (int(8_u16)),
-            { pointer };
-            [
-                (typed { self.types.index_llvm_type() } => { offset.to_string() }),
-            ]
+            let {{ field.clone() }} = get_element_ptr {
+                inbounds: false,
+                element_type: (int(8_u16)),
+                pointer: {{ pointer }},
+                indices: [typed({{ self.types.index_llvm_type() }}, {{ offset.to_string() }})],
+            };
         );
         field
     }

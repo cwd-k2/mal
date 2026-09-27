@@ -21,33 +21,32 @@ impl FunctionEmitter<'_> {
         let result_value_type = self.types.value(&result_type)?;
         emit_instruction!(
             self;
-            store { argument_type.llvm },
-            { argument.representation.as_str() },
-            "%mal_bridge_argument",
-            { argument_type.alignment },
-            []
+            store {
+                value: typed({{ argument_type.llvm }}, {{ argument.representation.as_str() }}),
+                pointer: "%mal_bridge_argument",
+                alignment: {{ argument_type.alignment }},
+                metadata: [],
+            };
         );
         let bridge = crate::backend::abi::Function::external_bridge(id);
         emit_instruction!(
             self;
-            call None,
-            false,
-            (void),
-            direct { bridge.name() };
-            [
-                (typed (ptr) => "%mal_context"),
-                (typed (ptr) => "%mal_bridge_argument"),
-                (typed (ptr) => "%mal_bridge_result"),
-            ]
+            call {
+                tail: false,
+                result_type: (void),
+                callee: direct({{ bridge.name() }}),
+                arguments: [typed((ptr), "%mal_context"), typed((ptr), "%mal_bridge_argument"), typed((ptr), "%mal_bridge_result")],
+            };
         );
         let register = self.register();
         emit_instruction!(
             self;
-            load { register.clone() },
-            { result_value_type.llvm },
-            "%mal_bridge_result",
-            { result_value_type.alignment },
-            []
+            let {{ register.clone() }} = load {
+                ty: {{ result_value_type.llvm }},
+                pointer: "%mal_bridge_result",
+                alignment: {{ result_value_type.alignment }},
+                metadata: [],
+            };
         );
         Some(EmittedValue {
             owned: false,

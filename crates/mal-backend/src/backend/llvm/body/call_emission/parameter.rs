@@ -81,11 +81,12 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&slot.ty)?;
         emit_instruction!(
             self;
-            store { value_type.llvm },
-            { value.representation.as_str() },
-            { format!("%mal_slot_{}", slot.index) },
-            { value_type.alignment },
-            []
+            store {
+                value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
+                pointer: {{ format!("%mal_slot_{}", slot.index) }},
+                alignment: {{ value_type.alignment }},
+                metadata: [],
+            };
         );
         Some(())
     }

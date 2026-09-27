@@ -102,16 +102,12 @@ impl FunctionEmitter<'_> {
                     let equality = self.register();
                     emit_instruction!(
                         self;
-                        call { Some(equality.clone()) },
-                        false,
-                        (int(8_u16)),
-                        direct "mal_runtime_symbol_equal";
-                        [
-                            (typed (ptr) => { left.data }),
-                            (typed { self.types.index_llvm_type() } => { left.count }),
-                            (typed (ptr) => { right.data }),
-                            (typed { self.types.index_llvm_type() } => { right.count }),
-                        ]
+                        let {{ equality.clone() }} = call {
+                            tail: false,
+                            result_type: (int(8_u16)),
+                            callee: direct("mal_runtime_symbol_equal"),
+                            arguments: [typed((ptr), {{ left.data }}), typed({{ self.types.index_llvm_type() }}, {{ left.count }}), typed((ptr), {{ right.data }}), typed({{ self.types.index_llvm_type() }}, {{ right.count }})],
+                        };
                     );
                     let predicate = match operator {
                         crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Ne,
@@ -120,12 +116,13 @@ impl FunctionEmitter<'_> {
                     };
                     emit_instruction!(
                         self;
-                        compare { condition.clone() },
-                        { ComparisonKind::Integer },
-                        { predicate },
-                        (int(8_u16)),
-                        { equality },
-                        "0"
+                        let {{ condition.clone() }} = compare {
+                            kind: {{ ComparisonKind::Integer }},
+                            predicate: {{ predicate }},
+                            ty: (int(8_u16)),
+                            left: {{ equality }},
+                            right: "0",
+                        };
                     );
                 } else if is_bool(&left.ty) {
                     let predicate = match operator {
@@ -135,12 +132,13 @@ impl FunctionEmitter<'_> {
                     };
                     emit_instruction!(
                         self;
-                        compare { condition.clone() },
-                        { ComparisonKind::Integer },
-                        { predicate },
-                        (int(1_u16)),
-                        { left.representation },
-                        { right.representation }
+                        let {{ condition.clone() }} = compare {
+                            kind: {{ ComparisonKind::Integer }},
+                            predicate: {{ predicate }},
+                            ty: (int(1_u16)),
+                            left: {{ left.representation }},
+                            right: {{ right.representation }},
+                        };
                     );
                 } else {
                     let predicate = comparison_predicate(*operator)?;
@@ -148,12 +146,13 @@ impl FunctionEmitter<'_> {
                     let (kind, predicate) = predicate.for_scalar(scalar);
                     emit_instruction!(
                         self;
-                        compare { condition.clone() },
-                        { kind },
-                        { predicate },
-                        { scalar.llvm_type() },
-                        { left.representation },
-                        { right.representation }
+                        let {{ condition.clone() }} = compare {
+                            kind: {{ kind }},
+                            predicate: {{ predicate }},
+                            ty: {{ scalar.llvm_type() }},
+                            left: {{ left.representation }},
+                            right: {{ right.representation }},
+                        };
                     );
                 }
                 let then_drops = !self

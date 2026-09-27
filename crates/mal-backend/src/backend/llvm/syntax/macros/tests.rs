@@ -38,15 +38,20 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
 fn composes_module_leaf_definitions_with_the_same_template_boundaries() {
     let extra = [super::llvm_metadata_operand!(node(0))];
     let mut module = Module::new("test-target", "e-p:64:64");
-    module.declare(super::llvm_declaration!(#[attributes(nounwind)] fn "observe"(
+    module.declare(
+        super::llvm_declaration!(#[attributes(nounwind)] fn "observe"(
         _: ptr,
         #[immarg] _: int(8),
-    ) -> void;));
-    module.add_global(super::llvm_global!(byte_owner {
-        name: "message",
-        bytes: {{ b"ok" }},
-        alignment: 1,
-    }).unwrap());
+    ) -> void;),
+    );
+    module.add_global(
+        super::llvm_global!(byte_owner {
+            name: "message",
+            bytes: { { b"ok" } },
+            alignment: 1,
+        })
+        .unwrap(),
+    );
     module.add_metadata([
         super::llvm_metadata!({ id: 0, distinct: false, operands: [text("root")] }),
         super::llvm_metadata!({
@@ -89,12 +94,17 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
         .unwrap();
     let trailing = [TypedValue::new(Type::integer(8_u16), "7").unwrap()];
     let instruction = super::llvm_instruction!(
-        call { Some("%result".into()) }, false, (int(32_u16)), direct "work"; [
-            (typed (int(32_u16)) => "1"),
-            { dynamic() },
-            {{ pairs }},
-            {{ trailing }},
-        ]
+        let "%result" = call {
+            tail: false,
+            result_type: (int(32_u16)),
+            callee: direct("work"),
+            arguments: [
+                typed((int(32_u16)), "1"),
+                {{ dynamic() }},
+                ...{{ pairs }},
+                ...{{ trailing }},
+            ],
+        };
     )
     .unwrap();
     let mut rendered = String::new();

@@ -16,19 +16,21 @@ impl FunctionEmitter<'_> {
         let top = self.register();
         emit_instruction!(
             self;
-            load { top.clone() },
-            { self.types.index_llvm_type() },
-            "%mal_local_control_top",
-            { self.types.index_alignment() },
-            []
+            let {{ top.clone() }} = load {
+                ty: {{ self.types.index_llvm_type() }},
+                pointer: "%mal_local_control_top",
+                alignment: {{ self.types.index_alignment() }},
+                metadata: [],
+            };
         );
         emit_instruction!(
             self;
-            store { self.types.index_llvm_type() },
-            { top },
-            "%mal_control_top",
-            { self.types.index_alignment() },
-            []
+            store {
+                value: typed({{ self.types.index_llvm_type() }}, {{ top }}),
+                pointer: "%mal_control_top",
+                alignment: {{ self.types.index_alignment() }},
+                metadata: [],
+            };
         );
         Some(())
     }

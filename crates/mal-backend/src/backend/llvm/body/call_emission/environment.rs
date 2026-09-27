@@ -26,11 +26,12 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         emit_instruction!(
             self;
-            load { environment.clone() },
-            { value_type.llvm },
-            "%mal_environment",
-            { value_type.alignment },
-            []
+            let {{ environment.clone() }} = load {
+                ty: {{ value_type.llvm }},
+                pointer: "%mal_environment",
+                alignment: {{ value_type.alignment }},
+                metadata: [],
+            };
         );
         self.release_value(&environment_type, &environment)?;
         emit_terminator!(self; return_void);
@@ -47,9 +48,10 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         emit_instruction!(
             self;
-            extract_value { environment.clone() };
-            { closure_type.llvm } => { closure.representation.clone() },
-            [1]
+            let {{ environment.clone() }} = extract_value {
+                aggregate: typed({{ closure_type.llvm }}, {{ closure.representation.clone() }}),
+                indices: [1],
+            };
         );
         Some(environment)
     }
@@ -61,11 +63,12 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         emit_instruction!(
             self;
-            load { environment.clone() },
-            (ptr),
-            "%mal_active_environment",
-            { self.types.pointer_alignment() },
-            []
+            let {{ environment.clone() }} = load {
+                ty: (ptr),
+                pointer: "%mal_active_environment",
+                alignment: {{ self.types.pointer_alignment() }},
+                metadata: [],
+            };
         );
         environment
     }

@@ -22,17 +22,12 @@ impl FunctionEmitter<'_> {
         let representation = self.register();
         emit_instruction!(
             self;
-            call { Some(representation.clone()) },
-            false,
-            (ptr),
-            direct "mal_runtime_buffer_from";
-            [
-                (typed (ptr) => "%mal_context"),
-                (typed (ptr) => { address.representation }),
-                (typed { self.types.index_llvm_type() } => { offset.representation }),
-                (typed { self.types.index_llvm_type() } => { length.representation }),
-                (typed { self.types.index_llvm_type() } => { stride.to_string() }),
-            ]
+            let {{ representation.clone() }} = call {
+                tail: false,
+                result_type: (ptr),
+                callee: direct("mal_runtime_buffer_from"),
+                arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ address.representation }}), typed({{ self.types.index_llvm_type() }}, {{ offset.representation }}), typed({{ self.types.index_llvm_type() }}, {{ length.representation }}), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }})],
+            };
         );
         Some(emitted_buffer(representation, result_type.clone()))
     }
@@ -65,18 +60,12 @@ impl FunctionEmitter<'_> {
         let stride = self.source_layouts.layout(element)?.stride;
         emit_instruction!(
             self;
-            call None,
-            false,
-            (void),
-            direct "mal_runtime_buffer_into";
-            [
-                (typed (ptr) => "%mal_context"),
-                (typed (ptr) => { buffer.representation }),
-                (typed (ptr) => { address.representation }),
-                (typed { self.types.index_llvm_type() } => { offset.representation }),
-                (typed { self.types.index_llvm_type() } => { length.representation }),
-                (typed { self.types.index_llvm_type() } => { stride.to_string() }),
-            ]
+            call {
+                tail: false,
+                result_type: (void),
+                callee: direct("mal_runtime_buffer_into"),
+                arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ buffer.representation }}), typed((ptr), {{ address.representation }}), typed({{ self.types.index_llvm_type() }}, {{ offset.representation }}), typed({{ self.types.index_llvm_type() }}, {{ length.representation }}), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }})],
+            };
         );
         Some(EmittedValue {
             ty: Type::Unit,

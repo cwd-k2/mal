@@ -137,9 +137,10 @@ impl FunctionEmitter<'_> {
                     let register = self.register();
                     emit_instruction!(
                         self;
-                        extract_value { register.clone() };
-                        { argument_type.llvm.clone() } => { argument.representation.clone() },
-                        {{ leaf.path.clone() }}
+                        let {{ register.clone() }} = extract_value {
+                            aggregate: typed({{ argument_type.llvm.clone() }}, {{ argument.representation.clone() }}),
+                            indices: {{ leaf.path.clone() }},
+                        };
                     );
                     arguments.push((self.types.value(&leaf.ty)?.llvm, register));
                 }
@@ -153,11 +154,12 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         emit_instruction!(
             self;
-            call { Some(register.clone()) },
-            false,
-            { result_llvm },
-            direct { name },
-            {{ arguments }}
+            let {{ register.clone() }} = call {
+                tail: false,
+                result_type: {{ result_llvm }},
+                callee: direct({{ name }}),
+                arguments: pairs({{ arguments }}),
+            };
         );
         if let Some(value) = handed_over {
             self.release_value(&value.ty, &value.representation)?;
@@ -200,9 +202,10 @@ impl FunctionEmitter<'_> {
         let context_alignment = self.types.pointer_alignment().max(parameter.alignment);
         emit_instruction!(
             self;
-            alloca "%mal_native_context_storage",
-            { context_type.clone() },
-            { context_alignment }
+            let "%mal_native_context_storage" = alloca {
+                ty: {{ context_type.clone() }},
+                alignment: {{ context_alignment }},
+            };
         );
         let mut context = "poison".to_string();
         for (index, (ty, value)) in [
@@ -217,40 +220,44 @@ impl FunctionEmitter<'_> {
             let inserted = self.register();
             emit_instruction!(
                 self;
-                insert_value { inserted.clone() };
-                { context_type.clone() } => { context },
-                { ty } => { value },
-                [{ index }]
+                let {{ inserted.clone() }} = insert_value {
+                    aggregate: typed({{ context_type.clone() }}, {{ context }}),
+                    element: typed({{ ty }}, {{ value }}),
+                    indices: [{{ index }}],
+                };
             );
             context = inserted;
         }
         emit_instruction!(
             self;
-            store { context_type },
-            { context },
-            "%mal_native_context_storage",
-            { context_alignment },
-            []
+            store {
+                value: typed({{ context_type }}, {{ context }}),
+                pointer: "%mal_native_context_storage",
+                alignment: {{ context_alignment }},
+                metadata: [],
+            };
         );
         let mut arguments = vec![(llvm_type!(ptr), "%mal_native_context_storage".into())];
         for leaf in &plan.varying {
             let register = self.register();
             emit_instruction!(
                 self;
-                extract_value { register.clone() };
-                { parameter.llvm.clone() } => "%mal_parameter",
-                {{ leaf.path.clone() }}
+                let {{ register.clone() }} = extract_value {
+                    aggregate: typed({{ parameter.llvm.clone() }}, "%mal_parameter"),
+                    indices: {{ leaf.path.clone() }},
+                };
             );
             arguments.push((self.types.value(&leaf.ty)?.llvm, register));
         }
         let returned = self.register();
         emit_instruction!(
             self;
-            call { Some(returned.clone()) },
-            false,
-            { result.llvm.clone() },
-            direct { self.native_worker_name() },
-            {{ arguments }}
+            let {{ returned.clone() }} = call {
+                tail: false,
+                result_type: {{ result.llvm.clone() }},
+                callee: direct({{ self.native_worker_name() }}),
+                arguments: pairs({{ arguments }}),
+            };
         );
         emit_terminator!(self; return { result.llvm } => { returned });
         self.finish_function()?;
@@ -270,39 +277,43 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction!(
                 self;
-                get_element_ptr { pointer.clone() },
-                false,
-                { context_type.clone() },
-                "%mal_native_context";
-                [(typed (int(32_u16)) => "0"), (typed (int(32_u16)) => { index.to_string() })]
+                let {{ pointer.clone() }} = get_element_ptr {
+                    inbounds: false,
+                    element_type: {{ context_type.clone() }},
+                    pointer: "%mal_native_context",
+                    indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), {{ index.to_string() }})],
+                };
             );
             emit_instruction!(
                 self;
-                load { name },
-                (ptr),
-                { pointer },
-                { self.types.pointer_alignment() },
-                []
+                let {{ name }} = load {
+                    ty: (ptr),
+                    pointer: {{ pointer }},
+                    alignment: {{ self.types.pointer_alignment() }},
+                    metadata: [],
+                };
             );
         }
         let parameter = self.types.value(&self.function.parameter.ty)?;
         let pointer = self.register();
         emit_instruction!(
             self;
-            get_element_ptr { pointer.clone() },
-            false,
-            { context_type },
-            "%mal_native_context";
-            [(typed (int(32_u16)) => "0"), (typed (int(32_u16)) => "3")]
+            let {{ pointer.clone() }} = get_element_ptr {
+                inbounds: false,
+                element_type: {{ context_type }},
+                pointer: "%mal_native_context",
+                indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "3")],
+            };
         );
         let mut reconstructed = self.register();
         emit_instruction!(
             self;
-            load { reconstructed.clone() },
-            { parameter.llvm.clone() },
-            { pointer },
-            { parameter.alignment },
-            []
+            let {{ reconstructed.clone() }} = load {
+                ty: {{ parameter.llvm.clone() }},
+                pointer: {{ pointer }},
+                alignment: {{ parameter.alignment }},
+                metadata: [],
+            };
         );
         for (index, leaf) in plan.varying.iter().enumerate() {
             let inserted = if index + 1 == plan.varying.len() {
@@ -312,10 +323,11 @@ impl FunctionEmitter<'_> {
             };
             emit_instruction!(
                 self;
-                insert_value { inserted.clone() };
-                { parameter.llvm.clone() } => { reconstructed },
-                { self.types.value(&leaf.ty)?.llvm } => { format!("%mal_native_parameter_{index}") },
-                {{ leaf.path.clone() }}
+                let {{ inserted.clone() }} = insert_value {
+                    aggregate: typed({{ parameter.llvm.clone() }}, {{ reconstructed }}),
+                    element: typed({{ self.types.value(&leaf.ty)?.llvm }}, {{ format!("%mal_native_parameter_{index}") }}),
+                    indices: {{ leaf.path.clone() }},
+                };
             );
             reconstructed = inserted;
         }
@@ -338,45 +350,43 @@ impl FunctionEmitter<'_> {
         let stack = self.register();
         emit_instruction!(
             self;
-            call { Some(stack.clone()) },
-            false,
-            (ptr),
-            direct "llvm.stacksave";
-            []
+            let {{ stack.clone() }} = call {
+                tail: false,
+                result_type: (ptr),
+                callee: direct("llvm.stacksave"),
+                arguments: [],
+            };
         );
         let flag = self.register();
         emit_instruction!(
             self;
-            call { Some(flag.clone()) },
-            false,
-            (int(8_u16)),
-            direct "mal_native_stack_is_deep";
-            [
-                (typed (ptr) => "%mal_context"),
-                (typed (ptr) => { stack }),
-            ]
+            let {{ flag.clone() }} = call {
+                tail: false,
+                result_type: (int(8_u16)),
+                callee: direct("mal_native_stack_is_deep"),
+                arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ stack }})],
+            };
         );
         let deep = self.register();
         emit_instruction!(
             self;
-            compare { deep.clone() },
-            { ComparisonKind::Integer },
-            { ComparisonPredicate::Ne },
-            (int(8_u16)),
-            { flag },
-            "0"
+            let {{ deep.clone() }} = compare {
+                kind: {{ ComparisonKind::Integer }},
+                predicate: {{ ComparisonPredicate::Ne }},
+                ty: (int(8_u16)),
+                left: {{ flag }},
+                right: "0",
+            };
         );
         let expected = self.register();
         emit_instruction!(
             self;
-            call { Some(expected.clone()) },
-            false,
-            (int(1_u16)),
-            direct "llvm.expect.i1";
-            [
-                (typed (int(1_u16)) => { deep }),
-                (typed (int(1_u16)) => "false"),
-            ]
+            let {{ expected.clone() }} = call {
+                tail: false,
+                result_type: (int(1_u16)),
+                callee: direct("llvm.expect.i1"),
+                arguments: [typed((int(1_u16)), {{ deep }}), typed((int(1_u16)), "false")],
+            };
         );
         emit_terminator!(self; conditional
             { expected } => "mal_deep_entry", "mal_native_entry"
@@ -385,11 +395,12 @@ impl FunctionEmitter<'_> {
         let continued = self.register();
         emit_instruction!(
             self;
-            call { Some(continued.clone()) },
-            false,
-            { result_llvm.clone() },
-            direct { format!("{name}_frames") },
-            {{ parameters }}
+            let {{ continued.clone() }} = call {
+                tail: false,
+                result_type: {{ result_llvm.clone() }},
+                callee: direct({{ format!("{name}_frames") }}),
+                arguments: pairs({{ parameters }}),
+            };
         );
         emit_terminator!(self; return { result_llvm } => { continued });
         self.block("mal_native_entry");

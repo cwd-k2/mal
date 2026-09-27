@@ -14,30 +14,31 @@ pub(super) fn definition(
     function.start_block("entry").then_some(())?;
     let control_top = if body.uses_control {
         function
-            .structured_instruction(llvm_instruction!(alloca
-                "%mal_control_top",
-                { types.index_llvm_type() },
-                { types.index_alignment() },
-            )?)
-            .then_some(())?;
-        function
-            .structured_instruction(llvm_instruction!(store
-                { types.index_llvm_type() },
-                "0",
-                "%mal_control_top",
-                { types.index_alignment() },
-                [],
+            .structured_instruction(llvm_instruction!(
+                let "%mal_control_top" = alloca {
+                    ty: {{ types.index_llvm_type() }},
+                    alignment: {{ types.index_alignment() }},
+                };
             )?)
             .then_some(())?;
         function
             .structured_instruction(llvm_instruction!(
-                call None,
-                false,
-                (void),
-                direct "mal_native_stack_begin";
-                [
-                    (typed (ptr) => "%mal_context"),
-                ]
+                store {
+                    value: typed({{ types.index_llvm_type() }}, "0"),
+                    pointer: "%mal_control_top",
+                    alignment: {{ types.index_alignment() }},
+                    metadata: [],
+                };
+            )?)
+            .then_some(())?;
+        function
+            .structured_instruction(llvm_instruction!(
+                call {
+                    tail: false,
+                    result_type: (void),
+                    callee: direct("mal_native_stack_begin"),
+                    arguments: [typed((ptr), "%mal_context")],
+                };
             )?)
             .then_some(())?;
         "%mal_control_top"
@@ -54,12 +55,13 @@ pub(super) fn definition(
         ty => {
             let value = types.value(ty)?;
             function
-                .structured_instruction(llvm_instruction!(load
-                    "%mal_entry_argument",
-                    { value.llvm.clone() },
-                    "%mal_argument",
-                    { value.alignment },
-                    [],
+                .structured_instruction(llvm_instruction!(
+                    let "%mal_entry_argument" = load {
+                        ty: {{ value.llvm.clone() }},
+                        pointer: "%mal_argument",
+                        alignment: {{ value.alignment }},
+                        metadata: [],
+                    };
                 )?)
                 .then_some(())?;
             arguments.push((value.llvm, "%mal_entry_argument".into()));
@@ -67,20 +69,22 @@ pub(super) fn definition(
     }
     function
         .structured_instruction(llvm_instruction!(
-            call { Some("%mal_entry_result".into()) },
-            false,
-            (int(32_u16)),
-            direct { function_name(body.main) },
-            {{ arguments }}
+            let "%mal_entry_result" = call {
+                tail: false,
+                result_type: (int(32_u16)),
+                callee: direct({{ function_name(body.main) }}),
+                arguments: pairs({{ arguments }}),
+            };
         )?)
         .then_some(())?;
     function
         .structured_instruction(llvm_instruction!(
-            store(int(32_u16)),
-            "%mal_entry_result",
-            "%mal_result",
-            4,
-            [],
+            store {
+                value: typed((int(32_u16)), "%mal_entry_result"),
+                pointer: "%mal_result",
+                alignment: 4,
+                metadata: [],
+            };
         )?)
         .then_some(())?;
     function

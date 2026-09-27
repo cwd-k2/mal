@@ -75,11 +75,12 @@ impl FunctionEmitter<'_> {
         let value = self.register();
         emit_instruction!(
             self;
-            load { value.clone() },
-            { value_type.llvm },
-            "%mal_element",
-            { value_type.alignment },
-            []
+            let {{ value.clone() }} = load {
+                ty: {{ value_type.llvm }},
+                pointer: "%mal_element",
+                alignment: {{ value_type.alignment }},
+                metadata: [],
+            };
         );
         if retain {
             self.retain_value(element, &value)?;
