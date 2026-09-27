@@ -38,7 +38,8 @@ GUIを開かずに選択結果まで確認する場合は`--dry-run`を使う。
 repositoryの`.vscode/settings.json`はNix development environmentを選択し、root
 のCargo workspaceを`rust-analyzer`へ明示する。保存時検査は全crateのall-target Clippyを`--locked`で実行する。
 同じ設定はclangdにNixのClang wrapperをqueryさせ、`.clangd`はC sourceと生成headerの言語をCと明示して
-backendと同じC11として解析する。
+backendと同じC11として解析する。repository rootの`compile_flags.txt`は、host adapterが`<mal.h>`を解決できるよう
+pregenerated headerの`crates/mal-backend/include`をinclude pathに加える。
 `.vscode/extensions.json`はこの環境選択、Rust、Cの各extensionを推奨する。設定を初めて受理した後、またはNix store pathが
 flake更新で変わった後は、VS Codeをreloadする。個別に更新する場合は`rust-analyzer: Restart server`または
 `clangd: Restart language server`を実行する。workspaceではdevelopment toolの内部listenerを自動公開しないよう
@@ -90,9 +91,11 @@ LSP configをconsumer側で登録する。Helixではpackage rootを`HELIX_RUNTI
 `mal`、language server commandを`mal-lsp`とする。editorのuser configuration、workspace trust、root detection、起動directoryに
 依存するlauncherはconsumerが所有し、mal repositoryの絶対pathや`tools/*/target`を参照しない。
 
-C host adapterを編集するprojectは、対応する`.mal` sourceから`malc emit header -o`でheaderを生成する。NixのClang wrapperを使う
-場合、`.clangd`でC11を指定し、clangdへ`--query-driver=/nix/store/*-clang-wrapper-*/bin/clang`を渡す。この設定はTree-sitterや
-mal language serverとは別のC editor integrationである。
+C host adapterを編集するprojectは、adapterを所有する`.mal` sourceから
+`malc emit header source.mal -o source.mal.h`でfile headerを生成し、toolchainの`include`をclangdのinclude pathに加える。
+NixのClang wrapperを使う場合、`.clangd`でC11を指定し、clangdへ
+`--query-driver=/nix/store/*-clang-wrapper-*/bin/clang`を渡す。生成file headerが直接requireする別の`.mal`のheaderも同じ相対配置に生成する。
+この設定はTree-sitterやmal language serverとは別のC editor integrationである。
 
 rootの`.nvim.lua`と`.nvim/lsp/mal.lua`はNeovim 0.11以降のproject-local filetype、Tree-sitter、built-in LSP設定である。
 rootの`.helix/languages.toml`はHelixのproject-local languageと`mal-lsp`設定である。両editor用のserver、parser、queryを準備して
