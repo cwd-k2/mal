@@ -9,10 +9,10 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 /* Host-visible types */
 
-typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
-typedef mal_repr_product_0_t mal_SampleRecord_t;
+typedef struct mal_detail_repr_product_1e36b8e9f3384819 mal_repr_product_1e36b8e9f3384819_t;
+typedef mal_repr_product_1e36b8e9f3384819_t mal_SampleRecord_t;
 
-struct mal_detail_repr_product_0 {
+struct mal_detail_repr_product_1e36b8e9f3384819 {
     mal_Int64_t field_0;
     mal_UInt8_t field_1;
 };
@@ -39,26 +39,26 @@ static inline void mal_detail_memory_write_UInt8(mal_call_t *call MAL_DETAIL_MAY
     memcpy(destination, &value, sizeof(value));
 }
 
-static inline mal_repr_product_0_t mal_detail_memory_read_0(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_0_t value;
+static inline mal_repr_product_1e36b8e9f3384819_t mal_detail_memory_read_1e36b8e9f3384819(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+    mal_repr_product_1e36b8e9f3384819_t value;
     value.field_0 = mal_detail_memory_read_Int64(call, source + 0);
     value.field_1 = mal_detail_memory_read_UInt8(call, source + 8);
     return value;
 }
 
-static inline void mal_detail_memory_write_0(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_0_t value) {
+static inline void mal_detail_memory_write_1e36b8e9f3384819(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e36b8e9f3384819_t value) {
     mal_detail_memory_write_Int64(call, destination + 0, value.field_0);
     mal_detail_memory_write_UInt8(call, destination + 8, value.field_1);
 }
 
 static inline mal_SampleRecord_t mal_SampleRecord_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
-    return mal_detail_memory_read_0(call, (const uint8_t *)address + (index * 16));
+    return mal_detail_memory_read_1e36b8e9f3384819(call, (const uint8_t *)address + (index * 16));
 }
 
 static inline void mal_SampleRecord_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_SampleRecord_t value) {
     mal_Address_return(call, address);
-    mal_detail_memory_write_0(call, (uint8_t *)address + (index * 16), value);
+    mal_detail_memory_write_1e36b8e9f3384819(call, (uint8_t *)address + (index * 16), value);
 }
 
 /* External operations */

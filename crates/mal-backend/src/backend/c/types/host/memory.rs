@@ -6,7 +6,7 @@ use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
 
-use super::super::{HostTypes, TypeRegistry, is_bool};
+use super::super::{HostTypes, RepresentationId, TypeRegistry, is_bool};
 use super::append_function;
 
 impl TypeRegistry {
@@ -31,9 +31,9 @@ impl TypeRegistry {
                 self.append_scalar_memory_helpers(&mut output, &ty);
             }
         }
-        for (index, ty) in self.aggregates.iter().enumerate() {
+        for ty in &self.aggregates {
             if host.memory_contains(ty) && !is_bool(ty) {
-                self.append_aggregate_memory_helpers(&mut output, index, ty, layouts);
+                self.append_aggregate_memory_helpers(&mut output, self.index(ty), ty, layouts);
             }
         }
         for alias in aliases.iter().filter(|alias| alias.host_memory_access) {
@@ -108,7 +108,7 @@ impl TypeRegistry {
     fn append_aggregate_memory_helpers(
         &self,
         output: &mut TranslationUnit,
-        index: usize,
+        index: RepresentationId,
         ty: &Type,
         layouts: SourceLayouts,
     ) {

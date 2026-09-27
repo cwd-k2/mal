@@ -11,32 +11,32 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 typedef struct { uintptr_t bits; } MalType_Socket;
 
-typedef struct MalRepr_Product_0 MalRepr_Product_0;
-typedef struct MalRepr_Product_1 MalRepr_Product_1;
-typedef struct MalRepr_Product_2 MalRepr_Product_2;
-typedef struct MalRepr_Sum_3 MalRepr_Sum_3;
-typedef struct MalRepr_Product_4 MalRepr_Product_4;
-typedef struct MalRepr_Product_5 MalRepr_Product_5;
-typedef struct MalRepr_Sum_6 MalRepr_Sum_6;
+typedef struct MalRepr_Product_8ae85a9b6e39c816 MalRepr_Product_8ae85a9b6e39c816;
+typedef struct MalRepr_Product_1e5c20e9f358150e MalRepr_Product_1e5c20e9f358150e;
+typedef struct MalRepr_Product_f9c88caf7e8dddf4 MalRepr_Product_f9c88caf7e8dddf4;
+typedef struct MalRepr_Sum_4647c725c84fdeda MalRepr_Sum_4647c725c84fdeda;
+typedef struct MalRepr_Product_cb68c98eb0579ca1 MalRepr_Product_cb68c98eb0579ca1;
+typedef struct MalRepr_Product_1e5f80e9f35aee05 MalRepr_Product_1e5f80e9f35aee05;
+typedef struct MalRepr_Sum_df02f3d72e6af636 MalRepr_Sum_df02f3d72e6af636;
 
-struct MalRepr_Product_0 {
+struct MalRepr_Product_8ae85a9b6e39c816 {
     MalType_Socket field_0;
     MalType_Socket field_1;
 };
 
-struct MalRepr_Product_1 {
+struct MalRepr_Product_1e5c20e9f358150e {
     MalType_Address field_0;
     MalType_USize field_1;
 };
 
-struct MalRepr_Product_2 {
+struct MalRepr_Product_f9c88caf7e8dddf4 {
     MalType_Socket field_0;
     MalType_UInt64 field_1;
     MalType_Address field_2;
     MalType_USize field_3;
 };
 
-struct MalRepr_Sum_3 {
+struct MalRepr_Sum_4647c725c84fdeda {
     uint32_t tag;
     union {
         MalType_Unit variant_0;
@@ -44,63 +44,63 @@ struct MalRepr_Sum_3 {
     } payload;
 };
 
-struct MalRepr_Product_4 {
+struct MalRepr_Product_cb68c98eb0579ca1 {
     MalType_Socket field_0;
     MalType_Address field_1;
     MalType_USize field_2;
 };
 
-struct MalRepr_Product_5 {
+struct MalRepr_Product_1e5f80e9f35aee05 {
     MalType_UInt64 field_0;
     MalType_USize field_1;
 };
 
-struct MalRepr_Sum_6 {
+struct MalRepr_Sum_df02f3d72e6af636 {
     uint32_t tag;
     union {
-        MalRepr_Product_5 variant_0;
+        MalRepr_Product_1e5f80e9f35aee05 variant_0;
         MalType_UInt32 variant_1;
     } payload;
 };
 
-typedef MalRepr_Product_0 MalType_SocketPair;
-typedef MalRepr_Sum_3 MalType_SocketStatus;
-typedef MalRepr_Product_5 MalType_ReceivedPacket;
-typedef MalRepr_Sum_6 MalType_ReceiveResult;
-typedef MalRepr_Product_1 MalType_PacketBuffer;
+typedef MalRepr_Product_8ae85a9b6e39c816 MalType_SocketPair;
+typedef MalRepr_Sum_4647c725c84fdeda MalType_SocketStatus;
+typedef MalRepr_Product_1e5f80e9f35aee05 MalType_ReceivedPacket;
+typedef MalRepr_Sum_df02f3d72e6af636 MalType_ReceiveResult;
+typedef MalRepr_Product_1e5c20e9f358150e MalType_PacketBuffer;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Socket_t;
-typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
-typedef struct mal_detail_repr_product_1 mal_repr_product_1_t;
-typedef struct mal_detail_repr_product_2 mal_repr_product_2_t;
-typedef struct mal_detail_repr_sum_3 mal_repr_sum_3_t;
-typedef struct mal_detail_repr_product_4 mal_repr_product_4_t;
-typedef struct mal_detail_repr_product_5 mal_repr_product_5_t;
-typedef struct mal_detail_repr_sum_6 mal_repr_sum_6_t;
-typedef mal_repr_product_0_t mal_SocketPair_t;
-typedef mal_repr_sum_3_t mal_SocketStatus_t;
-typedef mal_repr_product_5_t mal_ReceivedPacket_t;
-typedef mal_repr_sum_6_t mal_ReceiveResult_t;
-typedef mal_repr_product_1_t mal_PacketBuffer_t;
+typedef struct mal_detail_repr_product_8ae85a9b6e39c816 mal_repr_product_8ae85a9b6e39c816_t;
+typedef struct mal_detail_repr_product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_t;
+typedef struct mal_detail_repr_product_f9c88caf7e8dddf4 mal_repr_product_f9c88caf7e8dddf4_t;
+typedef struct mal_detail_repr_sum_4647c725c84fdeda mal_repr_sum_4647c725c84fdeda_t;
+typedef struct mal_detail_repr_product_cb68c98eb0579ca1 mal_repr_product_cb68c98eb0579ca1_t;
+typedef struct mal_detail_repr_product_1e5f80e9f35aee05 mal_repr_product_1e5f80e9f35aee05_t;
+typedef struct mal_detail_repr_sum_df02f3d72e6af636 mal_repr_sum_df02f3d72e6af636_t;
+typedef mal_repr_product_8ae85a9b6e39c816_t mal_SocketPair_t;
+typedef mal_repr_sum_4647c725c84fdeda_t mal_SocketStatus_t;
+typedef mal_repr_product_1e5f80e9f35aee05_t mal_ReceivedPacket_t;
+typedef mal_repr_sum_df02f3d72e6af636_t mal_ReceiveResult_t;
+typedef mal_repr_product_1e5c20e9f358150e_t mal_PacketBuffer_t;
 
-struct mal_detail_repr_product_0 {
+struct mal_detail_repr_product_8ae85a9b6e39c816 {
     mal_Socket_t field_0;
     mal_Socket_t field_1;
 };
 
-struct mal_detail_repr_product_1 {
+struct mal_detail_repr_product_1e5c20e9f358150e {
     mal_Address_t field_0;
     mal_USize_t field_1;
 };
 
-struct mal_detail_repr_product_2 {
+struct mal_detail_repr_product_f9c88caf7e8dddf4 {
     mal_Socket_t field_0;
     mal_UInt64_t field_1;
     mal_Address_t field_2;
     mal_USize_t field_3;
 };
 
-struct mal_detail_repr_sum_3 {
+struct mal_detail_repr_sum_4647c725c84fdeda {
     uint32_t tag;
     union {
         mal_Unit_t variant_0;
@@ -108,46 +108,46 @@ struct mal_detail_repr_sum_3 {
     } payload;
 };
 
-struct mal_detail_repr_product_4 {
+struct mal_detail_repr_product_cb68c98eb0579ca1 {
     mal_Socket_t field_0;
     mal_Address_t field_1;
     mal_USize_t field_2;
 };
 
-struct mal_detail_repr_product_5 {
+struct mal_detail_repr_product_1e5f80e9f35aee05 {
     mal_UInt64_t field_0;
     mal_USize_t field_1;
 };
 
-struct mal_detail_repr_sum_6 {
+struct mal_detail_repr_sum_df02f3d72e6af636 {
     uint32_t tag;
     union {
-        mal_repr_product_5_t variant_0;
+        mal_repr_product_1e5f80e9f35aee05_t variant_0;
         mal_UInt32_t variant_1;
     } payload;
 };
 
 /* Type helpers */
 
-static inline MalRepr_Product_0 mal_repr_product_0_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_0_t value) {
-    return (MalRepr_Product_0){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
+static inline MalRepr_Product_8ae85a9b6e39c816 mal_repr_product_8ae85a9b6e39c816_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_8ae85a9b6e39c816_t value) {
+    return (MalRepr_Product_8ae85a9b6e39c816){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
 }
 
-static inline MalRepr_Product_1 mal_repr_product_1_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1_t value) {
-    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+static inline MalRepr_Product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5c20e9f358150e_t value) {
+    return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
-static inline MalRepr_Product_2 mal_repr_product_2_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_2_t value) {
-    return (MalRepr_Product_2){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1, .field_2 = mal_Address_return(call, value.field_2), .field_3 = value.field_3 };
+static inline MalRepr_Product_f9c88caf7e8dddf4 mal_repr_product_f9c88caf7e8dddf4_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_f9c88caf7e8dddf4_t value) {
+    return (MalRepr_Product_f9c88caf7e8dddf4){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1, .field_2 = mal_Address_return(call, value.field_2), .field_3 = value.field_3 };
 }
 
-static inline mal_repr_sum_3_t mal_detail_to_host_3(mal_call_t *call, MalRepr_Sum_3 value) {
+static inline mal_repr_sum_4647c725c84fdeda_t mal_detail_to_host_4647c725c84fdeda(mal_call_t *call, MalRepr_Sum_4647c725c84fdeda value) {
     switch (value.tag) {
         case UINT32_C(0): {
-            return (mal_repr_sum_3_t){ .tag = UINT32_C(0), .payload.variant_0 = value.payload.variant_0 };
+            return (mal_repr_sum_4647c725c84fdeda_t){ .tag = UINT32_C(0), .payload.variant_0 = value.payload.variant_0 };
         }
         case UINT32_C(1): {
-            return (mal_repr_sum_3_t){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
+            return (mal_repr_sum_4647c725c84fdeda_t){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
         }
         default: {
             mal_call_trap(call, "invalid sum tag");
@@ -155,13 +155,13 @@ static inline mal_repr_sum_3_t mal_detail_to_host_3(mal_call_t *call, MalRepr_Su
     }
 }
 
-static inline MalRepr_Sum_3 mal_detail_to_raw_3(mal_call_t *call, mal_repr_sum_3_t value) {
+static inline MalRepr_Sum_4647c725c84fdeda mal_detail_to_raw_4647c725c84fdeda(mal_call_t *call, mal_repr_sum_4647c725c84fdeda_t value) {
     switch (value.tag) {
         case UINT32_C(0): {
-            return (MalRepr_Sum_3){ .tag = UINT32_C(0), .payload.variant_0 = (MalType_Unit){ 0 } };
+            return (MalRepr_Sum_4647c725c84fdeda){ .tag = UINT32_C(0), .payload.variant_0 = (MalType_Unit){ 0 } };
         }
         case UINT32_C(1): {
-            return (MalRepr_Sum_3){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
+            return (MalRepr_Sum_4647c725c84fdeda){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
         }
         default: {
             mal_call_trap(call, "invalid sum tag");
@@ -169,39 +169,39 @@ static inline MalRepr_Sum_3 mal_detail_to_raw_3(mal_call_t *call, mal_repr_sum_3
     }
 }
 
-#define mal_repr_sum_3_tag_0 UINT32_C(0)
-static inline mal_repr_sum_3_t mal_repr_sum_3_make_0(void) {
-    return (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
+#define mal_repr_sum_4647c725c84fdeda_tag_0 UINT32_C(0)
+static inline mal_repr_sum_4647c725c84fdeda_t mal_repr_sum_4647c725c84fdeda_make_0(void) {
+    return (mal_repr_sum_4647c725c84fdeda_t){ .tag = mal_repr_sum_4647c725c84fdeda_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
 }
 
-static inline MalRepr_Sum_3 mal_repr_sum_3_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_3(call, (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+static inline MalRepr_Sum_4647c725c84fdeda mal_repr_sum_4647c725c84fdeda_return_0(mal_call_t *call) {
+    return mal_detail_to_raw_4647c725c84fdeda(call, (mal_repr_sum_4647c725c84fdeda_t){ .tag = mal_repr_sum_4647c725c84fdeda_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
-#define mal_repr_sum_3_tag_1 UINT32_C(1)
-static inline mal_repr_sum_3_t mal_repr_sum_3_make_1(mal_UInt32_t value) {
-    return (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_1, .payload.variant_1 = value };
+#define mal_repr_sum_4647c725c84fdeda_tag_1 UINT32_C(1)
+static inline mal_repr_sum_4647c725c84fdeda_t mal_repr_sum_4647c725c84fdeda_make_1(mal_UInt32_t value) {
+    return (mal_repr_sum_4647c725c84fdeda_t){ .tag = mal_repr_sum_4647c725c84fdeda_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalRepr_Sum_3 mal_repr_sum_3_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_3(call, (mal_repr_sum_3_t){ .tag = mal_repr_sum_3_tag_1, .payload.variant_1 = value });
+static inline MalRepr_Sum_4647c725c84fdeda mal_repr_sum_4647c725c84fdeda_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_4647c725c84fdeda(call, (mal_repr_sum_4647c725c84fdeda_t){ .tag = mal_repr_sum_4647c725c84fdeda_tag_1, .payload.variant_1 = value });
 }
 
-static inline MalRepr_Product_4 mal_repr_product_4_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_4_t value) {
-    return (MalRepr_Product_4){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
+static inline MalRepr_Product_cb68c98eb0579ca1 mal_repr_product_cb68c98eb0579ca1_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_cb68c98eb0579ca1_t value) {
+    return (MalRepr_Product_cb68c98eb0579ca1){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
 }
 
-static inline MalRepr_Product_5 mal_repr_product_5_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_5_t value) {
-    return (MalRepr_Product_5){ .field_0 = value.field_0, .field_1 = value.field_1 };
+static inline MalRepr_Product_1e5f80e9f35aee05 mal_repr_product_1e5f80e9f35aee05_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5f80e9f35aee05_t value) {
+    return (MalRepr_Product_1e5f80e9f35aee05){ .field_0 = value.field_0, .field_1 = value.field_1 };
 }
 
-static inline mal_repr_sum_6_t mal_detail_to_host_6(mal_call_t *call, MalRepr_Sum_6 value) {
+static inline mal_repr_sum_df02f3d72e6af636_t mal_detail_to_host_df02f3d72e6af636(mal_call_t *call, MalRepr_Sum_df02f3d72e6af636 value) {
     switch (value.tag) {
         case UINT32_C(0): {
-            return (mal_repr_sum_6_t){ .tag = UINT32_C(0), .payload.variant_0 = (mal_repr_product_5_t){ .field_0 = value.payload.variant_0.field_0, .field_1 = value.payload.variant_0.field_1 } };
+            return (mal_repr_sum_df02f3d72e6af636_t){ .tag = UINT32_C(0), .payload.variant_0 = (mal_repr_product_1e5f80e9f35aee05_t){ .field_0 = value.payload.variant_0.field_0, .field_1 = value.payload.variant_0.field_1 } };
         }
         case UINT32_C(1): {
-            return (mal_repr_sum_6_t){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
+            return (mal_repr_sum_df02f3d72e6af636_t){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
         }
         default: {
             mal_call_trap(call, "invalid sum tag");
@@ -209,13 +209,13 @@ static inline mal_repr_sum_6_t mal_detail_to_host_6(mal_call_t *call, MalRepr_Su
     }
 }
 
-static inline MalRepr_Sum_6 mal_detail_to_raw_6(mal_call_t *call, mal_repr_sum_6_t value) {
+static inline MalRepr_Sum_df02f3d72e6af636 mal_detail_to_raw_df02f3d72e6af636(mal_call_t *call, mal_repr_sum_df02f3d72e6af636_t value) {
     switch (value.tag) {
         case UINT32_C(0): {
-            return (MalRepr_Sum_6){ .tag = UINT32_C(0), .payload.variant_0 = (MalRepr_Product_5){ .field_0 = value.payload.variant_0.field_0, .field_1 = value.payload.variant_0.field_1 } };
+            return (MalRepr_Sum_df02f3d72e6af636){ .tag = UINT32_C(0), .payload.variant_0 = (MalRepr_Product_1e5f80e9f35aee05){ .field_0 = value.payload.variant_0.field_0, .field_1 = value.payload.variant_0.field_1 } };
         }
         case UINT32_C(1): {
-            return (MalRepr_Sum_6){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
+            return (MalRepr_Sum_df02f3d72e6af636){ .tag = UINT32_C(1), .payload.variant_1 = value.payload.variant_1 };
         }
         default: {
             mal_call_trap(call, "invalid sum tag");
@@ -223,22 +223,22 @@ static inline MalRepr_Sum_6 mal_detail_to_raw_6(mal_call_t *call, mal_repr_sum_6
     }
 }
 
-#define mal_repr_sum_6_tag_0 UINT32_C(0)
-static inline mal_repr_sum_6_t mal_repr_sum_6_make_0(mal_repr_product_5_t value) {
-    return (mal_repr_sum_6_t){ .tag = mal_repr_sum_6_tag_0, .payload.variant_0 = value };
+#define mal_repr_sum_df02f3d72e6af636_tag_0 UINT32_C(0)
+static inline mal_repr_sum_df02f3d72e6af636_t mal_repr_sum_df02f3d72e6af636_make_0(mal_repr_product_1e5f80e9f35aee05_t value) {
+    return (mal_repr_sum_df02f3d72e6af636_t){ .tag = mal_repr_sum_df02f3d72e6af636_tag_0, .payload.variant_0 = value };
 }
 
-static inline MalRepr_Sum_6 mal_repr_sum_6_return_0(mal_call_t *call, mal_repr_product_5_t value) {
-    return mal_detail_to_raw_6(call, (mal_repr_sum_6_t){ .tag = mal_repr_sum_6_tag_0, .payload.variant_0 = value });
+static inline MalRepr_Sum_df02f3d72e6af636 mal_repr_sum_df02f3d72e6af636_return_0(mal_call_t *call, mal_repr_product_1e5f80e9f35aee05_t value) {
+    return mal_detail_to_raw_df02f3d72e6af636(call, (mal_repr_sum_df02f3d72e6af636_t){ .tag = mal_repr_sum_df02f3d72e6af636_tag_0, .payload.variant_0 = value });
 }
 
-#define mal_repr_sum_6_tag_1 UINT32_C(1)
-static inline mal_repr_sum_6_t mal_repr_sum_6_make_1(mal_UInt32_t value) {
-    return (mal_repr_sum_6_t){ .tag = mal_repr_sum_6_tag_1, .payload.variant_1 = value };
+#define mal_repr_sum_df02f3d72e6af636_tag_1 UINT32_C(1)
+static inline mal_repr_sum_df02f3d72e6af636_t mal_repr_sum_df02f3d72e6af636_make_1(mal_UInt32_t value) {
+    return (mal_repr_sum_df02f3d72e6af636_t){ .tag = mal_repr_sum_df02f3d72e6af636_tag_1, .payload.variant_1 = value };
 }
 
-static inline MalRepr_Sum_6 mal_repr_sum_6_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_6(call, (mal_repr_sum_6_t){ .tag = mal_repr_sum_6_tag_1, .payload.variant_1 = value });
+static inline MalRepr_Sum_df02f3d72e6af636 mal_repr_sum_df02f3d72e6af636_return_1(mal_call_t *call, mal_UInt32_t value) {
+    return mal_detail_to_raw_df02f3d72e6af636(call, (mal_repr_sum_df02f3d72e6af636_t){ .tag = mal_repr_sum_df02f3d72e6af636_tag_1, .payload.variant_1 = value });
 }
 
 static inline mal_Socket_t mal_Socket_from_bits(uintptr_t bits) {
@@ -254,7 +254,7 @@ static inline MalType_Socket mal_Socket_return(mal_call_t *call MAL_DETAIL_MAYBE
 }
 
 static inline MalType_SocketPair mal_SocketPair_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_SocketPair_t value) {
-    return (MalRepr_Product_0){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
+    return (MalRepr_Product_8ae85a9b6e39c816){ .field_0 = (MalType_Socket){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalType_Socket){ .bits = value.field_1.mal_detail_bits } };
 }
 
 #define mal_SocketStatus_tag_0 UINT32_C(0)
@@ -263,7 +263,7 @@ static inline mal_SocketStatus_t mal_SocketStatus_make_0(void) {
 }
 
 static inline MalType_SocketStatus mal_SocketStatus_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_3(call, (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
+    return mal_detail_to_raw_4647c725c84fdeda(call, (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
 }
 
 #define mal_SocketStatus_tag_1 UINT32_C(1)
@@ -272,11 +272,11 @@ static inline mal_SocketStatus_t mal_SocketStatus_make_1(mal_UInt32_t value) {
 }
 
 static inline MalType_SocketStatus mal_SocketStatus_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_3(call, (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_1, .payload.variant_1 = value });
+    return mal_detail_to_raw_4647c725c84fdeda(call, (mal_SocketStatus_t){ .tag = mal_SocketStatus_tag_1, .payload.variant_1 = value });
 }
 
 static inline MalType_ReceivedPacket mal_ReceivedPacket_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ReceivedPacket_t value) {
-    return (MalRepr_Product_5){ .field_0 = value.field_0, .field_1 = value.field_1 };
+    return (MalRepr_Product_1e5f80e9f35aee05){ .field_0 = value.field_0, .field_1 = value.field_1 };
 }
 
 #define mal_ReceiveResult_tag_0 UINT32_C(0)
@@ -285,7 +285,7 @@ static inline mal_ReceiveResult_t mal_ReceiveResult_make_0(mal_ReceivedPacket_t 
 }
 
 static inline MalType_ReceiveResult mal_ReceiveResult_return_0(mal_call_t *call, mal_ReceivedPacket_t value) {
-    return mal_detail_to_raw_6(call, (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_0, .payload.variant_0 = value });
+    return mal_detail_to_raw_df02f3d72e6af636(call, (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_0, .payload.variant_0 = value });
 }
 
 #define mal_ReceiveResult_tag_1 UINT32_C(1)
@@ -294,11 +294,11 @@ static inline mal_ReceiveResult_t mal_ReceiveResult_make_1(mal_UInt32_t value) {
 }
 
 static inline MalType_ReceiveResult mal_ReceiveResult_return_1(mal_call_t *call, mal_UInt32_t value) {
-    return mal_detail_to_raw_6(call, (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_1, .payload.variant_1 = value });
+    return mal_detail_to_raw_df02f3d72e6af636(call, (mal_ReceiveResult_t){ .tag = mal_ReceiveResult_tag_1, .payload.variant_1 = value });
 }
 
 static inline MalType_PacketBuffer mal_PacketBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_PacketBuffer_t value) {
-    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+    return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 /* Canonical memory access */
@@ -354,25 +354,25 @@ static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAY
     memcpy(destination, &value, sizeof(value));
 }
 
-static inline mal_repr_product_1_t mal_detail_memory_read_1(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_1_t value;
+static inline mal_repr_product_1e5c20e9f358150e_t mal_detail_memory_read_1e5c20e9f358150e(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+    mal_repr_product_1e5c20e9f358150e_t value;
     value.field_0 = mal_detail_memory_read_Address(call, source + 0);
     value.field_1 = mal_detail_memory_read_USize(call, source + 8);
     return value;
 }
 
-static inline void mal_detail_memory_write_1(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1_t value) {
+static inline void mal_detail_memory_write_1e5c20e9f358150e(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5c20e9f358150e_t value) {
     mal_detail_memory_write_Address(call, destination + 0, value.field_0);
     mal_detail_memory_write_USize(call, destination + 8, value.field_1);
 }
 
-static inline mal_repr_sum_3_t mal_detail_memory_read_3(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+static inline mal_repr_sum_4647c725c84fdeda_t mal_detail_memory_read_4647c725c84fdeda(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
     switch (mal_detail_memory_read_UInt8(call, source)) {
         case 0: {
-            return (mal_repr_sum_3_t){ .tag = UINT32_C(0), .payload.variant_0 = (mal_Unit_t){ 0 } };
+            return (mal_repr_sum_4647c725c84fdeda_t){ .tag = UINT32_C(0), .payload.variant_0 = (mal_Unit_t){ 0 } };
         }
         case 1: {
-            return (mal_repr_sum_3_t){ .tag = UINT32_C(1), .payload.variant_1 = mal_detail_memory_read_UInt32(call, source + 4) };
+            return (mal_repr_sum_4647c725c84fdeda_t){ .tag = UINT32_C(1), .payload.variant_1 = mal_detail_memory_read_UInt32(call, source + 4) };
         }
         default: {
             mal_call_trap(call, "invalid canonical sum tag");
@@ -380,7 +380,7 @@ static inline mal_repr_sum_3_t mal_detail_memory_read_3(mal_call_t *call MAL_DET
     }
 }
 
-static inline void mal_detail_memory_write_3(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_sum_3_t value) {
+static inline void mal_detail_memory_write_4647c725c84fdeda(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_sum_4647c725c84fdeda_t value) {
     switch (value.tag) {
         case UINT32_C(0): {
             mal_detail_memory_write_UInt8(call, destination, (mal_UInt8_t)value.tag);
@@ -398,25 +398,25 @@ static inline void mal_detail_memory_write_3(mal_call_t *call MAL_DETAIL_MAYBE_U
     }
 }
 
-static inline mal_repr_product_5_t mal_detail_memory_read_5(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_5_t value;
+static inline mal_repr_product_1e5f80e9f35aee05_t mal_detail_memory_read_1e5f80e9f35aee05(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+    mal_repr_product_1e5f80e9f35aee05_t value;
     value.field_0 = mal_detail_memory_read_UInt64(call, source + 0);
     value.field_1 = mal_detail_memory_read_USize(call, source + 8);
     return value;
 }
 
-static inline void mal_detail_memory_write_5(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_5_t value) {
+static inline void mal_detail_memory_write_1e5f80e9f35aee05(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5f80e9f35aee05_t value) {
     mal_detail_memory_write_UInt64(call, destination + 0, value.field_0);
     mal_detail_memory_write_USize(call, destination + 8, value.field_1);
 }
 
-static inline mal_repr_sum_6_t mal_detail_memory_read_6(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
+static inline mal_repr_sum_df02f3d72e6af636_t mal_detail_memory_read_df02f3d72e6af636(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
     switch (mal_detail_memory_read_UInt8(call, source)) {
         case 0: {
-            return (mal_repr_sum_6_t){ .tag = UINT32_C(0), .payload.variant_0 = mal_detail_memory_read_5(call, source + 8) };
+            return (mal_repr_sum_df02f3d72e6af636_t){ .tag = UINT32_C(0), .payload.variant_0 = mal_detail_memory_read_1e5f80e9f35aee05(call, source + 8) };
         }
         case 1: {
-            return (mal_repr_sum_6_t){ .tag = UINT32_C(1), .payload.variant_1 = mal_detail_memory_read_UInt32(call, source + 8) };
+            return (mal_repr_sum_df02f3d72e6af636_t){ .tag = UINT32_C(1), .payload.variant_1 = mal_detail_memory_read_UInt32(call, source + 8) };
         }
         default: {
             mal_call_trap(call, "invalid canonical sum tag");
@@ -424,11 +424,11 @@ static inline mal_repr_sum_6_t mal_detail_memory_read_6(mal_call_t *call MAL_DET
     }
 }
 
-static inline void mal_detail_memory_write_6(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_sum_6_t value) {
+static inline void mal_detail_memory_write_df02f3d72e6af636(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_sum_df02f3d72e6af636_t value) {
     switch (value.tag) {
         case UINT32_C(0): {
             mal_detail_memory_write_UInt8(call, destination, (mal_UInt8_t)value.tag);
-            mal_detail_memory_write_5(call, destination + 8, value.payload.variant_0);
+            mal_detail_memory_write_1e5f80e9f35aee05(call, destination + 8, value.payload.variant_0);
             return;
         }
         case UINT32_C(1): {
@@ -444,42 +444,42 @@ static inline void mal_detail_memory_write_6(mal_call_t *call MAL_DETAIL_MAYBE_U
 
 static inline mal_SocketStatus_t mal_SocketStatus_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
-    return mal_detail_memory_read_3(call, (const uint8_t *)address + (index * 8));
+    return mal_detail_memory_read_4647c725c84fdeda(call, (const uint8_t *)address + (index * 8));
 }
 
 static inline void mal_SocketStatus_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_SocketStatus_t value) {
     mal_Address_return(call, address);
-    mal_detail_memory_write_3(call, (uint8_t *)address + (index * 8), value);
+    mal_detail_memory_write_4647c725c84fdeda(call, (uint8_t *)address + (index * 8), value);
 }
 
 static inline mal_ReceivedPacket_t mal_ReceivedPacket_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
-    return mal_detail_memory_read_5(call, (const uint8_t *)address + (index * 16));
+    return mal_detail_memory_read_1e5f80e9f35aee05(call, (const uint8_t *)address + (index * 16));
 }
 
 static inline void mal_ReceivedPacket_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_ReceivedPacket_t value) {
     mal_Address_return(call, address);
-    mal_detail_memory_write_5(call, (uint8_t *)address + (index * 16), value);
+    mal_detail_memory_write_1e5f80e9f35aee05(call, (uint8_t *)address + (index * 16), value);
 }
 
 static inline mal_ReceiveResult_t mal_ReceiveResult_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
-    return mal_detail_memory_read_6(call, (const uint8_t *)address + (index * 24));
+    return mal_detail_memory_read_df02f3d72e6af636(call, (const uint8_t *)address + (index * 24));
 }
 
 static inline void mal_ReceiveResult_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_ReceiveResult_t value) {
     mal_Address_return(call, address);
-    mal_detail_memory_write_6(call, (uint8_t *)address + (index * 24), value);
+    mal_detail_memory_write_df02f3d72e6af636(call, (uint8_t *)address + (index * 24), value);
 }
 
 static inline mal_PacketBuffer_t mal_PacketBuffer_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
     mal_Address_return(call, address);
-    return mal_detail_memory_read_1(call, (const uint8_t *)address + (index * 16));
+    return mal_detail_memory_read_1e5c20e9f358150e(call, (const uint8_t *)address + (index * 16));
 }
 
 static inline void mal_PacketBuffer_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_PacketBuffer_t value) {
     mal_Address_return(call, address);
-    mal_detail_memory_write_1(call, (uint8_t *)address + (index * 16), value);
+    mal_detail_memory_write_1e5c20e9f358150e(call, (uint8_t *)address + (index * 16), value);
 }
 
 /* External operations */
@@ -517,26 +517,26 @@ static MalType_PacketBuffer mal_detail_packetBuffer( \
 
 #define MAL_HAS_EXTERN_sendPacket 1
 #define MAL_DEFINE_sendPacket(call, value) \
-static MalType_SocketStatus mal_detail_sendPacket(mal_call_t *call, mal_repr_product_2_t value); \
+static MalType_SocketStatus mal_detail_sendPacket(mal_call_t *call, mal_repr_product_f9c88caf7e8dddf4_t value); \
 MalType_SocketStatus mal_ext_sendPacket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket argument_0, MalType_UInt64 argument_1, MalType_Address argument_2, MalType_USize argument_3) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_sendPacket(&call, (mal_repr_product_2_t){ .field_0 = (mal_Socket_t){ .mal_detail_bits = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_0.bits }, .field_1 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_1, .field_2 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_2, .field_3 = ((MalRepr_Product_2){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_3 }); \
+    return mal_detail_sendPacket(&call, (mal_repr_product_f9c88caf7e8dddf4_t){ .field_0 = (mal_Socket_t){ .mal_detail_bits = ((MalRepr_Product_f9c88caf7e8dddf4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_0.bits }, .field_1 = ((MalRepr_Product_f9c88caf7e8dddf4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_1, .field_2 = ((MalRepr_Product_f9c88caf7e8dddf4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_2, .field_3 = ((MalRepr_Product_f9c88caf7e8dddf4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3 }).field_3 }); \
 } \
 static MalType_SocketStatus mal_detail_sendPacket( \
     mal_call_t *call, \
-    mal_repr_product_2_t value \
+    mal_repr_product_f9c88caf7e8dddf4_t value \
 )
 
 #define MAL_HAS_EXTERN_receivePacket 1
 #define MAL_DEFINE_receivePacket(call, value) \
-static MalType_ReceiveResult mal_detail_receivePacket(mal_call_t *call, mal_repr_product_4_t value); \
+static MalType_ReceiveResult mal_detail_receivePacket(mal_call_t *call, mal_repr_product_cb68c98eb0579ca1_t value); \
 MalType_ReceiveResult mal_ext_receivePacket(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Socket argument_0, MalType_Address argument_1, MalType_USize argument_2) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_receivePacket(&call, (mal_repr_product_4_t){ .field_0 = (mal_Socket_t){ .mal_detail_bits = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_0.bits }, .field_1 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_1, .field_2 = ((MalRepr_Product_4){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_2 }); \
+    return mal_detail_receivePacket(&call, (mal_repr_product_cb68c98eb0579ca1_t){ .field_0 = (mal_Socket_t){ .mal_detail_bits = ((MalRepr_Product_cb68c98eb0579ca1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_0.bits }, .field_1 = ((MalRepr_Product_cb68c98eb0579ca1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_1, .field_2 = ((MalRepr_Product_cb68c98eb0579ca1){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2 }).field_2 }); \
 } \
 static MalType_ReceiveResult mal_detail_receivePacket( \
     mal_call_t *call, \
-    mal_repr_product_4_t value \
+    mal_repr_product_cb68c98eb0579ca1_t value \
 )
 
 #define MAL_HAS_EXTERN_closeSocket 1

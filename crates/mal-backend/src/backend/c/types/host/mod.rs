@@ -5,7 +5,7 @@ use crate::backend::c::syntax::{
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
 
-use super::{HostTypes, TypeRegistry, is_bool};
+use super::{HostTypes, RepresentationId, TypeRegistry, is_bool};
 
 mod declaration;
 mod memory;
@@ -17,35 +17,39 @@ impl TypeRegistry {
         aliases: &[TypeAlias],
     ) -> TranslationUnit {
         let mut output = TranslationUnit::default();
-        for (index, ty) in self.aggregates.iter().enumerate() {
+        for ty in &self.aggregates {
             if !host.external_contains(ty) || is_bool(ty) {
                 continue;
             }
             match ty {
-                Type::Product(_) => append_function(
-                    &mut output,
-                    c_signature! {
-                        #[static] #[inline] fn #{ format!("mal_repr_product_{index}_return") }(
-                            #[maybe_unused] "call": ptr(named("mal_call_t")),
-                            "value": named(#{ format!("mal_repr_product_{index}_t") }),
-                        ) -> #{ self.c_type(ty) }
-                    },
-                    c_block! {
-                        return #{
-                                self.host_to_raw_value(
-                                    ty,
-                                    c_expr!(id("call")),
-                                    c_expr!(id("value")),
-                                )
-                            };
-                    },
-                ),
+                Type::Product(_) => {
+                    let id = self.index(ty);
+                    append_function(
+                        &mut output,
+                        c_signature! {
+                            #[static] #[inline] fn #{ format!("mal_repr_product_{id}_return") }(
+                                #[maybe_unused] "call": ptr(named("mal_call_t")),
+                                "value": named(#{ format!("mal_repr_product_{id}_t") }),
+                            ) -> #{ self.c_type(ty) }
+                        },
+                        c_block! {
+                            return #{
+                                    self.host_to_raw_value(
+                                        ty,
+                                        c_expr!(id("call")),
+                                        c_expr!(id("value")),
+                                    )
+                                };
+                        },
+                    )
+                }
                 Type::Sum(members) => {
-                    output.extend(self.host_sum_conversion_helpers(index, ty));
+                    let id = self.index(ty);
+                    output.extend(self.host_sum_conversion_helpers(id, ty));
                     self.append_host_sum_helpers(
                         &mut output,
-                        &format!("repr_sum_{index}"),
-                        &format!("mal_repr_sum_{index}_t"),
+                        &format!("repr_sum_{id}"),
+                        &format!("mal_repr_sum_{id}_t"),
                         self.c_type(ty),
                         ty,
                         &vec![None; members.len()],
@@ -204,7 +208,7 @@ impl TypeRegistry {
         }
     }
 
-    fn host_sum_conversion_helpers(&self, index: usize, ty: &Type) -> TranslationUnit {
+    fn host_sum_conversion_helpers(&self, index: RepresentationId, ty: &Type) -> TranslationUnit {
         let Type::Sum(members) = ty else {
             unreachable!("sum conversion requires a sum type")
         };

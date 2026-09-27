@@ -3,7 +3,6 @@ use crate::backend::c::syntax::{
     c_declaration, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
-use mal_frontend::resolve::ast::TypeId;
 
 mod collect;
 mod host;
@@ -12,8 +11,9 @@ mod host;
 pub(super) struct TypeRegistry {
     aggregates: Vec<Type>,
     collected: std::collections::HashSet<SharedTypeId>,
-    indices: std::collections::HashMap<SharedTypeId, usize>,
-    structural_indices: std::collections::HashMap<AggregateKey, usize>,
+    indices: std::collections::HashMap<SharedTypeId, RepresentationId>,
+    structural_indices: std::collections::HashMap<AggregateKey, RepresentationId>,
+    fingerprint_keys: std::collections::HashMap<RepresentationId, AggregateKey>,
 }
 
 #[derive(Default)]
@@ -28,13 +28,13 @@ pub(super) struct HostTypes {
     opaque_names: Vec<String>,
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum AggregateKey {
     Product(Vec<ElementKey>),
     Sum(Vec<ElementKey>),
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum ElementKey {
     Unit,
     Int8,
@@ -50,8 +50,17 @@ enum ElementKey {
     Address,
     ByteSize,
     USize,
-    External(TypeId),
-    Aggregate(usize),
+    External(String),
+    Aggregate(RepresentationId),
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(super) struct RepresentationId(u64);
+
+impl std::fmt::Display for RepresentationId {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "{:016x}", self.0)
+    }
 }
 
 impl TypeRegistry {
@@ -128,7 +137,7 @@ impl TypeRegistry {
 
     fn declarations(&self, host: &HostTypes, public: bool) -> TranslationUnit {
         let mut output = TranslationUnit::default();
-        for (index, ty) in self.aggregates.iter().enumerate() {
+        for ty in &self.aggregates {
             if host.external_contains(ty) != public {
                 continue;
             }
@@ -155,13 +164,14 @@ impl TypeRegistry {
                     unreachable!("these types never enter the C host registry")
                 }
             };
-            let name = format!("{kind}_{index}");
-            output.push(c_declaration!(type #{ name } = struct(#{ format!("{kind}_{index}") })));
+            let id = self.index(ty);
+            let name = format!("{kind}_{id}");
+            output.push(c_declaration!(type #{ name } = struct(#{ format!("{kind}_{id}") })));
         }
         if !output.is_empty() {
             output.blank_line();
         }
-        for (index, ty) in self.aggregates.iter().enumerate() {
+        for ty in &self.aggregates {
             if host.external_contains(ty) != public {
                 continue;
             }
@@ -171,18 +181,18 @@ impl TypeRegistry {
                         let name = format!("field_{element_index}");
                         c_aggregate_field!(#{ name } : #{ self.c_type(element) })
                     });
-                    let tag = format!("MalRepr_Product_{index}");
+                    let tag = format!("MalRepr_Product_{}", self.index(ty));
                     output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                     output.blank_line();
                 }
                 Type::Sum(members) => {
-                    let tag = format!("MalRepr_Sum_{index}");
+                    let tag = format!("MalRepr_Sum_{}", self.index(ty));
                     let fields = sum_representation_fields(members, |member| self.c_type(member));
                     output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                     output.blank_line();
                 }
                 Type::Function { parameter, result } => {
-                    let tag = format!("MalRepr_Closure_{index}");
+                    let tag = format!("MalRepr_Closure_{}", self.index(ty));
                     let fields = c_aggregate_fields! {
                         fn "call"(
                             _: ptr(named("MalContext")),
@@ -275,11 +285,11 @@ mod tests {
         }
         assert_eq!(
             registry.host_value_c_type(&product, None),
-            c_type!(named("mal_repr_product_0_t"))
+            c_type!(named("mal_repr_product_1e5f7ae9f35ae3d3_t"))
         );
         assert_eq!(
             registry.host_value_c_type(&sum, None),
-            c_type!(named("mal_repr_sum_1_t"))
+            c_type!(named("mal_repr_sum_a47b44facfce4b92_t"))
         );
         assert_eq!(
             registry.host_value_c_type(&Type::UInt64, Some("Count")),
@@ -331,12 +341,17 @@ mod tests {
         let declarations = registry.host_value_declarations(&host, &aliases).render();
 
         assert!(
-            declarations.contains("typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;")
+            declarations.contains(
+                "typedef struct mal_detail_repr_product_1e5f7ae9f35ae3d3 mal_repr_product_1e5f7ae9f35ae3d3_t;"
+            ),
+            "{declarations}"
         );
-        assert!(declarations.contains("typedef struct mal_detail_repr_sum_1 mal_repr_sum_1_t;"));
-        assert!(declarations.contains("typedef mal_repr_product_0_t mal_Packet_t;"));
-        assert!(declarations.contains("typedef mal_repr_sum_1_t mal_Result_t;"));
+        assert!(declarations.contains(
+            "typedef struct mal_detail_repr_sum_a47b44facfce4b92 mal_repr_sum_a47b44facfce4b92_t;"
+        ));
+        assert!(declarations.contains("typedef mal_repr_product_1e5f7ae9f35ae3d3_t mal_Packet_t;"));
+        assert!(declarations.contains("typedef mal_repr_sum_a47b44facfce4b92_t mal_Result_t;"));
         assert!(declarations.contains("mal_Address_t field_1;"));
-        assert!(declarations.contains("mal_repr_product_0_t variant_1;"));
+        assert!(declarations.contains("mal_repr_product_1e5f7ae9f35ae3d3_t variant_1;"));
     }
 }

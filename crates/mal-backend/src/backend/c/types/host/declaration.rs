@@ -21,7 +21,7 @@ impl TypeRegistry {
                 }
             });
         }
-        for (index, ty) in self.aggregates.iter().enumerate() {
+        for ty in &self.aggregates {
             if !host.contains(ty) || is_bool(ty) {
                 continue;
             }
@@ -31,10 +31,11 @@ impl TypeRegistry {
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
             };
-            let alias = format!("mal_repr_{kind}_{index}_t");
+            let id = self.index(ty);
+            let alias = format!("mal_repr_{kind}_{id}_t");
             output.push(c_declaration! {
                 type #{ alias } =
-                    struct(#{ format!("mal_detail_repr_{kind}_{index}") })
+                    struct(#{ format!("mal_detail_repr_{kind}_{id}") })
             });
         }
         for alias in aliases {
@@ -45,7 +46,7 @@ impl TypeRegistry {
         if !output.is_empty() {
             output.blank_line();
         }
-        for (index, ty) in self.aggregates.iter().enumerate() {
+        for ty in &self.aggregates {
             if !host.contains(ty) || is_bool(ty) {
                 continue;
             }
@@ -55,14 +56,14 @@ impl TypeRegistry {
                         let name = format!("field_{field}");
                         c_aggregate_field!(#{ name } : #{ self.host_value_c_type(ty, None) })
                     });
-                    let tag = format!("mal_detail_repr_product_{index}");
+                    let tag = format!("mal_detail_repr_product_{}", self.index(ty));
                     output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                 }
                 Type::Sum(members) => {
                     let fields = sum_representation_fields(members, |member| {
                         self.host_value_c_type(member, None)
                     });
-                    let tag = format!("mal_detail_repr_sum_{index}");
+                    let tag = format!("mal_detail_repr_sum_{}", self.index(ty));
                     output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                 }
                 Type::Function { .. } => continue,

@@ -44,7 +44,7 @@ impl TypeRegistry {
         }
     }
 
-    pub(super) fn index(&self, ty: &Type) -> usize {
+    pub(super) fn index(&self, ty: &Type) -> super::RepresentationId {
         let id = ty
             .shared_id()
             .expect("only aggregates have representation indices");
@@ -64,18 +64,25 @@ impl TypeRegistry {
             }
             _ => unreachable!("only aggregates are interned"),
         };
-        let index = if let Some(index) = self.structural_indices.get(&key) {
-            *index
+        let id = if let Some(id) = self.structural_indices.get(&key) {
+            *id
         } else {
-            let index = self.aggregates.len();
+            let id = super::RepresentationId(fingerprint(&key));
+            if let Some(existing) = self.fingerprint_keys.get(&id) {
+                assert_eq!(
+                    existing, &key,
+                    "distinct C host aggregate representations have the same fingerprint"
+                );
+            }
             self.aggregates.push(ty.clone());
-            self.structural_indices.insert(key, index);
-            index
+            self.fingerprint_keys.insert(id, key.clone());
+            self.structural_indices.insert(key, id);
+            id
         };
         self.indices.insert(
             ty.shared_id()
                 .expect("aggregate types have shared identity"),
-            index,
+            id,
         );
     }
 
@@ -95,7 +102,7 @@ impl TypeRegistry {
             Type::Address => super::ElementKey::Address,
             Type::ByteSize => super::ElementKey::ByteSize,
             Type::USize => super::ElementKey::USize,
-            Type::External { id, .. } => super::ElementKey::External(*id),
+            Type::External { name, .. } => super::ElementKey::External(name.clone()),
             Type::Product(_) | Type::Sum(_) => super::ElementKey::Aggregate(self.index(ty)),
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
@@ -105,6 +112,62 @@ impl TypeRegistry {
             }
         }
     }
+}
+
+fn fingerprint(key: &super::AggregateKey) -> u64 {
+    const OFFSET: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x100000001b3;
+
+    fn write_byte(state: &mut u64, byte: u8) {
+        *state ^= u64::from(byte);
+        *state = state.wrapping_mul(PRIME);
+    }
+
+    fn write_bytes(state: &mut u64, bytes: &[u8]) {
+        for byte in bytes {
+            write_byte(state, *byte);
+        }
+        write_byte(state, 0xff);
+    }
+
+    fn write_element(state: &mut u64, element: &super::ElementKey) {
+        let tag = match element {
+            super::ElementKey::Unit => 0,
+            super::ElementKey::Int8 => 1,
+            super::ElementKey::Int16 => 2,
+            super::ElementKey::Int32 => 3,
+            super::ElementKey::Int64 => 4,
+            super::ElementKey::UInt8 => 5,
+            super::ElementKey::UInt16 => 6,
+            super::ElementKey::UInt32 => 7,
+            super::ElementKey::UInt64 => 8,
+            super::ElementKey::Float32 => 9,
+            super::ElementKey::Float64 => 10,
+            super::ElementKey::Address => 11,
+            super::ElementKey::ByteSize => 12,
+            super::ElementKey::USize => 13,
+            super::ElementKey::External(_) => 14,
+            super::ElementKey::Aggregate(_) => 15,
+        };
+        write_byte(state, tag);
+        match element {
+            super::ElementKey::External(name) => write_bytes(state, name.as_bytes()),
+            super::ElementKey::Aggregate(id) => write_bytes(state, &id.0.to_le_bytes()),
+            _ => {}
+        }
+    }
+
+    let (kind, elements) = match key {
+        super::AggregateKey::Product(elements) => (0_u8, elements),
+        super::AggregateKey::Sum(elements) => (1_u8, elements),
+    };
+    let mut state = OFFSET;
+    write_byte(&mut state, kind);
+    write_bytes(&mut state, &(elements.len() as u64).to_le_bytes());
+    for element in elements {
+        write_element(&mut state, element);
+    }
+    state
 }
 
 impl HostTypes {

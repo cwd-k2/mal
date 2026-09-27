@@ -10,48 +10,48 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 typedef struct { uintptr_t bits; } MalType_InputAllocation;
 
-typedef struct MalRepr_Product_0 MalRepr_Product_0;
-typedef struct MalRepr_Product_1 MalRepr_Product_1;
+typedef struct MalRepr_Product_588c78fec824022e MalRepr_Product_588c78fec824022e;
+typedef struct MalRepr_Product_1e5c20e9f358150e MalRepr_Product_1e5c20e9f358150e;
 
-struct MalRepr_Product_0 {
+struct MalRepr_Product_588c78fec824022e {
     MalType_InputAllocation field_0;
     MalType_Address field_1;
     MalType_USize field_2;
 };
 
-struct MalRepr_Product_1 {
+struct MalRepr_Product_1e5c20e9f358150e {
     MalType_Address field_0;
     MalType_USize field_1;
 };
 
-typedef MalRepr_Product_0 MalType_StdinBytes;
-typedef MalRepr_Product_1 MalType_OutputBuffer;
+typedef MalRepr_Product_588c78fec824022e MalType_StdinBytes;
+typedef MalRepr_Product_1e5c20e9f358150e MalType_OutputBuffer;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_InputAllocation_t;
-typedef struct mal_detail_repr_product_0 mal_repr_product_0_t;
-typedef struct mal_detail_repr_product_1 mal_repr_product_1_t;
-typedef mal_repr_product_0_t mal_StdinBytes_t;
-typedef mal_repr_product_1_t mal_OutputBuffer_t;
+typedef struct mal_detail_repr_product_588c78fec824022e mal_repr_product_588c78fec824022e_t;
+typedef struct mal_detail_repr_product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_t;
+typedef mal_repr_product_588c78fec824022e_t mal_StdinBytes_t;
+typedef mal_repr_product_1e5c20e9f358150e_t mal_OutputBuffer_t;
 
-struct mal_detail_repr_product_0 {
+struct mal_detail_repr_product_588c78fec824022e {
     mal_InputAllocation_t field_0;
     mal_Address_t field_1;
     mal_USize_t field_2;
 };
 
-struct mal_detail_repr_product_1 {
+struct mal_detail_repr_product_1e5c20e9f358150e {
     mal_Address_t field_0;
     mal_USize_t field_1;
 };
 
 /* Type helpers */
 
-static inline MalRepr_Product_0 mal_repr_product_0_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_0_t value) {
-    return (MalRepr_Product_0){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
+static inline MalRepr_Product_588c78fec824022e mal_repr_product_588c78fec824022e_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_588c78fec824022e_t value) {
+    return (MalRepr_Product_588c78fec824022e){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
 }
 
-static inline MalRepr_Product_1 mal_repr_product_1_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1_t value) {
-    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+static inline MalRepr_Product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5c20e9f358150e_t value) {
+    return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 static inline mal_InputAllocation_t mal_InputAllocation_from_bits(uintptr_t bits) {
@@ -67,11 +67,11 @@ static inline MalType_InputAllocation mal_InputAllocation_return(mal_call_t *cal
 }
 
 static inline MalType_StdinBytes mal_StdinBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_StdinBytes_t value) {
-    return (MalRepr_Product_0){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
+    return (MalRepr_Product_588c78fec824022e){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 };
 }
 
 static inline MalType_OutputBuffer mal_OutputBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_OutputBuffer_t value) {
-    return (MalRepr_Product_1){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
+    return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
 
 /* External operations */
@@ -122,7 +122,7 @@ static MalType_OutputBuffer mal_detail_outputBuffer( \
 static MalType_Unit mal_detail_writeBytes(mal_call_t *call, mal_OutputBuffer_t value); \
 void mal_ext_writeBytes(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_writeBytes(&call, (mal_OutputBuffer_t){ .field_0 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_1){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    mal_detail_writeBytes(&call, (mal_OutputBuffer_t){ .field_0 = ((MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
 } \
 static MalType_Unit mal_detail_writeBytes( \
     mal_call_t *call, \
