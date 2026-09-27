@@ -14,6 +14,7 @@ use crate::flow::{ClosureFlow, CompatibleTargets};
 mod clone;
 mod ids;
 mod lambda_lift;
+mod parameter_lift;
 mod plan;
 mod rewrite;
 mod walk;
@@ -37,6 +38,7 @@ pub(crate) fn specialize(mut program: Program) -> Program {
             break;
         }
     }
+    while parameter_lift::closure_parameters(&mut program) {}
     lambda_lift::direct_closures(&mut program);
     debug_assert!(ids::are_unique(&mut program.clone()));
     program

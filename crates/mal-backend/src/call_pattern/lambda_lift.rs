@@ -252,12 +252,12 @@ fn atom_use(
     }
 }
 
-struct LiftedShape {
-    parameter_type: Type,
-    closure_type: Type,
+pub(super) struct LiftedShape {
+    pub(super) parameter_type: Type,
+    pub(super) closure_type: Type,
 }
 
-fn lift_functions(
+pub(super) fn lift_functions(
     program: &mut Program,
     selected: &HashSet<FunctionId>,
     ids: &mut Identities,

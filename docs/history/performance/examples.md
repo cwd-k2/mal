@@ -122,3 +122,23 @@ closureを別functionへ渡すnegative caseでは従来environmentを保持す�
 10,400,869から5、GNU `size`のtextは2,166 bytesから1,455 bytesへ減った。両方のMemcheckはerrorなしだった。allocation failure pathが
 なくなった後は残る純粋計算をLLVMが定数化した。higher-order parameterへ渡る`generic-loop`のenvironmentを除くには、次にcapture provenanceを
 call-pattern copyのparameterとnested closureへ伝播する必要がある。
+
+## 2026-09-27 — copy-only higher-order parameterのlambda lifting
+
+specialization後に一つのclosure targetだけが届くfunction parameterについて、parameterのproduct path、全call siteのargument construction、
+self-recursive forwarding、parameter内のdirect applicationを`call_pattern`で対応付ける変換を追加した。captureをparameter pathへ置き換え、
+target closureのcaptureを通常parameterへlambda-liftする。creatorまたはparameter leafがほかへescapeするcase、targetがself closureを持つcase、
+複数target、runtime ownerを含むcaptureはadmitしない。
+
+managed captureも同じ形へ変換する試作では、`generic-loop`のallocationが12回608 bytesから6回368 bytes、textが5,042 bytesから
+4,466 bytesへ減った一方、Callgrind命令は3,753,417から4,002,590へ6.6%増えた。closure environmentのborrowが通常parameterの
+owner transferへ変わり、`SelfTailParameterPlan`のpersistent lenderから外れたためである。parameter patternをcapture fieldへ展開しても
+このownership差は解消しなかったため、managed caseは採用しなかった。copy-only captureだけをadmitした最終版では`generic-loop`を含む
+20 exampleのartifactは変化せず、この退行もない。managed caseはcall-pattern側の形だけで消さず、ownership authorityがinvocation中の
+不変capture lenderを表現できるようにしてから再検討する。
+
+copy-only caseはruntimeのargument数から100,000 iterationの上限を作り、indexを`UInt64`へ加算する独立fixtureで確認した。allocationは
+4回232 bytesから3回208 bytes、Callgrind命令は351,892から351,620、textは3,794 bytesから3,698 bytes、machine instructionは
+430から409へ減り、Memcheckは両方errorなしだった。結果がloop上限だけで決まるfixtureでは旧形をLLVMがloopごと消した一方、変換後は
+3命令のscalar loopを残したため、採否のworkloadには実際の反復計算を含むfixtureを使った。最終20 exampleは直前commitのartifactと
+byte単位で一致した。

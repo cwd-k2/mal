@@ -35,6 +35,11 @@ control IR + closure use
 function parameterへlambda-liftする。creatorをcapture-free closureへ変え、各application argumentへ元のcaptureを追加するため、captureの
 owner transferは通常parameterの規則が扱い、専用のstack environment lifetimeを導入しない。closureが値としてaggregate、capture、result、
 Buffer、または別call argumentへ流れる場合と、self closureを作るfunctionには適用しない。
+specialization後に一つのclosure targetだけが届くfunction parameterについても、captureがruntime ownerを含まず、parameter leafが
+direct applicationと同じfunctionへのself-recursive forwardingだけに使われる場合は、capture productをそのparameter pathへ伝播して
+lambda-liftする。recursive argumentは同じcapture fieldを再構成するため、後段のpass-through解析がloop invariantとして扱える。
+`Symbol`、`Buffer`、closureを含むcaptureは通常parameterへ移すとenvironment borrowからparameter owner transferへ変わり得るため、
+ownership planがpersistent lenderを証明できる表現を持つまではこの変換へadmitしない。
 `execution/optimization`はpossible application graphを変更せず、構文からtarget identityを追跡できるsiteまたは型互換target集合が
 一要素のsiteに対するdirect call、direct self-tail fusion、pureなknown tail forwarder fusionのdecisionだけを構成する。あるfunctionへ届き得る
 全application siteがそのfunctionへのdirect callに確定した場合、同じdirect-call decisionからclosure carrierのcode pointerが不要であることも
