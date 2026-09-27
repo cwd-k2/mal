@@ -45,7 +45,7 @@ example; `mini-database`, `socket-packet`, and `brainfuck-llvm` show the same bo
 programs.
 
 All `.mal` files are formatter fixtures. Checked-in `.mal.h` files are compiler-generated file host
-interfaces and are compared byte-for-byte with current compiler output. Multi-file examples keep the
-headers required by their C adapters beside the owning `.mal` files so clangd can resolve both those
-quoted includes and the repository's pregenerated `mal.h`. Representative directories also build and
-execute through the public compiler driver tests.
+interfaces and are compared byte-for-byte with current compiler output. Multi-file examples with
+checked-in headers keep the complete generated header closure beside the owning `.mal` files so clangd
+and standalone C compilation can resolve both quoted includes and the repository's pregenerated
+`mal.h`. Representative directories also build and execute through the public compiler driver tests.

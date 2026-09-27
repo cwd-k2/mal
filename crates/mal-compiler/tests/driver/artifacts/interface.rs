@@ -244,6 +244,17 @@ fn emit_host_prints_compilable_external_operation_stubs() {
 
 #[test]
 fn checked_in_example_headers_match_the_compiler() {
+    fn collect_mal_sources(directory: &Path, sources: &mut Vec<std::path::PathBuf>) {
+        for entry in std::fs::read_dir(directory).expect("read example directory") {
+            let path = entry.expect("read example entry").path();
+            if path.is_dir() {
+                collect_mal_sources(&path, sources);
+            } else if path.extension() == Some(OsStr::new("mal")) {
+                sources.push(path);
+            }
+        }
+    }
+
     let fixture = NativeFixture::new("example-headers");
     let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -288,33 +299,63 @@ fn checked_in_example_headers_match_the_compiler() {
             "checked-in header is stale for {example}"
         );
     }
-    for relative in [
-        "brainfuck-llvm/linux/syscall",
-        "json-query/bytes",
-        "json-query/host",
-        "mini-database/host",
-    ] {
-        let source = repository.join("examples").join(format!("{relative}.mal"));
-        let checked_in = repository
-            .join("examples")
-            .join(format!("{relative}.mal.h"));
-        let generated = fixture.join(format!("{}.h", relative.replace('/', "-")));
-        let output = fixture.malc([
-            OsStr::new("emit"),
-            OsStr::new("header"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            generated.as_os_str(),
-        ]);
+    for example in ["brainfuck-llvm", "json-query", "mini-database"] {
+        let directory = repository.join("examples").join(example);
+        let mut sources = Vec::new();
+        collect_mal_sources(&directory, &mut sources);
+        sources.sort();
+        for source in sources {
+            let relative = source
+                .strip_prefix(repository.join("examples"))
+                .expect("example source has an examples-relative path");
+            let checked_in = source.with_extension("mal.h");
+            let generated = fixture.join(format!(
+                "{}.h",
+                relative.to_string_lossy().replace('/', "-")
+            ));
+            let output = fixture.malc([
+                OsStr::new("emit"),
+                OsStr::new("header"),
+                source.as_os_str(),
+                OsStr::new("--output"),
+                generated.as_os_str(),
+            ]);
+            assert!(
+                output.status.success(),
+                "failed to generate {}: {}",
+                relative.display(),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                std::fs::read_to_string(generated).unwrap(),
+                std::fs::read_to_string(checked_in).unwrap(),
+                "checked-in header is stale for {}",
+                relative.display()
+            );
+        }
+
+        let header = directory.join("program.mal.h");
+        let compilation = std::process::Command::new("clang")
+            .args([
+                "-std=c11",
+                "-Wall",
+                "-Wextra",
+                "-Werror",
+                "-pedantic",
+                "-c",
+                "-xc",
+            ])
+            .arg("-I")
+            .arg(repository.join("crates/mal-backend/include"))
+            .arg(&header)
+            .arg("-o")
+            .arg(fixture.join(format!("{example}.o")))
+            .output()
+            .expect("compile checked-in header closure");
         assert!(
-            output.status.success(),
-            "failed to generate {relative}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        assert_eq!(
-            std::fs::read_to_string(generated).unwrap(),
-            std::fs::read_to_string(checked_in).unwrap(),
-            "checked-in header is stale for {relative}"
+            compilation.status.success(),
+            "{example}: {}",
+            String::from_utf8_lossy(&compilation.stderr)
         );
     }
 }
