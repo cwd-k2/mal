@@ -60,6 +60,7 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(header.contains("#define MAL_DEFINE__privateConsume(call, value)"));
     assert!(!header.contains("Symbol"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
+    assert!(!header.contains("\n\n#endif"));
     assert!(!directory.join("generated/program.c").exists());
 }
 
@@ -131,6 +132,15 @@ fn emit_header_owns_one_file_and_includes_required_file_headers() {
 
     let root_interface = std::fs::read_to_string(&root_header).unwrap();
     assert!(root_interface.contains("#include \"dependency.mal.h\""));
+    assert!(
+        root_interface
+            .find("#include \"dependency.mal.h\"")
+            .unwrap()
+            < root_interface
+                .find("#ifndef MAL_GENERATED_INTERFACE_")
+                .unwrap(),
+        "dependency closure must remain outside the content-based interface guard"
+    );
     assert!(root_interface.contains("MAL_DEFINE_rootOperation"));
     assert!(!root_interface.contains("MAL_DEFINE_dependencyOperation"));
     let dependency_interface = std::fs::read_to_string(&dependency_header).unwrap();

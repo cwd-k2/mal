@@ -57,6 +57,11 @@ offsetやreader・writerを必要とするため、別descriptorを使う。
 巨大なaggregateのdescriptorは一定数のmemberごとに分割し、preprocessorの1つの論理行を無制限に伸ばさない。descriptorとtemplateは
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 
+file headerの`MAL_GENERATED_INTERFACE_...` guardはfile pathではなくinterface本体の内容から決まり、同じinterfaceを複数のheaderから
+includeしても宣言を重複させない。直接requireしたfile headerのincludeはこのguardより外側に置く。同じinterfaceまたは空のinterfaceを
+持つfile同士でも、それぞれのdependency closureを処理するためである。`MAL_BUILD_UMBRELLA` guardはさらに外側で、buildがpreincludeした
+今回のumbrellaを、host sourceの隣に残ったfile headerが置き換えないようにする。
+
 ## Cとの境界
 
 public host interfaceは現在のC ABIを維持し、LLVM IRの型、calling convention、frame、closure carrierを公開しない。LLVMはCより

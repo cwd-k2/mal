@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_DF30600453CEDE92_H
-#define MAL_GENERATED_INTERFACE_DF30600453CEDE92_H
+#ifndef MAL_GENERATED_INTERFACE_27A44E39E8C7707E_H
+#define MAL_GENERATED_INTERFACE_27A44E39E8C7707E_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Socket;
@@ -48,7 +48,6 @@ field(context, 1, field_1, MalType_Socket, mal_Socket_t, mal_detail_to_host_Sock
 #ifndef MAL_DETAIL_RAW_REPR_8ae85a9b6e39c816_DEFINED
 #define MAL_DETAIL_RAW_REPR_8ae85a9b6e39c816_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_8ae85a9b6e39c816, MAL_DETAIL_REPR_FIELDS_8ae85a9b6e39c816, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
@@ -60,7 +59,6 @@ field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_f9c88caf7e8dddf4_DEFINED
@@ -74,7 +72,6 @@ field(context, 3, field_3, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_f9c88caf7e8dddf4_DEFINED
 #define MAL_DETAIL_RAW_REPR_f9c88caf7e8dddf4_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_f9c88caf7e8dddf4, MAL_DETAIL_REPR_FIELDS_f9c88caf7e8dddf4, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda_DEFINED
@@ -86,7 +83,6 @@ field(context, 1, variant_1, MalType_UInt32, mal_UInt32_t, mal_UInt32_return, ma
 #ifndef MAL_DETAIL_RAW_REPR_4647c725c84fdeda_DEFINED
 #define MAL_DETAIL_RAW_REPR_4647c725c84fdeda_DEFINED
 MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4647c725c84fdeda, MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_cb68c98eb0579ca1_DEFINED
@@ -99,7 +95,6 @@ field(context, 2, field_2, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_cb68c98eb0579ca1_DEFINED
 #define MAL_DETAIL_RAW_REPR_cb68c98eb0579ca1_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_cb68c98eb0579ca1, MAL_DETAIL_REPR_FIELDS_cb68c98eb0579ca1, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_1e5f80e9f35aee05_DEFINED
@@ -111,7 +106,6 @@ field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_1e5f80e9f35aee05_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5f80e9f35aee05_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5f80e9f35aee05, MAL_DETAIL_REPR_FIELDS_1e5f80e9f35aee05, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_df02f3d72e6af636_DEFINED
@@ -123,7 +117,6 @@ field(context, 1, variant_1, MalType_UInt32, mal_UInt32_t, mal_UInt32_return, ma
 #ifndef MAL_DETAIL_RAW_REPR_df02f3d72e6af636_DEFINED
 #define MAL_DETAIL_RAW_REPR_df02f3d72e6af636_DEFINED
 MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_df02f3d72e6af636, MAL_DETAIL_REPR_FIELDS_df02f3d72e6af636, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 typedef MalRepr_Product_8ae85a9b6e39c816 MalType_SocketPair;
@@ -410,6 +403,5 @@ static MalType_Unit mal_detail_writeError( \
     mal_call_t *call, \
     mal_UInt32_t value \
 )
-
 #endif
 #endif

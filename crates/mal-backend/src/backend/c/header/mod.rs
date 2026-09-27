@@ -108,7 +108,12 @@ fn interface_body(
             emit_external_declaration(&mut output, &signatures.compiler);
         }
         begin_section(&mut output, "External definition helpers");
-        for (external, signatures) in interface.externals.iter().zip(&signatures) {
+        for (index, (external, signatures)) in
+            interface.externals.iter().zip(&signatures).enumerate()
+        {
+            if index != 0 {
+                output.blank_line();
+            }
             emit_definition_macro(&mut output, signatures, external, types);
         }
     }
@@ -180,7 +185,6 @@ fn emit_definition_macro(
             trailing: #{ signatures.host_body.signature() },
         }
     });
-    output.blank_line();
 }
 
 fn wrapper_definition(

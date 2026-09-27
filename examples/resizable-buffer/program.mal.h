@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_40270943DEBE9E62_H
-#define MAL_GENERATED_INTERFACE_40270943DEBE9E62_H
+#ifndef MAL_GENERATED_INTERFACE_9FE982D93A9F9252_H
+#define MAL_GENERATED_INTERFACE_9FE982D93A9F9252_H
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DECLARED
@@ -22,7 +22,6 @@ field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DECLARED
@@ -71,6 +70,5 @@ static MalType_Unit mal_detail_writeBytes( \
     mal_call_t *call, \
     mal_repr_product_1e5c20e9f358150e_t value \
 )
-
 #endif
 #endif

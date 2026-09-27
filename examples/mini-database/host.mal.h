@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_3DCE0F1825BFE9E0_H
-#define MAL_GENERATED_INTERFACE_3DCE0F1825BFE9E0_H
+#ifndef MAL_GENERATED_INTERFACE_342AFE68FDEF3512_H
+#define MAL_GENERATED_INTERFACE_342AFE68FDEF3512_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocator;
@@ -33,7 +33,6 @@ field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_917e57f57ce609a1_DEFINED
 #define MAL_DETAIL_RAW_REPR_917e57f57ce609a1_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_917e57f57ce609a1, MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
@@ -45,7 +44,6 @@ field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 #ifndef MAL_DETAIL_REPR_FIELDS_65117c10bbbba260_DEFINED
@@ -59,7 +57,6 @@ field(context, 3, field_3, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY,
 #ifndef MAL_DETAIL_RAW_REPR_65117c10bbbba260_DEFINED
 #define MAL_DETAIL_RAW_REPR_65117c10bbbba260_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_65117c10bbbba260, MAL_DETAIL_REPR_FIELDS_65117c10bbbba260, MAL_DETAIL_RAW_REPR_FIELD)
-
 #endif
 
 typedef MalRepr_Product_1e5c20e9f358150e MalType_AllocatedBytes;
@@ -386,6 +383,5 @@ void mal_ext_failNow(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
 static MalType_Unit mal_detail_failNow( \
     mal_call_t *call \
 )
-
 #endif
 #endif

@@ -195,7 +195,6 @@ impl TypeRegistry {
                             id("MAL_DETAIL_RAW_REPR_FIELD"),
                         ])
                     });
-                    output.blank_line();
                 }
                 Type::Sum(members) => {
                     let tag = format!("MalRepr_Sum_{}", self.index(ty));
@@ -212,7 +211,6 @@ impl TypeRegistry {
                         arguments.push(c_expr!(id("MAL_DETAIL_RAW_REPR_FIELD")));
                     }
                     output.push(MacroInvocation::new(template, arguments));
-                    output.blank_line();
                 }
                 Type::Function { parameter, result } => {
                     let tag = format!("MalRepr_Closure_{}", self.index(ty));
@@ -229,7 +227,6 @@ impl TypeRegistry {
                         ) -> named("void"),
                     };
                     output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
-                    output.blank_line();
                 }
                 Type::External { .. }
                 | Type::Unit
