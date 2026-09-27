@@ -260,81 +260,38 @@ fn checked_in_example_headers_match_the_compiler() {
         .ancestors()
         .nth(2)
         .expect("compiler directory has a repository parent");
-    let examples = [
-        "brainfuck-llvm",
-        "buffer-tree",
-        "fallible-tree",
-        "json-query",
-        "mini-database",
-        "numeric-conversion",
-        "opaque-aggregate",
-        "print-and-closure",
-        "recoverable-file",
-        "resizable-buffer",
-        "socket-packet",
-        "strict-float",
-        "symbol-round-trip",
-        "tail-recursion",
-        "typed-memory",
-    ];
-
-    for example in examples {
-        let directory = repository.join("examples").join(example);
-        let generated = fixture.join(format!("{example}.h"));
+    let examples = repository.join("examples");
+    let mut sources = Vec::new();
+    collect_mal_sources(&examples, &mut sources);
+    sources.sort();
+    for (index, source) in sources.into_iter().enumerate() {
+        let relative = source
+            .strip_prefix(&examples)
+            .expect("example source has an examples-relative path");
+        let checked_in = source.with_extension("mal.h");
+        let generated = fixture.join(format!(
+            "{}.h",
+            relative.to_string_lossy().replace('/', "-")
+        ));
         let output = fixture.malc([
             OsStr::new("emit"),
             OsStr::new("header"),
-            directory.join("program.mal").as_os_str(),
+            source.as_os_str(),
             OsStr::new("--output"),
             generated.as_os_str(),
         ]);
         assert!(
             output.status.success(),
-            "failed to generate {example}: {}",
+            "failed to generate {}: {}",
+            relative.display(),
             String::from_utf8_lossy(&output.stderr)
         );
         assert_eq!(
             std::fs::read_to_string(generated).unwrap(),
-            std::fs::read_to_string(directory.join("program.mal.h")).unwrap(),
-            "checked-in header is stale for {example}"
+            std::fs::read_to_string(&checked_in).unwrap(),
+            "checked-in header is stale for {}",
+            relative.display()
         );
-    }
-    for example in ["brainfuck-llvm", "json-query", "mini-database"] {
-        let directory = repository.join("examples").join(example);
-        let mut sources = Vec::new();
-        collect_mal_sources(&directory, &mut sources);
-        sources.sort();
-        for source in sources {
-            let relative = source
-                .strip_prefix(repository.join("examples"))
-                .expect("example source has an examples-relative path");
-            let checked_in = source.with_extension("mal.h");
-            let generated = fixture.join(format!(
-                "{}.h",
-                relative.to_string_lossy().replace('/', "-")
-            ));
-            let output = fixture.malc([
-                OsStr::new("emit"),
-                OsStr::new("header"),
-                source.as_os_str(),
-                OsStr::new("--output"),
-                generated.as_os_str(),
-            ]);
-            assert!(
-                output.status.success(),
-                "failed to generate {}: {}",
-                relative.display(),
-                String::from_utf8_lossy(&output.stderr)
-            );
-            assert_eq!(
-                std::fs::read_to_string(generated).unwrap(),
-                std::fs::read_to_string(checked_in).unwrap(),
-                "checked-in header is stale for {}",
-                relative.display()
-            );
-        }
-
-        let header = directory.join("program.mal.h");
         let compilation = std::process::Command::new("clang")
             .args([
                 "-std=c11",
@@ -342,19 +299,21 @@ fn checked_in_example_headers_match_the_compiler() {
                 "-Wextra",
                 "-Werror",
                 "-pedantic",
+                "-Wno-unused-function",
                 "-c",
                 "-xc",
             ])
             .arg("-I")
             .arg(repository.join("crates/mal-backend/include"))
-            .arg(&header)
+            .arg(&checked_in)
             .arg("-o")
-            .arg(fixture.join(format!("{example}.o")))
+            .arg(fixture.join(format!("header-{index}.o")))
             .output()
             .expect("compile checked-in header closure");
         assert!(
             compilation.status.success(),
-            "{example}: {}",
+            "{}: {}",
+            relative.display(),
             String::from_utf8_lossy(&compilation.stderr)
         );
     }

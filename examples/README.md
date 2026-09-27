@@ -44,8 +44,8 @@ For representation and relation modeling, start with `relation-views`, continue 
 example; `mini-database`, `socket-packet`, and `brainfuck-llvm` show the same boundary in larger
 programs.
 
-All `.mal` files are formatter fixtures. Checked-in `.mal.h` files are compiler-generated file host
-interfaces and are compared byte-for-byte with current compiler output. Multi-file examples with
-checked-in headers keep the complete generated header closure beside the owning `.mal` files so clangd
-and standalone C compilation can resolve both quoted includes and the repository's pregenerated
-`mal.h`. Representative directories also build and execute through the public compiler driver tests.
+All `.mal` files are formatter fixtures and have a checked-in compiler-generated `.mal.h` file host
+interface beside them. Tests compare every header byte-for-byte with current compiler output and compile
+it as C11. Consequently, multi-file examples keep the complete generated header closure so clangd and
+standalone C compilation can resolve both quoted includes and the repository's pregenerated `mal.h`.
+Representative directories also build and execute through the public compiler driver tests.
