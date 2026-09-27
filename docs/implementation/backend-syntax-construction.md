@@ -66,26 +66,35 @@ macro定義は裸のRust expressionを受けるmatcherを持たないため、�
 brace間の空白はtokenの意味を変えない。`rustfmt`が`{{ value }}`を`{ { value } }`と表示する位置でも、macroには同じ
 二重のbrace groupとして渡る。
 
+macro invocationが一行で完結するときは`c_type!(ptr(named("void")))`のように`()`を使う。二行以上になるときは
+`c_function! {`の直後で改行し、本文を一段下げ、対応する`}`をinvocationの開始行と同じ深さへ置く。macro本文の
+constructor、array、blockもRustのcall、array、blockと同じく、子を親より一段深くする。複数行のargumentと要素には
+末尾commaを置く一方、短いconstructorを要素ごとに分割しない。delimiterの選択や改行位置に構築するnodeの種類という
+別の意味は持たせない。
+
 同じ意味のnodeを構築する糖衣は設けない。静的型はすべてtype DSLを通し、順序付きの子は`[]`で囲み、複数の
 semantic fieldを持つnodeは位置引数ではなく`{ field: value }`で構築する。typed LLVM operandは
 `typed(type, value)`へ正規化し、Rustの`Option`をDSLへ露出しない。Cのexpression statementはexpressionと終端の
 `;`から構築し、専用のcall statementを持たない。
 
 ```rust
-let body = c_block!({
+let body = c_block! {
     let "count": named("size_t") = number(0);
     ...{{ generated_statements }}
     if greater(id("count"), number(0)) {
         return {{ dynamic_result }};
     }
-});
+};
 
-let signature = llvm_signature!(#[linkage(internal)] #[attributes(nounwind)] fn {{ name }}(
-    "%context": ptr,
-    ...{{ generated_parameters }},
-) -> int(32));
+let signature = llvm_signature! {
+    #[linkage(internal)] #[attributes(nounwind)] fn {{ name }}(
+        "%context": ptr,
+        ...{{ generated_parameters }},
+    ) -> int(32)
+};
 
-emit_instruction!(self;
+emit_instruction! {
+    self;
     let {{ result }} = call {
         tail: false,
         result_type: {{ result_type }},
@@ -96,16 +105,16 @@ emit_instruction!(self;
             ...{{ generated_arguments }},
         ],
     };
-);
+};
 
-emit_terminator!(
+emit_terminator! {
     self;
     branch {
         condition: {{ condition }},
         then: "done",
         otherwise: {{ fallback_label }},
     };
-);
+};
 ```
 
 ## Cのcoverage
