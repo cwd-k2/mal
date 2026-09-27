@@ -12,4 +12,5 @@ lowered to control, and stops at a fixed point or when the program has grown pas
 | `rewrite` | copies the requested functions, inserts their top-level bindings, and redirects the call sites |
 | `clone` | copies of a function and the closures it creates, and of a top-level binding, under fresh identities |
 | `ids` | fresh identities and the check that every binder and atom identity is unique |
+| `lambda_lift` | capture-to-parameter rewriting for a non-recursive local closure whose aliases are used only as direct callees |
 | `walk` | a mutable walk over the closure program that reports the identities a rewrite touches |

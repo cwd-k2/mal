@@ -115,3 +115,49 @@ fn omits_code_addresses_when_every_application_is_direct() {
         baseline.module.matches(code_address).count() > direct.module.matches(code_address).count()
     );
 }
+
+#[test]
+fn lambda_lifts_captures_of_a_locally_applied_closure() {
+    let source = SourceFile::new(
+        FileId::new(110),
+        "local-lambda-lift.mal",
+        "main :: Unit -> Int32 := () -> {
+             suffix := \"b\";
+             append :: Symbol -> Symbol := (value) -> value + suffix;
+             result := append(\"a\");
+             (#result).i32 - 2i32;
+         };"
+        .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check lambda lift fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize lambda lift fixture"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let baseline_execution =
+        crate::execution::lower(closure.clone(), crate::execution::OptimizationSet::none());
+    let lifted_execution = crate::execution::lower(
+        closure,
+        crate::execution::OptimizationSet::none().with(crate::execution::Technique::CallPattern),
+    );
+    let target = || Target {
+        triple: "x86_64-unknown-linux-gnu",
+        data_layout: "e-p:64:64",
+    };
+    let baseline = generate(&baseline_execution, target(), OptimizationSet::none())
+        .expect("baseline lambda lift fixture is supported");
+    let lifted = generate(&lifted_execution, target(), OptimizationSet::none())
+        .expect("lifted fixture is supported");
+
+    assert!(
+        baseline
+            .module
+            .contains("call ptr @mal_runtime_environment_allocate")
+    );
+    assert!(
+        !lifted
+            .module
+            .contains("call ptr @mal_runtime_environment_allocate")
+    );
+}

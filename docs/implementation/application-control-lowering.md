@@ -31,6 +31,10 @@ control IR + closure use
 ```
 
 `flow`が求めるclosure flowはclosure生成から始まり、binding、product、sum、capture、parameter、result、Bufferの要素を経て各applicationのcalleeへ届き得るfunctionの集合を求める。context insensitiveかつfield insensitiveであり、function値を作る操作はすべて規則を持つ。possible application graphは各applicationのcaller、known target、およびcalleeの型に適合し、かつclosure flowが届かせるinternal function target集合を所有する。flowがどのfunctionも届かせないcalleeは到達不能なapplicationとして、型互換なfunction全体をtargetにする。
+`call_pattern`はcontext分離に加え、局所的に生成され、alias以外の全利用がdirect applicationである非再帰closureについてcaptureを
+function parameterへlambda-liftする。creatorをcapture-free closureへ変え、各application argumentへ元のcaptureを追加するため、captureの
+owner transferは通常parameterの規則が扱い、専用のstack environment lifetimeを導入しない。closureが値としてaggregate、capture、result、
+Buffer、または別call argumentへ流れる場合と、self closureを作るfunctionには適用しない。
 `execution/optimization`はpossible application graphを変更せず、構文からtarget identityを追跡できるsiteまたは型互換target集合が
 一要素のsiteに対するdirect call、direct self-tail fusion、pureなknown tail forwarder fusionのdecisionだけを構成する。あるfunctionへ届き得る
 全application siteがそのfunctionへのdirect callに確定した場合、同じdirect-call decisionからclosure carrierのcode pointerが不要であることも

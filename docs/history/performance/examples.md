@@ -109,3 +109,16 @@ decision testで固定した。
 unrollしたためであり、function symbol数と測定fixtureの動的命令は変わらなかった。全体のcode sizeと3件の動的costを減らし、backend固有の
 再推論を増やさず、pointer storeを省く原理的なdecisionなので採用した。この変更だけでは`generic-loop`の7個の40-byte environment allocationは
 残る。capture storageの除去はcode identityとは別の、owner lifetimeを含む変換として扱う。
+
+## 2026-09-27 — 局所direct closureのlambda lifting
+
+`call_pattern`へ、局所生成されたcapturing closureの全利用がaliasまたはdirect applicationで、target functionがself closureを持たない場合に、
+captureを通常parameterへ移す変換を追加した。closure creatorはcapture-freeになり、application argumentがcaptureと元argumentのproductへ
+変わる。managed captureを含めて既存のparameter ownershipがowner transferを決めるため、stack environment専用のlifetime規則は追加しない。
+closureを別functionへ渡すnegative caseでは従来environmentを保持する。
+
+20 example corpusにはこの局所形がなく、最終artifactは全件同一だった。そこで100,001 activationがそれぞれcapturing closureを生成して
+一度直接適用する独立fixtureを`c58f6bfd`のproductionと比較した。allocationは100,001回、2,400,024 bytesから0、Callgrind命令は
+10,400,869から5、GNU `size`のtextは2,166 bytesから1,455 bytesへ減った。両方のMemcheckはerrorなしだった。allocation failure pathが
+なくなった後は残る純粋計算をLLVMが定数化した。higher-order parameterへ渡る`generic-loop`のenvironmentを除くには、次にcapture provenanceを
+call-pattern copyのparameterとnested closureへ伝播する必要がある。

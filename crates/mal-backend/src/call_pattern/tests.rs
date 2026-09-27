@@ -72,3 +72,23 @@ fn separates_combinators_that_nest_through_one_shared_instance() {
     );
     assert!(functions >= 1, "the nested use of `loop` gets its own copy");
 }
+
+#[test]
+fn keeps_an_environment_when_the_closure_is_used_as_a_value() {
+    let program = specialize(closure_program(
+        "keep :: (Int32 -> Int32) -> (Int32 -> Int32) := (function) -> function;
+         main :: Unit -> Int32 := () -> {
+           captured := 40i32;
+           add :: Int32 -> Int32 := (value) -> captured + value;
+           kept := keep(add);
+           kept(2i32) - 42i32;
+         };",
+    ));
+
+    assert!(
+        program
+            .functions
+            .iter()
+            .any(|function| !function.captures.is_empty())
+    );
+}

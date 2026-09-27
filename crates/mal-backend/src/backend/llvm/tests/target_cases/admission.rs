@@ -269,10 +269,12 @@ fn rejects_closure_environments_larger_than_the_target_index_range() {
         .collect::<Vec<_>>()
         .join(", ");
     let text = format!(
-        "main :: Unit -> Int32 := () -> {{\n\
+        "keep :: (Unit -> Int32) -> (Unit -> Int32) := (function) -> function;\n\
+         main :: Unit -> Int32 := () -> {{\n\
            {bindings}\n\
            operation :: Unit -> Int32 := () -> {{ _ := ({values}); 0i32; }};\n\
-           operation();\n\
+           kept := keep(operation);\n\
+           kept();\n\
          }};"
     );
     let source = SourceFile::new(FileId::new(106), "llvm-closure-storage.mal", text);
