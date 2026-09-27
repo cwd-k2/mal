@@ -9,13 +9,14 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     let name = "convert";
     let result = Type::integer(32_u16);
     let trailing = [super::llvm_parameter!("%value" : int(8))];
-    let signature = super::llvm_signature!(
+    let signature = super::llvm_signature! {
         #[linkage(internal)]
         #[attributes(nounwind, willreturn)]
         fn {{ name }}(
-        "%context": ptr,
-        ...{{ trailing }},
-    ) -> {{ result }});
+            "%context": ptr,
+            ...{{ trailing }},
+        ) -> {{ result }}
+    };
 
     let mut function = FunctionBuilder::new(signature);
     assert!(function.start_block("entry"));
@@ -37,27 +38,31 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
 fn composes_module_leaf_definitions_with_the_same_template_boundaries() {
     let extra = [super::llvm_metadata_operand!(node(0))];
     let mut module = Module::new("test-target", "e-p:64:64");
-    module.declare(
-        super::llvm_declaration!(#[attributes(nounwind)] fn "observe"(
-        _: ptr,
-        #[immarg] _: int(8),
-    ) -> void;),
-    );
+    module.declare(super::llvm_declaration! {
+        #[attributes(nounwind)] fn "observe"(
+            _: ptr,
+            #[immarg] _: int(8),
+        ) -> void;
+    });
     module.add_global(
-        super::llvm_global!(byte_owner {
-            name: "message",
-            bytes: { { b"ok" } },
-            alignment: 1,
-        })
+        super::llvm_global! {
+            byte_owner {
+                name: "message",
+                bytes: { { b"ok" } },
+                alignment: 1,
+            }
+        }
         .unwrap(),
     );
     module.add_metadata([
         super::llvm_metadata!({ id: 0, distinct: false, operands: [text("root")] }),
-        super::llvm_metadata!({
-            id: 1,
-            distinct: true,
-            operands: [integer(int(64), 0), ...{{ extra }}],
-        }),
+        super::llvm_metadata! {
+            {
+                id: 1,
+                distinct: true,
+                operands: [integer(int(64), 0), ...{{ extra }}],
+            }
+        },
     ]);
 
     assert_eq!(
@@ -92,7 +97,7 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
         .collect::<Option<Vec<_>>>()
         .unwrap();
     let trailing = [TypedValue::new(Type::integer(8_u16), "7").unwrap()];
-    let instruction = super::llvm_instruction!(
+    let instruction = super::llvm_instruction! {
         let "%result" = call {
             tail: false,
             result_type: (int(32_u16)),
@@ -104,7 +109,7 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
                 ...{{ trailing }},
             ],
         };
-    )
+    }
     .unwrap();
     let mut rendered = String::new();
     instruction.render_into(&mut rendered);
@@ -121,14 +126,16 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
 fn composes_nested_constants_and_dynamic_fields() {
     let trailing =
         [super::llvm_typed_constant!(typed({ { Type::integer(8_u16) } }, atom(7))).unwrap()];
-    let constant = super::llvm_constant!(structure([
-        typed({{ Type::integer(32_u16) }}, binary {
-            operator: {{ BinaryOperator::Add }},
-            left: typed({{ Type::integer(32_u16) }}, atom(1)),
-            right: typed({{ Type::integer(32_u16) }}, atom(2)),
-        }),
-        ...{{ trailing }},
-    ]))
+    let constant = super::llvm_constant! {
+        structure([
+            typed({{ Type::integer(32_u16) }}, binary {
+                operator: {{ BinaryOperator::Add }},
+                left: typed({{ Type::integer(32_u16) }}, atom(1)),
+                right: typed({{ Type::integer(32_u16) }}, atom(2)),
+            }),
+            ...{{ trailing }},
+        ])
+    }
     .unwrap();
 
     assert_eq!(constant.render(), "{ i32 add (i32 1, i32 2), i8 7 }");
@@ -141,10 +148,12 @@ fn composes_switch_cases_and_finishes_the_function() {
     assert!(function.start_block("entry"));
     assert!(
         function.terminate(
-            super::llvm_terminator!(switch typed({{ Type::integer(8_u16) }}, "%tag") {
-                cases: [0 => "zero", ...{{ trailing }}],
-                default: "other",
-            };)
+            super::llvm_terminator! {
+                switch typed({{ Type::integer(8_u16) }}, "%tag") {
+                    cases: [0 => "zero", ...{{ trailing }}],
+                    default: "other",
+                };
+            }
             .unwrap()
         )
     );

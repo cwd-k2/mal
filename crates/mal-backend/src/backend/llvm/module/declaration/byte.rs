@@ -106,12 +106,12 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             "mal_runtime_buffer_data_slot",
             [llvm_type!(ptr)],
         )
-        .with_attributes(llvm_function_attributes!(
+        .with_attributes(llvm_function_attributes! {
             nofree,
             nounwind,
             willreturn,
             memory_none
-        )),
+        }),
     );
     module.declare(
         declaration(index.clone(), "mal_runtime_buffer_count", [llvm_type!(ptr)]).with_attributes(

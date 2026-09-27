@@ -67,7 +67,7 @@ macro_rules! llvm_instruction {
         )
     };
     (store {
-        value: typed($ty:tt, $value:tt),
+        value: typed($ty:tt, $value:tt $(,)?),
         pointer: $pointer:tt,
         alignment: $alignment:tt,
         metadata: $metadata:tt $(,)?
@@ -122,7 +122,7 @@ macro_rules! llvm_instruction {
     }};
     (let $result:tt = unary {
         operator: $operator:tt,
-        value: typed($ty:tt, $value:tt) $(,)?
+        value: typed($ty:tt, $value:tt $(,)?) $(,)?
     };) => {
         $crate::backend::llvm::syntax::llvm_value!(typed($ty, $value)).and_then(|value| {
             $crate::backend::llvm::syntax::Instruction::unary(
@@ -134,7 +134,7 @@ macro_rules! llvm_instruction {
     };
     (let $result:tt = cast {
         operator: $operator:tt,
-        value: typed($ty:tt, $value:tt),
+        value: typed($ty:tt, $value:tt $(,)?),
         to: $target:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::llvm_value!(typed($ty, $value)).and_then(|value| {
@@ -147,7 +147,7 @@ macro_rules! llvm_instruction {
         })
     };
     (let $result:tt = extract_value {
-        aggregate: typed($ty:tt, $value:tt),
+        aggregate: typed($ty:tt, $value:tt $(,)?),
         indices: $indices:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::llvm_value!(typed($ty, $value)).and_then(|value| {
@@ -205,8 +205,8 @@ macro_rules! llvm_instruction {
         })
     };
     (let $result:tt = insert_value {
-        aggregate: typed($aggregate_type:tt, $aggregate:tt),
-        element: typed($element_type:tt, $element:tt),
+        aggregate: typed($aggregate_type:tt, $aggregate:tt $(,)?),
+        element: typed($element_type:tt, $element:tt $(,)?),
         indices: $indices:tt $(,)?
     };) => {{
         let aggregate = $crate::backend::llvm::syntax::llvm_value!(typed($aggregate_type, $aggregate));

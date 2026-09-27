@@ -56,25 +56,35 @@ impl FunctionEmitter<'_> {
                 let buffer = self.register();
                 if let ElementStorage::Managed { .. } = storage {
                     let number = self.index.managed_buffer_elements.number(element)?;
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ buffer.clone() }} = call {
                             tail: false,
                             result_type: (ptr),
                             callee: direct("mal_runtime_buffer_make_managed"),
-                            arguments: [typed((ptr), "%mal_context"), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}), typed({{ self.types.index_llvm_type() }}, {{ capacity.representation.clone() }}), typed((ptr), {{ format!("@mal_buffer_retain_{number}") }}), typed((ptr), {{ format!("@mal_buffer_release_{number}") }})],
+                            arguments: [
+                                typed((ptr), "%mal_context"),
+                                typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}),
+                                typed({{ self.types.index_llvm_type() }}, {{ capacity.representation.clone() }}),
+                                typed((ptr), {{ format!("@mal_buffer_retain_{number}") }}),
+                                typed((ptr), {{ format!("@mal_buffer_release_{number}") }}),
+                            ],
                         };
-                    );
+                    };
                 } else {
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ buffer.clone() }} = call {
                             tail: false,
                             result_type: (ptr),
                             callee: direct("mal_runtime_buffer_make"),
-                            arguments: [typed((ptr), "%mal_context"), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}), typed({{ self.types.index_llvm_type() }}, {{ capacity.representation.clone() }})],
+                            arguments: [
+                                typed((ptr), "%mal_context"),
+                                typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}),
+                                typed({{ self.types.index_llvm_type() }}, {{ capacity.representation.clone() }}),
+                            ],
                         };
-                    );
+                    };
                 }
                 Some(emitted_buffer(buffer, buffer_type))
             }
@@ -88,15 +98,20 @@ impl FunctionEmitter<'_> {
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
                 let function = storage.runtime("new");
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     let {{ index.clone() }} = call {
                         tail: false,
                         result_type: {{ self.types.index_llvm_type() }},
                         callee: direct({{ function }}),
-                        arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ buffer.representation.clone() }}), typed((ptr), {{ value_pointer }}), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }})],
+                        arguments: [
+                            typed((ptr), "%mal_context"),
+                            typed((ptr), {{ buffer.representation.clone() }}),
+                            typed((ptr), {{ value_pointer }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}),
+                        ],
                     };
-                );
+                };
                 Some(EmittedValue {
                     ty: Type::USize,
                     representation: index,
@@ -163,15 +178,22 @@ impl FunctionEmitter<'_> {
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let function = storage.runtime("fill");
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
                         result_type: (void),
                         callee: direct({{ function }}),
-                        arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ buffer.representation.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ offset.representation.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ length.representation.clone() }}), typed((ptr), {{ value_pointer }}), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }})],
+                        arguments: [
+                            typed((ptr), "%mal_context"),
+                            typed((ptr), {{ buffer.representation.clone() }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ offset.representation.clone() }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ length.representation.clone() }}),
+                            typed((ptr), {{ value_pointer }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}),
+                        ],
                     };
-                );
+                };
                 Some(emitted_unit())
             }
             BufferOperation::Copy => {
@@ -195,15 +217,23 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let function = storage.runtime("copy");
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
                         result_type: (void),
                         callee: direct({{ function }}),
-                        arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ destination.representation.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ destination_offset.representation.clone() }}), typed((ptr), {{ source.representation.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ source_offset.representation.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ length.representation.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }})],
+                        arguments: [
+                            typed((ptr), "%mal_context"),
+                            typed((ptr), {{ destination.representation.clone() }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ destination_offset.representation.clone() }}),
+                            typed((ptr), {{ source.representation.clone() }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ source_offset.representation.clone() }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ length.representation.clone() }}),
+                            typed({{ self.types.index_llvm_type() }}, {{ stride.to_string() }}),
+                        ],
                     };
-                );
+                };
                 Some(emitted_unit())
             }
         }
@@ -214,7 +244,7 @@ impl FunctionEmitter<'_> {
         buffer: &EmittedValue,
     ) -> String {
         let slot = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ slot.clone() }} = call {
                 tail: false,
@@ -222,20 +252,20 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_runtime_buffer_data_slot"),
                 arguments: [typed((ptr), {{ buffer.representation.clone() }})],
             };
-        );
+        };
         let data = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ data.clone() }} = load {
                 ty: (ptr),
                 pointer: {{ slot }},
                 alignment: {{ self.types.pointer_alignment() }},
                 metadata: {{ [
-                            MetadataAttachment::Tbaa(8),
-                            MetadataAttachment::AliasScope(6),
-                        ] }},
+                    MetadataAttachment::Tbaa(8),
+                    MetadataAttachment::AliasScope(6),
+                ] }},
             };
-        );
+        };
         data
     }
 
@@ -270,7 +300,7 @@ impl FunctionEmitter<'_> {
         match element_storage {
             ElementStorage::Canonical { stride } => {
                 let layout = self.source_layouts.layout(&value.ty)?;
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     store {
                         value: typed({{ llvm_type!(array({{ stride }}, int(8_u16))) }}, "zeroinitializer"),
@@ -278,12 +308,12 @@ impl FunctionEmitter<'_> {
                         alignment: {{ layout.alignment }},
                         metadata: [],
                     };
-                );
+                };
                 self.emit_aligned_source_store_at(storage, value)?;
             }
             ElementStorage::Managed { alignment, .. } => {
                 let value_type = self.types.value(&value.ty)?;
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     store {
                         value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -291,7 +321,7 @@ impl FunctionEmitter<'_> {
                         alignment: {{ alignment }},
                         metadata: [],
                     };
-                );
+                };
             }
         }
         Some(storage.into())
@@ -307,7 +337,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<EmittedValue> {
         let value_type = self.types.value(element)?;
         let loaded = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ loaded.clone() }} = load {
                 ty: {{ value_type.llvm }},
@@ -315,7 +345,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ alignment }},
                 metadata: [],
             };
-        );
+        };
         self.retain_value(element, &loaded)?;
         Some(EmittedValue {
             ty: element.clone(),
@@ -335,7 +365,7 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&value.ty)?;
         self.retain_value(&value.ty, &value.representation)?;
         let previous = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ previous.clone() }} = load {
                 ty: {{ value_type.llvm.clone() }},
@@ -343,9 +373,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ alignment }},
                 metadata: [],
             };
-        );
+        };
         self.release_value(&value.ty, &previous)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -353,7 +383,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ alignment }},
                 metadata: [],
             };
-        );
+        };
         Some(())
     }
 
@@ -367,7 +397,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let offset = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ offset.clone() }} = binary {
                 operator: {{ BinaryOperator::Mul }},
@@ -375,9 +405,9 @@ impl FunctionEmitter<'_> {
                 left: {{ index.representation.clone() }},
                 right: {{ stride.to_string() }},
             };
-        );
+        };
         let pointer = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ pointer.clone() }} = get_element_ptr {
                 inbounds: false,
@@ -385,7 +415,7 @@ impl FunctionEmitter<'_> {
                 pointer: {{ data }},
                 indices: [typed({{ self.types.index_llvm_type() }}, {{ offset }})],
             };
-        );
+        };
         Some(pointer)
     }
 }

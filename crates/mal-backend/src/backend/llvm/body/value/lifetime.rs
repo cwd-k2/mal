@@ -43,7 +43,7 @@ impl FunctionEmitter<'_> {
     fn release_slot(&mut self, slot: &super::super::Slot) -> Option<()> {
         let value_type = self.types.value(&slot.ty)?;
         let value = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ value.clone() }} = load {
                 ty: {{ value_type.llvm.clone() }},
@@ -51,9 +51,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         self.release_value(&slot.ty, &value)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ value_type.llvm }}, "zeroinitializer"),
@@ -61,7 +61,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         Some(())
     }
 
@@ -74,14 +74,14 @@ impl FunctionEmitter<'_> {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     let {{ owner.clone() }} = extract_value {
                         aggregate: typed({{ value_type.llvm }}, {{ value }}),
                         indices: [0],
                     };
-                );
-                emit_instruction!(
+                };
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
@@ -89,20 +89,20 @@ impl FunctionEmitter<'_> {
                         callee: direct("mal_runtime_bytes_retain"),
                         arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ owner }})],
                     };
-                );
+                };
                 Some(value.into())
             }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     let {{ environment.clone() }} = extract_value {
                         aggregate: typed({{ value_type.llvm }}, {{ value }}),
                         indices: [1],
                     };
-                );
-                emit_instruction!(
+                };
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
@@ -110,11 +110,11 @@ impl FunctionEmitter<'_> {
                         callee: direct("mal_runtime_environment_retain"),
                         arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ environment }})],
                     };
-                );
+                };
                 Some(value.into())
             }
             Type::Buffer(_) => {
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
@@ -122,7 +122,7 @@ impl FunctionEmitter<'_> {
                         callee: direct("mal_runtime_environment_retain"),
                         arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ value }})],
                     };
-                );
+                };
                 Some(value.into())
             }
             Type::Product(elements) => {
@@ -132,13 +132,13 @@ impl FunctionEmitter<'_> {
                         continue;
                     }
                     let field = self.register();
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ field.clone() }} = extract_value {
                             aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ value }}),
                             indices: [{{ index }}],
                         };
-                    );
+                    };
                     self.retain_value(element, &field)?;
                 }
                 Some(value.into())
@@ -161,14 +161,14 @@ impl FunctionEmitter<'_> {
             Type::Symbol => {
                 let value_type = self.types.value(ty)?;
                 let owner = self.register();
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     let {{ owner.clone() }} = extract_value {
                         aggregate: typed({{ value_type.llvm }}, {{ value }}),
                         indices: [0],
                     };
-                );
-                emit_instruction!(
+                };
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
@@ -176,19 +176,19 @@ impl FunctionEmitter<'_> {
                         callee: direct("mal_runtime_bytes_release"),
                         arguments: [typed((ptr), {{ owner }})],
                     };
-                );
+                };
             }
             Type::Function { .. } => {
                 let value_type = self.types.value(ty)?;
                 let environment = self.register();
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     let {{ environment.clone() }} = extract_value {
                         aggregate: typed({{ value_type.llvm }}, {{ value }}),
                         indices: [1],
                     };
-                );
-                emit_instruction!(
+                };
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
@@ -196,10 +196,10 @@ impl FunctionEmitter<'_> {
                         callee: direct("mal_runtime_environment_release"),
                         arguments: [typed((ptr), {{ environment }})],
                     };
-                )
+                }
             }
             Type::Buffer(_) => {
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     call {
                         tail: false,
@@ -207,7 +207,7 @@ impl FunctionEmitter<'_> {
                         callee: direct("mal_runtime_environment_release"),
                         arguments: [typed((ptr), {{ value }})],
                     };
-                )
+                }
             }
             Type::Product(elements) => {
                 let aggregate_type = self.types.value(ty)?;
@@ -216,13 +216,13 @@ impl FunctionEmitter<'_> {
                         continue;
                     }
                     let field = self.register();
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ field.clone() }} = extract_value {
                             aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ value }}),
                             indices: [{{ index }}],
                         };
-                    );
+                    };
                     self.release_value(element, &field)?;
                 }
             }
@@ -244,29 +244,29 @@ impl FunctionEmitter<'_> {
         let id = self.label_id();
         let operation = if retain { "retain" } else { "release" };
         let tag = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ tag.clone() }} = extract_value {
                 aggregate: typed({{ sum_type.llvm }}, {{ value }}),
                 indices: [0],
             };
-        );
+        };
         let cases = members
             .iter()
             .enumerate()
             .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
-        emit_terminator!(
+        emit_terminator! {
             self;
             switch typed((int(32_u16)), {{ tag }})  {
                 cases: [...{{ cases }}],
                 default: {{ format!("mal_{operation}_{id}_invalid") }},
             };
-        );
+        };
         self.block(format!("mal_{operation}_{id}_invalid"));
-        emit_terminator!(
+        emit_terminator! {
             self;
             unreachable;
-        );
+        };
         for (index, member) in members.iter().enumerate() {
             self.block(format!("mal_{operation}_{id}_{index}"));
             if crate::execution::ownership::is_managed(member) {
@@ -277,12 +277,12 @@ impl FunctionEmitter<'_> {
                     self.release_value(member, &payload)?;
                 }
             }
-            emit_terminator!(
+            emit_terminator! {
                 self;
                 branch {
                     target: {{ format!("mal_{operation}_{id}_done") }},
                 };
-            );
+            };
         }
         self.block(format!("mal_{operation}_{id}_done"));
         Some(())

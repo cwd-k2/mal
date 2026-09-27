@@ -14,7 +14,7 @@ impl FunctionEmitter<'_> {
             return;
         }
         let storage = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ storage.clone() }} = call {
                 tail: false,
@@ -22,8 +22,8 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_control_storage"),
                 arguments: [typed((ptr), "%mal_context")],
             };
-        );
-        emit_instruction!(
+        };
+        emit_instruction! {
             self;
             store {
                 value: typed((ptr), {{ storage }}),
@@ -31,9 +31,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.pointer_alignment() }},
                 metadata: [],
             };
-        );
+        };
         let capacity = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ capacity.clone() }} = call {
                 tail: false,
@@ -41,8 +41,8 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_control_capacity"),
                 arguments: [typed((ptr), "%mal_context")],
             };
-        );
-        emit_instruction!(
+        };
+        emit_instruction! {
             self;
             store {
                 value: typed({{ self.types.index_llvm_type() }}, {{ capacity }}),
@@ -50,13 +50,13 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
+        };
     }
 
     pub(super) fn current_control_storage(&mut self) -> String {
         let storage = self.register();
         if self.local_control_storage {
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ storage.clone() }} = load {
                     ty: (ptr),
@@ -64,9 +64,9 @@ impl FunctionEmitter<'_> {
                     alignment: {{ self.types.pointer_alignment() }},
                     metadata: [],
                 };
-            );
+            };
         } else {
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ storage.clone() }} = call {
                     tail: false,
@@ -74,7 +74,7 @@ impl FunctionEmitter<'_> {
                     callee: direct("mal_control_storage"),
                     arguments: [typed((ptr), "%mal_context")],
                 };
-            );
+            };
         }
         storage
     }
@@ -85,7 +85,7 @@ impl FunctionEmitter<'_> {
         replacement: bool,
     ) -> Option<ControlReservation> {
         let top = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ top.clone() }} = load {
                 ty: {{ self.types.index_llvm_type() }},
@@ -93,9 +93,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
+        };
         let next_top = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ next_top.clone() }} = binary {
                 operator: {{ BinaryOperator::Add }},
@@ -103,7 +103,7 @@ impl FunctionEmitter<'_> {
                 left: {{ top.clone() }},
                 right: {{ frame_size.to_string() }},
             };
-        );
+        };
         if replacement {
             let storage = self.current_control_storage();
             return Some(ControlReservation {
@@ -114,15 +114,19 @@ impl FunctionEmitter<'_> {
         }
         if !self.local_control_storage {
             let storage = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ storage.clone() }} = call {
                     tail: false,
                     result_type: (ptr),
                     callee: direct("mal_control_reserve_frame"),
-                    arguments: [typed((ptr), "%mal_context"), typed({{ self.types.index_llvm_type() }}, {{ top.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ frame_size.to_string() }})],
+                    arguments: [
+                        typed((ptr), "%mal_context"),
+                        typed({{ self.types.index_llvm_type() }}, {{ top.clone() }}),
+                        typed({{ self.types.index_llvm_type() }}, {{ frame_size.to_string() }}),
+                    ],
                 };
-            );
+            };
             return Some(ControlReservation {
                 top,
                 next_top,
@@ -132,7 +136,7 @@ impl FunctionEmitter<'_> {
 
         let cached_storage = self.current_control_storage();
         let capacity = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ capacity.clone() }} = load {
                 ty: {{ self.types.index_llvm_type() }},
@@ -140,7 +144,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
+        };
         let no_overflow = self.register();
         let frame_size = u64::try_from(frame_size).ok()?;
         let maximum_top = match self.types.index_size() {
@@ -150,7 +154,7 @@ impl FunctionEmitter<'_> {
             8 => u64::MAX.checked_sub(frame_size)?,
             _ => unreachable!("target layout admits only supported index widths"),
         };
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ no_overflow.clone() }} = compare {
                 kind: {{ ComparisonKind::Integer }},
@@ -159,9 +163,9 @@ impl FunctionEmitter<'_> {
                 left: {{ top.clone() }},
                 right: {{ maximum_top.to_string() }},
             };
-        );
+        };
         let within_capacity = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ within_capacity.clone() }} = compare {
                 kind: {{ ComparisonKind::Integer }},
@@ -170,9 +174,9 @@ impl FunctionEmitter<'_> {
                 left: {{ next_top.clone() }},
                 right: {{ capacity }},
             };
-        );
+        };
         let fast = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ fast.clone() }} = binary {
                 operator: {{ BinaryOperator::And }},
@@ -180,35 +184,39 @@ impl FunctionEmitter<'_> {
                 left: {{ no_overflow }},
                 right: {{ within_capacity }},
             };
-        );
+        };
         let label = self.label_id();
-        emit_terminator!(
+        emit_terminator! {
             self;
             branch {
                 condition: {{ fast }},
                 then: {{ format!("mal_control_fast_{label}") }},
                 otherwise: {{ format!("mal_control_slow_{label}") }},
             };
-        );
+        };
         self.block(format!("mal_control_fast_{label}"));
-        emit_terminator!(
+        emit_terminator! {
             self;
             branch {
                 target: {{ format!("mal_control_ready_{label}") }},
             };
-        );
+        };
         self.block(format!("mal_control_slow_{label}"));
         let grown = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ grown.clone() }} = call {
                 tail: false,
                 result_type: (ptr),
                 callee: direct("mal_control_reserve_frame"),
-                arguments: [typed((ptr), "%mal_context"), typed({{ self.types.index_llvm_type() }}, {{ top.clone() }}), typed({{ self.types.index_llvm_type() }}, {{ frame_size.to_string() }})],
+                arguments: [
+                    typed((ptr), "%mal_context"),
+                    typed({{ self.types.index_llvm_type() }}, {{ top.clone() }}),
+                    typed({{ self.types.index_llvm_type() }}, {{ frame_size.to_string() }}),
+                ],
             };
-        );
-        emit_instruction!(
+        };
+        emit_instruction! {
             self;
             store {
                 value: typed((ptr), {{ grown.as_str() }}),
@@ -216,9 +224,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.pointer_alignment() }},
                 metadata: [],
             };
-        );
+        };
         let grown_capacity = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ grown_capacity.clone() }} = call {
                 tail: false,
@@ -226,8 +234,8 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_control_capacity"),
                 arguments: [typed((ptr), "%mal_context")],
             };
-        );
-        emit_instruction!(
+        };
+        emit_instruction! {
             self;
             store {
                 value: typed({{ self.types.index_llvm_type() }}, {{ grown_capacity }}),
@@ -235,25 +243,25 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
-        emit_terminator!(
+        };
+        emit_terminator! {
             self;
             branch {
                 target: {{ format!("mal_control_ready_{label}") }},
             };
-        );
+        };
         self.block(format!("mal_control_ready_{label}"));
         let storage = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ storage.clone() }} = phi {
                 ty: (ptr),
                 incoming: {{ [
-                            (cached_storage, format!("mal_control_fast_{label}")),
-                            (grown, format!("mal_control_slow_{label}")),
-                        ] }},
+                    (cached_storage, format!("mal_control_fast_{label}")),
+                    (grown, format!("mal_control_slow_{label}")),
+                ] }},
             };
-        );
+        };
         Some(ControlReservation {
             top,
             next_top,

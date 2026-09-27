@@ -59,9 +59,11 @@ impl Function {
                 c_parameter!({{ format!("mal_{}", parameter.name) }} : {{ ty }})
             })
             .collect::<Vec<_>>();
-        c_signature!(fn {{ self.name.clone() }}(
-            ...{{ parameters }}
-        ) -> named("void"))
+        c_signature! {
+            fn {{ self.name.clone() }}(
+                ...{{ parameters }}
+            ) -> named("void")
+        }
     }
 
     fn llvm_parameters(&self) -> Vec<crate::backend::llvm::syntax::Parameter> {
@@ -88,9 +90,11 @@ impl Function {
         use crate::backend::llvm::syntax::llvm_signature;
 
         let parameters = self.llvm_parameters();
-        llvm_signature!(fn {{ self.name.clone() }}(
-            ...{{ parameters }}
-        ) -> void)
+        llvm_signature! {
+            fn {{ self.name.clone() }}(
+                ...{{ parameters }}
+            ) -> void
+        }
     }
 
     pub(in crate::backend) fn llvm_declaration(
@@ -99,8 +103,10 @@ impl Function {
         use crate::backend::llvm::syntax::llvm_declaration;
 
         let parameters = self.llvm_unnamed_parameters();
-        llvm_declaration!(fn {{ self.name.clone() }}(
-            ...{{ parameters }}
-        ) -> void;)
+        llvm_declaration! {
+            fn {{ self.name.clone() }}(
+                ...{{ parameters }}
+            ) -> void;
+        }
     }
 }

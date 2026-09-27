@@ -2,7 +2,7 @@ macro_rules! c_function_from_syntax {
     ([$($signature:tt)*] { $($body:tt)* }) => {
         $crate::backend::c::syntax::FunctionDefinition::from_signature(
             $crate::backend::c::syntax::c_signature!($($signature)*),
-            $crate::backend::c::syntax::c_block!({ $($body)* }),
+            $crate::backend::c::syntax::c_block!( $($body)* ),
         )
     };
 }
@@ -11,58 +11,58 @@ macro_rules! c_function {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) {{ $($body:tt)* }}) => {
         $crate::backend::c::syntax::FunctionDefinition::from_signature(
-            $crate::backend::c::syntax::c_signature!(
+            $crate::backend::c::syntax::c_signature! {
                 fn $name($($parameter)*) -> $kind($($result)*)
-            ),
+            },
             { $($body)* },
         )
     };
     (fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [fn $name($($parameter)*) -> $kind($($result)*)] { $($body)* }
-        )
+        }
     };
     (fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }} { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [fn $name($($parameter)*) -> {{ $($result)* }}] { $($body)* }
-        )
+        }
     };
     (#[static] fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [#[static] fn $name($($parameter)*) -> $kind($($result)*)] { $($body)* }
-        )
+        }
     };
     (#[static] fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }} { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [#[static] fn $name($($parameter)*) -> {{ $($result)* }}] { $($body)* }
-        )
+        }
     };
     (#[static] #[inline] fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [#[static] #[inline] fn $name($($parameter)*) -> $kind($($result)*)] { $($body)* }
-        )
+        }
     };
     (#[static] #[inline] fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }} { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [#[static] #[inline] fn $name($($parameter)*) -> {{ $($result)* }}] { $($body)* }
-        )
+        }
     };
     (#[static] #[inline] #[noreturn] fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [#[static] #[inline] #[noreturn] fn $name($($parameter)*) -> $kind($($result)*)]
             { $($body)* }
-        )
+        }
     };
     (#[static] #[inline] #[noreturn] fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }} { $($body:tt)* }) => {
-        $crate::backend::c::syntax::c_function_from_syntax!(
+        $crate::backend::c::syntax::c_function_from_syntax! {
             [#[static] #[inline] #[noreturn] fn $name($($parameter)*) -> {{ $($result)* }}]
             { $($body)* }
-        )
+        }
     };
     (signature {{ $($signature:tt)* }} { $($body:tt)* }) => {
         $crate::backend::c::syntax::FunctionDefinition::from_signature(
             { $($signature)* },
-            $crate::backend::c::syntax::c_block!({ $($body)* }),
+            $crate::backend::c::syntax::c_block!( $($body)* ),
         )
     };
     (signature {{ $($signature:tt)* }} body {{ $($body:tt)* }}) => {
@@ -74,7 +74,7 @@ macro_rules! c_function {
     (macro {{ $($invocation:tt)* }} { $($body:tt)* }) => {
         $crate::backend::c::syntax::FunctionDefinition::from_macro(
             { $($invocation)* },
-            $crate::backend::c::syntax::c_block!({ $($body)* }),
+            $crate::backend::c::syntax::c_block!( $($body)* ),
         )
     };
     (macro {{ $($invocation:tt)* }} body {{ $($body:tt)* }}) => {

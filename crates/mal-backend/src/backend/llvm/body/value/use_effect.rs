@@ -39,7 +39,7 @@ impl FunctionEmitter<'_> {
         let slot = self.slots.get(&id)?.clone();
         let value_type = self.types.value(&slot.ty)?;
         let register = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ register.clone() }} = load {
                 ty: {{ value_type.llvm }},
@@ -47,7 +47,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         let mut value = EmittedValue {
             ty: slot.ty.clone(),
             representation: register,
@@ -107,7 +107,7 @@ impl FunctionEmitter<'_> {
         let mut value = self.atom(atom)?;
         let environment = self.active_environment();
         let unique = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ unique.clone() }} = call {
                 tail: false,
@@ -115,29 +115,29 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_runtime_environment_is_unique"),
                 arguments: [typed((ptr), {{ environment }})],
             };
-        );
+        };
         let condition = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ condition.clone() }} = cast {
                 operator: {{ CastOperator::Trunc }},
                 value: typed((int(8_u16)), {{ unique }}),
                 to: (int(1_u16)),
             };
-        );
+        };
         let label = self.label_id();
-        emit_terminator!(
+        emit_terminator! {
             self;
             branch {
                 condition: {{ condition }},
                 then: {{ format!("mal_capture_take_{label}") }},
                 otherwise: {{ format!("mal_capture_share_{label}") }},
             };
-        );
+        };
         self.block(format!("mal_capture_take_{label}"));
         let pointer = self.capture_pointer(index, &atom.ty)?;
         let value_type = self.types.value(&atom.ty)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ value_type.llvm }}, "zeroinitializer"),
@@ -145,21 +145,21 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
-        emit_terminator!(
+        };
+        emit_terminator! {
             self;
             branch {
                 target: {{ format!("mal_capture_ready_{label}") }},
             };
-        );
+        };
         self.block(format!("mal_capture_share_{label}"));
         self.retain_if_borrowed(&mut value)?;
-        emit_terminator!(
+        emit_terminator! {
             self;
             branch {
                 target: {{ format!("mal_capture_ready_{label}") }},
             };
-        );
+        };
         self.block(format!("mal_capture_ready_{label}"));
         value.owned = true;
         Some(PreparedValue {
@@ -174,7 +174,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         for slot in &prepared.consumed_slots {
             let value_type = self.types.value(&slot.ty)?;
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 store {
                     value: typed({{ value_type.llvm }}, "zeroinitializer"),
@@ -182,7 +182,7 @@ impl FunctionEmitter<'_> {
                     alignment: {{ value_type.alignment }},
                     metadata: [],
                 };
-            );
+            };
         }
         Some(())
     }

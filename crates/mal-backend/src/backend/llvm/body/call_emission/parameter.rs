@@ -79,7 +79,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let value_type = self.types.value(&slot.ty)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -87,7 +87,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         Some(())
     }
 }

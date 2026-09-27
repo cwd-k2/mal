@@ -1,20 +1,20 @@
 macro_rules! llvm_declaration_result {
     ($name:tt; [$($parameter:tt)*]; [$($attribute:tt)*]; $kind:ident($($result:tt)*)) => {
-        $crate::backend::llvm::syntax::llvm_declaration_build!(
+        $crate::backend::llvm::syntax::llvm_declaration_build! {
             $name; [$($parameter)*]; [$($attribute)*];
             $crate::backend::llvm::syntax::llvm_type!($kind($($result)*))
-        )
+        }
     };
     ($name:tt; [$($parameter:tt)*]; [$($attribute:tt)*]; $primitive:ident) => {
-        $crate::backend::llvm::syntax::llvm_declaration_build!(
+        $crate::backend::llvm::syntax::llvm_declaration_build! {
             $name; [$($parameter)*]; [$($attribute)*];
             $crate::backend::llvm::syntax::llvm_type!($primitive)
-        )
+        }
     };
     ($name:tt; [$($parameter:tt)*]; [$($attribute:tt)*]; {{ $($result:tt)* }}) => {
-        $crate::backend::llvm::syntax::llvm_declaration_build!(
+        $crate::backend::llvm::syntax::llvm_declaration_build! {
             $name; [$($parameter)*]; [$($attribute)*]; { $($result)* }
-        )
+        }
     };
 }
 
@@ -34,34 +34,34 @@ macro_rules! llvm_declaration_build {
 macro_rules! llvm_declaration {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (#[attributes($($attribute:tt)*)] fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*);) => {
-        $crate::backend::llvm::syntax::llvm_declaration_result!(
+        $crate::backend::llvm::syntax::llvm_declaration_result! {
             $name; [$($parameter)*]; [$($attribute)*]; $kind($($result)*)
-        )
+        }
     };
     (#[attributes($($attribute:tt)*)] fn $name:tt($($parameter:tt)*) -> $result:ident;) => {
-        $crate::backend::llvm::syntax::llvm_declaration_result!(
+        $crate::backend::llvm::syntax::llvm_declaration_result! {
             $name; [$($parameter)*]; [$($attribute)*]; $result
-        )
+        }
     };
     (#[attributes($($attribute:tt)*)] fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }};) => {
-        $crate::backend::llvm::syntax::llvm_declaration_result!(
+        $crate::backend::llvm::syntax::llvm_declaration_result! {
             $name; [$($parameter)*]; [$($attribute)*]; {{ $($result)* }}
-        )
+        }
     };
     (fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*);) => {
-        $crate::backend::llvm::syntax::llvm_declaration_result!(
+        $crate::backend::llvm::syntax::llvm_declaration_result! {
             $name; [$($parameter)*]; []; $kind($($result)*)
-        )
+        }
     };
     (fn $name:tt($($parameter:tt)*) -> $result:ident;) => {
-        $crate::backend::llvm::syntax::llvm_declaration_result!(
+        $crate::backend::llvm::syntax::llvm_declaration_result! {
             $name; [$($parameter)*]; []; $result
-        )
+        }
     };
     (fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }};) => {
-        $crate::backend::llvm::syntax::llvm_declaration_result!(
+        $crate::backend::llvm::syntax::llvm_declaration_result! {
             $name; [$($parameter)*]; []; {{ $($result)* }}
-        )
+        }
     };
 }
 

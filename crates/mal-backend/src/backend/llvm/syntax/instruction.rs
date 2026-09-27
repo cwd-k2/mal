@@ -862,14 +862,14 @@ mod tests {
     #[test]
     fn instruction_macro_builds_typed_calls() {
         let arguments = TypedValue::from_pairs([(Type::Pointer, "%value".to_owned())]).unwrap();
-        let instruction = super::super::llvm_instruction!(
+        let instruction = super::super::llvm_instruction! {
             let "%result" = call {
                 tail: false,
                 result_type: (int(8_u16)),
                 callee: direct("observe"),
                 arguments: [...{{ arguments }}],
             };
-        )
+        }
         .unwrap();
         let mut output = String::new();
         instruction.render_into(&mut output);

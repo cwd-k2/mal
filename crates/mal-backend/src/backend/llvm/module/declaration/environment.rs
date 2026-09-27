@@ -25,12 +25,12 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             "mal_runtime_environment_is_unique",
             [llvm_type!(ptr)],
         )
-        .with_attributes(llvm_function_attributes!(
+        .with_attributes(llvm_function_attributes! {
             nofree,
             nounwind,
             willreturn,
             memory_argmem_read
-        )),
+        }),
     );
     module.declare(declaration(
         llvm_type!(ptr),
@@ -42,12 +42,12 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
         format!("llvm.ptrmask.p0.i{}", types.pointer_size() * 8),
         [llvm_type!(ptr), types.pointer_representation_llvm_type()],
     ));
-    module.declare(llvm_declaration!(
+    module.declare(llvm_declaration! {
         fn {{ format!("llvm.memcpy.p0.p0.i{}", types.index_size() * 8) }}(
             _ : ptr,
             _ : ptr,
             _ : {{ index }},
             #[immarg] _ : int(1),
         ) -> void;
-    ));
+    });
 }

@@ -31,9 +31,11 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     output.push(c_comment!("Runtime API"));
     output.blank_line();
     output.push(c_declaration!(type "MalContext" = struct("MalContext")));
-    output.push(c_aggregate!(type "MalType_Unit" = struct {
-        "unused": named("uint8_t"),
-    }));
+    output.push(c_aggregate! {
+        type "MalType_Unit" = struct {
+            "unused": named("uint8_t"),
+        }
+    });
     for (source, alias) in [
         ("uint8_t", "MalType_Bool"),
         ("int8_t", "MalType_Int8"),
@@ -52,41 +54,51 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         output.push(c_declaration!(type {{ alias }} = {{ c_type!(named({{ source }})) }}));
     }
     output.push(c_declaration!(type "MalType_Address" = ptr(named("void"))));
-    output.push(c_declaration!(static_assert(
-        (equal(
-            (multiply((sizeof((cast((named("size_t")), (number(0)))))), (id("CHAR_BIT")))),
-            (number({{ index_bits }}))
-        )),
-        "size_t does not match the mal target pointer index width"
-    );));
-    let width_of = |ty: &str, bits: u32| {
-        c_expr!(equal(
-            (multiply(
-                (sizeof((cast({ { c_type!(named({ { ty } })) } }, (number(0)))))),
-                (id("CHAR_BIT"))
+    output.push(c_declaration! {
+        static_assert(
+            (equal(
+                (multiply((sizeof((cast((named("size_t")), (number(0)))))), (id("CHAR_BIT")))),
+                (number({{ index_bits }}))
             )),
-            (number({ { bits } }))
-        ))
+            "size_t does not match the mal target pointer index width"
+        );
+    });
+    let width_of = |ty: &str, bits: u32| {
+        c_expr! {
+            equal(
+                (multiply(
+                    (sizeof((cast({ { c_type!(named({ { ty } })) } }, (number(0)))))),
+                    (id("CHAR_BIT"))
+                )),
+                (number({ { bits } }))
+            )
+        }
     };
     let macro_equals =
         |name: &str, value: &str| c_expr!(equal((id({ { name } })), (number({ { value } }))));
     for (condition, message) in [
         (
-            c_expr!(logical_and({ { width_of("float", 32) } }, {
-                { macro_equals("FLT_MANT_DIG", "24") }
-            })),
+            c_expr! {
+                logical_and({ { width_of("float", 32) } }, {
+                    { macro_equals("FLT_MANT_DIG", "24") }
+                })
+            },
             "float is not IEEE 754 binary32",
         ),
         (
-            c_expr!(logical_and({ { width_of("double", 64) } }, {
-                { macro_equals("DBL_MANT_DIG", "53") }
-            })),
+            c_expr! {
+                logical_and({ { width_of("double", 64) } }, {
+                    { macro_equals("DBL_MANT_DIG", "53") }
+                })
+            },
             "double is not IEEE 754 binary64",
         ),
         (
-            c_expr!(logical_and({ { macro_equals("FLT_HAS_SUBNORM", "1") } }, {
-                { macro_equals("DBL_HAS_SUBNORM", "1") }
-            })),
+            c_expr! {
+                logical_and({ { macro_equals("FLT_HAS_SUBNORM", "1") } }, {
+                    { macro_equals("DBL_HAS_SUBNORM", "1") }
+                })
+            },
             "the target does not preserve subnormal floating-point values",
         ),
         (
@@ -115,24 +127,32 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     ] {
         output.push(c_declaration!(type {{ alias }} = {{ c_type!(named({{ source }})) }}));
     }
-    output.push(c_aggregate!(type "mal_call_t" = struct {
-        "mal_detail_context": ptr(named("MalContext")),
-    }));
+    output.push(c_aggregate! {
+        type "mal_call_t" = struct {
+            "mal_detail_context": ptr(named("MalContext")),
+        }
+    });
     output.blank_line();
-    output.push(c_directive!(define "mal_false" =
-        (cast((named("mal_Bool_t")), (call("UINT8_C", [number(0)]))));
-    ));
-    output.push(c_directive!(define "mal_true" =
-        (cast((named("mal_Bool_t")), (call("UINT8_C", [number(1)]))));
-    ));
+    output.push(c_directive! {
+        define "mal_false" =
+            (cast((named("mal_Bool_t")), (call("UINT8_C", [number(0)]))));
+    });
+    output.push(c_directive! {
+        define "mal_true" =
+            (cast((named("mal_Bool_t")), (call("UINT8_C", [number(1)]))));
+    });
     output.blank_line();
-    output.push(c_declaration!(fn {{
-        c_signature!(#[noreturn] fn "mal_trap"(
-            "context": ptr(named("MalContext")),
-            "message": ptr(const(named("char"))),
-        ) -> named("void"))
-    }};));
-    output.push(c_function!(
+    output.push(c_declaration! {
+        fn {{
+            c_signature! {
+                #[noreturn] fn "mal_trap"(
+                    "context": ptr(named("MalContext")),
+                    "message": ptr(const(named("char"))),
+                ) -> named("void")
+            }
+        }};
+    });
+    output.push(c_function! {
         #[static] #[inline] #[noreturn] fn "mal_call_trap"(
             "call": ptr(named("mal_call_t")),
             "message": ptr(const(named("char"))),
@@ -142,13 +162,13 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
                 id("message"),
             ]);
         }
-    ));
+    });
     append_builtin_returns(&mut output);
     output
 }
 
 fn append_builtin_returns(output: &mut TranslationUnit) {
-    output.push(c_function!(
+    output.push(c_function! {
         #[static] #[inline] fn "mal_Unit_return"(
             #[maybe_unused] "call": ptr(named("mal_call_t")),
         ) -> named("MalType_Unit") {
@@ -156,7 +176,7 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
                 field("unused", (call("UINT8_C", [number(0)]))),
             ]));
         }
-    ));
+    });
     for (raw, host, name) in [
         ("MalType_Int8", "mal_Int8_t", "Int8"),
         ("MalType_Int16", "mal_Int16_t", "Int16"),
@@ -171,16 +191,16 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_ByteSize", "mal_ByteSize_t", "ByteSize"),
         ("MalType_USize", "mal_USize_t", "USize"),
     ] {
-        output.push(c_function!(
+        output.push(c_function! {
             #[static] #[inline] fn {{ format!("mal_{name}_return") }}(
                 #[maybe_unused] "call": ptr(named("mal_call_t")),
                 "value": named({{ host }}),
             ) -> named({{ raw }}) {
                 return (id("value"));
             }
-        ));
+        });
     }
-    output.push(c_function!(
+    output.push(c_function! {
         #[static] #[inline] fn "mal_Address_return"(
             "call": ptr(named("mal_call_t")),
             "value": named("mal_Address_t"),
@@ -193,8 +213,8 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
             }
             return (id("value"));
         }
-    ));
-    output.push(c_function!(
+    });
+    output.push(c_function! {
         #[static] #[inline] fn "mal_Bool_return"(
             "call": ptr(named("mal_call_t")),
             "value": named("mal_Bool_t"),
@@ -210,5 +230,5 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
             }
             return (id("value"));
         }
-    ));
+    });
 }

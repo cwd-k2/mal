@@ -33,12 +33,12 @@ impl FunctionEmitter<'_> {
                 .is_some_and(|parameter| parameter.binding_count == binding_index + 1)
             {
                 let label = self_tail_entry_label(self.current_function);
-                emit_terminator!(
+                emit_terminator! {
                     self;
                     branch {
                         target: {{ label.clone() }},
                     };
-                );
+                };
                 self.block(label);
             }
         }
@@ -64,12 +64,12 @@ impl FunctionEmitter<'_> {
             }
             Terminator::Goto(target) => {
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                emit_terminator!(
+                emit_terminator! {
                     self;
                     branch {
                         target: {{ format!("mal_state_{}", target.0) }},
                     };
-                );
+                };
             }
             Terminator::Jump { target, value } => {
                 let effect = self.ownership.terminator_operand_use(
@@ -81,12 +81,12 @@ impl FunctionEmitter<'_> {
                 self.commit_consumes(&value)?;
                 self.store_input_pattern(*target, Some(&value.value))?;
                 self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                emit_terminator!(
+                emit_terminator! {
                     self;
                     branch {
                         target: {{ format!("mal_state_{}", target.0) }},
                     };
-                );
+                };
             }
             Terminator::PrimitiveBranch {
                 operator,
@@ -115,21 +115,26 @@ impl FunctionEmitter<'_> {
                     let left = self.byte_view_fields(&left)?;
                     let right = self.byte_view_fields(&right)?;
                     let equality = self.register();
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ equality.clone() }} = call {
                             tail: false,
                             result_type: (int(8_u16)),
                             callee: direct("mal_runtime_symbol_equal"),
-                            arguments: [typed((ptr), {{ left.data }}), typed({{ self.types.index_llvm_type() }}, {{ left.count }}), typed((ptr), {{ right.data }}), typed({{ self.types.index_llvm_type() }}, {{ right.count }})],
+                            arguments: [
+                                typed((ptr), {{ left.data }}),
+                                typed({{ self.types.index_llvm_type() }}, {{ left.count }}),
+                                typed((ptr), {{ right.data }}),
+                                typed({{ self.types.index_llvm_type() }}, {{ right.count }}),
+                            ],
                         };
-                    );
+                    };
                     let predicate = match operator {
                         crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Ne,
                         crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Eq,
                         _ => return None,
                     };
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ condition.clone() }} = compare {
                             kind: {{ ComparisonKind::Integer }},
@@ -138,14 +143,14 @@ impl FunctionEmitter<'_> {
                             left: {{ equality }},
                             right: "0",
                         };
-                    );
+                    };
                 } else if is_bool(&left.ty) {
                     let predicate = match operator {
                         crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Eq,
                         crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Ne,
                         _ => return None,
                     };
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ condition.clone() }} = compare {
                             kind: {{ ComparisonKind::Integer }},
@@ -154,12 +159,12 @@ impl FunctionEmitter<'_> {
                             left: {{ left.representation }},
                             right: {{ right.representation }},
                         };
-                    );
+                    };
                 } else {
                     let predicate = comparison_predicate(*operator)?;
                     let scalar = scalar_type(&left.ty, self.types.index_size())?;
                     let (kind, predicate) = predicate.for_scalar(scalar);
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ condition.clone() }} = compare {
                             kind: {{ kind }},
@@ -168,7 +173,7 @@ impl FunctionEmitter<'_> {
                             left: {{ left.representation }},
                             right: {{ right.representation }},
                         };
-                    );
+                    };
                 }
                 let then_drops = !self
                     .ownership
@@ -191,26 +196,26 @@ impl FunctionEmitter<'_> {
                 } else {
                     format!("mal_state_{}", otherwise.0)
                 };
-                emit_terminator!(
+                emit_terminator! {
                     self;
                     branch {
                         condition: {{ condition }},
                         then: {{ then_label }},
                         otherwise: {{ otherwise_label }},
                     };
-                );
+                };
                 if then_drops {
                     self.block(format!("mal_edge_{}_then", site.0));
                     self.emit_edge_drops(
                         site,
                         crate::execution::ownership::ControlPath::BranchThen,
                     )?;
-                    emit_terminator!(
+                    emit_terminator! {
                         self;
                         branch {
                             target: {{ format!("mal_state_{}", then.0) }},
                         };
-                    );
+                    };
                 }
                 if otherwise_drops {
                     self.block(format!("mal_edge_{}_otherwise", site.0));
@@ -218,12 +223,12 @@ impl FunctionEmitter<'_> {
                         site,
                         crate::execution::ownership::ControlPath::BranchOtherwise,
                     )?;
-                    emit_terminator!(
+                    emit_terminator! {
                         self;
                         branch {
                             target: {{ format!("mal_state_{}", otherwise.0) }},
                         };
-                    );
+                    };
                 }
             }
             Terminator::Call {
@@ -235,12 +240,12 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_call(site, target, callee, argument, false)?;
                     self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    emit_terminator!(
+                    emit_terminator! {
                         self;
                         branch {
                             target: {{ format!("mal_state_{}", resume.0) }},
                         };
-                    );
+                    };
                 }
                 ControlCallMode::DirectRegion(_) if self.mode == EmissionMode::Native => {
                     self.emit_native_self_call(site, callee, argument)?;
@@ -262,12 +267,12 @@ impl FunctionEmitter<'_> {
                     let result = self.emit_indirect_call(site, callee, argument, false)?;
                     self.store_input_pattern(*resume, Some(&result))?;
                     self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    emit_terminator!(
+                    emit_terminator! {
                         self;
                         branch {
                             target: {{ format!("mal_state_{}", resume.0) }},
                         };
-                    );
+                    };
                 }
                 ControlCallMode::DirectSelfTail => return None,
                 ControlCallMode::DirectRegion(_) => return None,
@@ -315,12 +320,12 @@ impl FunctionEmitter<'_> {
                         } else {
                             format!("mal_state_{}", function.entry.0)
                         };
-                        emit_terminator!(
+                        emit_terminator! {
                             self;
                             branch {
                                 target: {{ target }},
                             };
-                        );
+                        };
                     }
                     ControlCallMode::Direct(target) => {
                         let result = self.emit_call(site, target, callee, argument, true)?;

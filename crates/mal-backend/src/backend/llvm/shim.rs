@@ -24,17 +24,19 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 }
 
 fn unit_main(entry: &str) -> FunctionDefinition {
-    c_function!(fn "main"() -> named("int") {
-        let "context": named("MalContext") = {{ zero_initializer() }};
-        let "result": named("int32_t");
-        call({{ entry }}, [
-            address((id("context"))),
-            id("NULL"),
-            address((id("result"))),
-        ]);
-        call("mal_control_destroy", [address((id("context")))]);
-        return (id("result"));
-    })
+    c_function! {
+        fn "main"() -> named("int") {
+            let "context": named("MalContext") = {{ zero_initializer() }};
+            let "result": named("int32_t");
+            call({{ entry }}, [
+                address((id("context"))),
+                id("NULL"),
+                address((id("result"))),
+            ]);
+            call("mal_control_destroy", [address((id("context")))]);
+            return (id("result"));
+        }
+    }
 }
 
 fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<FunctionDefinition> {
@@ -56,7 +58,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let stride = types.value(element)?.size;
     let value = types.value(parameter)?;
 
-    let body = c_block!({
+    let body = c_block! {
         let "context": named("MalContext") = {{ zero_initializer() }};
         let "argument_count": named("size_t") = (conditional(
             (greater((id("mal_argc")), (number(1)))),
@@ -90,13 +92,14 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         call("mal_runtime_environment_release", [id("arguments")]);
         call("mal_control_destroy", [address((id("context")))]);
         return (id("result"));
-    });
+    };
 
-    Some(c_function!(fn "main"(
+    Some(c_function! {
+        fn "main"(
             "mal_argc": named("int"),
             "mal_argv": ptr(ptr(named("char"))),
         ) -> named("int") {{ body }}
-    ))
+    })
 }
 
 fn number(value: impl ToString) -> Expr {

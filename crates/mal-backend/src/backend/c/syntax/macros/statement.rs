@@ -2,13 +2,13 @@ macro_rules! c_switch_case {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (_ => { $($body:tt)* }) => {
         $crate::backend::c::syntax::SwitchCase::default(
-            $crate::backend::c::syntax::c_block!({ $($body)* }),
+            $crate::backend::c::syntax::c_block!( $($body)* ),
         )
     };
     ($label:tt => { $($body:tt)* }) => {
         $crate::backend::c::syntax::SwitchCase::case(
             $crate::backend::c::syntax::c_expr_child!($label),
-            $crate::backend::c::syntax::c_block!({ $($body)* }),
+            $crate::backend::c::syntax::c_block!( $($body)* ),
         )
     };
 }
@@ -88,7 +88,7 @@ macro_rules! c_statement {
     (if $condition:tt { $($body:tt)* }) => {
         $crate::backend::c::syntax::Statement::if_then(
             $crate::backend::c::syntax::c_expr_child!($condition),
-            $crate::backend::c::syntax::c_block!({ $($body)* }),
+            $crate::backend::c::syntax::c_block!( $($body)* ),
         )
     };
     (switch $value:tt { $($case:tt)* }) => {
@@ -108,7 +108,7 @@ macro_rules! c_statement {
 }
 
 macro_rules! c_block {
-    ({ $($statement:tt)* }) => {{
+    ($($statement:tt)*) => {{
         let mut block = $crate::backend::c::syntax::Block::default();
         $crate::backend::c::syntax::c_block_items!(block; $($statement)*);
         block
@@ -134,15 +134,15 @@ macro_rules! c_block_items {
         $crate::backend::c::syntax::c_block_items!($block; $($rest)*);
     };
     ($block:ident; let $name:tt : $kind:ident($($ty:tt)*) = $value:tt; $($rest:tt)*) => {
-        $block.push($crate::backend::c::syntax::c_statement!(
+        $block.push($crate::backend::c::syntax::c_statement! {
             let $name : $kind($($ty)*) = $value;
-        ));
+        });
         $crate::backend::c::syntax::c_block_items!($block; $($rest)*);
     };
     ($block:ident; let $name:tt : {{ $($ty:tt)* }} = $value:tt; $($rest:tt)*) => {
-        $block.push($crate::backend::c::syntax::c_statement!(
+        $block.push($crate::backend::c::syntax::c_statement! {
             let $name : {{ $($ty)* }} = $value;
-        ));
+        });
         $crate::backend::c::syntax::c_block_items!($block; $($rest)*);
     };
     ($block:ident; let {{ $($declaration:tt)* }}; $($rest:tt)*) => {
@@ -150,9 +150,9 @@ macro_rules! c_block_items {
         $crate::backend::c::syntax::c_block_items!($block; $($rest)*);
     };
     ($block:ident; let {{ $($declaration:tt)* }} = $value:tt; $($rest:tt)*) => {
-        $block.push($crate::backend::c::syntax::c_statement!(
+        $block.push($crate::backend::c::syntax::c_statement! {
             let {{ $($declaration)* }} = $value;
-        ));
+        });
         $crate::backend::c::syntax::c_block_items!($block; $($rest)*);
     };
     ($block:ident; return; $($rest:tt)*) => {

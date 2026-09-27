@@ -50,7 +50,7 @@ impl FunctionEmitter<'_> {
             .is_some_and(|retired| layout.size <= retired.size);
         let reservation = self.reserve_control_frame(layout.size, replacement)?;
         let frame_pointer = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ frame_pointer.clone() }} = get_element_ptr {
                 inbounds: false,
@@ -58,10 +58,10 @@ impl FunctionEmitter<'_> {
                 pointer: {{ reservation.storage }},
                 indices: [typed({{ self.types.index_llvm_type() }}, {{ reservation.top.clone() }})],
             };
-        );
+        };
         if tagged {
             let tag = self.frame_tags.get(&site)?;
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 store {
                     value: typed((int(32_u16)), {{ tag.to_string() }}),
@@ -69,7 +69,7 @@ impl FunctionEmitter<'_> {
                     alignment: 4,
                     metadata: [],
                 };
-            );
+            };
         }
         let prepared_fields = frame
             .fields
@@ -89,7 +89,7 @@ impl FunctionEmitter<'_> {
         for layout in &layout.fields {
             let value = prepared_fields.get(layout.index)?;
             let pointer = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ pointer.clone() }} = get_element_ptr {
                     inbounds: false,
@@ -97,8 +97,8 @@ impl FunctionEmitter<'_> {
                     pointer: {{ frame_pointer.as_str() }},
                     indices: [typed((int(64_u16)), {{ layout.offset.to_string() }})],
                 };
-            );
-            emit_instruction!(
+            };
+            emit_instruction! {
                 self;
                 store {
                     value: typed({{ layout.value_type.llvm.clone() }}, {{ value.value.representation.as_str() }}),
@@ -106,12 +106,12 @@ impl FunctionEmitter<'_> {
                     alignment: {{ layout.value_type.alignment }},
                     metadata: [],
                 };
-            );
+            };
         }
         if let Some(offset) = layout.environment {
             let environment = self.active_environment();
             let pointer = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ pointer.clone() }} = get_element_ptr {
                     inbounds: false,
@@ -119,8 +119,8 @@ impl FunctionEmitter<'_> {
                     pointer: {{ frame_pointer.as_str() }},
                     indices: [typed((int(64_u16)), {{ offset.to_string() }})],
                 };
-            );
-            emit_instruction!(
+            };
+            emit_instruction! {
                 self;
                 store {
                     value: typed((ptr), {{ environment }}),
@@ -128,11 +128,11 @@ impl FunctionEmitter<'_> {
                     alignment: {{ self.types.pointer_alignment() }},
                     metadata: [],
                 };
-            );
+            };
         }
         if let Some(offset) = layout.footer {
             let footer = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ footer.clone() }} = get_element_ptr {
                     inbounds: false,
@@ -140,8 +140,8 @@ impl FunctionEmitter<'_> {
                     pointer: {{ frame_pointer }},
                     indices: [typed((int(64_u16)), {{ offset.to_string() }})],
                 };
-            );
-            emit_instruction!(
+            };
+            emit_instruction! {
                 self;
                 store {
                     value: typed({{ self.types.index_llvm_type() }}, {{ reservation.top.as_str() }}),
@@ -149,9 +149,9 @@ impl FunctionEmitter<'_> {
                     alignment: {{ self.types.index_alignment() }},
                     metadata: [],
                 };
-            );
+            };
         }
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ self.types.index_llvm_type() }}, {{ reservation.next_top.as_str() }}),
@@ -159,7 +159,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
+        };
         if self.common_region.is_some() {
             self.emit_region_transition(
                 site,
@@ -188,12 +188,12 @@ impl FunctionEmitter<'_> {
                 crate::execution::ownership::ParameterEntry::OwnedHandoff,
             )?;
             self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-            emit_terminator!(
+            emit_terminator! {
                 self;
                 branch {
                     target: {{ format!("mal_state_{}", self.function.entry.0) }},
                 };
-            );
+            };
             Some(())
         }
     }
@@ -241,13 +241,13 @@ impl FunctionEmitter<'_> {
         let code = if direct_target.is_none() {
             let closure_type = self.types.value(&callee.value.ty)?;
             let code = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ code.clone() }} = extract_value {
                     aggregate: typed({{ closure_type.llvm }}, {{ callee.value.representation.clone() }}),
                     indices: [0],
                 };
-            );
+            };
             Some(code)
         } else {
             None
@@ -277,7 +277,7 @@ impl FunctionEmitter<'_> {
         self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
         if !preserve_environment {
             let previous = self.active_environment();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 call {
                     tail: false,
@@ -285,9 +285,9 @@ impl FunctionEmitter<'_> {
                     callee: direct("mal_runtime_environment_release"),
                     arguments: [typed((ptr), {{ previous }})],
                 };
-            );
+            };
         }
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed((ptr), {{ environment.as_str() }}),
@@ -295,7 +295,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.pointer_alignment() }},
                 metadata: [],
             };
-        );
+        };
         let targets = self
             .execution
             .control_regions
@@ -328,7 +328,7 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         for (index, target) in targets.iter().enumerate() {
             let matched = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ matched.clone() }} = compare {
                     kind: {{ ComparisonKind::Integer }},
@@ -337,16 +337,16 @@ impl FunctionEmitter<'_> {
                     left: {{ code }},
                     right: {{ format!("@{}", super::function_name(*target)) }},
                 };
-            );
+            };
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
-            emit_terminator!(
+            emit_terminator! {
                 self;
                 branch {
                     condition: {{ matched }},
                     then: {{ format!("mal_region_target_{}_{index}", site.0) }},
                     otherwise: {{ next.clone() }},
                 };
-            );
+            };
             self.block(next);
         }
         let has_native_target = self
@@ -369,7 +369,7 @@ impl FunctionEmitter<'_> {
             let returned = self.register();
             self.sync_control_top()?;
             let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ returned.clone() }} = call {
                     tail: false,
@@ -377,7 +377,7 @@ impl FunctionEmitter<'_> {
                     callee: indirect({{ code }}),
                     arguments: [...{{ arguments }}],
                 };
-            );
+            };
             if self
                 .optimizations
                 .site_may_relocate_control_storage(&self.execution.applications, site)
@@ -396,10 +396,10 @@ impl FunctionEmitter<'_> {
                 },
             )?;
         } else {
-            emit_terminator!(
+            emit_terminator! {
                 self;
                 unreachable;
-            );
+            };
         }
         for (index, target) in targets.iter().enumerate() {
             self.block(format!("mal_region_target_{}_{index}", site.0));
@@ -416,12 +416,12 @@ impl FunctionEmitter<'_> {
             argument,
             crate::execution::ownership::ParameterEntry::OwnedHandoff,
         )?;
-        emit_terminator!(
+        emit_terminator! {
             self;
             branch {
                 target: {{ format!("mal_state_{}", entry.0) }},
             };
-        );
+        };
         Some(())
     }
 }

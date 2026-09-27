@@ -112,9 +112,11 @@ impl TypeRegistry {
             Type::USize => c_type!(named("mal_USize_t")),
             Type::External { name, .. } => c_type!(named({ { format!("mal_{name}_t") } })),
             Type::Product(_) => {
-                c_type!(named({
-                    { format!("mal_repr_product_{}_t", self.index(ty)) }
-                }))
+                c_type! {
+                    named({
+                        { format!("mal_repr_product_{}_t", self.index(ty)) }
+                    })
+                }
             }
             Type::Sum(_) => c_type!(named({ { format!("mal_repr_sum_{}_t", self.index(ty)) } })),
             Type::Function { .. } => {
@@ -183,7 +185,7 @@ impl TypeRegistry {
                 }
                 Type::Function { parameter, result } => {
                     let tag = format!("MalRepr_Closure_{index}");
-                    let fields = c_aggregate_fields!(
+                    let fields = c_aggregate_fields! {
                         fn "call"(
                             _: ptr(named("MalContext")),
                             _: ptr(const(named("void"))),
@@ -194,7 +196,7 @@ impl TypeRegistry {
                             _: ptr(named("MalContext")),
                             _: ptr(const(named("void"))),
                         ) -> named("void"),
-                    );
+                    };
                     output.push(c_aggregate!(struct {{ tag }} { ...{{ fields }} }));
                     output.blank_line();
                 }

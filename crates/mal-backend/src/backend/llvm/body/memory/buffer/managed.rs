@@ -61,19 +61,23 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let value_type = self.types.value(element)?;
         let signature = if retain {
-            llvm_signature!(#[linkage(internal)] fn {{ format!("mal_buffer_retain_{number}") }}(
-                "%mal_context": ptr,
-                "%mal_element": ptr,
-            ) -> void)
+            llvm_signature! {
+                #[linkage(internal)] fn {{ format!("mal_buffer_retain_{number}") }}(
+                    "%mal_context": ptr,
+                    "%mal_element": ptr,
+                ) -> void
+            }
         } else {
-            llvm_signature!(#[linkage(internal)] fn {{ format!("mal_buffer_release_{number}") }}(
-                "%mal_element": ptr,
-            ) -> void)
+            llvm_signature! {
+                #[linkage(internal)] fn {{ format!("mal_buffer_release_{number}") }}(
+                    "%mal_element": ptr,
+                ) -> void
+            }
         };
         self.begin_function(signature);
         self.block("entry");
         let value = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ value.clone() }} = load {
                 ty: {{ value_type.llvm }},
@@ -81,16 +85,16 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         if retain {
             self.retain_value(element, &value)?;
         } else {
             self.release_value(element, &value)?;
         }
-        emit_terminator!(
+        emit_terminator! {
             self;
             return;
-        );
+        };
         self.finish_function()
     }
 }

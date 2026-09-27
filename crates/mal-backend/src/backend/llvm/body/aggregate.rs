@@ -36,14 +36,14 @@ impl FunctionEmitter<'_> {
             consumed_slots.extend(element.consumed_slots);
             let element_type = self.types.value(expected)?;
             let register = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ register.clone() }} = insert_value {
                     aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ aggregate }}),
                     element: typed({{ element_type.llvm }}, {{ element.value.representation }}),
                     indices: [{{ index }}],
                 };
-            );
+            };
             aggregate = register;
         }
         Some(PreparedValue {
@@ -109,16 +109,16 @@ impl FunctionEmitter<'_> {
         let sum_type = self.types.value(result_type)?;
         let member_type = self.types.value(member)?;
         let tag = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ tag.clone() }} = insert_value {
                 aggregate: typed({{ sum_type.llvm.clone() }}, "zeroinitializer"),
                 element: typed((int(32_u16)), {{ index.to_string() }}),
                 indices: [0],
             };
-        );
+        };
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ sum_type.llvm.clone() }}, {{ tag }}),
@@ -126,9 +126,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ sum_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         let payload = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ payload.clone() }} = get_element_ptr {
                 inbounds: true,
@@ -136,8 +136,8 @@ impl FunctionEmitter<'_> {
                 pointer: {{ storage.clone() }},
                 indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "1")],
             };
-        );
-        emit_instruction!(
+        };
+        emit_instruction! {
             self;
             store {
                 value: typed({{ member_type.llvm }}, {{ value.representation }}),
@@ -145,9 +145,9 @@ impl FunctionEmitter<'_> {
                 alignment: 1,
                 metadata: [],
             };
-        );
+        };
         let result = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ result.clone() }} = load {
                 ty: {{ sum_type.llvm.clone() }},
@@ -155,7 +155,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ sum_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         let owned = value.owned;
         Some(EmittedValue {
             ty: result_type.clone(),
@@ -180,42 +180,44 @@ impl FunctionEmitter<'_> {
             scrutinee.representation.clone()
         } else {
             let tag = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ tag.clone() }} = extract_value {
                     aggregate: typed({{ sum_type.llvm.clone() }}, {{ scrutinee.representation.clone() }}),
                     indices: [0],
                 };
-            );
+            };
             tag
         };
-        let tag_type = llvm_type!(int({
-            {
-                if is_bool(&scrutinee.ty) {
-                    1_u16
-                } else {
-                    32_u16
+        let tag_type = llvm_type! {
+            int({
+                {
+                    if is_bool(&scrutinee.ty) {
+                        1_u16
+                    } else {
+                        32_u16
+                    }
                 }
-            }
-        }));
+            })
+        };
         let cases = arms.iter().map(|arm| {
             (
                 arm.index.to_string(),
                 format!("mal_case_{}_{}", site.0, arm.index),
             )
         });
-        emit_terminator!(
+        emit_terminator! {
             self;
             switch typed({{ tag_type }}, {{ tag }})  {
                 cases: [...{{ cases }}],
                 default: {{ format!("mal_invalid_case_{}", site.0) }},
             };
-        );
+        };
         self.block(format!("mal_invalid_case_{}", site.0));
-        emit_terminator!(
+        emit_terminator! {
             self;
             unreachable;
-        );
+        };
         for (arm_ordinal, arm) in arms.iter().enumerate() {
             let member = members.get(arm.index)?;
             self.block(format!("mal_case_{}_{}", site.0, arm.index));
@@ -241,12 +243,12 @@ impl FunctionEmitter<'_> {
                 site,
                 crate::execution::ownership::ControlPath::CaseArm(arm_ordinal),
             )?;
-            emit_terminator!(
+            emit_terminator! {
                 self;
                 branch {
                     target: {{ format!("mal_state_{}", arm.target.0) }},
                 };
-            );
+            };
         }
         Some(())
     }
@@ -296,7 +298,7 @@ impl FunctionEmitter<'_> {
         let sum_type = self.types.value(sum)?;
         let member_type = self.types.value(member)?;
         let storage = self.entry_alloca(&sum_type.llvm, sum_type.alignment);
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ sum_type.llvm.clone() }}, {{ value }}),
@@ -304,9 +306,9 @@ impl FunctionEmitter<'_> {
                 alignment: {{ sum_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         let pointer = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ pointer.clone() }} = get_element_ptr {
                 inbounds: true,
@@ -314,9 +316,9 @@ impl FunctionEmitter<'_> {
                 pointer: {{ storage }},
                 indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "1")],
             };
-        );
+        };
         let payload = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ payload.clone() }} = load {
                 ty: {{ member_type.llvm }},
@@ -324,7 +326,7 @@ impl FunctionEmitter<'_> {
                 alignment: 1,
                 metadata: [],
             };
-        );
+        };
         Some(payload)
     }
 }

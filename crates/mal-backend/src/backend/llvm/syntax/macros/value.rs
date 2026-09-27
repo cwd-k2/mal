@@ -2,7 +2,7 @@ macro_rules! llvm_value {
     ({{ $($rust:tt)* }}) => {
         Some({ $($rust)* })
     };
-    (typed($ty:tt, $value:tt)) => {
+    (typed($ty:tt, $value:tt $(,)?)) => {
         $crate::backend::llvm::syntax::TypedValue::new(
             $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
             $crate::backend::llvm::syntax::llvm_instruction_atom!($value),
@@ -17,7 +17,7 @@ macro_rules! llvm_values_item {
     ($values:ident; {{ $($rust:tt)* }}) => {
         $values.push({ $($rust)* })
     };
-    ($values:ident; typed($ty:tt, $value:tt)) => {
+    ($values:ident; typed($ty:tt, $value:tt $(,)?)) => {
         $values.push($crate::backend::llvm::syntax::llvm_value!(typed($ty, $value))?)
     };
 }
@@ -44,7 +44,7 @@ macro_rules! llvm_values_items {
         $crate::backend::llvm::syntax::llvm_values_item!($values; {{ $($rust)* }});
         $crate::backend::llvm::syntax::llvm_values_items!($values; $($($rest)*)?);
     };
-    ($values:ident; typed($ty:tt, $value:tt) $(, $($rest:tt)*)?) => {
+    ($values:ident; typed($ty:tt, $value:tt $(,)?) $(, $($rest:tt)*)?) => {
         $crate::backend::llvm::syntax::llvm_values_item!($values; typed($ty, $value));
         $crate::backend::llvm::syntax::llvm_values_items!($values; $($($rest)*)?);
     };

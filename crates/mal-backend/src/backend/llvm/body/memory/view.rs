@@ -18,7 +18,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let count = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ count.clone() }} = call {
                 tail: false,
@@ -26,7 +26,7 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_runtime_buffer_count"),
                 arguments: [typed((ptr), {{ buffer.representation.clone() }})],
             };
-        );
+        };
         Some(EmittedValue {
             ty: Type::USize,
             representation: count,
@@ -44,7 +44,7 @@ impl FunctionEmitter<'_> {
         }
         let data = self.active_buffer_data(buffer);
         let count = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ count.clone() }} = call {
                 tail: false,
@@ -52,19 +52,23 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_runtime_buffer_count"),
                 arguments: [typed((ptr), {{ buffer.representation.clone() }})],
             };
-        );
+        };
         let owner = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ owner.clone() }} = call {
                 tail: false,
                 result_type: (ptr),
                 callee: direct("mal_runtime_bytes_read"),
-                arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ data }}), typed({{ self.types.index_llvm_type() }}, {{ count.clone() }})],
+                arguments: [
+                    typed((ptr), "%mal_context"),
+                    typed((ptr), {{ data }}),
+                    typed({{ self.types.index_llvm_type() }}, {{ count.clone() }}),
+                ],
             };
-        );
+        };
         let copied_data = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ copied_data.clone() }} = call {
                 tail: false,
@@ -72,7 +76,7 @@ impl FunctionEmitter<'_> {
                 callee: direct("mal_runtime_bytes_data"),
                 arguments: [typed((ptr), {{ owner.clone() }})],
             };
-        );
+        };
         self.make_byte_view(&Type::Symbol, &owner, &copied_data, &count, true)
     }
 
@@ -86,15 +90,21 @@ impl FunctionEmitter<'_> {
         }
         let fields = self.byte_view_fields(symbol)?;
         let buffer = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ buffer.clone() }} = call {
                 tail: false,
                 result_type: (ptr),
                 callee: direct("mal_runtime_buffer_from"),
-                arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ fields.data }}), typed({{ self.types.index_llvm_type() }}, "0"), typed({{ self.types.index_llvm_type() }}, {{ fields.count }}), typed({{ self.types.index_llvm_type() }}, "1")],
+                arguments: [
+                    typed((ptr), "%mal_context"),
+                    typed((ptr), {{ fields.data }}),
+                    typed({{ self.types.index_llvm_type() }}, "0"),
+                    typed({{ self.types.index_llvm_type() }}, {{ fields.count }}),
+                    typed({{ self.types.index_llvm_type() }}, "1"),
+                ],
             };
-        );
+        };
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: buffer,
@@ -112,13 +122,13 @@ impl FunctionEmitter<'_> {
         let runtime = self.types.value(&value.ty)?;
         let [owner, data, count] = std::array::from_fn(|index| {
             let field = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ field.clone() }} = extract_value {
                     aggregate: typed({{ runtime.llvm.clone() }}, {{ value.representation.clone() }}),
                     indices: [{{ index }}],
                 };
-            );
+            };
             field
         });
         Some(ByteViewFields { owner, data, count })
@@ -137,32 +147,32 @@ impl FunctionEmitter<'_> {
         }
         let runtime = self.types.value(ty)?;
         let with_owner = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ with_owner.clone() }} = insert_value {
                 aggregate: typed({{ runtime.llvm.clone() }}, "poison"),
                 element: typed((ptr), {{ owner }}),
                 indices: [0],
             };
-        );
+        };
         let with_data = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ with_data.clone() }} = insert_value {
                 aggregate: typed({{ runtime.llvm.clone() }}, {{ with_owner }}),
                 element: typed((ptr), {{ data }}),
                 indices: [1],
             };
-        );
+        };
         let result = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ result.clone() }} = insert_value {
                 aggregate: typed({{ runtime.llvm }}, {{ with_data }}),
                 element: typed({{ self.types.index_llvm_type() }}, {{ count }}),
                 indices: [2],
             };
-        );
+        };
         Some(EmittedValue {
             ty: ty.clone(),
             representation: result,

@@ -17,7 +17,7 @@ impl FunctionEmitter<'_> {
             {
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     store {
                         value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -25,7 +25,7 @@ impl FunctionEmitter<'_> {
                         alignment: {{ value_type.alignment }},
                         metadata: [],
                     };
-                );
+                };
             }
             Pattern::Product { elements, ty, .. } if value.ty == *ty => {
                 let Type::Product(element_types) = ty else {
@@ -39,13 +39,13 @@ impl FunctionEmitter<'_> {
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ register.clone() }} = extract_value {
                             aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ value.representation.clone() }}),
                             indices: [{{ index }}],
                         };
-                    );
+                    };
                     self.store_self_tail_pattern(
                         element,
                         &EmittedValue {
@@ -121,7 +121,7 @@ impl FunctionEmitter<'_> {
                 self.retain_if_borrowed(&mut value)?;
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     store {
                         value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -129,7 +129,7 @@ impl FunctionEmitter<'_> {
                         alignment: {{ value_type.alignment }},
                         metadata: [],
                     };
-                );
+                };
             }
             Pattern::Binding { id, ty }
                 if crate::execution::ownership::is_managed(ty)
@@ -145,7 +145,7 @@ impl FunctionEmitter<'_> {
                 }
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     store {
                         value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -153,7 +153,7 @@ impl FunctionEmitter<'_> {
                         alignment: {{ value_type.alignment }},
                         metadata: [],
                     };
-                );
+                };
             }
             Pattern::Binding { id, ty }
                 if self.types.value(ty).is_some()
@@ -168,7 +168,7 @@ impl FunctionEmitter<'_> {
                 }
                 let slot = self.slots.get(id)?.clone();
                 let value_type = self.types.value(ty)?;
-                emit_instruction!(
+                emit_instruction! {
                     self;
                     store {
                         value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
@@ -176,7 +176,7 @@ impl FunctionEmitter<'_> {
                         alignment: {{ value_type.alignment }},
                         metadata: [],
                     };
-                );
+                };
             }
             Pattern::Product { elements, ty, .. } => {
                 let value = value?;
@@ -199,13 +199,13 @@ impl FunctionEmitter<'_> {
                     elements.iter().zip(element_types.iter()).enumerate()
                 {
                     let register = self.register();
-                    emit_instruction!(
+                    emit_instruction! {
                         self;
                         let {{ register.clone() }} = extract_value {
                             aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ value.representation.clone() }}),
                             indices: [{{ index }}],
                         };
-                    );
+                    };
                     self.store_pattern_to_destination(
                         element,
                         Some(&EmittedValue {

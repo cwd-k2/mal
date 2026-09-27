@@ -28,9 +28,11 @@ fn declaration(
         .into_iter()
         .map(|ty| llvm_parameter!(_ : {{ ty }}))
         .collect::<Vec<_>>();
-    llvm_declaration!(fn {{ name.into() }}(
-        ...{{ parameters }},
-    ) -> {{ result }};)
+    llvm_declaration! {
+        fn {{ name.into() }}(
+            ...{{ parameters }},
+        ) -> {{ result }};
+    }
 }
 
 fn add_declaration(

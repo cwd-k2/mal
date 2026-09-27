@@ -133,27 +133,27 @@ macro_rules! c_aggregate_fields_items {
         $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
     };
     ($fields:ident; fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field!(
+        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
             fn $name($($parameter)*) -> $kind($($result)*)
-        ));
+        });
         $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
     };
     ($fields:ident; fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }} $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field!(
+        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
             fn $name($($parameter)*) -> {{ $($result)* }}
-        ));
+        });
         $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
     };
     ($fields:ident; struct $name:tt { $($field:tt)* } $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field!(
+        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
             struct $name { $($field)* }
-        ));
+        });
         $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
     };
     ($fields:ident; union $name:tt { $($field:tt)* } $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field!(
+        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
             union $name { $($field)* }
-        ));
+        });
         $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
     };
 }
@@ -283,15 +283,15 @@ macro_rules! c_parameters_items {
         $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
     };
     ($parameters:ident; #[maybe_unused] $name:tt : $kind:ident($($type:tt)*) $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter!(
+        $parameters.push($crate::backend::c::syntax::c_parameter! {
             #[maybe_unused] $name : $kind($($type)*)
-        ));
+        });
         $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
     };
     ($parameters:ident; #[maybe_unused] $name:tt : {{ $($type:tt)* }} $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter!(
+        $parameters.push($crate::backend::c::syntax::c_parameter! {
             #[maybe_unused] $name : {{ $($type)* }}
-        ));
+        });
         $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
     };
     ($parameters:ident; $name:tt : $kind:ident($($type:tt)*) $(, $($rest:tt)*)?) => {
@@ -324,29 +324,29 @@ macro_rules! c_signature_from_parts {
 macro_rules! c_signature {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts!(
+        $crate::backend::c::syntax::c_signature_from_parts! {
             new; $name; [$($parameter)*]; $($result)+
-        )
+        }
     };
     (#[static] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts!(
+        $crate::backend::c::syntax::c_signature_from_parts! {
             static_function; $name; [$($parameter)*]; $($result)+
-        )
+        }
     };
     (#[static] #[inline] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts!(
+        $crate::backend::c::syntax::c_signature_from_parts! {
             static_inline; $name; [$($parameter)*]; $($result)+
-        )
+        }
     };
     (#[noreturn] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts!(
+        $crate::backend::c::syntax::c_signature_from_parts! {
             no_return; $name; [$($parameter)*]; $($result)+
-        )
+        }
     };
     (#[static] #[inline] #[noreturn] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {{
-        let signature = $crate::backend::c::syntax::c_signature!(
+        let signature = $crate::backend::c::syntax::c_signature! {
             fn $name($($parameter)*) -> $($result)+
-        );
+        };
         signature.with_specifiers([
             $crate::backend::c::syntax::FunctionSpecifier::Static,
             $crate::backend::c::syntax::FunctionSpecifier::Inline,

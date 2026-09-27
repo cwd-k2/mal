@@ -51,7 +51,7 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         self.sync_control_top()?;
         let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ register.clone() }} = call {
                 tail: {{ tail }},
@@ -59,7 +59,7 @@ impl FunctionEmitter<'_> {
                 callee: direct({{ function_name(target.id) }}),
                 arguments: [...{{ arguments }}],
             };
-        );
+        };
         if self.optimizations.localizes_control_storage(target.id) {
             self.refresh_control_storage();
         }
@@ -95,21 +95,21 @@ impl FunctionEmitter<'_> {
         };
         let closure_type = self.types.value(&callee.ty)?;
         let code = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ code.clone() }} = extract_value {
                 aggregate: typed({{ closure_type.llvm.clone() }}, {{ callee.representation.clone() }}),
                 indices: [0],
             };
-        );
+        };
         let environment = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ environment.clone() }} = extract_value {
                 aggregate: typed({{ closure_type.llvm }}, {{ callee.representation }}),
                 indices: [1],
             };
-        );
+        };
         let mut arguments = vec![
             (llvm_type!(ptr), "%mal_context".into()),
             (llvm_type!(ptr), "%mal_control_top".into()),
@@ -131,7 +131,7 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         self.sync_control_top()?;
         let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ register.clone() }} = call {
                 tail: {{ tail }},
@@ -139,7 +139,7 @@ impl FunctionEmitter<'_> {
                 callee: indirect({{ code }}),
                 arguments: [...{{ arguments }}],
             };
-        );
+        };
         if self
             .optimizations
             .site_may_relocate_control_storage(&self.execution.applications, site)
@@ -210,12 +210,13 @@ impl FunctionEmitter<'_> {
             self.emission_failed = true;
             return storage;
         };
-        let Some(instruction) = llvm_instruction!(
+        let instruction = llvm_instruction! {
             let {{ storage.clone() }} = alloca {
                 ty: {{ llvm.clone() }},
                 alignment: {{ alignment }},
             };
-        ) else {
+        };
+        let Some(instruction) = instruction else {
             self.emission_failed = true;
             return storage;
         };

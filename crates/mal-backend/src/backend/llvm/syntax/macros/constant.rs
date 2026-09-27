@@ -2,17 +2,17 @@ macro_rules! llvm_typed_constant {
     ({{ $($rust:tt)* }}) => {
         Some({ $($rust)* })
     };
-    (typed($ty:tt, $kind:ident($($constant:tt)*))) => {{
+    (typed($ty:tt, $kind:ident($($constant:tt)*) $(,)?)) => {{
         let ty = $crate::backend::llvm::syntax::llvm_instruction_type!($ty);
         $crate::backend::llvm::syntax::llvm_constant!($kind($($constant)*))
             .map(|constant| $crate::backend::llvm::syntax::TypedConstant::new(ty, constant))
     }};
-    (typed($ty:tt, $kind:ident { $($constant:tt)* })) => {{
+    (typed($ty:tt, $kind:ident { $($constant:tt)* } $(,)?)) => {{
         let ty = $crate::backend::llvm::syntax::llvm_instruction_type!($ty);
         $crate::backend::llvm::syntax::llvm_constant!($kind { $($constant)* })
             .map(|constant| $crate::backend::llvm::syntax::TypedConstant::new(ty, constant))
     }};
-    (typed($ty:tt, {{ $($constant:tt)* }})) => {{
+    (typed($ty:tt, {{ $($constant:tt)* }} $(,)?)) => {{
         let ty = $crate::backend::llvm::syntax::llvm_instruction_type!($ty);
         Some($crate::backend::llvm::syntax::TypedConstant::new(
             ty,

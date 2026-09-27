@@ -14,7 +14,7 @@ impl FunctionEmitter<'_> {
             return Some(());
         }
         let top = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ top.clone() }} = load {
                 ty: {{ self.types.index_llvm_type() }},
@@ -22,8 +22,8 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
-        emit_instruction!(
+        };
+        emit_instruction! {
             self;
             store {
                 value: typed({{ self.types.index_llvm_type() }}, {{ top }}),
@@ -31,7 +31,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.index_alignment() }},
                 metadata: [],
             };
-        );
+        };
         Some(())
     }
 }

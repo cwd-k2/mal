@@ -83,9 +83,11 @@ impl Types {
             }),
             Type::Symbol => self.byte_view(),
             Type::External { .. } => Some(ValueType {
-                llvm: llvm_type!(int({
-                    { u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()? }
-                })),
+                llvm: llvm_type! {
+                    int({
+                        { u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()? }
+                    })
+                },
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
             }),
@@ -129,9 +131,11 @@ impl Types {
                 size: self.target.pointer_size,
             },
             ValueType {
-                llvm: llvm_type!(int({
-                    { u16::try_from(self.target.index_size.checked_mul(8)?).ok()? }
-                })),
+                llvm: llvm_type! {
+                    int({
+                        { u16::try_from(self.target.index_size.checked_mul(8)?).ok()? }
+                    })
+                },
                 alignment: self.index_alignment(),
                 size: self.target.index_size,
             },
@@ -139,18 +143,22 @@ impl Types {
     }
 
     pub(in crate::backend::llvm) fn index_llvm_type(&self) -> LlvmType {
-        llvm_type!(int({
-            { u16::try_from(self.target.index_size * 8).expect("supported index width fits u16") }
-        }))
+        llvm_type! {
+            int({
+                { u16::try_from(self.target.index_size * 8).expect("supported index width fits u16") }
+            })
+        }
     }
 
     pub(in crate::backend::llvm) fn pointer_representation_llvm_type(&self) -> LlvmType {
-        llvm_type!(int({
-            {
-                u16::try_from(self.target.pointer_size * 8)
+        llvm_type! {
+            int({
+                {
+                    u16::try_from(self.target.pointer_size * 8)
                     .expect("supported pointer width fits u16")
-            }
-        }))
+                }
+            })
+        }
     }
 
     pub(in crate::backend::llvm) fn pointer_size(&self) -> usize {
@@ -275,9 +283,11 @@ fn aggregate_type(fields: Vec<ValueType>) -> Option<ValueType> {
         size = size.checked_add(field.size)?;
     }
     Some(ValueType {
-        llvm: llvm_type!(structure([...{
-            { fields.iter().map(|field| field.llvm.clone()) }
-        },])),
+        llvm: llvm_type! {
+            structure([...{
+                { fields.iter().map(|field| field.llvm.clone()) }
+            },])
+        },
         alignment,
         size: align(size, alignment)?,
     })

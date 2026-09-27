@@ -156,9 +156,11 @@ impl<'a> HostBodySignature<'a> {
         if let Some(parameter) = &self.parameter {
             parameters.push(c_parameter!("value": {{ parameter.c_type.clone() }}));
         }
-        c_signature!(#[static] fn {{ format!("mal_detail_{}", self.operation_name) }}(
-            ...{{ parameters }},
-        ) -> {{ self.raw_result_type.clone() }})
+        c_signature! {
+            #[static] fn {{ format!("mal_detail_{}", self.operation_name) }}(
+                ...{{ parameters }},
+            ) -> {{ self.raw_result_type.clone() }}
+        }
     }
 
     fn represents(&self, external: &ExternalOperation, types: &TypeRegistry) -> bool {

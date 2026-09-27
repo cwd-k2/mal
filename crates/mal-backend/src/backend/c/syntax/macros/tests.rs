@@ -9,10 +9,12 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     let name = "convert";
     let result = super::c_type!(named("uint32_t"));
     let trailing = [super::c_parameter!("value" : named("uint8_t"))];
-    let signature = super::c_signature!(#[static] #[inline] fn {{ name }}(
-        #[maybe_unused] "call": ptr(named("mal_call_t")),
-        ...{{ trailing }},
-    ) -> {{ result }});
+    let signature = super::c_signature! {
+        #[static] #[inline] fn {{ name }}(
+            #[maybe_unused] "call": ptr(named("mal_call_t")),
+            ...{{ trailing }},
+        ) -> {{ result }}
+    };
 
     assert_eq!(
         signature.render(),
@@ -25,14 +27,16 @@ fn composes_declarations_and_nested_aggregate_fields() {
     let trailing = [super::c_aggregate_field!("next" : ptr(struct("Node")))];
     let mut unit = TranslationUnit::default();
     unit.push(super::c_declaration!(type "Word" = named("uint32_t")));
-    unit.push(super::c_aggregate!(type "Node" = struct "Node" {
-        "value": named("Word"),
-        union "payload" {
-            "integer": named("int"),
-            "address": ptr(named("void")),
-        },
-        ...{{ trailing }},
-    }));
+    unit.push(super::c_aggregate! {
+        type "Node" = struct "Node" {
+            "value": named("Word"),
+            union "payload" {
+                "integer": named("int"),
+                "address": ptr(named("void")),
+            },
+            ...{{ trailing }},
+        }
+    });
 
     assert_eq!(
         unit.render(),
@@ -58,11 +62,13 @@ fn embeds_rust_expressions_once_inside_structured_expressions() {
         Expr::identifier("dynamic")
     };
 
-    let expression = super::c_expr!(conditional(
-        (greater((id("count")), (number(0)))),
-        (add({ { dynamic() } }, (number(1)))),
-        (cast((named("size_t")), (number(0))))
-    ));
+    let expression = super::c_expr! {
+        conditional(
+            (greater((id("count")), (number(0)))),
+            (add({ { dynamic() } }, (number(1)))),
+            (cast((named("size_t")), (number(0))))
+        )
+    };
 
     assert_eq!(evaluations.get(), 1);
     assert_eq!(
@@ -74,11 +80,13 @@ fn embeds_rust_expressions_once_inside_structured_expressions() {
 #[test]
 fn splices_runtime_call_arguments_in_order() {
     let middle = [Expr::identifier("second"), Expr::identifier("third")];
-    let expression = super::c_expr!(call("observe", [
-        id("first"),
-        ...{{ middle }},
-        id("fourth"),
-    ]));
+    let expression = super::c_expr! {
+        call("observe", [
+            id("first"),
+            ...{{ middle }},
+            id("fourth"),
+        ])
+    };
 
     assert_eq!(
         expression.to_string(),
@@ -90,11 +98,13 @@ fn splices_runtime_call_arguments_in_order() {
 fn constructs_compound_literals_from_static_and_rust_initializers() {
     let dynamic = Initializer::designated("second", Expr::number("2"));
     let trailing = [Initializer::positional(Expr::number("3"))];
-    let expression = super::c_expr!(compound((named("Pair")), [
-        field("first", (number(1))),
-        {{ dynamic }},
-        ...{{ trailing }},
-    ]));
+    let expression = super::c_expr! {
+        compound((named("Pair")), [
+            field("first", (number(1))),
+            {{ dynamic }},
+            ...{{ trailing }},
+        ])
+    };
 
     assert_eq!(
         expression.to_string(),
@@ -107,11 +117,11 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
     let statements = [super::c_statement!(call("observe", [id("value")]);)];
     let cases = [SwitchCase::case(
         Expr::number("1"),
-        super::c_block!({
+        super::c_block! {
             return (number(2));
-        }),
+        },
     )];
-    let body = super::c_block!({
+    let body = super::c_block! {
         let "value": named("int") = (number(0));
         ...{{ statements }}
         if (equal((id("value")), (number(0)))) {
@@ -120,10 +130,12 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
                 _ => { return (number(3)); },
             }
         }
-    });
-    let function = super::c_function!(signature {{
-        FunctionSignature::new("int", "example", [])
-    }} body {{ body }});
+    };
+    let function = super::c_function! {
+        signature {{
+            FunctionSignature::new("int", "example", [])
+        }} body {{ body }}
+    };
 
     assert_eq!(
         function.render(),
@@ -148,13 +160,13 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
 
 #[test]
 fn function_macro_embeds_signature_grammar_directly() {
-    let function = super::c_function!(
+    let function = super::c_function! {
         #[static] #[inline] fn "identity"(
             "value": named("uint32_t"),
         ) -> named("uint32_t") {
             return (id("value"));
         }
-    );
+    };
 
     assert_eq!(
         function.render(),

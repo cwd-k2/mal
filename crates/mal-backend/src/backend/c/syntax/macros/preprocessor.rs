@@ -36,9 +36,9 @@ macro_rules! c_directive {
             $crate::backend::c::syntax::c_scalar!($name),
         )
     };
-    (if $condition:tt) => {
+    (if ($kind:ident($($condition:tt)*))) => {
         $crate::backend::c::syntax::Directive::If(
-            $crate::backend::c::syntax::c_preprocessor_expr! $condition,
+            $crate::backend::c::syntax::c_preprocessor_expr!($kind($($condition)*)),
         )
     };
     (ifndef $name:tt) => {

@@ -30,12 +30,12 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             "mal_native_stack_is_deep",
             [llvm_type!(ptr), llvm_type!(ptr)],
         )
-        .with_attributes(llvm_function_attributes!(
+        .with_attributes(llvm_function_attributes! {
             nofree,
             nounwind,
             willreturn,
             memory_argmem_read
-        )),
+        }),
     );
     module.declare(declaration(llvm_type!(ptr), "llvm.stacksave", []));
     module.declare(declaration(

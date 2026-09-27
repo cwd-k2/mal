@@ -52,13 +52,13 @@ macro_rules! llvm_terminator {
     (return;) => {
         Some($crate::backend::llvm::syntax::Terminator::return_void())
     };
-    (return typed($ty:tt, $value:tt);) => {
+    (return typed($ty:tt, $value:tt $(,)?);) => {
         $crate::backend::llvm::syntax::Terminator::return_value(
             $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
             $crate::backend::llvm::syntax::llvm_scalar!($value),
         )
     };
-    (switch typed($ty:tt, $value:tt) {
+    (switch typed($ty:tt, $value:tt $(,)?) {
         cases: [$($case:tt)*],
         default: $default:tt $(,)?
     };) => {

@@ -187,21 +187,21 @@ macro_rules! llvm_function_attributes_items {
 
 macro_rules! llvm_signature_result {
     ($name:tt; [$($parameter:tt)*]; [$($attribute:tt)*]; $linkage:expr; $kind:ident($($result:tt)*)) => {
-        $crate::backend::llvm::syntax::llvm_signature_build!(
+        $crate::backend::llvm::syntax::llvm_signature_build! {
             $name; [$($parameter)*]; [$($attribute)*]; $linkage;
             $crate::backend::llvm::syntax::llvm_type!($kind($($result)*))
-        )
+        }
     };
     ($name:tt; [$($parameter:tt)*]; [$($attribute:tt)*]; $linkage:expr; $primitive:ident) => {
-        $crate::backend::llvm::syntax::llvm_signature_build!(
+        $crate::backend::llvm::syntax::llvm_signature_build! {
             $name; [$($parameter)*]; [$($attribute)*]; $linkage;
             $crate::backend::llvm::syntax::llvm_type!($primitive)
-        )
+        }
     };
     ($name:tt; [$($parameter:tt)*]; [$($attribute:tt)*]; $linkage:expr; {{ $($result:tt)* }}) => {
-        $crate::backend::llvm::syntax::llvm_signature_build!(
+        $crate::backend::llvm::syntax::llvm_signature_build! {
             $name; [$($parameter)*]; [$($attribute)*]; $linkage; { $($result)* }
-        )
+        }
     };
 }
 
@@ -225,26 +225,26 @@ macro_rules! llvm_signature_build {
 macro_rules! llvm_signature {
     ({{ $($rust:tt)* }}) => {{ $($rust)* }};
     (#[linkage(internal)] #[attributes($($attribute:tt)*)] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::llvm::syntax::llvm_signature_result!(
+        $crate::backend::llvm::syntax::llvm_signature_result! {
             $name; [$($parameter)*]; [$($attribute)*];
             Some($crate::backend::llvm::syntax::Linkage::Internal); $($result)+
-        )
+        }
     };
     (#[linkage(internal)] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::llvm::syntax::llvm_signature_result!(
+        $crate::backend::llvm::syntax::llvm_signature_result! {
             $name; [$($parameter)*]; [];
             Some($crate::backend::llvm::syntax::Linkage::Internal); $($result)+
-        )
+        }
     };
     (#[attributes($($attribute:tt)*)] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::llvm::syntax::llvm_signature_result!(
+        $crate::backend::llvm::syntax::llvm_signature_result! {
             $name; [$($parameter)*]; [$($attribute)*]; None; $($result)+
-        )
+        }
     };
     (fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::llvm::syntax::llvm_signature_result!(
+        $crate::backend::llvm::syntax::llvm_signature_result! {
             $name; [$($parameter)*]; []; None; $($result)+
-        )
+        }
     };
 }
 

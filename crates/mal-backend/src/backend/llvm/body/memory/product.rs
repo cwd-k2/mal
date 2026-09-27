@@ -18,13 +18,13 @@ impl FunctionEmitter<'_> {
         let fields = std::array::from_fn(|index| {
             let ty = &elements[index];
             let field = self.register();
-            emit_instruction!(
+            emit_instruction! {
                 self;
                 let {{ field.clone() }} = extract_value {
                     aggregate: typed({{ product_type.llvm.clone() }}, {{ product.representation.clone() }}),
                     indices: [{{ index }}],
                 };
-            );
+            };
             EmittedValue {
                 ty: ty.clone(),
                 representation: field,

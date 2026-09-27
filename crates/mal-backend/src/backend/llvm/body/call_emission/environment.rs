@@ -13,7 +13,7 @@ impl FunctionEmitter<'_> {
         let environment_type =
             Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
-        self.begin_function(llvm_signature!(
+        self.begin_function(llvm_signature! {
             #[linkage(internal)]
             fn {{ format!(
                 "mal_destroy_environment_{}",
@@ -21,10 +21,10 @@ impl FunctionEmitter<'_> {
             ) }}(
                 "%mal_environment" : ptr,
             ) -> void
-        ));
+        });
         self.block("entry");
         let environment = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ environment.clone() }} = load {
                 ty: {{ value_type.llvm }},
@@ -32,12 +32,12 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         self.release_value(&environment_type, &environment)?;
-        emit_terminator!(
+        emit_terminator! {
             self;
             return;
-        );
+        };
         self.finish_function()?;
         self.next_register = 0;
         Some(())
@@ -49,13 +49,13 @@ impl FunctionEmitter<'_> {
     ) -> Option<String> {
         let closure_type = self.types.value(&closure.ty)?;
         let environment = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ environment.clone() }} = extract_value {
                 aggregate: typed({{ closure_type.llvm }}, {{ closure.representation.clone() }}),
                 indices: [1],
             };
-        );
+        };
         Some(environment)
     }
 
@@ -64,7 +64,7 @@ impl FunctionEmitter<'_> {
             return "%mal_environment".into();
         }
         let environment = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ environment.clone() }} = load {
                 ty: (ptr),
@@ -72,7 +72,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ self.types.pointer_alignment() }},
                 metadata: [],
             };
-        );
+        };
         environment
     }
 }

@@ -18,11 +18,13 @@ pub(super) fn literal_definition(
     name: &str,
     bytes: &[u8],
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
-    llvm_global!(byte_owner {
-        name: { { name } },
-        bytes: { { bytes.to_vec() } },
-        alignment: { { STATIC_OWNER_ALIGNMENT } },
-    })
+    llvm_global! {
+        byte_owner {
+            name: { { name } },
+            bytes: { { bytes.to_vec() } },
+            alignment: { { STATIC_OWNER_ALIGNMENT } },
+        }
+    }
 }
 
 impl FunctionEmitter<'_> {
@@ -44,15 +46,18 @@ impl FunctionEmitter<'_> {
         let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::USize])?;
         let data = self.byte_view_fields(&symbol)?.data;
         let result = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ result.clone() }} = call {
                 tail: false,
                 result_type: (int(8_u16)),
                 callee: direct("mal_runtime_symbol_at"),
-                arguments: [typed((ptr), {{ data }}), typed({{ self.types.index_llvm_type() }}, {{ index.representation }})],
+                arguments: [
+                    typed((ptr), {{ data }}),
+                    typed({{ self.types.index_llvm_type() }}, {{ index.representation }}),
+                ],
             };
-        );
+        };
         Some(EmittedValue {
             ty: Type::UInt8,
             representation: result,
@@ -105,17 +110,26 @@ impl FunctionEmitter<'_> {
         } else {
             "mal_runtime_symbol_concatenate"
         };
-        emit_instruction!(
+        emit_instruction! {
             self;
             call {
                 tail: false,
                 result_type: (void),
                 callee: direct({{ operation }}),
-                arguments: [typed((ptr), "%mal_context"), typed((ptr), {{ result_storage }}), typed((ptr), {{ left_owner }}), typed((ptr), {{ left_data }}), typed({{ self.types.index_llvm_type() }}, {{ left_length }}), typed((ptr), {{ right_owner }}), typed((ptr), {{ right_data }}), typed({{ self.types.index_llvm_type() }}, {{ right_length }})],
+                arguments: [
+                    typed((ptr), "%mal_context"),
+                    typed((ptr), {{ result_storage }}),
+                    typed((ptr), {{ left_owner }}),
+                    typed((ptr), {{ left_data }}),
+                    typed({{ self.types.index_llvm_type() }}, {{ left_length }}),
+                    typed((ptr), {{ right_owner }}),
+                    typed((ptr), {{ right_data }}),
+                    typed({{ self.types.index_llvm_type() }}, {{ right_length }}),
+                ],
             };
-        );
+        };
         let result = self.register();
-        emit_instruction!(
+        emit_instruction! {
             self;
             let {{ result.clone() }} = load {
                 ty: {{ result_type.llvm }},
@@ -123,7 +137,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ result_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         Some(EmittedValue {
             ty: Type::Symbol,
             representation: result,
@@ -146,7 +160,7 @@ impl FunctionEmitter<'_> {
         let slot_index = slot.index;
         let value = self.atom(atom)?;
         let value_type = self.types.value(&Type::Symbol)?;
-        emit_instruction!(
+        emit_instruction! {
             self;
             store {
                 value: typed({{ value_type.llvm }}, "zeroinitializer"),
@@ -154,7 +168,7 @@ impl FunctionEmitter<'_> {
                 alignment: {{ value_type.alignment }},
                 metadata: [],
             };
-        );
+        };
         Some(EmittedValue {
             owned: true,
             ..value
