@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_1D16C337D6BA1A7C_H
-#define MAL_GENERATED_INTERFACE_1D16C337D6BA1A7C_H
+#ifndef MAL_GENERATED_INTERFACE_DF43A7660CAE03F4_H
+#define MAL_GENERATED_INTERFACE_DF43A7660CAE03F4_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocator;
@@ -24,32 +24,41 @@ typedef struct MalRepr_Product_1e5c20e9f358150e MalRepr_Product_1e5c20e9f358150e
 typedef struct MalRepr_Product_65117c10bbbba260 MalRepr_Product_65117c10bbbba260;
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1(field) \
+field(field_0, MalType_Allocator, mal_Allocator_t) \
+field(field_1, MalType_USize, mal_USize_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_917e57f57ce609a1_DEFINED
 #define MAL_DETAIL_RAW_REPR_917e57f57ce609a1_DEFINED
-struct MalRepr_Product_917e57f57ce609a1 {
-    MalType_Allocator field_0;
-    MalType_USize field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_917e57f57ce609a1, MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e(field) \
+field(field_0, MalType_Address, mal_Address_t) \
+field(field_1, MalType_USize, mal_USize_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
-struct MalRepr_Product_1e5c20e9f358150e {
-    MalType_Address field_0;
-    MalType_USize field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_65117c10bbbba260_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_65117c10bbbba260_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_65117c10bbbba260(field) \
+field(field_0, MalType_File, mal_File_t) \
+field(field_1, MalType_Address, mal_Address_t) \
+field(field_2, MalType_USize, mal_USize_t) \
+field(field_3, MalType_USize, mal_USize_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_65117c10bbbba260_DEFINED
 #define MAL_DETAIL_RAW_REPR_65117c10bbbba260_DEFINED
-struct MalRepr_Product_65117c10bbbba260 {
-    MalType_File field_0;
-    MalType_Address field_1;
-    MalType_USize field_2;
-    MalType_USize field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_65117c10bbbba260, MAL_DETAIL_REPR_FIELDS_65117c10bbbba260, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
@@ -83,37 +92,29 @@ typedef mal_repr_product_1e5c20e9f358150e_t mal_OutputBuffer_t;
 
 #ifndef MAL_DETAIL_HOST_REPR_917e57f57ce609a1_DEFINED
 #define MAL_DETAIL_HOST_REPR_917e57f57ce609a1_DEFINED
-struct mal_detail_repr_product_917e57f57ce609a1 {
-    mal_Allocator_t field_0;
-    mal_USize_t field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_917e57f57ce609a1, MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DEFINED
-struct mal_detail_repr_product_1e5c20e9f358150e {
-    mal_Address_t field_0;
-    mal_USize_t field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_65117c10bbbba260_DEFINED
 #define MAL_DETAIL_HOST_REPR_65117c10bbbba260_DEFINED
-struct mal_detail_repr_product_65117c10bbbba260 {
-    mal_File_t field_0;
-    mal_Address_t field_1;
-    mal_USize_t field_2;
-    mal_USize_t field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_65117c10bbbba260, MAL_DETAIL_REPR_FIELDS_65117c10bbbba260, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724(field) \
+field(field_0, MalType_Address, mal_Address_t) \
+field(field_1, MalType_USize, mal_USize_t) \
+field(field_2, MalType_USize, mal_USize_t)
+#endif
 #ifndef MAL_DETAIL_HOST_REPR_bebfef0e190e1724_DEFINED
 #define MAL_DETAIL_HOST_REPR_bebfef0e190e1724_DEFINED
-struct mal_detail_repr_product_bebfef0e190e1724 {
-    mal_Address_t field_0;
-    mal_USize_t field_1;
-    mal_USize_t field_2;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_bebfef0e190e1724, MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 /* Type helpers */

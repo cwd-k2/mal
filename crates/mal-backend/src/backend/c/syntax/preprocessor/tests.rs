@@ -1,5 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, FunctionDefinition, FunctionSignature, Parameter, Statement,
+    AggregateDefinition, AggregateField, Block, Expr, FunctionDefinition, FunctionSignature,
+    MacroInvocation, Parameter, Statement,
 };
 
 use super::{Directive, PreprocessorExpr};
@@ -49,5 +50,25 @@ fn renders_multiple_structured_function_items_in_a_macro() {
     assert_eq!(
         directive.render(),
         "#define MAL_DEFINE_value(value) \\\nstatic int32_t mal_detail_body(int32_t value); \\\nint32_t mal_ext_value(int32_t value) { \\\n    return mal_detail_body(value); \\\n} \\\nstatic int32_t mal_detail_body( \\\n    int32_t value \\\n)\n"
+    );
+}
+
+#[test]
+fn renders_aggregate_templates_without_raw_c_fragments() {
+    let directive = Directive::aggregate_define(
+        "DEFINE_PRODUCT",
+        ["tag", "fields", "field"],
+        AggregateDefinition::structure(
+            "tag",
+            [AggregateField::macro_invocation(MacroInvocation::new(
+                "fields",
+                [Expr::identifier("field")],
+            ))],
+        ),
+    );
+
+    assert_eq!(
+        directive.render(),
+        "#define DEFINE_PRODUCT(tag, fields, field) \\\nstruct tag { \\\n    fields(field) \\\n};\n"
     );
 }

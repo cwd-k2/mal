@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_51CB3CBD610567AF_H
-#define MAL_GENERATED_INTERFACE_51CB3CBD610567AF_H
+#ifndef MAL_GENERATED_INTERFACE_B5F8596A1E41BF1A_H
+#define MAL_GENERATED_INTERFACE_B5F8596A1E41BF1A_H
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DECLARED
@@ -14,12 +14,15 @@ typedef struct mal_detail_repr_product_1e36b8e9f3384819 mal_repr_product_1e36b8e
 #endif
 typedef mal_repr_product_1e36b8e9f3384819_t mal_SampleRecord_t;
 
+#ifndef MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819(field) \
+field(field_0, MalType_Int64, mal_Int64_t) \
+field(field_1, MalType_UInt8, mal_UInt8_t)
+#endif
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DEFINED
 #define MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DEFINED
-struct mal_detail_repr_product_1e36b8e9f3384819 {
-    mal_Int64_t field_0;
-    mal_UInt8_t field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1e36b8e9f3384819, MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 /* Canonical memory access */

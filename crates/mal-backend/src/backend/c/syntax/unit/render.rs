@@ -24,6 +24,14 @@ impl Comment {
 impl AggregateDefinition {
     pub(in crate::backend) fn render(&self) -> String {
         let mut output = String::new();
+        self.render_into(&mut output);
+        output
+    }
+
+    pub(in crate::backend::c::syntax) fn render_into(
+        &self,
+        output: &mut impl crate::backend::c::syntax::render::RenderWrite,
+    ) {
         if self.is_typedef {
             output.push_str("typedef ");
         }
@@ -53,22 +61,25 @@ impl AggregateDefinition {
                 output.push_str(alias);
             }
             output.push_str(";\n");
-            return output;
+            return;
         }
 
         output.push_str(" {\n");
-        render_fields(&mut output, &self.fields, 1);
+        render_fields(output, &self.fields, 1);
         output.push('}');
         if let Some(alias) = &self.alias {
             output.push(' ');
             output.push_str(alias);
         }
         output.push_str(";\n");
-        output
     }
 }
 
-fn render_fields(output: &mut String, fields: &[AggregateField], depth: usize) {
+pub(in crate::backend::c::syntax) fn render_fields(
+    output: &mut impl crate::backend::c::syntax::render::RenderWrite,
+    fields: &[AggregateField],
+    depth: usize,
+) {
     for field in fields {
         for _ in 0..depth {
             output.push_str("    ");
@@ -77,6 +88,10 @@ fn render_fields(output: &mut String, fields: &[AggregateField], depth: usize) {
             AggregateField::Declaration(declaration) => {
                 output.push_str(&declaration.render());
                 output.push_str(";\n");
+            }
+            AggregateField::MacroInvocation(invocation) => {
+                invocation.render_into(output);
+                output.push('\n');
             }
             AggregateField::Aggregate { kind, fields, name } => {
                 output.push_str(kind.keyword());

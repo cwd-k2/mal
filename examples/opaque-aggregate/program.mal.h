@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_D01E05F1C612587C_H
-#define MAL_GENERATED_INTERFACE_D01E05F1C612587C_H
+#ifndef MAL_GENERATED_INTERFACE_4916484C108ABEB0_H
+#define MAL_GENERATED_INTERFACE_4916484C108ABEB0_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -19,24 +19,27 @@ typedef struct MalRepr_Product_01ed5581230a2b12 MalRepr_Product_01ed5581230a2b12
 typedef struct MalRepr_Sum_e70fcef055657787 MalRepr_Sum_e70fcef055657787;
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12(field) \
+field(field_0, MalType_Allocation, mal_Allocation_t) \
+field(field_1, MalType_USize, mal_USize_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DEFINED
 #define MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DEFINED
-struct MalRepr_Product_01ed5581230a2b12 {
-    MalType_Allocation field_0;
-    MalType_USize field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_01ed5581230a2b12, MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_e70fcef055657787_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_e70fcef055657787_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_e70fcef055657787(field) \
+field(variant_0, MalType_Unit, mal_Unit_t) \
+field(variant_1, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_e70fcef055657787_DEFINED
 #define MAL_DETAIL_RAW_REPR_e70fcef055657787_DEFINED
-struct MalRepr_Sum_e70fcef055657787 {
-    uint32_t tag;
-    union {
-        MalType_Unit variant_0;
-        MalRepr_Product_01ed5581230a2b12 variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_e70fcef055657787, MAL_DETAIL_REPR_FIELDS_e70fcef055657787, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
@@ -55,21 +58,12 @@ typedef mal_repr_sum_e70fcef055657787_t mal_ResizeResult_t;
 
 #ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_DEFINED
 #define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_DEFINED
-struct mal_detail_repr_product_01ed5581230a2b12 {
-    mal_Allocation_t field_0;
-    mal_USize_t field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_01ed5581230a2b12, MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_DEFINED
 #define MAL_DETAIL_HOST_REPR_e70fcef055657787_DEFINED
-struct mal_detail_repr_sum_e70fcef055657787 {
-    uint32_t tag;
-    union {
-        mal_Unit_t variant_0;
-        mal_repr_product_01ed5581230a2b12_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_e70fcef055657787, MAL_DETAIL_REPR_FIELDS_e70fcef055657787, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 /* Type helpers */

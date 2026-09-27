@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_45F846CFE6A0707C_H
-#define MAL_GENERATED_INTERFACE_45F846CFE6A0707C_H
+#ifndef MAL_GENERATED_INTERFACE_9DD33C9CA964773F_H
+#define MAL_GENERATED_INTERFACE_9DD33C9CA964773F_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocator;
@@ -19,24 +19,27 @@ typedef struct MalRepr_Sum_4658c025c85e4628 MalRepr_Sum_4658c025c85e4628;
 typedef struct MalRepr_Product_917e59f57ce60d07 MalRepr_Product_917e59f57ce60d07;
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_4658c025c85e4628_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4658c025c85e4628_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4658c025c85e4628(field) \
+field(variant_0, MalType_Address, mal_Address_t) \
+field(variant_1, MalType_Unit, mal_Unit_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_4658c025c85e4628_DEFINED
 #define MAL_DETAIL_RAW_REPR_4658c025c85e4628_DEFINED
-struct MalRepr_Sum_4658c025c85e4628 {
-    uint32_t tag;
-    union {
-        MalType_Address variant_0;
-        MalType_Unit variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4658c025c85e4628, MAL_DETAIL_REPR_FIELDS_4658c025c85e4628, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07(field) \
+field(field_0, MalType_Allocator, mal_Allocator_t) \
+field(field_1, MalType_Address, mal_Address_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_917e59f57ce60d07_DEFINED
 #define MAL_DETAIL_RAW_REPR_917e59f57ce60d07_DEFINED
-struct MalRepr_Product_917e59f57ce60d07 {
-    MalType_Allocator field_0;
-    MalType_Address field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_917e59f57ce60d07, MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
@@ -62,31 +65,25 @@ typedef mal_repr_product_cc5512c1c1db9776_t mal_NodeRecord_t;
 
 #ifndef MAL_DETAIL_HOST_REPR_4658c025c85e4628_DEFINED
 #define MAL_DETAIL_HOST_REPR_4658c025c85e4628_DEFINED
-struct mal_detail_repr_sum_4658c025c85e4628 {
-    uint32_t tag;
-    union {
-        mal_Address_t variant_0;
-        mal_Unit_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4658c025c85e4628, MAL_DETAIL_REPR_FIELDS_4658c025c85e4628, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_917e59f57ce60d07_DEFINED
 #define MAL_DETAIL_HOST_REPR_917e59f57ce60d07_DEFINED
-struct mal_detail_repr_product_917e59f57ce60d07 {
-    mal_Allocator_t field_0;
-    mal_Address_t field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_917e59f57ce60d07, MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776(field) \
+field(field_0, MalType_Int32, mal_Int32_t) \
+field(field_1, MalType_UInt8, mal_UInt8_t) \
+field(field_2, MalType_Address, mal_Address_t) \
+field(field_3, MalType_Address, mal_Address_t)
+#endif
 #ifndef MAL_DETAIL_HOST_REPR_cc5512c1c1db9776_DEFINED
 #define MAL_DETAIL_HOST_REPR_cc5512c1c1db9776_DEFINED
-struct mal_detail_repr_product_cc5512c1c1db9776 {
-    mal_Int32_t field_0;
-    mal_UInt8_t field_1;
-    mal_Address_t field_2;
-    mal_Address_t field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_cc5512c1c1db9776, MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 /* Type helpers */

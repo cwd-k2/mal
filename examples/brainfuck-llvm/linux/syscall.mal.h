@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_966B2FC8399EDCC3_H
-#define MAL_GENERATED_INTERFACE_966B2FC8399EDCC3_H
+#ifndef MAL_GENERATED_INTERFACE_4EC23EACBFC69856_H
+#define MAL_GENERATED_INTERFACE_4EC23EACBFC69856_H
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_RAW_REPR_4647bb25c84fca76_DECLARED
@@ -57,140 +57,158 @@ typedef struct MalRepr_Product_bb3be5c1b83cb4f2 MalRepr_Product_bb3be5c1b83cb4f2
 typedef struct MalRepr_Sum_46708725c872772e MalRepr_Sum_46708725c872772e;
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_4647bb25c84fca76_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4647bb25c84fca76_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4647bb25c84fca76(field) \
+field(variant_0, MalType_Unit, mal_Unit_t) \
+field(variant_1, MalType_Address, mal_Address_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_4647bb25c84fca76_DEFINED
 #define MAL_DETAIL_RAW_REPR_4647bb25c84fca76_DEFINED
-struct MalRepr_Sum_4647bb25c84fca76 {
-    uint32_t tag;
-    union {
-        MalType_Unit variant_0;
-        MalType_Address variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4647bb25c84fca76, MAL_DETAIL_REPR_FIELDS_4647bb25c84fca76, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_fac85322fcb836ab_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_fac85322fcb836ab_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_fac85322fcb836ab(field) \
+field(field_0, MalRepr_Sum_4647bb25c84fca76, mal_repr_sum_4647bb25c84fca76_t) \
+field(field_1, MalType_ByteSize, mal_ByteSize_t) \
+field(field_2, MalType_Int32, mal_Int32_t) \
+field(field_3, MalType_Int32, mal_Int32_t) \
+field(field_4, MalType_Int32, mal_Int32_t) \
+field(field_5, MalType_UInt64, mal_UInt64_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_fac85322fcb836ab_DEFINED
 #define MAL_DETAIL_RAW_REPR_fac85322fcb836ab_DEFINED
-struct MalRepr_Product_fac85322fcb836ab {
-    MalRepr_Sum_4647bb25c84fca76 field_0;
-    MalType_ByteSize field_1;
-    MalType_Int32 field_2;
-    MalType_Int32 field_3;
-    MalType_Int32 field_4;
-    MalType_UInt64 field_5;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_fac85322fcb836ab, MAL_DETAIL_REPR_FIELDS_fac85322fcb836ab, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_4658c725c85e520d_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4658c725c85e520d_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4658c725c85e520d(field) \
+field(variant_0, MalType_Address, mal_Address_t) \
+field(variant_1, MalType_UInt32, mal_UInt32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_4658c725c85e520d_DEFINED
 #define MAL_DETAIL_RAW_REPR_4658c725c85e520d_DEFINED
-struct MalRepr_Sum_4658c725c85e520d {
-    uint32_t tag;
-    union {
-        MalType_Address variant_0;
-        MalType_UInt32 variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4658c725c85e520d, MAL_DETAIL_REPR_FIELDS_4658c725c85e520d, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_1a78737f3c5897b2_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1a78737f3c5897b2_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1a78737f3c5897b2(field) \
+field(field_0, MalType_Address, mal_Address_t) \
+field(field_1, MalType_ByteSize, mal_ByteSize_t) \
+field(field_2, MalType_ByteSize, mal_ByteSize_t) \
+field(field_3, MalType_Int32, mal_Int32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_1a78737f3c5897b2_DEFINED
 #define MAL_DETAIL_RAW_REPR_1a78737f3c5897b2_DEFINED
-struct MalRepr_Product_1a78737f3c5897b2 {
-    MalType_Address field_0;
-    MalType_ByteSize field_1;
-    MalType_ByteSize field_2;
-    MalType_Int32 field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1a78737f3c5897b2, MAL_DETAIL_REPR_FIELDS_1a78737f3c5897b2, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_1e5c21e9f35816c1_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1e5c21e9f35816c1_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_1e5c21e9f35816c1(field) \
+field(field_0, MalType_Address, mal_Address_t) \
+field(field_1, MalType_ByteSize, mal_ByteSize_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_1e5c21e9f35816c1_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c21e9f35816c1_DEFINED
-struct MalRepr_Product_1e5c21e9f35816c1 {
-    MalType_Address field_0;
-    MalType_ByteSize field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c21e9f35816c1, MAL_DETAIL_REPR_FIELDS_1e5c21e9f35816c1, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda(field) \
+field(variant_0, MalType_Unit, mal_Unit_t) \
+field(variant_1, MalType_UInt32, mal_UInt32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_4647c725c84fdeda_DEFINED
 #define MAL_DETAIL_RAW_REPR_4647c725c84fdeda_DEFINED
-struct MalRepr_Sum_4647c725c84fdeda {
-    uint32_t tag;
-    union {
-        MalType_Unit variant_0;
-        MalType_UInt32 variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4647c725c84fdeda, MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_bb0fbcc1b817345c_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_bb0fbcc1b817345c_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_bb0fbcc1b817345c(field) \
+field(field_0, MalType_Int32, mal_Int32_t) \
+field(field_1, MalType_Address, mal_Address_t) \
+field(field_2, MalType_Int32, mal_Int32_t) \
+field(field_3, MalType_UInt32, mal_UInt32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_bb0fbcc1b817345c_DEFINED
 #define MAL_DETAIL_RAW_REPR_bb0fbcc1b817345c_DEFINED
-struct MalRepr_Product_bb0fbcc1b817345c {
-    MalType_Int32 field_0;
-    MalType_Address field_1;
-    MalType_Int32 field_2;
-    MalType_UInt32 field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_bb0fbcc1b817345c, MAL_DETAIL_REPR_FIELDS_bb0fbcc1b817345c, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_463d9725c84738c5_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_463d9725c84738c5_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_463d9725c84738c5(field) \
+field(variant_0, MalType_Int32, mal_Int32_t) \
+field(variant_1, MalType_UInt32, mal_UInt32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_463d9725c84738c5_DEFINED
 #define MAL_DETAIL_RAW_REPR_463d9725c84738c5_DEFINED
-struct MalRepr_Sum_463d9725c84738c5 {
-    uint32_t tag;
-    union {
-        MalType_Int32 variant_0;
-        MalType_UInt32 variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_463d9725c84738c5, MAL_DETAIL_REPR_FIELDS_463d9725c84738c5, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_03ed250e4033fba7_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_03ed250e4033fba7_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_03ed250e4033fba7(field) \
+field(field_0, MalType_Int32, mal_Int32_t) \
+field(field_1, MalType_Int64, mal_Int64_t) \
+field(field_2, MalType_Int32, mal_Int32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_03ed250e4033fba7_DEFINED
 #define MAL_DETAIL_RAW_REPR_03ed250e4033fba7_DEFINED
-struct MalRepr_Product_03ed250e4033fba7 {
-    MalType_Int32 field_0;
-    MalType_Int64 field_1;
-    MalType_Int32 field_2;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_03ed250e4033fba7, MAL_DETAIL_REPR_FIELDS_03ed250e4033fba7, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_4662f725c866f822_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4662f725c866f822_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_4662f725c866f822(field) \
+field(variant_0, MalType_UInt64, mal_UInt64_t) \
+field(variant_1, MalType_UInt32, mal_UInt32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_4662f725c866f822_DEFINED
 #define MAL_DETAIL_RAW_REPR_4662f725c866f822_DEFINED
-struct MalRepr_Sum_4662f725c866f822 {
-    uint32_t tag;
-    union {
-        MalType_UInt64 variant_0;
-        MalType_UInt32 variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4662f725c866f822, MAL_DETAIL_REPR_FIELDS_4662f725c866f822, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_bb3be5c1b83cb4f2_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_bb3be5c1b83cb4f2_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_bb3be5c1b83cb4f2(field) \
+field(field_0, MalType_Int32, mal_Int32_t) \
+field(field_1, MalType_Address, mal_Address_t) \
+field(field_2, MalType_ByteSize, mal_ByteSize_t) \
+field(field_3, MalType_ByteSize, mal_ByteSize_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_bb3be5c1b83cb4f2_DEFINED
 #define MAL_DETAIL_RAW_REPR_bb3be5c1b83cb4f2_DEFINED
-struct MalRepr_Product_bb3be5c1b83cb4f2 {
-    MalType_Int32 field_0;
-    MalType_Address field_1;
-    MalType_ByteSize field_2;
-    MalType_ByteSize field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_bb3be5c1b83cb4f2, MAL_DETAIL_REPR_FIELDS_bb3be5c1b83cb4f2, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
+#ifndef MAL_DETAIL_REPR_FIELDS_46708725c872772e_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_46708725c872772e_DEFINED
+#define MAL_DETAIL_REPR_FIELDS_46708725c872772e(field) \
+field(variant_0, MalType_ByteSize, mal_ByteSize_t) \
+field(variant_1, MalType_UInt32, mal_UInt32_t)
+#endif
 #ifndef MAL_DETAIL_RAW_REPR_46708725c872772e_DEFINED
 #define MAL_DETAIL_RAW_REPR_46708725c872772e_DEFINED
-struct MalRepr_Sum_46708725c872772e {
-    uint32_t tag;
-    union {
-        MalType_ByteSize variant_0;
-        MalType_UInt32 variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_46708725c872772e, MAL_DETAIL_REPR_FIELDS_46708725c872772e, MAL_DETAIL_RAW_REPR_FIELD)
 
 #endif
 
@@ -262,127 +280,62 @@ typedef mal_repr_sum_4647c725c84fdeda_t mal_SyscallStatus_t;
 
 #ifndef MAL_DETAIL_HOST_REPR_4647bb25c84fca76_DEFINED
 #define MAL_DETAIL_HOST_REPR_4647bb25c84fca76_DEFINED
-struct mal_detail_repr_sum_4647bb25c84fca76 {
-    uint32_t tag;
-    union {
-        mal_Unit_t variant_0;
-        mal_Address_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4647bb25c84fca76, MAL_DETAIL_REPR_FIELDS_4647bb25c84fca76, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_fac85322fcb836ab_DEFINED
 #define MAL_DETAIL_HOST_REPR_fac85322fcb836ab_DEFINED
-struct mal_detail_repr_product_fac85322fcb836ab {
-    mal_repr_sum_4647bb25c84fca76_t field_0;
-    mal_ByteSize_t field_1;
-    mal_Int32_t field_2;
-    mal_Int32_t field_3;
-    mal_Int32_t field_4;
-    mal_UInt64_t field_5;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_fac85322fcb836ab, MAL_DETAIL_REPR_FIELDS_fac85322fcb836ab, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_4658c725c85e520d_DEFINED
 #define MAL_DETAIL_HOST_REPR_4658c725c85e520d_DEFINED
-struct mal_detail_repr_sum_4658c725c85e520d {
-    uint32_t tag;
-    union {
-        mal_Address_t variant_0;
-        mal_UInt32_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4658c725c85e520d, MAL_DETAIL_REPR_FIELDS_4658c725c85e520d, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1a78737f3c5897b2_DEFINED
 #define MAL_DETAIL_HOST_REPR_1a78737f3c5897b2_DEFINED
-struct mal_detail_repr_product_1a78737f3c5897b2 {
-    mal_Address_t field_0;
-    mal_ByteSize_t field_1;
-    mal_ByteSize_t field_2;
-    mal_Int32_t field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1a78737f3c5897b2, MAL_DETAIL_REPR_FIELDS_1a78737f3c5897b2, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c21e9f35816c1_DEFINED
 #define MAL_DETAIL_HOST_REPR_1e5c21e9f35816c1_DEFINED
-struct mal_detail_repr_product_1e5c21e9f35816c1 {
-    mal_Address_t field_0;
-    mal_ByteSize_t field_1;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1e5c21e9f35816c1, MAL_DETAIL_REPR_FIELDS_1e5c21e9f35816c1, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_4647c725c84fdeda_DEFINED
 #define MAL_DETAIL_HOST_REPR_4647c725c84fdeda_DEFINED
-struct mal_detail_repr_sum_4647c725c84fdeda {
-    uint32_t tag;
-    union {
-        mal_Unit_t variant_0;
-        mal_UInt32_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4647c725c84fdeda, MAL_DETAIL_REPR_FIELDS_4647c725c84fdeda, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_bb0fbcc1b817345c_DEFINED
 #define MAL_DETAIL_HOST_REPR_bb0fbcc1b817345c_DEFINED
-struct mal_detail_repr_product_bb0fbcc1b817345c {
-    mal_Int32_t field_0;
-    mal_Address_t field_1;
-    mal_Int32_t field_2;
-    mal_UInt32_t field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_bb0fbcc1b817345c, MAL_DETAIL_REPR_FIELDS_bb0fbcc1b817345c, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_463d9725c84738c5_DEFINED
 #define MAL_DETAIL_HOST_REPR_463d9725c84738c5_DEFINED
-struct mal_detail_repr_sum_463d9725c84738c5 {
-    uint32_t tag;
-    union {
-        mal_Int32_t variant_0;
-        mal_UInt32_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_463d9725c84738c5, MAL_DETAIL_REPR_FIELDS_463d9725c84738c5, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_03ed250e4033fba7_DEFINED
 #define MAL_DETAIL_HOST_REPR_03ed250e4033fba7_DEFINED
-struct mal_detail_repr_product_03ed250e4033fba7 {
-    mal_Int32_t field_0;
-    mal_Int64_t field_1;
-    mal_Int32_t field_2;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_03ed250e4033fba7, MAL_DETAIL_REPR_FIELDS_03ed250e4033fba7, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_4662f725c866f822_DEFINED
 #define MAL_DETAIL_HOST_REPR_4662f725c866f822_DEFINED
-struct mal_detail_repr_sum_4662f725c866f822 {
-    uint32_t tag;
-    union {
-        mal_UInt64_t variant_0;
-        mal_UInt32_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4662f725c866f822, MAL_DETAIL_REPR_FIELDS_4662f725c866f822, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_bb3be5c1b83cb4f2_DEFINED
 #define MAL_DETAIL_HOST_REPR_bb3be5c1b83cb4f2_DEFINED
-struct mal_detail_repr_product_bb3be5c1b83cb4f2 {
-    mal_Int32_t field_0;
-    mal_Address_t field_1;
-    mal_ByteSize_t field_2;
-    mal_ByteSize_t field_3;
-};
+MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_bb3be5c1b83cb4f2, MAL_DETAIL_REPR_FIELDS_bb3be5c1b83cb4f2, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_46708725c872772e_DEFINED
 #define MAL_DETAIL_HOST_REPR_46708725c872772e_DEFINED
-struct mal_detail_repr_sum_46708725c872772e {
-    uint32_t tag;
-    union {
-        mal_ByteSize_t variant_0;
-        mal_UInt32_t variant_1;
-    } payload;
-};
+MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_46708725c872772e, MAL_DETAIL_REPR_FIELDS_46708725c872772e, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 /* Type helpers */

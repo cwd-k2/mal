@@ -1,11 +1,11 @@
 use crate::backend::c::syntax::{
-    Declaration, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_declaration,
-    c_directive, c_type,
+    Declaration, MacroInvocation, TranslationUnit, TypeName, c_aggregate, c_declaration,
+    c_directive, c_expr, c_macro_invocation, c_type,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
 
-use super::super::{HostTypes, TypeRegistry, is_bool, sum_representation_fields};
+use super::super::{HostTypes, TypeRegistry, is_bool};
 
 impl TypeRegistry {
     pub(in crate::backend::c) fn host_value_declarations(
@@ -55,24 +55,41 @@ impl TypeRegistry {
             if !host.contains(ty) || is_bool(ty) {
                 continue;
             }
+            if !host.external_contains(ty)
+                && (matches!(ty, Type::Product(_))
+                    || matches!(ty, Type::Sum(members) if !members.is_empty()))
+            {
+                self.append_repr_descriptor(&mut output, ty);
+            }
             let guard = format!("MAL_DETAIL_HOST_REPR_{}_DEFINED", self.index(ty));
             output.push(c_directive!(ifndef #{ guard.clone() }));
             output.push(c_directive!(define #{ guard };));
             match ty {
-                Type::Product(elements) => {
-                    let fields = elements.iter().enumerate().map(|(field, ty)| {
-                        let name = format!("field_{field}");
-                        c_aggregate_field!(#{ name } : #{ self.host_value_c_type(ty, None) })
-                    });
+                Type::Product(_) => {
                     let tag = format!("mal_detail_repr_product_{}", self.index(ty));
-                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
+                    output.push(c_macro_invocation! {
+                        "MAL_DETAIL_DEFINE_PRODUCT_REPR"([
+                            id(#{ tag }),
+                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) }),
+                            id("MAL_DETAIL_HOST_REPR_FIELD"),
+                        ])
+                    });
                 }
                 Type::Sum(members) => {
-                    let fields = sum_representation_fields(members, |member| {
-                        self.host_value_c_type(member, None)
-                    });
                     let tag = format!("mal_detail_repr_sum_{}", self.index(ty));
-                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
+                    let template = if members.is_empty() {
+                        "MAL_DETAIL_DEFINE_EMPTY_SUM_REPR"
+                    } else {
+                        "MAL_DETAIL_DEFINE_SUM_REPR"
+                    };
+                    let mut arguments = vec![c_expr!(id(#{ tag }))];
+                    if !members.is_empty() {
+                        arguments.push(c_expr! {
+                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) })
+                        });
+                        arguments.push(c_expr!(id("MAL_DETAIL_HOST_REPR_FIELD")));
+                    }
+                    output.push(MacroInvocation::new(template, arguments));
                 }
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),

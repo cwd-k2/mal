@@ -50,8 +50,10 @@ owner moveは実行計画の一部である。共通byte storage、reference cou
 program固有のclosure environment destructorはfield型と順序を知るためLLVM IRに置き、generic allocation headerのreleaseは
 C runtimeを呼ぶ。
 
-file headerはaggregate helperのfunction bodyを型ごとに複製せず、fieldまたはvariantごとの差分を`MAL_DETAIL_` descriptorとして
-記録する。`mal.h`のprogram非依存templateがdescriptorを型変換とcanonical memory accessへ展開する。descriptorとtemplateは
+file headerはaggregate helperのfunction bodyやraw/host representationのfield列を型ごとに複製せず、fieldまたはvariantごとの差分を
+`MAL_DETAIL_` descriptorとして記録する。1つのshape descriptorはmember名、raw型、host型を持ち、`mal.h`のprogram非依存templateが
+raw/host representation定義へそれぞれ展開する。型変換とcanonical memory accessは必要な追加情報を持つ別descriptorを使う。
+巨大なaggregateのdescriptorは一定数のmemberごとに分割し、preprocessorの1つの論理行を無制限に伸ばさない。descriptorとtemplateは
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 
 ## Cとの境界

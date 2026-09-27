@@ -1,4 +1,5 @@
 use super::{AggregateDefinition, AggregateField, AggregateKind, Comment};
+use crate::backend::c::syntax::{MacroInvocation, c_expr};
 
 #[test]
 fn comments_cannot_terminate_their_own_delimiter() {
@@ -25,5 +26,21 @@ fn renders_nested_aggregate_definitions() {
     assert_eq!(
         definition.render(),
         "struct Value {\n    uint32_t tag;\n    union {\n        int32_t integer;\n    } payload;\n};\n"
+    );
+}
+
+#[test]
+fn renders_macro_invocations_as_aggregate_fields() {
+    let definition = AggregateDefinition::structure(
+        "Value",
+        [AggregateField::macro_invocation(MacroInvocation::new(
+            "fields",
+            [c_expr!(id("field"))],
+        ))],
+    );
+
+    assert_eq!(
+        definition.render(),
+        "struct Value {\n    fields(field)\n};\n"
     );
 }

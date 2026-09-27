@@ -269,6 +269,26 @@ static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAY
 
 /* Generated header templates */
 
+#define MAL_DETAIL_RAW_REPR_FIELD(member, raw_type, host_type) \
+raw_type member;
+#define MAL_DETAIL_HOST_REPR_FIELD(member, raw_type, host_type) \
+host_type member;
+#define MAL_DETAIL_DEFINE_PRODUCT_REPR(type_tag, fields, field) \
+struct type_tag { \
+    fields(field) \
+};
+#define MAL_DETAIL_DEFINE_SUM_REPR(type_tag, members, member) \
+struct type_tag { \
+    uint32_t tag; \
+    union { \
+        members(member) \
+    } payload; \
+};
+#define MAL_DETAIL_DEFINE_EMPTY_SUM_REPR(type_tag) \
+struct type_tag { \
+    uint32_t tag; \
+};
+
 #define MAL_DETAIL_DEFINE_CONVERSION(function_name, result_type, value_type, conversion) \
 static inline result_type function_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, value_type value) { \
     return conversion; \

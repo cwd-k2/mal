@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    AggregateField, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_aggregate_fields,
-    c_declaration, c_directive, c_type,
+    Directive, MacroInvocation, TranslationUnit, TypeName, c_aggregate, c_aggregate_fields,
+    c_declaration, c_directive, c_expr, c_macro_invocation, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -179,23 +179,41 @@ impl TypeRegistry {
             if host.external_contains(ty) != public {
                 continue;
             }
+            if matches!(ty, Type::Product(_))
+                || matches!(ty, Type::Sum(members) if !members.is_empty())
+            {
+                self.append_repr_descriptor(&mut output, ty);
+            }
             let guard = format!("MAL_DETAIL_RAW_REPR_{}_DEFINED", self.index(ty));
             output.push(c_directive!(ifndef #{ guard.clone() }));
             output.push(c_directive!(define #{ guard };));
             match ty {
-                Type::Product(elements) => {
-                    let fields = elements.iter().enumerate().map(|(element_index, element)| {
-                        let name = format!("field_{element_index}");
-                        c_aggregate_field!(#{ name } : #{ self.c_type(element) })
-                    });
+                Type::Product(_) => {
                     let tag = format!("MalRepr_Product_{}", self.index(ty));
-                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
+                    output.push(c_macro_invocation! {
+                        "MAL_DETAIL_DEFINE_PRODUCT_REPR"([
+                            id(#{ tag }),
+                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) }),
+                            id("MAL_DETAIL_RAW_REPR_FIELD"),
+                        ])
+                    });
                     output.blank_line();
                 }
                 Type::Sum(members) => {
                     let tag = format!("MalRepr_Sum_{}", self.index(ty));
-                    let fields = sum_representation_fields(members, |member| self.c_type(member));
-                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
+                    let template = if members.is_empty() {
+                        "MAL_DETAIL_DEFINE_EMPTY_SUM_REPR"
+                    } else {
+                        "MAL_DETAIL_DEFINE_SUM_REPR"
+                    };
+                    let mut arguments = vec![c_expr!(id(#{ tag }))];
+                    if !members.is_empty() {
+                        arguments.push(c_expr! {
+                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) })
+                        });
+                        arguments.push(c_expr!(id("MAL_DETAIL_RAW_REPR_FIELD")));
+                    }
+                    output.push(MacroInvocation::new(template, arguments));
                     output.blank_line();
                 }
                 Type::Function { parameter, result } => {
@@ -239,21 +257,53 @@ impl TypeRegistry {
         }
         output
     }
-}
 
-fn sum_representation_fields(
-    members: &[Type],
-    c_type: impl Fn(&Type) -> TypeName,
-) -> Vec<AggregateField> {
-    let mut fields = c_aggregate_fields!("tag": named("uint32_t"));
-    if !members.is_empty() {
-        let members = members.iter().enumerate().map(|(index, member)| {
-            let name = format!("variant_{index}");
-            c_aggregate_field!(#{ name } : #{ c_type(member) })
-        });
-        fields.push(c_aggregate_field!(union "payload" { ...#{ members } }));
+    fn append_repr_descriptor(&self, output: &mut TranslationUnit, ty: &Type) {
+        const FIELDS_PER_CHUNK: usize = 32;
+
+        let (member_prefix, elements) = match ty {
+            Type::Product(elements) => ("field", elements.as_ref()),
+            Type::Sum(members) => ("variant", members.as_ref()),
+            _ => unreachable!("only products and sums have field descriptors"),
+        };
+        let id = self.index(ty);
+        let descriptor = format!("MAL_DETAIL_REPR_FIELDS_{id}");
+        let guard = format!("{descriptor}_DEFINED");
+        output.push(c_directive!(ifndef #{ guard.clone() }));
+        output.push(c_directive!(define #{ guard };));
+
+        let fields = elements
+            .iter()
+            .enumerate()
+            .map(|(index, element)| {
+                MacroInvocation::new(
+                    "field",
+                    [
+                        c_expr!(id(#{ format!("{member_prefix}_{index}") })),
+                        c_expr!(id(#{ self.c_type(element).to_string() })),
+                        c_expr!(id(#{ self.host_value_c_type(element, None).to_string() })),
+                    ],
+                )
+            })
+            .collect::<Vec<_>>();
+
+        if fields.len() <= FIELDS_PER_CHUNK {
+            output.push(Directive::invocations_define(descriptor, ["field"], fields));
+        } else {
+            let mut chunks = Vec::new();
+            for (chunk_index, fields) in fields.chunks(FIELDS_PER_CHUNK).enumerate() {
+                let chunk = format!("{descriptor}_{chunk_index}");
+                output.push(Directive::invocations_define(
+                    chunk.clone(),
+                    ["field"],
+                    fields.iter().cloned(),
+                ));
+                chunks.push(MacroInvocation::new(chunk, [c_expr!(id("field"))]));
+            }
+            output.push(Directive::invocations_define(descriptor, ["field"], chunks));
+        }
+        output.push(c_directive!(endif));
     }
-    fields
 }
 
 pub(super) fn is_bool(ty: &Type) -> bool {
@@ -360,7 +410,29 @@ mod tests {
         ));
         assert!(declarations.contains("typedef mal_repr_product_1e5f7ae9f35ae3d3_t mal_Packet_t;"));
         assert!(declarations.contains("typedef mal_repr_sum_a47b44facfce4b92_t mal_Result_t;"));
-        assert!(declarations.contains("mal_Address_t field_1;"));
-        assert!(declarations.contains("mal_repr_product_1e5f7ae9f35ae3d3_t variant_1;"));
+        assert!(declarations.contains("field(field_1, MalType_Address, mal_Address_t)"));
+        assert!(declarations.contains(concat!(
+            "field(variant_1, MalRepr_Product_1e5f7ae9f35ae3d3, ",
+            "mal_repr_product_1e5f7ae9f35ae3d3_t)"
+        )));
+    }
+
+    #[test]
+    fn chunks_large_representation_descriptors() {
+        let product = Type::Product(vec![Type::UInt8; 33].into());
+        let mut registry = TypeRegistry::default();
+        registry.collect(&product);
+        let host = HostTypes {
+            types: vec![product],
+            ..HostTypes::default()
+        };
+
+        let declarations = registry.host_value_declarations(&host, &[]).render();
+
+        assert!(declarations.contains("#define MAL_DETAIL_REPR_FIELDS_"));
+        assert!(declarations.contains("_0(field)"));
+        assert!(declarations.contains("_1(field)"));
+        assert!(declarations.contains("_0(field) \\\n"));
+        assert!(declarations.contains("_1(field)\n"));
     }
 }

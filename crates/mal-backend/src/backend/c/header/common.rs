@@ -1,7 +1,8 @@
 use crate::backend::c::syntax::{
-    Block, Directive, FunctionDefinition, MacroInvocation, Statement, SwitchCase, TranslationUnit,
-    c_aggregate, c_block, c_comment, c_declaration, c_directive, c_expr, c_function, c_signature,
-    c_statement, c_type,
+    AggregateDefinition, AggregateField, AggregateKind, Block, Directive, FunctionDefinition,
+    MacroInvocation, Statement, SwitchCase, TranslationUnit, c_aggregate, c_aggregate_field,
+    c_block, c_comment, c_declaration, c_directive, c_expr, c_function, c_signature, c_statement,
+    c_type,
 };
 use crate::backend::c::types::TypeRegistry;
 
@@ -186,6 +187,7 @@ pub(super) fn emit() -> String {
 fn append_generated_header_templates(output: &mut TranslationUnit) {
     output.push(c_comment!("Generated header templates"));
     output.blank_line();
+    append_aggregate_templates(output);
     let conversion = c_function! {
         #[static] #[inline] fn "function_name"(
             #[maybe_unused] "call": ptr(named("mal_call_t")),
@@ -249,6 +251,55 @@ fn append_generated_header_templates(output: &mut TranslationUnit) {
     append_sum_memory_template(output);
     append_sum_conversion_template(output);
     append_sum_api_templates(output);
+}
+
+fn append_aggregate_templates(output: &mut TranslationUnit) {
+    output.push(Directive::aggregate_fields_define(
+        "MAL_DETAIL_RAW_REPR_FIELD",
+        ["member", "raw_type", "host_type"],
+        [c_aggregate_field!("member": named("raw_type"))],
+    ));
+    output.push(Directive::aggregate_fields_define(
+        "MAL_DETAIL_HOST_REPR_FIELD",
+        ["member", "raw_type", "host_type"],
+        [c_aggregate_field!("member": named("host_type"))],
+    ));
+
+    let descriptor_fields = || {
+        [AggregateField::macro_invocation(MacroInvocation::new(
+            "fields",
+            [c_expr!(id("field"))],
+        ))]
+    };
+    output.push(Directive::aggregate_define(
+        "MAL_DETAIL_DEFINE_PRODUCT_REPR",
+        ["type_tag", "fields", "field"],
+        AggregateDefinition::structure("type_tag", descriptor_fields()),
+    ));
+    output.push(Directive::aggregate_define(
+        "MAL_DETAIL_DEFINE_SUM_REPR",
+        ["type_tag", "members", "member"],
+        AggregateDefinition::structure(
+            "type_tag",
+            [
+                c_aggregate_field!("tag": named("uint32_t")),
+                AggregateField::aggregate(
+                    AggregateKind::Union,
+                    [AggregateField::macro_invocation(MacroInvocation::new(
+                        "members",
+                        [c_expr!(id("member"))],
+                    ))],
+                    "payload",
+                ),
+            ],
+        ),
+    ));
+    output.push(Directive::aggregate_define(
+        "MAL_DETAIL_DEFINE_EMPTY_SUM_REPR",
+        ["type_tag"],
+        AggregateDefinition::structure("type_tag", [c_aggregate_field!("tag": named("uint32_t"))]),
+    ));
+    output.blank_line();
 }
 
 fn append_product_memory_template(output: &mut TranslationUnit) {

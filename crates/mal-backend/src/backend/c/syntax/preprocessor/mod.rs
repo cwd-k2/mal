@@ -1,6 +1,9 @@
 use std::ops::Deref;
 
-use super::{Expr, FunctionDefinition, FunctionSignature, Identifier, Statement, SwitchCase};
+use super::{
+    AggregateDefinition, AggregateField, Expr, FunctionDefinition, FunctionSignature, Identifier,
+    Statement, SwitchCase,
+};
 
 mod render;
 
@@ -64,6 +67,16 @@ pub(in crate::backend) enum Directive {
         name: Identifier,
         parameters: Vec<MacroParameter>,
         invocations: Vec<MacroInvocation>,
+    },
+    AggregateDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        definition: AggregateDefinition,
+    },
+    AggregateFieldsDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        fields: Vec<AggregateField>,
     },
     StatementsDefine {
         name: Identifier,
@@ -183,6 +196,30 @@ impl Directive {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             invocations: invocations.into_iter().collect(),
+        }
+    }
+
+    pub(in crate::backend) fn aggregate_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        definition: AggregateDefinition,
+    ) -> Self {
+        Self::AggregateDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            definition,
+        }
+    }
+
+    pub(in crate::backend) fn aggregate_fields_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        fields: impl IntoIterator<Item = AggregateField>,
+    ) -> Self {
+        Self::AggregateFieldsDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            fields: fields.into_iter().collect(),
         }
     }
 

@@ -87,6 +87,20 @@ impl Directive {
                     })
                 }
             }
+            Self::AggregateDefine {
+                name,
+                parameters,
+                definition,
+            } => render_replacement(name, parameters, |output| {
+                definition.render_into(output);
+            }),
+            Self::AggregateFieldsDefine {
+                name,
+                parameters,
+                fields,
+            } => render_replacement(name, parameters, |output| {
+                crate::backend::c::syntax::unit::render::render_fields(output, fields, 0);
+            }),
             Self::StatementsDefine {
                 name,
                 parameters,

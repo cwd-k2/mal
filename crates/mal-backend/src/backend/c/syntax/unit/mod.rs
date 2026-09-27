@@ -1,6 +1,6 @@
-use super::{Expr, FunctionSignature, Identifier, TypeName, VariableDeclaration};
+use super::{Expr, FunctionSignature, Identifier, MacroInvocation, TypeName, VariableDeclaration};
 
-mod render;
+pub(in crate::backend::c::syntax) mod render;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend) enum Declaration {
@@ -30,6 +30,7 @@ pub(in crate::backend) enum AggregateKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend) enum AggregateField {
     Declaration(VariableDeclaration),
+    MacroInvocation(MacroInvocation),
     Aggregate {
         kind: AggregateKind,
         fields: Vec<Self>,
@@ -123,6 +124,10 @@ impl AggregateField {
             fields: fields.into_iter().collect(),
             name: name.into(),
         }
+    }
+
+    pub(in crate::backend) fn macro_invocation(invocation: MacroInvocation) -> Self {
+        Self::MacroInvocation(invocation)
     }
 }
 
