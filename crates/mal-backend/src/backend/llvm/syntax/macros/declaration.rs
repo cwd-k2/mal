@@ -249,56 +249,41 @@ macro_rules! llvm_signature_normalized {
 }
 
 macro_rules! llvm_type {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_type_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_type]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_type_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_parameter {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_parameter_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_parameter]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_parameter_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_parameters {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_parameters_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_parameters]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_parameters_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_function_attributes {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_function_attributes_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_function_attributes]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_function_attributes_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_signature {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_signature_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_signature]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_signature_normalized]; $($syntax)*
         )
     };
 }

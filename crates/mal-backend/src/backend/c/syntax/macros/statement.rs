@@ -178,34 +178,25 @@ macro_rules! c_block_items_normalized {
 }
 
 macro_rules! c_switch_case {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_switch_case_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_switch_case]; $($syntax)*
+            [$crate::backend::c::syntax::c_switch_case_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_statement {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_statement_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_statement]; $($syntax)*
+            [$crate::backend::c::syntax::c_statement_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_block {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_block_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_block]; $($syntax)*
+            [$crate::backend::c::syntax::c_block_normalized]; $($syntax)*
         )
     };
 }

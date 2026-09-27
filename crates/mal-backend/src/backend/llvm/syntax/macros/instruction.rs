@@ -233,12 +233,9 @@ macro_rules! llvm_instruction_normalized {
 }
 
 macro_rules! llvm_instruction {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_instruction_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_instruction]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_instruction_normalized]; $($syntax)*
         )
     };
 }

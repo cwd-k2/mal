@@ -358,111 +358,81 @@ macro_rules! c_signature_normalized {
 }
 
 macro_rules! c_comment {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_comment_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_comment]; $($syntax)*
+            [$crate::backend::c::syntax::c_comment_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_type {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_type_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_type]; $($syntax)*
+            [$crate::backend::c::syntax::c_type_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_variable {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_variable_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_variable]; $($syntax)*
+            [$crate::backend::c::syntax::c_variable_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_aggregate_field {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_aggregate_field_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_aggregate_field]; $($syntax)*
+            [$crate::backend::c::syntax::c_aggregate_field_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_aggregate_fields {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_aggregate_fields_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_aggregate_fields]; $($syntax)*
+            [$crate::backend::c::syntax::c_aggregate_fields_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_aggregate {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_aggregate_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_aggregate]; $($syntax)*
+            [$crate::backend::c::syntax::c_aggregate_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_declaration {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_declaration_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_declaration]; $($syntax)*
+            [$crate::backend::c::syntax::c_declaration_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_parameter {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_parameter_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_parameter]; $($syntax)*
+            [$crate::backend::c::syntax::c_parameter_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_parameters {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_parameters_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_parameters]; $($syntax)*
+            [$crate::backend::c::syntax::c_parameters_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_signature {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_signature_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_signature]; $($syntax)*
+            [$crate::backend::c::syntax::c_signature_normalized]; $($syntax)*
         )
     };
 }

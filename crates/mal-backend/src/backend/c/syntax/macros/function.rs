@@ -86,12 +86,9 @@ macro_rules! c_function_normalized {
 }
 
 macro_rules! c_function {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_function_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_function]; $($syntax)*
+            [$crate::backend::c::syntax::c_function_normalized]; $($syntax)*
         )
     };
 }

@@ -149,46 +149,34 @@ macro_rules! llvm_metadata_normalized {
 }
 
 macro_rules! llvm_declaration {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_declaration_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_declaration]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_declaration_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_global {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_global_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_global]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_global_normalized]; $($syntax)*
         )
     };
 }
 
 #[cfg(test)]
 macro_rules! llvm_metadata_operand {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_metadata_operand_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_metadata_operand]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_metadata_operand_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_metadata {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_metadata_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_metadata]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_metadata_normalized]; $($syntax)*
         )
     };
 }

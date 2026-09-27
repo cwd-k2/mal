@@ -153,23 +153,17 @@ macro_rules! llvm_constant_normalized {
 }
 
 macro_rules! llvm_typed_constant {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_typed_constant_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_typed_constant]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_typed_constant_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! llvm_constant {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::llvm::syntax::llvm_constant_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::llvm::syntax::llvm_constant]; $($syntax)*
+            [$crate::backend::llvm::syntax::llvm_constant_normalized]; $($syntax)*
         )
     };
 }

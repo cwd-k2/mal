@@ -79,23 +79,17 @@ macro_rules! c_macro_invocation_normalized {
 }
 
 macro_rules! c_directive {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_directive_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_directive]; $($syntax)*
+            [$crate::backend::c::syntax::c_directive_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_macro_invocation {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_macro_invocation_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_macro_invocation]; $($syntax)*
+            [$crate::backend::c::syntax::c_macro_invocation_normalized]; $($syntax)*
         )
     };
 }

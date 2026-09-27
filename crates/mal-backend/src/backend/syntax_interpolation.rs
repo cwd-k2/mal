@@ -41,7 +41,7 @@ macro_rules! normalize_syntax_interpolation {
     };
 
     (@continue [root $($callback:tt)+] [$($output:tt)*]) => {
-        $($callback)+!(@normalized $($output)*)
+        $($callback)+!($($output)*)
     };
     (@continue [parentheses [$($continuation:tt)*] [$($output:tt)*] [$($rest:tt)*]]
         [$($inner:tt)*]) => {

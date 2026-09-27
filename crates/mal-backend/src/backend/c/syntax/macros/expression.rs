@@ -206,23 +206,17 @@ macro_rules! c_expr_normalized {
 }
 
 macro_rules! c_initializer {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_initializer_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_initializer]; $($syntax)*
+            [$crate::backend::c::syntax::c_initializer_normalized]; $($syntax)*
         )
     };
 }
 
 macro_rules! c_expr {
-    (@normalized $($syntax:tt)*) => {
-        $crate::backend::c::syntax::c_expr_normalized!($($syntax)*)
-    };
     ($($syntax:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(
-            [$crate::backend::c::syntax::c_expr]; $($syntax)*
+            [$crate::backend::c::syntax::c_expr_normalized]; $($syntax)*
         )
     };
 }
