@@ -1,8 +1,8 @@
 # C / LLVM構文構築
 
-この文書はgenerated CとLLVM IRを構築する内部DSLの境界、記法、coverageを定める。backendが生成する
-意味とartifactの責務は[compilerの責務境界](responsibilities.md)および
-[実行backend](execution-backend.md)を正とする。
+この文書はgenerated CとLLVM IRを構築する内部DSLの境界、記法、coverageを定める。利用可能なmacro、constructor、
+field labelは[内部DSL reference](backend-syntax-reference.md)から引く。backendが生成する意味とartifactの責務は
+[compilerの責務境界](responsibilities.md)および[実行backend](execution-backend.md)を正とする。
 
 ## 構築経路
 
