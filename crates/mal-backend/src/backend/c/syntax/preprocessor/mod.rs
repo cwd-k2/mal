@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use super::{
     AggregateDefinition, AggregateField, Expr, FunctionDefinition, FunctionSignature, Identifier,
-    Statement, SwitchCase,
+    Initializer, Statement, SwitchCase,
 };
 
 mod render;
@@ -51,6 +51,11 @@ pub(in crate::backend) enum Directive {
         name: Identifier,
         value: Option<MacroValue>,
     },
+    ExpressionDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        expression: Expr,
+    },
     FunctionItemsDefine {
         name: Identifier,
         parameters: Vec<MacroParameter>,
@@ -77,6 +82,11 @@ pub(in crate::backend) enum Directive {
         name: Identifier,
         parameters: Vec<MacroParameter>,
         fields: Vec<AggregateField>,
+    },
+    InitializersDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        initializers: Vec<Initializer>,
     },
     StatementsDefine {
         name: Identifier,
@@ -159,6 +169,18 @@ impl Directive {
         }
     }
 
+    pub(in crate::backend) fn expression_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        expression: Expr,
+    ) -> Self {
+        Self::ExpressionDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            expression,
+        }
+    }
+
     pub(in crate::backend) fn function_items_define(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
@@ -220,6 +242,18 @@ impl Directive {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             fields: fields.into_iter().collect(),
+        }
+    }
+
+    pub(in crate::backend) fn initializers_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        initializers: impl IntoIterator<Item = Initializer>,
+    ) -> Self {
+        Self::InitializersDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            initializers: initializers.into_iter().collect(),
         }
     }
 

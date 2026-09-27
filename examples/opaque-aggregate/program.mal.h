@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_4916484C108ABEB0_H
-#define MAL_GENERATED_INTERFACE_4916484C108ABEB0_H
+#ifndef MAL_GENERATED_INTERFACE_38E59D77ACC041CE_H
+#define MAL_GENERATED_INTERFACE_38E59D77ACC041CE_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -21,9 +21,9 @@ typedef struct MalRepr_Sum_e70fcef055657787 MalRepr_Sum_e70fcef055657787;
 
 #ifndef MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12(field) \
-field(field_0, MalType_Allocation, mal_Allocation_t) \
-field(field_1, MalType_USize, mal_USize_t)
+#define MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12(field, context) \
+field(context, 0, field_0, MalType_Allocation, mal_Allocation_t, mal_detail_to_host_Allocation, mal_Allocation_return) \
+field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DEFINED
 #define MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DEFINED
@@ -33,9 +33,9 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_01ed5581230a2b12, MAL_DETAIL_REPR
 
 #ifndef MAL_DETAIL_REPR_FIELDS_e70fcef055657787_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_e70fcef055657787_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_e70fcef055657787(field) \
-field(variant_0, MalType_Unit, mal_Unit_t) \
-field(variant_1, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t)
+#define MAL_DETAIL_REPR_FIELDS_e70fcef055657787(field, context) \
+field(context, 0, variant_0, MalType_Unit, mal_Unit_t, mal_detail_convert_Unit, mal_detail_convert_Unit) \
+field(context, 1, variant_1, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, mal_detail_to_host_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_return)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_e70fcef055657787_DEFINED
 #define MAL_DETAIL_RAW_REPR_e70fcef055657787_DEFINED
@@ -73,21 +73,12 @@ static inline MalType_Allocation mal_Allocation_return(mal_call_t *call MAL_DETA
 
 #ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
 #define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
-#define MAL_DETAIL_TO_HOST_01ed5581230a2b12 (mal_repr_product_01ed5581230a2b12_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = value.field_0.bits }, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, MalRepr_Product_01ed5581230a2b12, MAL_DETAIL_TO_HOST_01ed5581230a2b12)
-#define MAL_DETAIL_TO_RAW_01ed5581230a2b12 (MalRepr_Product_01ed5581230a2b12){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_01ed5581230a2b12_return, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, MAL_DETAIL_TO_RAW_01ed5581230a2b12)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_return, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, MAL_DETAIL_REPR_FIELDS_01ed5581230a2b12)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS
 #define MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS
-#define MAL_DETAIL_TO_HOST_MEMBERS_e70fcef055657787(case, result_type) \
-case(result_type, 0, variant_0, mal_detail_convert_Unit) \
-case(result_type, 1, variant_1, mal_detail_to_host_01ed5581230a2b12)
-#define MAL_DETAIL_TO_RAW_MEMBERS_e70fcef055657787(case, result_type) \
-case(result_type, 0, variant_0, mal_detail_convert_Unit) \
-case(result_type, 1, variant_1, mal_repr_product_01ed5581230a2b12_return)
-MAL_DETAIL_DEFINE_SUM_CONVERSIONS(mal_detail_to_host_e70fcef055657787, mal_detail_to_raw_e70fcef055657787, MalRepr_Sum_e70fcef055657787, mal_repr_sum_e70fcef055657787_t, MAL_DETAIL_TO_HOST_MEMBERS_e70fcef055657787, MAL_DETAIL_TO_RAW_MEMBERS_e70fcef055657787)
+MAL_DETAIL_DEFINE_SUM_CONVERSIONS(mal_detail_to_host_e70fcef055657787, mal_detail_to_raw_e70fcef055657787, MalRepr_Sum_e70fcef055657787, mal_repr_sum_e70fcef055657787_t, MAL_DETAIL_REPR_FIELDS_e70fcef055657787)
 
 #define mal_repr_sum_e70fcef055657787_tag_0 UINT32_C(0)
 #define mal_repr_sum_e70fcef055657787_tag_1 UINT32_C(1)

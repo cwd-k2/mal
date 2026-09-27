@@ -65,13 +65,16 @@ macro_rules! binary_constructors {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend) struct Initializer {
-    designators: Vec<Designator>,
-    value: Expr,
+pub(in crate::backend) enum Initializer {
+    Value {
+        designators: Vec<Designator>,
+        value: Expr,
+    },
+    MacroInvocation(super::MacroInvocation),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum Designator {
+pub(in crate::backend) enum Designator {
     Field(Identifier),
 }
 
@@ -188,14 +191,14 @@ impl Expr {
 
 impl Initializer {
     pub(in crate::backend) fn positional(value: Expr) -> Self {
-        Self {
+        Self::Value {
             designators: Vec::new(),
             value,
         }
     }
 
     pub(in crate::backend) fn designated(name: impl Into<Identifier>, value: Expr) -> Self {
-        Self {
+        Self::Value {
             designators: vec![Designator::Field(name.into())],
             value,
         }
@@ -205,7 +208,7 @@ impl Initializer {
         path: impl IntoIterator<Item = impl Into<Identifier>>,
         value: Expr,
     ) -> Self {
-        Self {
+        Self::Value {
             designators: path
                 .into_iter()
                 .map(|name| Designator::Field(name.into()))
@@ -214,8 +217,22 @@ impl Initializer {
         }
     }
 
-    pub(super) fn render(&self, output: &mut impl super::render::RenderWrite) {
-        for designator in &self.designators {
+    pub(in crate::backend) fn macro_invocation(invocation: super::MacroInvocation) -> Self {
+        Self::MacroInvocation(invocation)
+    }
+
+    pub(in crate::backend::c::syntax) fn render(
+        &self,
+        output: &mut impl super::render::RenderWrite,
+    ) {
+        let Self::Value { designators, value } = self else {
+            let Self::MacroInvocation(invocation) = self else {
+                unreachable!()
+            };
+            invocation.render_into(output);
+            return;
+        };
+        for designator in designators {
             match designator {
                 Designator::Field(name) => {
                     output.push('.');
@@ -223,9 +240,9 @@ impl Initializer {
                 }
             }
         }
-        if !self.designators.is_empty() {
+        if !designators.is_empty() {
             output.push_str(" = ");
         }
-        self.value.render(output);
+        value.render(output);
     }
 }

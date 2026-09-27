@@ -1,8 +1,8 @@
 use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, AggregateKind, Block, Directive, FunctionDefinition,
-    MacroInvocation, Statement, SwitchCase, TranslationUnit, c_aggregate, c_aggregate_field,
-    c_block, c_comment, c_declaration, c_directive, c_expr, c_function, c_signature, c_statement,
-    c_type,
+    Initializer, MacroInvocation, Statement, SwitchCase, TranslationUnit, c_aggregate,
+    c_aggregate_field, c_block, c_comment, c_declaration, c_directive, c_expr, c_function,
+    c_initializer, c_signature, c_statement, c_type,
 };
 use crate::backend::c::types::TypeRegistry;
 
@@ -256,19 +256,35 @@ fn append_generated_header_templates(output: &mut TranslationUnit) {
 fn append_aggregate_templates(output: &mut TranslationUnit) {
     output.push(Directive::aggregate_fields_define(
         "MAL_DETAIL_RAW_REPR_FIELD",
-        ["member", "raw_type", "host_type"],
+        [
+            "context",
+            "index",
+            "member",
+            "raw_type",
+            "host_type",
+            "to_host",
+            "to_raw",
+        ],
         [c_aggregate_field!("member": named("raw_type"))],
     ));
     output.push(Directive::aggregate_fields_define(
         "MAL_DETAIL_HOST_REPR_FIELD",
-        ["member", "raw_type", "host_type"],
+        [
+            "context",
+            "index",
+            "member",
+            "raw_type",
+            "host_type",
+            "to_host",
+            "to_raw",
+        ],
         [c_aggregate_field!("member": named("host_type"))],
     ));
 
     let descriptor_fields = || {
         [AggregateField::macro_invocation(MacroInvocation::new(
             "fields",
-            [c_expr!(id("field"))],
+            [c_expr!(id("field")), c_expr!(id("type_tag"))],
         ))]
     };
     output.push(Directive::aggregate_define(
@@ -287,7 +303,7 @@ fn append_aggregate_templates(output: &mut TranslationUnit) {
                     AggregateKind::Union,
                     [AggregateField::macro_invocation(MacroInvocation::new(
                         "members",
-                        [c_expr!(id("member"))],
+                        [c_expr!(id("member")), c_expr!(id("type_tag"))],
                     ))],
                     "payload",
                 ),
@@ -299,7 +315,104 @@ fn append_aggregate_templates(output: &mut TranslationUnit) {
         ["type_tag"],
         AggregateDefinition::structure("type_tag", [c_aggregate_field!("tag": named("uint32_t"))]),
     ));
+    append_product_conversion_template(output);
     output.blank_line();
+}
+
+fn append_product_conversion_template(output: &mut TranslationUnit) {
+    output.push(Directive::expression_define(
+        "MAL_DETAIL_REPR_IDENTITY",
+        ["call", "value"],
+        c_expr!(id("value")),
+    ));
+    let converted = |converter: &str| {
+        c_initializer! {
+            field("member", (call(#{ converter }, [id("call"), field((id("value")), "member")])))
+        }
+    };
+    output.push(Directive::initializers_define(
+        "MAL_DETAIL_PRODUCT_TO_HOST_FIELD",
+        [
+            "context",
+            "index",
+            "member",
+            "raw_type",
+            "host_type",
+            "to_host",
+            "to_raw",
+        ],
+        [converted("to_host")],
+    ));
+    output.push(Directive::initializers_define(
+        "MAL_DETAIL_PRODUCT_TO_RAW_FIELD",
+        [
+            "context",
+            "index",
+            "member",
+            "raw_type",
+            "host_type",
+            "to_host",
+            "to_raw",
+        ],
+        [converted("to_raw")],
+    ));
+    let conversion = |name: &str, result: &str, value: &str, field: &str| {
+        let initializer = Initializer::macro_invocation(MacroInvocation::new(
+            "fields",
+            [c_expr!(id(#{ field })), c_expr!(id(#{ result }))],
+        ));
+        FunctionDefinition::from_signature(
+            c_signature! {
+                #[static] #[inline] fn #{ name }(
+                    #[maybe_unused] "call": ptr(named("mal_call_t")),
+                    "value": named(#{ value }),
+                ) -> named(#{ result })
+            },
+            c_block! {
+                return #{ crate::backend::c::syntax::Expr::compound_literal(
+                    c_type!(named(#{ result })),
+                    [initializer],
+                ) };
+            },
+        )
+    };
+    output.push(Directive::function_definitions_define(
+        "MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS",
+        [
+            "to_host_name",
+            "to_raw_name",
+            "raw_type",
+            "host_type",
+            "fields",
+        ],
+        [
+            conversion(
+                "to_host_name",
+                "host_type",
+                "raw_type",
+                "MAL_DETAIL_PRODUCT_TO_HOST_FIELD",
+            ),
+            conversion(
+                "to_raw_name",
+                "raw_type",
+                "host_type",
+                "MAL_DETAIL_PRODUCT_TO_RAW_FIELD",
+            ),
+        ],
+    ));
+    let converting_return = c_function! {
+        #[static] #[inline] fn "function_name"(
+            #[maybe_unused] "call": ptr(named("mal_call_t")),
+            "value": named("value_type"),
+        ) -> named("result_type") {
+            return (call("converter", [id("call"), id("value")]));
+        }
+    };
+    output.push(Directive::function_definitions_define(
+        "MAL_DETAIL_DEFINE_CONVERTING_RETURN",
+        ["function_name", "result_type", "value_type", "converter"],
+        [converting_return],
+    ));
 }
 
 fn append_product_memory_template(output: &mut TranslationUnit) {
@@ -510,15 +623,25 @@ fn append_sum_memory_template(output: &mut TranslationUnit) {
 }
 
 fn append_sum_conversion_template(output: &mut TranslationUnit) {
-    let converted = c_expr! {
-        call("converter", [
-            id("call"),
-            field((field((id("value")), "payload")), "member"),
-        ])
+    let converted = |converter: &str| {
+        c_expr! {
+            call(#{ converter }, [
+                id("call"),
+                field((field((id("value")), "payload")), "member"),
+            ])
+        }
     };
     output.push(Directive::switch_cases_define(
-        "MAL_DETAIL_SUM_CONVERSION_CASE",
-        ["result_type", "variant_tag", "member", "converter"],
+        "MAL_DETAIL_SUM_TO_HOST_CASE",
+        [
+            "result_type",
+            "variant_tag",
+            "member",
+            "raw_type",
+            "host_type",
+            "to_host",
+            "to_raw",
+        ],
         [SwitchCase::case(
             c_expr!(call("UINT32_C", [id("variant_tag")])),
             c_block! {
@@ -526,23 +649,44 @@ fn append_sum_conversion_template(output: &mut TranslationUnit) {
                     field("tag", (call("UINT32_C", [id("variant_tag")]))),
                     path(
                         #{ ["payload".to_string(), "member".to_string()] },
-                        #{ converted }
+                        #{ converted("to_host") }
                     ),
                 ]));
             },
         )],
     ));
-    let conversion = |name: &str, result: &str, value: &str, members: &str| {
+    output.push(Directive::switch_cases_define(
+        "MAL_DETAIL_SUM_TO_RAW_CASE",
+        [
+            "result_type",
+            "variant_tag",
+            "member",
+            "raw_type",
+            "host_type",
+            "to_host",
+            "to_raw",
+        ],
+        [SwitchCase::case(
+            c_expr!(call("UINT32_C", [id("variant_tag")])),
+            c_block! {
+                return (compound((named("result_type")), [
+                    field("tag", (call("UINT32_C", [id("variant_tag")]))),
+                    path(
+                        #{ ["payload".to_string(), "member".to_string()] },
+                        #{ converted("to_raw") }
+                    ),
+                ]));
+            },
+        )],
+    ));
+    let conversion = |name: &str, result: &str, value: &str, case: &str| {
         let mut body = Block::default();
         body.push(Statement::switch(
             c_expr!(field((id("value")), "tag")),
             [
                 SwitchCase::macro_invocation(MacroInvocation::new(
-                    members,
-                    [
-                        c_expr!(id("MAL_DETAIL_SUM_CONVERSION_CASE")),
-                        c_expr!(id(#{ result })),
-                    ],
+                    "members",
+                    [c_expr!(id(#{ case })), c_expr!(id(#{ result }))],
                 )),
                 SwitchCase::default(c_block! {
                     call("mal_call_trap", [id("call"), string("invalid sum tag")]);
@@ -560,8 +704,18 @@ fn append_sum_conversion_template(output: &mut TranslationUnit) {
             body,
         )
     };
-    let to_host = conversion("to_host_name", "host_type", "raw_type", "to_host_members");
-    let to_raw = conversion("to_raw_name", "raw_type", "host_type", "to_raw_members");
+    let to_host = conversion(
+        "to_host_name",
+        "host_type",
+        "raw_type",
+        "MAL_DETAIL_SUM_TO_HOST_CASE",
+    );
+    let to_raw = conversion(
+        "to_raw_name",
+        "raw_type",
+        "host_type",
+        "MAL_DETAIL_SUM_TO_RAW_CASE",
+    );
     output.push(Directive::function_definitions_define(
         "MAL_DETAIL_DEFINE_SUM_CONVERSIONS",
         [
@@ -569,8 +723,7 @@ fn append_sum_conversion_template(output: &mut TranslationUnit) {
             "to_raw_name",
             "raw_type",
             "host_type",
-            "to_host_members",
-            "to_raw_members",
+            "members",
         ],
         [to_host, to_raw],
     ));

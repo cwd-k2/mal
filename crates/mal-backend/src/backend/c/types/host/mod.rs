@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Block, Directive, Expr, FunctionSignature, MacroInvocation, TranslationUnit, TypeName, c_block,
-    c_directive, c_expr, c_function, c_initializer, c_macro_invocation, c_signature, c_type,
+    c_directive, c_expr, c_function, c_macro_invocation, c_signature, c_type,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -48,40 +48,13 @@ impl TypeRegistry {
             match ty {
                 Type::Product(_) => {
                     let id = self.index(ty);
-                    let to_host = format!("MAL_DETAIL_TO_HOST_{id}");
-                    output.push(c_directive! {
-                        define #{ to_host.clone() } = #{
-                            self.product_raw_to_host_value(
-                                ty,
-                                c_expr!(id("call")),
-                                c_expr!(id("value")),
-                            )
-                        };
-                    });
                     output.push(c_macro_invocation! {
-                        "MAL_DETAIL_DEFINE_CONVERSION"([
+                        "MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS"([
                             id(#{ format!("mal_detail_to_host_{id}") }),
-                            id(#{ format!("mal_repr_product_{id}_t") }),
-                            id(#{ format!("MalRepr_Product_{id}") }),
-                            id(#{ to_host }),
-                        ])
-                    });
-                    let conversion = format!("MAL_DETAIL_TO_RAW_{id}");
-                    output.push(c_directive! {
-                        define #{ conversion.clone() } = #{
-                            self.product_host_to_raw_value(
-                                ty,
-                                c_expr!(id("call")),
-                                c_expr!(id("value")),
-                            )
-                        };
-                    });
-                    output.push(c_macro_invocation! {
-                        "MAL_DETAIL_DEFINE_CONVERSION"([
                             id(#{ format!("mal_repr_product_{id}_return") }),
                             id(#{ format!("MalRepr_Product_{id}") }),
                             id(#{ format!("mal_repr_product_{id}_t") }),
-                            id(#{ conversion }),
+                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{id}") }),
                         ])
                     });
                 }
@@ -174,9 +147,18 @@ impl TypeRegistry {
                 );
                 continue;
             }
-            let conversion = if matches!(&alias.ty, Type::Product(_)) {
-                format!("MAL_DETAIL_TO_RAW_{}", self.index(&alias.ty))
-            } else {
+            if matches!(&alias.ty, Type::Product(_)) {
+                output.push(c_macro_invocation! {
+                    "MAL_DETAIL_DEFINE_CONVERTING_RETURN"([
+                        id(#{ format!("mal_{}_return", alias.name) }),
+                        id(#{ format!("MalType_{}", alias.name) }),
+                        id(#{ format!("mal_{}_t", alias.name) }),
+                        id(#{ format!("mal_repr_product_{}_return", self.index(&alias.ty)) }),
+                    ])
+                });
+                continue;
+            }
+            let conversion = {
                 let conversion = format!("MAL_DETAIL_TO_RAW_ALIAS_{}", alias.name);
                 output.push(c_directive! {
                     define #{ conversion.clone() } = #{
@@ -272,74 +254,21 @@ impl TypeRegistry {
     }
 
     fn host_sum_conversion_helpers(&self, index: RepresentationId, ty: &Type) -> TranslationUnit {
-        let Type::Sum(members) = ty else {
+        let Type::Sum(_) = ty else {
             unreachable!("sum conversion requires a sum type")
         };
-        let to_host_members = format!("MAL_DETAIL_TO_HOST_MEMBERS_{index}");
-        let to_raw_members = format!("MAL_DETAIL_TO_RAW_MEMBERS_{index}");
         let mut output = TranslationUnit::default();
-        output.push(Directive::invocations_define(
-            to_host_members.clone(),
-            ["case", "result_type"],
-            members.iter().enumerate().map(|(variant, member)| {
-                MacroInvocation::new(
-                    "case",
-                    [
-                        c_expr!(id("result_type")),
-                        c_expr!(number(#{ variant })),
-                        c_expr!(id(#{ format!("variant_{variant}") })),
-                        c_expr!(id(#{ self.to_host_conversion_name(member) })),
-                    ],
-                )
-            }),
-        ));
-        output.push(Directive::invocations_define(
-            to_raw_members.clone(),
-            ["case", "result_type"],
-            members.iter().enumerate().map(|(variant, member)| {
-                MacroInvocation::new(
-                    "case",
-                    [
-                        c_expr!(id("result_type")),
-                        c_expr!(number(#{ variant })),
-                        c_expr!(id(#{ format!("variant_{variant}") })),
-                        c_expr!(id(#{ self.to_raw_conversion_name(member) })),
-                    ],
-                )
-            }),
-        ));
         output.push(c_macro_invocation! {
             "MAL_DETAIL_DEFINE_SUM_CONVERSIONS"([
                 id(#{ format!("mal_detail_to_host_{index}") }),
                 id(#{ format!("mal_detail_to_raw_{index}") }),
                 id(#{ self.c_type(ty).to_string() }),
                 id(#{ self.host_value_c_type(ty, None).to_string() }),
-                id(#{ to_host_members }),
-                id(#{ to_raw_members }),
+                id(#{ format!("MAL_DETAIL_REPR_FIELDS_{index}") }),
             ])
         });
         output.blank_line();
         output
-    }
-
-    fn to_raw_conversion_name(&self, ty: &Type) -> String {
-        match ty {
-            Type::Unit => "mal_detail_convert_Unit".into(),
-            Type::Product(_) => format!("mal_repr_product_{}_return", self.index(ty)),
-            Type::Sum(_) if !is_bool(ty) => format!("mal_detail_to_raw_{}", self.index(ty)),
-            Type::External { name, .. } => format!("mal_{name}_return"),
-            _ => format!("mal_{}_return", scalar_name(ty)),
-        }
-    }
-
-    fn to_host_conversion_name(&self, ty: &Type) -> String {
-        match ty {
-            Type::Unit => "mal_detail_convert_Unit".into(),
-            Type::Product(_) => format!("mal_detail_to_host_{}", self.index(ty)),
-            Type::Sum(_) if !is_bool(ty) => format!("mal_detail_to_host_{}", self.index(ty)),
-            Type::External { name, .. } => format!("mal_detail_to_host_{name}"),
-            _ => format!("mal_{}_return", scalar_name(ty)),
-        }
     }
 
     fn host_to_raw_value(&self, ty: &Type, call: Expr, value: Expr) -> Expr {
@@ -368,45 +297,6 @@ impl TypeRegistry {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => value,
-        }
-    }
-
-    fn product_host_to_raw_value(&self, ty: &Type, call: Expr, value: Expr) -> Expr {
-        let Type::Product(elements) = ty else {
-            unreachable!("product conversion requires a product type")
-        };
-        let initializers = elements.iter().enumerate().map(|(field, element)| {
-            c_initializer! {
-                field(#{ format!("field_{field}") }, #{
-                    self.host_to_raw_value(
-                        element,
-                        call.clone(),
-                        c_expr!(field(#{ value.clone() }, #{ format!("field_{field}") })),
-                    )
-                })
-            }
-        });
-        c_expr!(compound(#{ self.c_type(ty) }, [...#{ initializers }]))
-    }
-
-    fn product_raw_to_host_value(&self, ty: &Type, call: Expr, value: Expr) -> Expr {
-        let Type::Product(elements) = ty else {
-            unreachable!("product conversion requires a product type")
-        };
-        let initializers = elements.iter().enumerate().map(|(field, element)| {
-            c_initializer! {
-                field(#{ format!("field_{field}") }, #{
-                    self.raw_to_host_value(
-                        element,
-                        None,
-                        call.clone(),
-                        c_expr!(field(#{ value.clone() }, #{ format!("field_{field}") })),
-                    )
-                })
-            }
-        });
-        c_expr! {
-            compound(#{ self.host_value_c_type(ty, None) }, [...#{ initializers }])
         }
     }
 
@@ -448,26 +338,4 @@ impl TypeRegistry {
 fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {
     output.push(c_function!(signature #{ signature } body #{ body }));
     output.blank_line();
-}
-
-fn scalar_name(ty: &Type) -> &'static str {
-    if is_bool(ty) {
-        return "Bool";
-    }
-    match ty {
-        Type::Int8 => "Int8",
-        Type::Int16 => "Int16",
-        Type::Int32 => "Int32",
-        Type::Int64 => "Int64",
-        Type::UInt8 => "UInt8",
-        Type::UInt16 => "UInt16",
-        Type::UInt32 => "UInt32",
-        Type::UInt64 => "UInt64",
-        Type::Float32 => "Float32",
-        Type::Float64 => "Float64",
-        Type::Address => "Address",
-        Type::ByteSize => "ByteSize",
-        Type::USize => "USize",
-        _ => unreachable!("only host scalar types have builtin conversion helpers"),
-    }
 }

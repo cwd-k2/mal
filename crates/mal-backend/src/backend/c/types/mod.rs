@@ -179,9 +179,7 @@ impl TypeRegistry {
             if host.external_contains(ty) != public {
                 continue;
             }
-            if matches!(ty, Type::Product(_))
-                || matches!(ty, Type::Sum(members) if !members.is_empty())
-            {
+            if matches!(ty, Type::Product(_) | Type::Sum(_)) {
                 self.append_repr_descriptor(&mut output, ty);
             }
             let guard = format!("MAL_DETAIL_RAW_REPR_{}_DEFINED", self.index(ty));
@@ -276,33 +274,117 @@ impl TypeRegistry {
             .iter()
             .enumerate()
             .map(|(index, element)| {
+                let (to_host, to_raw) = self.repr_field_conversions(ty, element);
                 MacroInvocation::new(
                     "field",
                     [
+                        c_expr!(id("context")),
+                        c_expr!(number(#{ index })),
                         c_expr!(id(#{ format!("{member_prefix}_{index}") })),
                         c_expr!(id(#{ self.c_type(element).to_string() })),
                         c_expr!(id(#{ self.host_value_c_type(element, None).to_string() })),
+                        c_expr!(id(#{ to_host })),
+                        c_expr!(id(#{ to_raw })),
                     ],
                 )
             })
             .collect::<Vec<_>>();
 
         if fields.len() <= FIELDS_PER_CHUNK {
-            output.push(Directive::invocations_define(descriptor, ["field"], fields));
+            output.push(Directive::invocations_define(
+                descriptor,
+                ["field", "context"],
+                fields,
+            ));
         } else {
             let mut chunks = Vec::new();
             for (chunk_index, fields) in fields.chunks(FIELDS_PER_CHUNK).enumerate() {
                 let chunk = format!("{descriptor}_{chunk_index}");
                 output.push(Directive::invocations_define(
                     chunk.clone(),
-                    ["field"],
+                    ["field", "context"],
                     fields.iter().cloned(),
                 ));
-                chunks.push(MacroInvocation::new(chunk, [c_expr!(id("field"))]));
+                chunks.push(MacroInvocation::new(
+                    chunk,
+                    [c_expr!(id("field")), c_expr!(id("context"))],
+                ));
             }
-            output.push(Directive::invocations_define(descriptor, ["field"], chunks));
+            output.push(Directive::invocations_define(
+                descriptor,
+                ["field", "context"],
+                chunks,
+            ));
         }
         output.push(c_directive!(endif));
+    }
+
+    fn repr_field_conversions(&self, aggregate: &Type, element: &Type) -> (String, String) {
+        let identity = || "MAL_DETAIL_REPR_IDENTITY".to_string();
+        let aggregate_to_host = || match element {
+            Type::Product(_) | Type::Sum(_) if !is_bool(element) => {
+                format!("mal_detail_to_host_{}", self.index(element))
+            }
+            Type::External { name, .. } => format!("mal_detail_to_host_{name}"),
+            _ => identity(),
+        };
+        let aggregate_to_raw = || match element {
+            Type::Unit => "mal_detail_convert_Unit".into(),
+            Type::Product(_) => format!("mal_repr_product_{}_return", self.index(element)),
+            Type::Sum(_) if !is_bool(element) => {
+                format!("mal_detail_to_raw_{}", self.index(element))
+            }
+            Type::External { name, .. } => format!("mal_{name}_return"),
+            Type::Address => "mal_Address_return".into(),
+            _ => identity(),
+        };
+        if matches!(aggregate, Type::Product(_)) {
+            return (aggregate_to_host(), aggregate_to_raw());
+        }
+
+        let scalar = |ty: &Type| {
+            if is_bool(ty) {
+                return "Bool";
+            }
+            match ty {
+                Type::Int8 => "Int8",
+                Type::Int16 => "Int16",
+                Type::Int32 => "Int32",
+                Type::Int64 => "Int64",
+                Type::UInt8 => "UInt8",
+                Type::UInt16 => "UInt16",
+                Type::UInt32 => "UInt32",
+                Type::UInt64 => "UInt64",
+                Type::Float32 => "Float32",
+                Type::Float64 => "Float64",
+                Type::Address => "Address",
+                Type::ByteSize => "ByteSize",
+                Type::USize => "USize",
+                _ => unreachable!("only host scalar types have builtin conversion helpers"),
+            }
+        };
+        let sum_conversion = |direction: &str| match element {
+            Type::Unit => "mal_detail_convert_Unit".into(),
+            Type::Product(_) => {
+                if direction == "host" {
+                    format!("mal_detail_to_host_{}", self.index(element))
+                } else {
+                    format!("mal_repr_product_{}_return", self.index(element))
+                }
+            }
+            Type::Sum(_) if !is_bool(element) => {
+                format!("mal_detail_to_{direction}_{}", self.index(element))
+            }
+            Type::External { name, .. } => {
+                if direction == "host" {
+                    format!("mal_detail_to_host_{name}")
+                } else {
+                    format!("mal_{name}_return")
+                }
+            }
+            _ => format!("mal_{}_return", scalar(element)),
+        };
+        (sum_conversion("host"), sum_conversion("raw"))
     }
 }
 
@@ -410,10 +492,15 @@ mod tests {
         ));
         assert!(declarations.contains("typedef mal_repr_product_1e5f7ae9f35ae3d3_t mal_Packet_t;"));
         assert!(declarations.contains("typedef mal_repr_sum_a47b44facfce4b92_t mal_Result_t;"));
-        assert!(declarations.contains("field(field_1, MalType_Address, mal_Address_t)"));
         assert!(declarations.contains(concat!(
-            "field(variant_1, MalRepr_Product_1e5f7ae9f35ae3d3, ",
-            "mal_repr_product_1e5f7ae9f35ae3d3_t)"
+            "field(context, 1, field_1, MalType_Address, mal_Address_t, ",
+            "MAL_DETAIL_REPR_IDENTITY, mal_Address_return)"
+        )));
+        assert!(declarations.contains(concat!(
+            "field(context, 1, variant_1, MalRepr_Product_1e5f7ae9f35ae3d3, ",
+            "mal_repr_product_1e5f7ae9f35ae3d3_t, ",
+            "mal_detail_to_host_1e5f7ae9f35ae3d3, ",
+            "mal_repr_product_1e5f7ae9f35ae3d3_return)"
         )));
     }
 
@@ -430,9 +517,9 @@ mod tests {
         let declarations = registry.host_value_declarations(&host, &[]).render();
 
         assert!(declarations.contains("#define MAL_DETAIL_REPR_FIELDS_"));
-        assert!(declarations.contains("_0(field)"));
-        assert!(declarations.contains("_1(field)"));
-        assert!(declarations.contains("_0(field) \\\n"));
-        assert!(declarations.contains("_1(field)\n"));
+        assert!(declarations.contains("_0(field, context)"));
+        assert!(declarations.contains("_1(field, context)"));
+        assert!(declarations.contains("_0(field, context) \\\n"));
+        assert!(declarations.contains("_1(field, context)\n"));
     }
 }

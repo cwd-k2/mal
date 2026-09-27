@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_859DD99A67FAEDF7_H
-#define MAL_GENERATED_INTERFACE_859DD99A67FAEDF7_H
+#ifndef MAL_GENERATED_INTERFACE_F0356CB2CC71DF7C_H
+#define MAL_GENERATED_INTERFACE_F0356CB2CC71DF7C_H
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DECLARED
@@ -15,9 +15,9 @@ typedef struct MalRepr_Product_1e5c20e9f358150e MalRepr_Product_1e5c20e9f358150e
 
 #ifndef MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e(field) \
-field(field_0, MalType_Address, mal_Address_t) \
-field(field_1, MalType_USize, mal_USize_t)
+#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e(field, context) \
+field(context, 0, field_0, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return) \
+field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
@@ -39,10 +39,7 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1e5c20e9f358150e, MAL_DET
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
 #define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
-#define MAL_DETAIL_TO_HOST_1e5c20e9f358150e (mal_repr_product_1e5c20e9f358150e_t){ .field_0 = value.field_0, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_TO_HOST_1e5c20e9f358150e)
-#define MAL_DETAIL_TO_RAW_1e5c20e9f358150e (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e)
 #endif
 
 /* External operations */

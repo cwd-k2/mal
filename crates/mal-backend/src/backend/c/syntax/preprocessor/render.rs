@@ -32,6 +32,18 @@ impl Directive {
                 output.push('\n');
                 output
             }
+            Self::ExpressionDefine {
+                name,
+                parameters,
+                expression,
+            } => {
+                let mut output = format!("#define {name}(");
+                render_macro_parameters(&mut output, parameters);
+                output.push_str(") ");
+                expression.render(&mut output);
+                output.push('\n');
+                output
+            }
             Self::FunctionItemsDefine {
                 name,
                 parameters,
@@ -100,6 +112,16 @@ impl Directive {
                 fields,
             } => render_replacement(name, parameters, |output| {
                 crate::backend::c::syntax::unit::render::render_fields(output, fields, 0);
+            }),
+            Self::InitializersDefine {
+                name,
+                parameters,
+                initializers,
+            } => render_replacement(name, parameters, |output| {
+                for initializer in initializers {
+                    initializer.render(output);
+                    output.push_str(",\n");
+                }
             }),
             Self::StatementsDefine {
                 name,

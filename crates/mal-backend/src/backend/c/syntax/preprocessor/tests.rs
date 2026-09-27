@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     AggregateDefinition, AggregateField, Block, Expr, FunctionDefinition, FunctionSignature,
-    MacroInvocation, Parameter, Statement,
+    Initializer, MacroInvocation, Parameter, Statement,
 };
 
 use super::{Directive, PreprocessorExpr};
@@ -70,5 +70,21 @@ fn renders_aggregate_templates_without_raw_c_fragments() {
     assert_eq!(
         directive.render(),
         "#define DEFINE_PRODUCT(tag, fields, field) \\\nstruct tag { \\\n    fields(field) \\\n};\n"
+    );
+}
+
+#[test]
+fn renders_expression_and_initializer_replacements() {
+    assert_eq!(
+        Directive::expression_define("IDENTITY", ["value"], Expr::identifier("value")).render(),
+        "#define IDENTITY(value) value\n"
+    );
+    let initializer = Initializer::designated(
+        "member",
+        Expr::named_call("convert", [Expr::identifier("value")]),
+    );
+    assert_eq!(
+        Directive::initializers_define("FIELD", ["member"], [initializer]).render(),
+        "#define FIELD(member) \\\n.member = convert(value),\n"
     );
 }

@@ -269,25 +269,41 @@ static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAY
 
 /* Generated header templates */
 
-#define MAL_DETAIL_RAW_REPR_FIELD(member, raw_type, host_type) \
+#define MAL_DETAIL_RAW_REPR_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
 raw_type member;
-#define MAL_DETAIL_HOST_REPR_FIELD(member, raw_type, host_type) \
+#define MAL_DETAIL_HOST_REPR_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
 host_type member;
 #define MAL_DETAIL_DEFINE_PRODUCT_REPR(type_tag, fields, field) \
 struct type_tag { \
-    fields(field) \
+    fields(field, type_tag) \
 };
 #define MAL_DETAIL_DEFINE_SUM_REPR(type_tag, members, member) \
 struct type_tag { \
     uint32_t tag; \
     union { \
-        members(member) \
+        members(member, type_tag) \
     } payload; \
 };
 #define MAL_DETAIL_DEFINE_EMPTY_SUM_REPR(type_tag) \
 struct type_tag { \
     uint32_t tag; \
 };
+#define MAL_DETAIL_REPR_IDENTITY(call, value) value
+#define MAL_DETAIL_PRODUCT_TO_HOST_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
+.member = to_host(call, value.member),
+#define MAL_DETAIL_PRODUCT_TO_RAW_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
+.member = to_raw(call, value.member),
+#define MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(to_host_name, to_raw_name, raw_type, host_type, fields) \
+static inline host_type to_host_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, raw_type value) { \
+    return (host_type){ fields(MAL_DETAIL_PRODUCT_TO_HOST_FIELD, host_type) }; \
+} \
+static inline raw_type to_raw_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type value) { \
+    return (raw_type){ fields(MAL_DETAIL_PRODUCT_TO_RAW_FIELD, raw_type) }; \
+}
+#define MAL_DETAIL_DEFINE_CONVERTING_RETURN(function_name, result_type, value_type, converter) \
+static inline result_type function_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, value_type value) { \
+    return converter(call, value); \
+}
 
 #define MAL_DETAIL_DEFINE_CONVERSION(function_name, result_type, value_type, conversion) \
 static inline result_type function_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, value_type value) { \
@@ -346,14 +362,18 @@ static inline void write_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t 
         } \
     } \
 }
-#define MAL_DETAIL_SUM_CONVERSION_CASE(result_type, variant_tag, member, converter) \
+#define MAL_DETAIL_SUM_TO_HOST_CASE(result_type, variant_tag, member, raw_type, host_type, to_host, to_raw) \
 case UINT32_C(variant_tag): { \
-    return (result_type){ .tag = UINT32_C(variant_tag), .payload.member = converter(call, value.payload.member) }; \
+    return (result_type){ .tag = UINT32_C(variant_tag), .payload.member = to_host(call, value.payload.member) }; \
 }
-#define MAL_DETAIL_DEFINE_SUM_CONVERSIONS(to_host_name, to_raw_name, raw_type, host_type, to_host_members, to_raw_members) \
+#define MAL_DETAIL_SUM_TO_RAW_CASE(result_type, variant_tag, member, raw_type, host_type, to_host, to_raw) \
+case UINT32_C(variant_tag): { \
+    return (result_type){ .tag = UINT32_C(variant_tag), .payload.member = to_raw(call, value.payload.member) }; \
+}
+#define MAL_DETAIL_DEFINE_SUM_CONVERSIONS(to_host_name, to_raw_name, raw_type, host_type, members) \
 static inline host_type to_host_name(mal_call_t *call, raw_type value) { \
     switch (value.tag) { \
-        to_host_members(MAL_DETAIL_SUM_CONVERSION_CASE, host_type) \
+        members(MAL_DETAIL_SUM_TO_HOST_CASE, host_type) \
         default: { \
             mal_call_trap(call, "invalid sum tag"); \
         } \
@@ -361,7 +381,7 @@ static inline host_type to_host_name(mal_call_t *call, raw_type value) { \
 } \
 static inline raw_type to_raw_name(mal_call_t *call, host_type value) { \
     switch (value.tag) { \
-        to_raw_members(MAL_DETAIL_SUM_CONVERSION_CASE, raw_type) \
+        members(MAL_DETAIL_SUM_TO_RAW_CASE, raw_type) \
         default: { \
             mal_call_trap(call, "invalid sum tag"); \
         } \

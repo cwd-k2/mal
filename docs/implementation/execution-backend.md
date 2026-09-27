@@ -51,8 +51,9 @@ program固有のclosure environment destructorはfield型と順序を知るた�
 C runtimeを呼ぶ。
 
 file headerはaggregate helperのfunction bodyやraw/host representationのfield列を型ごとに複製せず、fieldまたはvariantごとの差分を
-`MAL_DETAIL_` descriptorとして記録する。1つのshape descriptorはmember名、raw型、host型を持ち、`mal.h`のprogram非依存templateが
-raw/host representation定義へそれぞれ展開する。型変換とcanonical memory accessは必要な追加情報を持つ別descriptorを使う。
+`MAL_DETAIL_` descriptorとして記録する。1つのrepresentation descriptorはvariant index、member名、raw型、host型、双方向の変換を持ち、
+`mal.h`のprogram非依存templateがraw/host representation定義と型変換へ展開する。canonical memory accessはtarget layout固有の
+offsetやreader・writerを必要とするため、別descriptorを使う。
 巨大なaggregateのdescriptorは一定数のmemberごとに分割し、preprocessorの1つの論理行を無制限に伸ばさない。descriptorとtemplateは
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 

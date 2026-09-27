@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_B5F8596A1E41BF1A_H
-#define MAL_GENERATED_INTERFACE_B5F8596A1E41BF1A_H
+#ifndef MAL_GENERATED_INTERFACE_E07A40437015C3CE_H
+#define MAL_GENERATED_INTERFACE_E07A40437015C3CE_H
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DECLARED
@@ -16,9 +16,9 @@ typedef mal_repr_product_1e36b8e9f3384819_t mal_SampleRecord_t;
 
 #ifndef MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819(field) \
-field(field_0, MalType_Int64, mal_Int64_t) \
-field(field_1, MalType_UInt8, mal_UInt8_t)
+#define MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819(field, context) \
+field(context, 0, field_0, MalType_Int64, mal_Int64_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY) \
+field(context, 1, field_1, MalType_UInt8, mal_UInt8_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DEFINED
 #define MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DEFINED

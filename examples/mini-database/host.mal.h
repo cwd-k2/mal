@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_DF43A7660CAE03F4_H
-#define MAL_GENERATED_INTERFACE_DF43A7660CAE03F4_H
+#ifndef MAL_GENERATED_INTERFACE_3DCE0F1825BFE9E0_H
+#define MAL_GENERATED_INTERFACE_3DCE0F1825BFE9E0_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocator;
@@ -26,9 +26,9 @@ typedef struct MalRepr_Product_65117c10bbbba260 MalRepr_Product_65117c10bbbba260
 
 #ifndef MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1(field) \
-field(field_0, MalType_Allocator, mal_Allocator_t) \
-field(field_1, MalType_USize, mal_USize_t)
+#define MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1(field, context) \
+field(context, 0, field_0, MalType_Allocator, mal_Allocator_t, mal_detail_to_host_Allocator, mal_Allocator_return) \
+field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_917e57f57ce609a1_DEFINED
 #define MAL_DETAIL_RAW_REPR_917e57f57ce609a1_DEFINED
@@ -38,9 +38,9 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_917e57f57ce609a1, MAL_DETAIL_REPR
 
 #ifndef MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e(field) \
-field(field_0, MalType_Address, mal_Address_t) \
-field(field_1, MalType_USize, mal_USize_t)
+#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e(field, context) \
+field(context, 0, field_0, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return) \
+field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 #define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
@@ -50,11 +50,11 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_REPR
 
 #ifndef MAL_DETAIL_REPR_FIELDS_65117c10bbbba260_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_65117c10bbbba260_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_65117c10bbbba260(field) \
-field(field_0, MalType_File, mal_File_t) \
-field(field_1, MalType_Address, mal_Address_t) \
-field(field_2, MalType_USize, mal_USize_t) \
-field(field_3, MalType_USize, mal_USize_t)
+#define MAL_DETAIL_REPR_FIELDS_65117c10bbbba260(field, context) \
+field(context, 0, field_0, MalType_File, mal_File_t, mal_detail_to_host_File, mal_File_return) \
+field(context, 1, field_1, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return) \
+field(context, 2, field_2, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY) \
+field(context, 3, field_3, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_65117c10bbbba260_DEFINED
 #define MAL_DETAIL_RAW_REPR_65117c10bbbba260_DEFINED
@@ -107,10 +107,10 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_65117c10bbbba260, MAL_DET
 
 #ifndef MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724(field) \
-field(field_0, MalType_Address, mal_Address_t) \
-field(field_1, MalType_USize, mal_USize_t) \
-field(field_2, MalType_USize, mal_USize_t)
+#define MAL_DETAIL_REPR_FIELDS_bebfef0e190e1724(field, context) \
+field(context, 0, field_0, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return) \
+field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY) \
+field(context, 2, field_2, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
 #endif
 #ifndef MAL_DETAIL_HOST_REPR_bebfef0e190e1724_DEFINED
 #define MAL_DETAIL_HOST_REPR_bebfef0e190e1724_DEFINED
@@ -126,26 +126,17 @@ static inline MalType_File mal_File_return(mal_call_t *call MAL_DETAIL_MAYBE_UNU
 
 #ifndef MAL_DETAIL_HOST_REPR_917e57f57ce609a1_HELPERS
 #define MAL_DETAIL_HOST_REPR_917e57f57ce609a1_HELPERS
-#define MAL_DETAIL_TO_HOST_917e57f57ce609a1 (mal_repr_product_917e57f57ce609a1_t){ .field_0 = (mal_Allocator_t){ .mal_detail_bits = value.field_0.bits }, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_917e57f57ce609a1, mal_repr_product_917e57f57ce609a1_t, MalRepr_Product_917e57f57ce609a1, MAL_DETAIL_TO_HOST_917e57f57ce609a1)
-#define MAL_DETAIL_TO_RAW_917e57f57ce609a1 (MalRepr_Product_917e57f57ce609a1){ .field_0 = (MalType_Allocator){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_917e57f57ce609a1_return, MalRepr_Product_917e57f57ce609a1, mal_repr_product_917e57f57ce609a1_t, MAL_DETAIL_TO_RAW_917e57f57ce609a1)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_917e57f57ce609a1, mal_repr_product_917e57f57ce609a1_return, MalRepr_Product_917e57f57ce609a1, mal_repr_product_917e57f57ce609a1_t, MAL_DETAIL_REPR_FIELDS_917e57f57ce609a1)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
 #define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
-#define MAL_DETAIL_TO_HOST_1e5c20e9f358150e (mal_repr_product_1e5c20e9f358150e_t){ .field_0 = value.field_0, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_TO_HOST_1e5c20e9f358150e)
-#define MAL_DETAIL_TO_RAW_1e5c20e9f358150e (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_65117c10bbbba260_HELPERS
 #define MAL_DETAIL_HOST_REPR_65117c10bbbba260_HELPERS
-#define MAL_DETAIL_TO_HOST_65117c10bbbba260 (mal_repr_product_65117c10bbbba260_t){ .field_0 = (mal_File_t){ .mal_detail_bits = value.field_0.bits }, .field_1 = value.field_1, .field_2 = value.field_2, .field_3 = value.field_3 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_65117c10bbbba260, mal_repr_product_65117c10bbbba260_t, MalRepr_Product_65117c10bbbba260, MAL_DETAIL_TO_HOST_65117c10bbbba260)
-#define MAL_DETAIL_TO_RAW_65117c10bbbba260 (MalRepr_Product_65117c10bbbba260){ .field_0 = (MalType_File){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2, .field_3 = value.field_3 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_65117c10bbbba260_return, MalRepr_Product_65117c10bbbba260, mal_repr_product_65117c10bbbba260_t, MAL_DETAIL_TO_RAW_65117c10bbbba260)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_65117c10bbbba260, mal_repr_product_65117c10bbbba260_return, MalRepr_Product_65117c10bbbba260, mal_repr_product_65117c10bbbba260_t, MAL_DETAIL_REPR_FIELDS_65117c10bbbba260)
 #endif
 
 static inline mal_Allocator_t mal_Allocator_from_bits(uintptr_t bits) {
@@ -180,9 +171,9 @@ static inline MalType_File mal_File_return(mal_call_t *call MAL_DETAIL_MAYBE_UNU
     return (MalType_File){ .bits = value.mal_detail_bits };
 }
 
-MAL_DETAIL_DEFINE_CONVERSION(mal_AllocatedBytes_return, MalType_AllocatedBytes, mal_AllocatedBytes_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
-MAL_DETAIL_DEFINE_CONVERSION(mal_ReadableBytes_return, MalType_ReadableBytes, mal_ReadableBytes_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
-MAL_DETAIL_DEFINE_CONVERSION(mal_OutputBuffer_return, MalType_OutputBuffer, mal_OutputBuffer_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
+MAL_DETAIL_DEFINE_CONVERTING_RETURN(mal_AllocatedBytes_return, MalType_AllocatedBytes, mal_AllocatedBytes_t, mal_repr_product_1e5c20e9f358150e_return)
+MAL_DETAIL_DEFINE_CONVERTING_RETURN(mal_ReadableBytes_return, MalType_ReadableBytes, mal_ReadableBytes_t, mal_repr_product_1e5c20e9f358150e_return)
+MAL_DETAIL_DEFINE_CONVERTING_RETURN(mal_OutputBuffer_return, MalType_OutputBuffer, mal_OutputBuffer_t, mal_repr_product_1e5c20e9f358150e_return)
 
 /* Canonical memory access */
 

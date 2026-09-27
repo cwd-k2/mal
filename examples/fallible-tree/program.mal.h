@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_9DD33C9CA964773F_H
-#define MAL_GENERATED_INTERFACE_9DD33C9CA964773F_H
+#ifndef MAL_GENERATED_INTERFACE_97344E7215A6EE6D_H
+#define MAL_GENERATED_INTERFACE_97344E7215A6EE6D_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocator;
@@ -21,9 +21,9 @@ typedef struct MalRepr_Product_917e59f57ce60d07 MalRepr_Product_917e59f57ce60d07
 
 #ifndef MAL_DETAIL_REPR_FIELDS_4658c025c85e4628_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_4658c025c85e4628_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_4658c025c85e4628(field) \
-field(variant_0, MalType_Address, mal_Address_t) \
-field(variant_1, MalType_Unit, mal_Unit_t)
+#define MAL_DETAIL_REPR_FIELDS_4658c025c85e4628(field, context) \
+field(context, 0, variant_0, MalType_Address, mal_Address_t, mal_Address_return, mal_Address_return) \
+field(context, 1, variant_1, MalType_Unit, mal_Unit_t, mal_detail_convert_Unit, mal_detail_convert_Unit)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_4658c025c85e4628_DEFINED
 #define MAL_DETAIL_RAW_REPR_4658c025c85e4628_DEFINED
@@ -33,9 +33,9 @@ MAL_DETAIL_DEFINE_SUM_REPR(MalRepr_Sum_4658c025c85e4628, MAL_DETAIL_REPR_FIELDS_
 
 #ifndef MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07(field) \
-field(field_0, MalType_Allocator, mal_Allocator_t) \
-field(field_1, MalType_Address, mal_Address_t)
+#define MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07(field, context) \
+field(context, 0, field_0, MalType_Allocator, mal_Allocator_t, mal_detail_to_host_Allocator, mal_Allocator_return) \
+field(context, 1, field_1, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return)
 #endif
 #ifndef MAL_DETAIL_RAW_REPR_917e59f57ce60d07_DEFINED
 #define MAL_DETAIL_RAW_REPR_917e59f57ce60d07_DEFINED
@@ -75,11 +75,11 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_917e59f57ce60d07, MAL_DET
 
 #ifndef MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776_DEFINED
 #define MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776(field) \
-field(field_0, MalType_Int32, mal_Int32_t) \
-field(field_1, MalType_UInt8, mal_UInt8_t) \
-field(field_2, MalType_Address, mal_Address_t) \
-field(field_3, MalType_Address, mal_Address_t)
+#define MAL_DETAIL_REPR_FIELDS_cc5512c1c1db9776(field, context) \
+field(context, 0, field_0, MalType_Int32, mal_Int32_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY) \
+field(context, 1, field_1, MalType_UInt8, mal_UInt8_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY) \
+field(context, 2, field_2, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return) \
+field(context, 3, field_3, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return)
 #endif
 #ifndef MAL_DETAIL_HOST_REPR_cc5512c1c1db9776_DEFINED
 #define MAL_DETAIL_HOST_REPR_cc5512c1c1db9776_DEFINED
@@ -93,13 +93,7 @@ static inline MalType_Allocator mal_Allocator_return(mal_call_t *call MAL_DETAIL
 
 #ifndef MAL_DETAIL_HOST_REPR_4658c025c85e4628_HELPERS
 #define MAL_DETAIL_HOST_REPR_4658c025c85e4628_HELPERS
-#define MAL_DETAIL_TO_HOST_MEMBERS_4658c025c85e4628(case, result_type) \
-case(result_type, 0, variant_0, mal_Address_return) \
-case(result_type, 1, variant_1, mal_detail_convert_Unit)
-#define MAL_DETAIL_TO_RAW_MEMBERS_4658c025c85e4628(case, result_type) \
-case(result_type, 0, variant_0, mal_Address_return) \
-case(result_type, 1, variant_1, mal_detail_convert_Unit)
-MAL_DETAIL_DEFINE_SUM_CONVERSIONS(mal_detail_to_host_4658c025c85e4628, mal_detail_to_raw_4658c025c85e4628, MalRepr_Sum_4658c025c85e4628, mal_repr_sum_4658c025c85e4628_t, MAL_DETAIL_TO_HOST_MEMBERS_4658c025c85e4628, MAL_DETAIL_TO_RAW_MEMBERS_4658c025c85e4628)
+MAL_DETAIL_DEFINE_SUM_CONVERSIONS(mal_detail_to_host_4658c025c85e4628, mal_detail_to_raw_4658c025c85e4628, MalRepr_Sum_4658c025c85e4628, mal_repr_sum_4658c025c85e4628_t, MAL_DETAIL_REPR_FIELDS_4658c025c85e4628)
 
 #define mal_repr_sum_4658c025c85e4628_tag_0 UINT32_C(0)
 #define mal_repr_sum_4658c025c85e4628_tag_1 UINT32_C(1)
@@ -111,10 +105,7 @@ MAL_DETAIL_SUM_API_repr_sum_4658c025c85e4628(MAL_DETAIL_DEFINE_SUM_UNIT_API, MAL
 
 #ifndef MAL_DETAIL_HOST_REPR_917e59f57ce60d07_HELPERS
 #define MAL_DETAIL_HOST_REPR_917e59f57ce60d07_HELPERS
-#define MAL_DETAIL_TO_HOST_917e59f57ce60d07 (mal_repr_product_917e59f57ce60d07_t){ .field_0 = (mal_Allocator_t){ .mal_detail_bits = value.field_0.bits }, .field_1 = value.field_1 }
-MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_917e59f57ce60d07, mal_repr_product_917e59f57ce60d07_t, MalRepr_Product_917e59f57ce60d07, MAL_DETAIL_TO_HOST_917e59f57ce60d07)
-#define MAL_DETAIL_TO_RAW_917e59f57ce60d07 (MalRepr_Product_917e59f57ce60d07){ .field_0 = (MalType_Allocator){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1) }
-MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_917e59f57ce60d07_return, MalRepr_Product_917e59f57ce60d07, mal_repr_product_917e59f57ce60d07_t, MAL_DETAIL_TO_RAW_917e59f57ce60d07)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_917e59f57ce60d07, mal_repr_product_917e59f57ce60d07_return, MalRepr_Product_917e59f57ce60d07, mal_repr_product_917e59f57ce60d07_t, MAL_DETAIL_REPR_FIELDS_917e59f57ce60d07)
 #endif
 
 static inline mal_Allocator_t mal_Allocator_from_bits(uintptr_t bits) {

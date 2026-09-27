@@ -55,10 +55,7 @@ impl TypeRegistry {
             if !host.contains(ty) || is_bool(ty) {
                 continue;
             }
-            if !host.external_contains(ty)
-                && (matches!(ty, Type::Product(_))
-                    || matches!(ty, Type::Sum(members) if !members.is_empty()))
-            {
+            if !host.external_contains(ty) && matches!(ty, Type::Product(_) | Type::Sum(_)) {
                 self.append_repr_descriptor(&mut output, ty);
             }
             let guard = format!("MAL_DETAIL_HOST_REPR_{}_DEFINED", self.index(ty));
