@@ -112,6 +112,9 @@ static inline MalType_Bool mal_Bool_return(mal_call_t *call, mal_Bool_t value) {
     }
     return value;
 }
+static inline MalType_Unit mal_detail_convert_Unit(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Unit_t value MAL_DETAIL_MAYBE_UNUSED) {
+    return (MalType_Unit){ 0 };
+}
 
 /* Canonical scalar memory access */
 
@@ -322,6 +325,41 @@ static inline void write_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t 
             mal_call_trap(call, "invalid sum tag"); \
         } \
     } \
+}
+#define MAL_DETAIL_SUM_CONVERSION_CASE(result_type, variant_tag, member, converter) \
+case UINT32_C(variant_tag): { \
+    return (result_type){ .tag = UINT32_C(variant_tag), .payload.member = converter(call, value.payload.member) }; \
+}
+#define MAL_DETAIL_DEFINE_SUM_CONVERSIONS(to_host_name, to_raw_name, raw_type, host_type, to_host_members, to_raw_members) \
+static inline host_type to_host_name(mal_call_t *call, raw_type value) { \
+    switch (value.tag) { \
+        to_host_members(MAL_DETAIL_SUM_CONVERSION_CASE, host_type) \
+        default: { \
+            mal_call_trap(call, "invalid sum tag"); \
+        } \
+    } \
+} \
+static inline raw_type to_raw_name(mal_call_t *call, host_type value) { \
+    switch (value.tag) { \
+        to_raw_members(MAL_DETAIL_SUM_CONVERSION_CASE, raw_type) \
+        default: { \
+            mal_call_trap(call, "invalid sum tag"); \
+        } \
+    } \
+}
+#define MAL_DETAIL_DEFINE_SUM_UNIT_API(make_name, return_name, host_type, raw_type, tag_name, member, to_raw) \
+static inline host_type make_name(void) { \
+    return (host_type){ .tag = tag_name, .payload.member = (mal_Unit_t){ 0 } }; \
+} \
+static inline raw_type return_name(mal_call_t *call) { \
+    return to_raw(call, make_name()); \
+}
+#define MAL_DETAIL_DEFINE_SUM_VALUE_API(make_name, return_name, host_type, raw_type, value_type, tag_name, member, to_raw) \
+static inline host_type make_name(value_type value) { \
+    return (host_type){ .tag = tag_name, .payload.member = value }; \
+} \
+static inline raw_type return_name(mal_call_t *call, value_type value) { \
+    return to_raw(call, make_name(value)); \
 }
 
 #endif

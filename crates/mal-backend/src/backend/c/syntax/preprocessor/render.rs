@@ -72,12 +72,21 @@ impl Directive {
                 name,
                 parameters,
                 invocations,
-            } => render_replacement(name, parameters, |output| {
-                for invocation in invocations {
-                    invocation.render_into(output);
-                    output.push('\n');
+            } => {
+                if invocations.is_empty() {
+                    let mut output = format!("#define {name}(");
+                    render_macro_parameters(&mut output, parameters);
+                    output.push_str(")\n");
+                    output
+                } else {
+                    render_replacement(name, parameters, |output| {
+                        for invocation in invocations {
+                            invocation.render_into(output);
+                            output.push('\n');
+                        }
+                    })
                 }
-            }),
+            }
             Self::StatementsDefine {
                 name,
                 parameters,

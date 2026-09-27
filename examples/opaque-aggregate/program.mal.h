@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_2139B5494D535697_H
-#define MAL_GENERATED_INTERFACE_2139B5494D535697_H
+#ifndef MAL_GENERATED_INTERFACE_D01E05F1C612587C_H
+#define MAL_GENERATED_INTERFACE_D01E05F1C612587C_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -74,64 +74,41 @@ struct mal_detail_repr_sum_e70fcef055657787 {
 
 /* Type helpers */
 
+static inline mal_Allocation_t mal_detail_to_host_Allocation(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation value);
+static inline MalType_Allocation mal_Allocation_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Allocation_t value);
+
 #ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
 #define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
+#define MAL_DETAIL_TO_HOST_01ed5581230a2b12 (mal_repr_product_01ed5581230a2b12_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = value.field_0.bits }, .field_1 = value.field_1 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, MalRepr_Product_01ed5581230a2b12, MAL_DETAIL_TO_HOST_01ed5581230a2b12)
 #define MAL_DETAIL_TO_RAW_01ed5581230a2b12 (MalRepr_Product_01ed5581230a2b12){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1 }
 MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_01ed5581230a2b12_return, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, MAL_DETAIL_TO_RAW_01ed5581230a2b12)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS
 #define MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS
-static inline mal_repr_sum_e70fcef055657787_t mal_detail_to_host_e70fcef055657787(mal_call_t *call, MalRepr_Sum_e70fcef055657787 value) {
-    switch (value.tag) {
-        case UINT32_C(0): {
-            return (mal_repr_sum_e70fcef055657787_t){ .tag = UINT32_C(0), .payload.variant_0 = value.payload.variant_0 };
-        }
-        case UINT32_C(1): {
-            return (mal_repr_sum_e70fcef055657787_t){ .tag = UINT32_C(1), .payload.variant_1 = (mal_repr_product_01ed5581230a2b12_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = value.payload.variant_1.field_0.bits }, .field_1 = value.payload.variant_1.field_1 } };
-        }
-        default: {
-            mal_call_trap(call, "invalid sum tag");
-        }
-    }
-}
-
-static inline MalRepr_Sum_e70fcef055657787 mal_detail_to_raw_e70fcef055657787(mal_call_t *call, mal_repr_sum_e70fcef055657787_t value) {
-    switch (value.tag) {
-        case UINT32_C(0): {
-            return (MalRepr_Sum_e70fcef055657787){ .tag = UINT32_C(0), .payload.variant_0 = (MalType_Unit){ 0 } };
-        }
-        case UINT32_C(1): {
-            return (MalRepr_Sum_e70fcef055657787){ .tag = UINT32_C(1), .payload.variant_1 = (MalRepr_Product_01ed5581230a2b12){ .field_0 = (MalType_Allocation){ .bits = value.payload.variant_1.field_0.mal_detail_bits }, .field_1 = value.payload.variant_1.field_1 } };
-        }
-        default: {
-            mal_call_trap(call, "invalid sum tag");
-        }
-    }
-}
+#define MAL_DETAIL_TO_HOST_MEMBERS_e70fcef055657787(case, result_type) \
+case(result_type, 0, variant_0, mal_detail_convert_Unit) \
+case(result_type, 1, variant_1, mal_detail_to_host_01ed5581230a2b12)
+#define MAL_DETAIL_TO_RAW_MEMBERS_e70fcef055657787(case, result_type) \
+case(result_type, 0, variant_0, mal_detail_convert_Unit) \
+case(result_type, 1, variant_1, mal_repr_product_01ed5581230a2b12_return)
+MAL_DETAIL_DEFINE_SUM_CONVERSIONS(mal_detail_to_host_e70fcef055657787, mal_detail_to_raw_e70fcef055657787, MalRepr_Sum_e70fcef055657787, mal_repr_sum_e70fcef055657787_t, MAL_DETAIL_TO_HOST_MEMBERS_e70fcef055657787, MAL_DETAIL_TO_RAW_MEMBERS_e70fcef055657787)
 
 #define mal_repr_sum_e70fcef055657787_tag_0 UINT32_C(0)
-static inline mal_repr_sum_e70fcef055657787_t mal_repr_sum_e70fcef055657787_make_0(void) {
-    return (mal_repr_sum_e70fcef055657787_t){ .tag = mal_repr_sum_e70fcef055657787_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
-}
-
-static inline MalRepr_Sum_e70fcef055657787 mal_repr_sum_e70fcef055657787_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_e70fcef055657787(call, (mal_repr_sum_e70fcef055657787_t){ .tag = mal_repr_sum_e70fcef055657787_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
-}
-
 #define mal_repr_sum_e70fcef055657787_tag_1 UINT32_C(1)
-static inline mal_repr_sum_e70fcef055657787_t mal_repr_sum_e70fcef055657787_make_1(mal_repr_product_01ed5581230a2b12_t value) {
-    return (mal_repr_sum_e70fcef055657787_t){ .tag = mal_repr_sum_e70fcef055657787_tag_1, .payload.variant_1 = value };
-}
-
-static inline MalRepr_Sum_e70fcef055657787 mal_repr_sum_e70fcef055657787_return_1(mal_call_t *call, mal_repr_product_01ed5581230a2b12_t value) {
-    return mal_detail_to_raw_e70fcef055657787(call, (mal_repr_sum_e70fcef055657787_t){ .tag = mal_repr_sum_e70fcef055657787_tag_1, .payload.variant_1 = value });
-}
-
+#define MAL_DETAIL_SUM_API_repr_sum_e70fcef055657787(unit, value) \
+unit(mal_repr_sum_e70fcef055657787_make_0, mal_repr_sum_e70fcef055657787_return_0, mal_repr_sum_e70fcef055657787_t, MalRepr_Sum_e70fcef055657787, mal_repr_sum_e70fcef055657787_tag_0, variant_0, mal_detail_to_raw_e70fcef055657787) \
+value(mal_repr_sum_e70fcef055657787_make_1, mal_repr_sum_e70fcef055657787_return_1, mal_repr_sum_e70fcef055657787_t, MalRepr_Sum_e70fcef055657787, mal_repr_product_01ed5581230a2b12_t, mal_repr_sum_e70fcef055657787_tag_1, variant_1, mal_detail_to_raw_e70fcef055657787)
+MAL_DETAIL_SUM_API_repr_sum_e70fcef055657787(MAL_DETAIL_DEFINE_SUM_UNIT_API, MAL_DETAIL_DEFINE_SUM_VALUE_API)
 #endif
 
 static inline mal_Allocation_t mal_Allocation_from_bits(uintptr_t bits) {
     return (mal_Allocation_t){ .mal_detail_bits = bits };
+}
+
+static inline mal_Allocation_t mal_detail_to_host_Allocation(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation value) {
+    return mal_Allocation_from_bits(value.bits);
 }
 
 static inline uintptr_t mal_Allocation_to_bits(mal_Allocation_t value) {
@@ -143,22 +120,11 @@ static inline MalType_Allocation mal_Allocation_return(mal_call_t *call MAL_DETA
 }
 
 #define mal_ResizeResult_tag_0 UINT32_C(0)
-static inline mal_ResizeResult_t mal_ResizeResult_make_0(void) {
-    return (mal_ResizeResult_t){ .tag = mal_ResizeResult_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } };
-}
-
-static inline MalType_ResizeResult mal_ResizeResult_return_0(mal_call_t *call) {
-    return mal_detail_to_raw_e70fcef055657787(call, (mal_ResizeResult_t){ .tag = mal_ResizeResult_tag_0, .payload.variant_0 = (mal_Unit_t){ 0 } });
-}
-
 #define mal_ResizeResult_tag_1 UINT32_C(1)
-static inline mal_ResizeResult_t mal_ResizeResult_make_1(mal_repr_product_01ed5581230a2b12_t value) {
-    return (mal_ResizeResult_t){ .tag = mal_ResizeResult_tag_1, .payload.variant_1 = value };
-}
-
-static inline MalType_ResizeResult mal_ResizeResult_return_1(mal_call_t *call, mal_repr_product_01ed5581230a2b12_t value) {
-    return mal_detail_to_raw_e70fcef055657787(call, (mal_ResizeResult_t){ .tag = mal_ResizeResult_tag_1, .payload.variant_1 = value });
-}
+#define MAL_DETAIL_SUM_API_ResizeResult(unit, value) \
+unit(mal_ResizeResult_make_0, mal_ResizeResult_return_0, mal_ResizeResult_t, MalType_ResizeResult, mal_ResizeResult_tag_0, variant_0, mal_detail_to_raw_e70fcef055657787) \
+value(mal_ResizeResult_make_1, mal_ResizeResult_return_1, mal_ResizeResult_t, MalType_ResizeResult, mal_repr_product_01ed5581230a2b12_t, mal_ResizeResult_tag_1, variant_1, mal_detail_to_raw_e70fcef055657787)
+MAL_DETAIL_SUM_API_ResizeResult(MAL_DETAIL_DEFINE_SUM_UNIT_API, MAL_DETAIL_DEFINE_SUM_VALUE_API)
 
 /* External operations */
 
@@ -185,7 +151,7 @@ static MalType_Allocation mal_detail_allocate( \
 static MalType_ResizeResult mal_detail_resize(mal_call_t *call, mal_repr_product_01ed5581230a2b12_t value); \
 MalType_ResizeResult mal_ext_resize(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Allocation argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_resize(&call, (mal_repr_product_01ed5581230a2b12_t){ .field_0 = (mal_Allocation_t){ .mal_detail_bits = ((MalRepr_Product_01ed5581230a2b12){ .field_0 = argument_0, .field_1 = argument_1 }).field_0.bits }, .field_1 = ((MalRepr_Product_01ed5581230a2b12){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    return mal_detail_resize(&call, mal_detail_to_host_01ed5581230a2b12(&call, (MalRepr_Product_01ed5581230a2b12){ .field_0 = argument_0, .field_1 = argument_1 })); \
 } \
 static MalType_ResizeResult mal_detail_resize( \
     mal_call_t *call, \

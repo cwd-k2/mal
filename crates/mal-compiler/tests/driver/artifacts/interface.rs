@@ -38,8 +38,16 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
     assert!(header.contains("typedef mal_repr_product_"));
     assert!(header.contains("_t mal_Bytes_t;"));
-    assert!(header.contains("mal_Count_read(mal_call_t *call, mal_Address_t address"));
-    assert!(header.contains("mal_Bytes_write(mal_call_t *call, mal_Address_t address"));
+    assert!(
+        header.contains(
+            "MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_Count_read, mal_Count_write, mal_Count_t"
+        )
+    );
+    assert!(
+        header.contains(
+            "MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_Bytes_read, mal_Bytes_write, mal_Bytes_t"
+        )
+    );
     assert!(!header.contains("mal__Internal_read"));
     assert!(!header.contains("mal__Internal_t"));
     assert!(!header.contains("mal_Managed_read"));

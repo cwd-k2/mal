@@ -5,8 +5,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_6C3C09B32F21F602_H
-#define MAL_GENERATED_INTERFACE_6C3C09B32F21F602_H
+#ifndef MAL_GENERATED_INTERFACE_291FC7EBD04D6D9D_H
+#define MAL_GENERATED_INTERFACE_291FC7EBD04D6D9D_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_InputAllocation;
@@ -73,20 +73,31 @@ struct mal_detail_repr_product_1e5c20e9f358150e {
 
 /* Type helpers */
 
+static inline mal_InputAllocation_t mal_detail_to_host_InputAllocation(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, MalType_InputAllocation value);
+static inline MalType_InputAllocation mal_InputAllocation_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_InputAllocation_t value);
+
 #ifndef MAL_DETAIL_HOST_REPR_588c78fec824022e_HELPERS
 #define MAL_DETAIL_HOST_REPR_588c78fec824022e_HELPERS
+#define MAL_DETAIL_TO_HOST_588c78fec824022e (mal_repr_product_588c78fec824022e_t){ .field_0 = (mal_InputAllocation_t){ .mal_detail_bits = value.field_0.bits }, .field_1 = value.field_1, .field_2 = value.field_2 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_588c78fec824022e, mal_repr_product_588c78fec824022e_t, MalRepr_Product_588c78fec824022e, MAL_DETAIL_TO_HOST_588c78fec824022e)
 #define MAL_DETAIL_TO_RAW_588c78fec824022e (MalRepr_Product_588c78fec824022e){ .field_0 = (MalType_InputAllocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = mal_Address_return(call, value.field_1), .field_2 = value.field_2 }
 MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_588c78fec824022e_return, MalRepr_Product_588c78fec824022e, mal_repr_product_588c78fec824022e_t, MAL_DETAIL_TO_RAW_588c78fec824022e)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
 #define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
+#define MAL_DETAIL_TO_HOST_1e5c20e9f358150e (mal_repr_product_1e5c20e9f358150e_t){ .field_0 = value.field_0, .field_1 = value.field_1 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_detail_to_host_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_TO_HOST_1e5c20e9f358150e)
 #define MAL_DETAIL_TO_RAW_1e5c20e9f358150e (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 }
 MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
 #endif
 
 static inline mal_InputAllocation_t mal_InputAllocation_from_bits(uintptr_t bits) {
     return (mal_InputAllocation_t){ .mal_detail_bits = bits };
+}
+
+static inline mal_InputAllocation_t mal_detail_to_host_InputAllocation(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, MalType_InputAllocation value) {
+    return mal_InputAllocation_from_bits(value.bits);
 }
 
 static inline uintptr_t mal_InputAllocation_to_bits(mal_InputAllocation_t value) {
@@ -160,7 +171,7 @@ static MalType_OutputBuffer mal_detail_outputBuffer( \
 static MalType_Unit mal_detail_writeBytes(mal_call_t *call, mal_OutputBuffer_t value); \
 void mal_ext_writeBytes(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_writeBytes(&call, (mal_OutputBuffer_t){ .field_0 = ((MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 }).field_0, .field_1 = ((MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 }).field_1 }); \
+    mal_detail_writeBytes(&call, mal_detail_to_host_1e5c20e9f358150e(&call, (MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 })); \
 } \
 static MalType_Unit mal_detail_writeBytes( \
     mal_call_t *call, \
