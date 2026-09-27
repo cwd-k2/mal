@@ -35,7 +35,7 @@ bufferSize :: USize := 4096usize;
 // through CopyResult before copyPath performs the common close-and-release cleanup.
 copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> [complete, failed] => {
     (memory, capacity, _) := buffer;
-    length := file.readFile((memory, capacity))[(length) -> length, (error) -> failed(error)];
+    length := file.readFile((memory, capacity))[(length) -> length, failed];
     when (length == 0usize) {
         complete();
     };

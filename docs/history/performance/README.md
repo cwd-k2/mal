@@ -12,3 +12,4 @@ Status: Historical records
 - [managed Engram](managed-engrams.md)
 - [reference compiler compile-time](compiler.md)
 - [loop combinator](loop-combinators.md)
+- [example corpus](examples.md)

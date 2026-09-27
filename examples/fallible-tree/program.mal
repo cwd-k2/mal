@@ -23,7 +23,7 @@ readNode :: NodeAddress -> NodeRecord := (node) ->
     from<NodeRecord>(node, 0usize, 1usize).get(0usize);
 
 createLeaf :: (Allocator, Int32) -> NodeBuildResult := (allocator, value) -> [created, failed] => {
-    node := allocator.allocateNode()[(allocated) -> allocated, () -> failed()];
+    node := allocator.allocateNode()[(allocated) -> allocated, failed];
     node.writeNode((value, 0u8, node, node));
     created(node);
 };
@@ -65,7 +65,7 @@ createOwnedBranch :: (Allocator, Int32, NodeAddress, NodeAddress) -> NodeBuildRe
     };
 
 buildLeftSubtree :: Allocator -> NodeBuildResult := (allocator) -> [created, failed] => {
-    left := allocator.createLeaf(3)[(node) -> node, () -> failed()];
+    left := allocator.createLeaf(3)[(node) -> node, failed];
     right := allocator.createLeaf(4)[
         (node) -> node,
         () -> {
@@ -77,7 +77,7 @@ buildLeftSubtree :: Allocator -> NodeBuildResult := (allocator) -> [created, fai
 };
 
 buildTree :: Allocator -> NodeBuildResult := (allocator) -> [created, failed] => {
-    left := allocator.buildLeftSubtree()[(node) -> node, () -> failed()];
+    left := allocator.buildLeftSubtree()[(node) -> node, failed];
     right := allocator.createLeaf(5)[
         (node) -> node,
         () -> {
