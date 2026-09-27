@@ -12,6 +12,8 @@ use crate::closure::ast::{
 use super::ids::Identities;
 use super::walk::{self, Visitor};
 
+mod operation;
+
 #[derive(Clone)]
 struct Creator {
     function: FunctionId,
@@ -158,7 +160,7 @@ fn collect_definitions(
             }
             _ => {}
         }
-        for_nested_blocks(&binding.operation, |nested| {
+        operation::for_nested_blocks(&binding.operation, |nested| {
             collect_definitions(nested, origins, creators, disqualified)
         });
     }
@@ -217,7 +219,7 @@ fn operation_uses(
             collect_uses(otherwise, origins, uses, disqualified);
             collect_uses(then, origins, uses, disqualified);
         }
-        other => for_operation_atoms(other, |atom| {
+        other => operation::for_atoms(other, |atom| {
             atom_use(atom, false, origins, uses, disqualified)
         }),
     }
@@ -456,7 +458,7 @@ fn rewrite_pattern_type(pattern: &mut Pattern, closure_types: &HashMap<ValueId, 
 }
 
 fn rewrite_operation_atoms(operation: &mut Operation, closure_types: &HashMap<ValueId, Type>) {
-    for_operation_atoms_mut(operation, |atom| rewrite_atom_type(atom, closure_types));
+    operation::for_atoms_mut(operation, |atom| rewrite_atom_type(atom, closure_types));
 }
 
 fn rewrite_atom_type(atom: &mut Atom, closure_types: &HashMap<ValueId, Type>) {
@@ -464,92 +466,5 @@ fn rewrite_atom_type(atom: &mut Atom, closure_types: &HashMap<ValueId, Type>) {
         && let Some(replacement) = closure_types.get(&binding)
     {
         atom.ty = replacement.clone();
-    }
-}
-
-fn for_nested_blocks(operation: &Operation, mut visit: impl FnMut(&Block)) {
-    match operation {
-        Operation::Case { arms, .. } => {
-            for arm in arms {
-                visit(&arm.value);
-            }
-        }
-        Operation::PrimitiveBranch {
-            otherwise, then, ..
-        } => {
-            visit(otherwise);
-            visit(then);
-        }
-        _ => {}
-    }
-}
-
-fn for_operation_atoms(operation: &Operation, mut visit: impl FnMut(&Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::Goto { value: atom, .. }
-        | Operation::SymbolLength { value: atom }
-        | Operation::SymbolAt { argument: atom }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. }
-        | Operation::Product(captures)
-        | Operation::Memory {
-            operands: captures, ..
-        }
-        | Operation::Buffer {
-            operands: captures, ..
-        } => {
-            for atom in captures {
-                visit(atom);
-            }
-        }
-        Operation::Call { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Operation::Case { scrutinee, .. } => visit(scrutinee),
-        Operation::PrimitiveBranch { left, right, .. }
-        | Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-    }
-}
-
-fn for_operation_atoms_mut(operation: &mut Operation, mut visit: impl FnMut(&mut Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::Goto { value: atom, .. }
-        | Operation::SymbolLength { value: atom }
-        | Operation::SymbolAt { argument: atom }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. }
-        | Operation::Product(captures)
-        | Operation::Memory {
-            operands: captures, ..
-        }
-        | Operation::Buffer {
-            operands: captures, ..
-        } => {
-            for atom in captures {
-                visit(atom);
-            }
-        }
-        Operation::Call { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Operation::Case { scrutinee, .. } => visit(scrutinee),
-        Operation::PrimitiveBranch { left, right, .. }
-        | Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
     }
 }
