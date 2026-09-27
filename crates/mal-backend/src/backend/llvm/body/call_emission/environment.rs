@@ -14,12 +14,13 @@ impl FunctionEmitter<'_> {
             Type::Product(captures.iter().map(|field| field.ty.clone()).collect());
         let value_type = self.types.value(&environment_type)?;
         self.begin_function(llvm_signature!(
-            internal fn { format!(
+            #[linkage(internal)]
+            fn {{ format!(
                 "mal_destroy_environment_{}",
                 function_number(self.function.id)
-            ) }(
+            ) }}(
                 "%mal_environment" : ptr,
-            ) -> void; attributes []
+            ) -> void
         ));
         self.block("entry");
         let environment = self.register();

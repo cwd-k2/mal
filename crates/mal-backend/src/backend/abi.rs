@@ -69,7 +69,7 @@ impl Function {
 
         self.parameters
             .iter()
-            .map(|parameter| llvm_parameter!({ format!("%mal_{}", parameter.name) } : ptr))
+            .map(|parameter| llvm_parameter!({{ format!("%mal_{}", parameter.name) }} : ptr))
             .collect()
     }
 
@@ -88,9 +88,9 @@ impl Function {
         use crate::backend::llvm::syntax::llvm_signature;
 
         let parameters = self.llvm_parameters();
-        llvm_signature!(fn { self.name.clone() }(
-            {{ parameters }}
-        ) -> void; attributes [])
+        llvm_signature!(fn {{ self.name.clone() }}(
+            ...{{ parameters }}
+        ) -> void)
     }
 
     pub(in crate::backend) fn llvm_declaration(
@@ -99,8 +99,8 @@ impl Function {
         use crate::backend::llvm::syntax::llvm_declaration;
 
         let parameters = self.llvm_unnamed_parameters();
-        llvm_declaration!(fn { self.name.clone() }(
-            {{ parameters }}
-        ) -> void; attributes [])
+        llvm_declaration!(fn {{ self.name.clone() }}(
+            ...{{ parameters }}
+        ) -> void;)
     }
 }

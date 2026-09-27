@@ -212,7 +212,7 @@ impl<'a> FunctionEmitter<'a> {
                     "%mal_context" : ptr,
                     "%mal_control_top" : ptr,
                     "%mal_environment" : ptr,
-                    "%mal_parameter" : { parameter.llvm },
+                    "%mal_parameter" : {{ parameter.llvm }},
                 )
             };
         let result = self.types.value(&self.result_type)?;
@@ -228,9 +228,11 @@ impl<'a> FunctionEmitter<'a> {
             Vec::new()
         };
         self.begin_function(llvm_signature!(
-            internal fn { format!("{}{suffix}", function_name(self.function.id)) }(
-                {{ parameters }},
-            ) -> { result.llvm }; attributes [{{ attributes }}]
+            #[linkage(internal)]
+            #[attributes(...{{ attributes }})]
+            fn {{ format!("{}{suffix}", function_name(self.function.id)) }}(
+                ...{{ parameters }},
+            ) -> {{ result.llvm }}
         ));
         self.block("entry");
         if !self.frame_sites.is_empty() {

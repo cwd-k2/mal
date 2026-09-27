@@ -11,16 +11,16 @@ pub(in crate::backend) use constant::{
 };
 pub(in crate::backend) use declaration::{
     llvm_function_attributes, llvm_function_attributes_items, llvm_parameter,
-    llvm_parameter_attributes, llvm_parameters, llvm_parameters_items, llvm_scalar, llvm_signature,
-    llvm_signature_build, llvm_type, llvm_types, llvm_types_items,
+    llvm_parameters, llvm_parameters_items, llvm_scalar, llvm_signature, llvm_signature_build,
+    llvm_signature_result, llvm_type, llvm_types, llvm_types_items,
 };
 pub(in crate::backend) use instruction::{
     llvm_instruction, llvm_instruction_atom, llvm_instruction_indices, llvm_instruction_sequence,
     llvm_instruction_type,
 };
 pub(in crate::backend) use module::{
-    llvm_declaration, llvm_declaration_build, llvm_global, llvm_metadata, llvm_metadata_operand,
-    llvm_metadata_operands, llvm_metadata_operands_item,
+    llvm_declaration, llvm_declaration_build, llvm_declaration_result, llvm_global, llvm_metadata,
+    llvm_metadata_operand, llvm_metadata_operands, llvm_metadata_operands_items,
 };
 pub(in crate::backend) use terminator::{
     llvm_switch_cases, llvm_switch_cases_item, llvm_terminator,

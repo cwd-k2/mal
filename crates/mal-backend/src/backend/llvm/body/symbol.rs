@@ -18,10 +18,11 @@ pub(super) fn literal_definition(
     name: &str,
     bytes: &[u8],
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
-    llvm_global!(byte_owner { name };
-        bytes { bytes.to_vec() };
-        align { STATIC_OWNER_ALIGNMENT }
-    )
+    llvm_global!(byte_owner {
+        name: {{ name }},
+        bytes: {{ bytes.to_vec() }},
+        alignment: {{ STATIC_OWNER_ALIGNMENT }},
+    })
 }
 
 impl FunctionEmitter<'_> {

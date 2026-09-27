@@ -187,12 +187,13 @@ impl FunctionEmitter<'_> {
             "%mal_context" : ptr,
             "%mal_control_top" : ptr,
             "%mal_environment" : ptr,
-            "%mal_parameter" : { parameter.llvm.clone() },
+            "%mal_parameter" : {{ parameter.llvm.clone() }},
         );
         self.begin_function(llvm_signature!(
-            internal fn { super::super::function_name(self.function.id) }(
-                {{ parameters }},
-            ) -> { result.llvm.clone() }; attributes []
+            #[linkage(internal)]
+            fn {{ super::super::function_name(self.function.id) }}(
+                ...{{ parameters }},
+            ) -> {{ result.llvm.clone() }}
         ));
         self.block("entry");
         let context_type = self.native_context_type()?;

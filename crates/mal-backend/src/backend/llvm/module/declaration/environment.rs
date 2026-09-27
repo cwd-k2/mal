@@ -43,11 +43,11 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
         [llvm_type!(ptr), types.pointer_representation_llvm_type()],
     ));
     module.declare(llvm_declaration!(
-        fn { format!("llvm.memcpy.p0.p0.i{}", types.index_size() * 8) }(
+        fn {{ format!("llvm.memcpy.p0.p0.i{}", types.index_size() * 8) }}(
             _ : ptr,
             _ : ptr,
-            _ : { index },
-            _ : int(1) [immarg],
-        ) -> void; attributes []
+            _ : {{ index }},
+            #[immarg] _ : int(1),
+        ) -> void;
     ));
 }

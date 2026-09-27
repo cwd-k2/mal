@@ -9,10 +9,13 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     let name = "convert";
     let result = Type::integer(32_u16);
     let trailing = [super::llvm_parameter!("%value" : int(8))];
-    let signature = super::llvm_signature!(internal fn { name }(
+    let signature = super::llvm_signature!(
+        #[linkage(internal)]
+        #[attributes(nounwind, willreturn)]
+        fn {{ name }}(
         "%context": ptr,
-        {{ trailing }},
-    ) -> { result }; attributes [nounwind, willreturn]);
+        ...{{ trailing }},
+    ) -> {{ result }});
 
     let mut function = FunctionBuilder::new(signature);
     assert!(function.start_block("entry"));
@@ -33,19 +36,24 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
 
 #[test]
 fn composes_module_leaf_definitions_with_the_same_template_boundaries() {
-    let extra = [super::llvm_metadata_operand!(node 0)];
+    let extra = [super::llvm_metadata_operand!(node(0))];
     let mut module = Module::new("test-target", "e-p:64:64");
-    module.declare(super::llvm_declaration!(fn "observe"(
+    module.declare(super::llvm_declaration!(#[attributes(nounwind)] fn "observe"(
         _: ptr,
-        _: int(8) [immarg],
-    ) -> void; attributes [nounwind]));
-    module.add_global(super::llvm_global!(byte_owner "message"; bytes { b"ok" }; align 1).unwrap());
+        #[immarg] _: int(8),
+    ) -> void;));
+    module.add_global(super::llvm_global!(byte_owner {
+        name: "message",
+        bytes: {{ b"ok" }},
+        alignment: 1,
+    }).unwrap());
     module.add_metadata([
-        super::llvm_metadata!(0 => [(text "root")]),
-        super::llvm_metadata!(distinct 1 => [
-            (integer int(64) => 0),
-            {{ extra }},
-        ]),
+        super::llvm_metadata!({ id: 0, distinct: false, operands: [text("root")] }),
+        super::llvm_metadata!({
+            id: 1,
+            distinct: true,
+            operands: [integer(int(64), 0), ...{{ extra }}],
+        }),
     ]);
 
     assert_eq!(

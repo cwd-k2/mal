@@ -61,14 +61,14 @@ impl FunctionEmitter<'_> {
     ) -> Option<()> {
         let value_type = self.types.value(element)?;
         let signature = if retain {
-            llvm_signature!(internal fn { format!("mal_buffer_retain_{number}") }(
+            llvm_signature!(#[linkage(internal)] fn {{ format!("mal_buffer_retain_{number}") }}(
                 "%mal_context": ptr,
                 "%mal_element": ptr,
-            ) -> void; attributes [])
+            ) -> void)
         } else {
-            llvm_signature!(internal fn { format!("mal_buffer_release_{number}") }(
+            llvm_signature!(#[linkage(internal)] fn {{ format!("mal_buffer_release_{number}") }}(
                 "%mal_element": ptr,
-            ) -> void; attributes [])
+            ) -> void)
         };
         self.begin_function(signature);
         self.block("entry");
