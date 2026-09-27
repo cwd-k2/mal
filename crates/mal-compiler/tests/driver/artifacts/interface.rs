@@ -244,14 +244,45 @@ fn emit_host_prints_compilable_external_operation_stubs() {
 
 #[test]
 fn checked_in_example_headers_match_the_compiler() {
-    fn collect_mal_sources(directory: &Path, sources: &mut Vec<std::path::PathBuf>) {
+    fn collect_files(
+        directory: &Path,
+        predicate: fn(&Path) -> bool,
+        files: &mut Vec<std::path::PathBuf>,
+    ) {
         for entry in std::fs::read_dir(directory).expect("read example directory") {
             let path = entry.expect("read example entry").path();
             if path.is_dir() {
-                collect_mal_sources(&path, sources);
-            } else if path.extension() == Some(OsStr::new("mal")) {
-                sources.push(path);
+                collect_files(&path, predicate, files);
+            } else if predicate(&path) {
+                files.push(path);
             }
+        }
+    }
+
+    fn collect_header_closure(
+        header: std::path::PathBuf,
+        headers: &mut std::collections::BTreeSet<std::path::PathBuf>,
+    ) {
+        let header = std::fs::canonicalize(header).expect("generated dependency header exists");
+        if !headers.insert(header.clone()) {
+            return;
+        }
+        let contents = std::fs::read_to_string(&header).expect("read generated example header");
+        for line in contents.lines() {
+            let Some(include) = line
+                .strip_prefix("#include \"")
+                .and_then(|line| line.strip_suffix('"'))
+                .filter(|include| include.ends_with(".mal.h"))
+            else {
+                continue;
+            };
+            collect_header_closure(
+                header
+                    .parent()
+                    .expect("header has a directory")
+                    .join(include),
+                headers,
+            );
         }
     }
 
@@ -262,13 +293,40 @@ fn checked_in_example_headers_match_the_compiler() {
         .expect("compiler directory has a repository parent");
     let examples = repository.join("examples");
     let mut sources = Vec::new();
-    collect_mal_sources(&examples, &mut sources);
-    sources.sort();
-    for (index, source) in sources.into_iter().enumerate() {
+    collect_files(
+        &examples,
+        |path| path.extension() == Some(OsStr::new("mal")),
+        &mut sources,
+    );
+    let mut required_headers = std::collections::BTreeSet::new();
+    for source in sources {
+        let contents = std::fs::read_to_string(&source).expect("read example source");
+        let owns_c_surface = contents.lines().any(|line| {
+            let line = line.trim_start();
+            line.starts_with("extern ") || (line.starts_with("require \"") && line.contains(".c\""))
+        });
+        if owns_c_surface {
+            collect_header_closure(source.with_extension("mal.h"), &mut required_headers);
+        }
+    }
+
+    let mut checked_in_headers = Vec::new();
+    collect_files(
+        &examples,
+        |path| path.to_string_lossy().ends_with(".mal.h"),
+        &mut checked_in_headers,
+    );
+    let checked_in_headers = checked_in_headers
+        .into_iter()
+        .map(|path| std::fs::canonicalize(path).expect("checked-in header exists"))
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(checked_in_headers, required_headers);
+
+    for (index, checked_in) in required_headers.into_iter().enumerate() {
+        let source = checked_in.with_extension("");
         let relative = source
             .strip_prefix(&examples)
             .expect("example source has an examples-relative path");
-        let checked_in = source.with_extension("mal.h");
         let generated = fixture.join(format!(
             "{}.h",
             relative.to_string_lossy().replace('/', "-")
