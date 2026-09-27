@@ -6,10 +6,11 @@ Copying it creates an alias to the same mutable buffer, and no explicit release 
 The C host owns only a small transfer area. `buffer.into(address, offset, length)` copies a selected
 range into that host area before an extern writes it. The host never receives or owns the Buffer.
 
-Run it from the repository root:
+From the repository root in Nushell:
 
-```console
-malc run examples/resizable-buffer/program.mal
+```nu
+nix develop --command cargo run -p mal-compiler -- build examples/resizable-buffer/program.mal --output /tmp/mal-resizable-buffer
+/tmp/mal-resizable-buffer
 ```
 
 Expected output:

@@ -4,6 +4,11 @@ The examples are executable explanations of current language and host-boundary b
 directory documents the representation, mutation, and resource assumptions relevant to its program.
 Source comments explain contracts and non-obvious decisions rather than restating syntax.
 
+Run compiler commands from the repository root through the pinned environment. The compiler usage
+contract, including the distinction between `check`, `build`, and `emit`, lives in
+[`docs/development/compiler-usage.md`](../docs/development/compiler-usage.md); individual example
+README files give only the command needed for that example.
+
 An example does not treat its carrier as the domain meaning itself. Indexed examples name the
 operations and validators that interpret coordinates, tags, or byte offsets; host examples keep
 resource meaning in extern contracts; scalar examples make language rules observable through a
@@ -39,5 +44,6 @@ For representation and relation modeling, start with `relation-views`, continue 
 example; `mini-database`, `socket-packet`, and `brainfuck-llvm` show the same boundary in larger
 programs.
 
-All `.mal` files are formatter fixtures. Representative directories also build and execute through
-the public compiler driver tests.
+All `.mal` files are formatter fixtures. Checked-in `program.mal.h` files are compiler-generated host
+interfaces and are compared byte-for-byte with current compiler output. Representative directories
+also build and execute through the public compiler driver tests.
