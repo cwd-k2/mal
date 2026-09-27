@@ -531,3 +531,95 @@ Malがbestを再帰resultで返しCがmutable cellへ保存するsource差があ
 以上から、現行corpusのC差は一つのbackend overheadではなく、入力・整数storage幅、Bufferの構築方法、再帰guard、
 source algorithm/state表現に分かれる。優先順位は、多数の上位caseへ共通する入力とdata widthを公平化し、043では既存APIによる一括構築を
 canonical sourceへ反映した上で、同形の計算だけが残るcaseでLLVM loop形状と再帰guardを再測定する順とする。
+
+## 2026-09-27 — 共有buffered scannerへの置換
+
+過渡的な入力record別externを削除し、Malとdirect Cが同じ64 KiB `fread` scannerからscalarな`Int32`、`Int64`、`UInt64`、byte tokenを
+読む形へ変更した。scannerはASCII whitespace、符号、型の範囲、token終端、EOF、`fread` error、token destination capacityを検査する。
+pair、triple、weighted edgeなどはhost operationではなくMalの通常functionでscalar primitiveから構成する。
+
+direct Cを従来どおり`-O2`だけでbuildすると、別translation unitになったscanner facadeがC側だけcallとして残り、9問のmedian比が
+0.91倍になる非対称が生じた。Mal production buildは`-O2 -flto`で同じ境界をinlineしているため、direct Cも`-O2 -flto`へ揃え、
+stdin facadeを両artifactでinlineした。reference Cのalgorithmは一つのtranslation unitに留まるため、このLTOは新たに分離した共有I/O境界を
+揃えるために必要である。
+
+過去にscalar `scanf`差が大きかった9問をmaximum-order input、2 warmup、交互10 roundで測定した。stdoutは各roundのwarmup時に一致を
+確認した。raw sampleは各problemのignored `artifacts/measurements/scanner-vs-c.json`に保存した。
+
+| 問題 | Mal median | direct C median | Mal / C |
+|:---|---:|---:|---:|
+| 021 | 13.779 ms | 11.776 ms | 1.170x |
+| 039 | 7.802 ms | 7.631 ms | 1.022x |
+| 003 | 7.366 ms | 7.951 ms | 0.926x |
+| 068 | 11.611 ms | 10.927 ms | 1.063x |
+| 062 | 11.306 ms | 11.326 ms | 0.998x |
+| 026 | 8.706 ms | 9.275 ms | 0.939x |
+| 017 | 41.957 ms | 41.395 ms | 1.014x |
+| 010 | 9.355 ms | 8.975 ms | 1.042x |
+| 028 | 15.724 ms | 13.647 ms | 1.152x |
+
+9問の比率はmedian 1.022倍、幾何平均1.033倍だった。旧scalar `scanf`測定では同じ9問がともに約1.22倍だったため、format parseと
+call粒度が作っていた集合全体の差は消えた。一方、021と028ではscalar Mal extern boundaryの回数に応じた差が再び観測できる。
+record別externを使った直前の測定では両問がそれぞれ1.02倍、1.06倍だったため、021についてinstructionと生成形状を追加比較した。
+
+021の同じscannerに対し、現行scalar extern、二整数を一度に返す診断用pair extern、生成後のscalar bridgeだけへ強制inline属性を加えた
+artifactを作った。3 warmup、三者を巡回する30 roundの結果とCallgrind instructionは次のとおりだった。入力とstdoutは三者で同一である。
+
+| 形 | median | instructions | 入力bridgeの生成形状 |
+|:---|---:|---:|:---|
+| scalar extern | 12.502 ms | 86.884 M | 400,002回のnative callが残る |
+| scalar bridgeを強制inline | 11.414 ms | 77.818 M | callなし |
+| pair extern | 11.405 ms | 76.540 M | edge用bridgeがinlineされる |
+
+現行scalarから強制inlineへの差は一入力あたり約22.7 instructionsで、強制inline後の実時間はpair externと同じだった。したがって残差は
+extern ABIに不可避なcostではなく、大きなscanner本体を取り込んだscalar bridgeをLLVMがinlineしなかった結果である。強制inlineはtextを
+9,010から11,266 bytesへ25%増やしたため、全extern bridgeへの一律指定は採らない。arity別operationをinterfaceへ戻すのでもなく、
+scanner parserと薄いbridgeの分離、またはcallsiteとcode sizeを考慮したinline方針を別途比較する。
+
+この結果を受け、stdin facadeはinlineのまま、型別の`corpus_scanner_read_*` parserだけをout-of-lineに固定した。Mal bridgeとdirect Cの
+callsiteはいずれもscanner状態の取得と一つのparser callだけになり、Mal bridge自体はmainへinlineされた。021のCallgrindでは両artifactの
+parserが同じ400,002回、同じ71.476 M instructionsになった。全体はMal 94.151 M、C 92.200 Mで、scanner以外の差だけが残った。
+parserもinlineする強制inline版より絶対instructionは増えるが、Mal bridgeだけが残る形や全bridgeへの一律inlineによるcode size増加を避け、
+algorithm比較から共有I/O実装の最適化判断を分離できるため、この境界をcorpusの標準とした。
+
+同じ9問を再buildし、2 warmup、交互10 roundで測定した結果は次のとおりだった。
+
+| 問題 | Mal median | direct C median | Mal / C |
+|:---|---:|---:|---:|
+| 021 | 12.143 ms | 11.661 ms | 1.041x |
+| 039 | 6.929 ms | 6.855 ms | 1.011x |
+| 003 | 7.141 ms | 7.450 ms | 0.958x |
+| 068 | 11.980 ms | 11.886 ms | 1.008x |
+| 062 | 7.691 ms | 8.461 ms | 0.909x |
+| 026 | 6.431 ms | 7.371 ms | 0.872x |
+| 017 | 27.349 ms | 27.483 ms | 0.995x |
+| 010 | 7.113 ms | 7.398 ms | 0.961x |
+| 028 | 12.126 ms | 10.679 ms | 1.136x |
+
+比率のmedianは0.995倍、幾何平均は0.985倍だった。021のscalar bridge由来の差は1.17倍から1.04倍へ縮小した。028の1.14倍は同じ
+parser境界を揃えても残るため、scannerやextern一般のcostではなくalgorithm本体の生成形状として扱う。
+
+共有parser境界の採用後に78問を2 warmup、交互10 roundで再測定した。双方5 ms以上の46問ではMal / C比のmedianが0.988倍、
+meanが0.993倍だった。比率上位の073、027、035、032、028を3 warmup、交互30 roundで再確認すると、それぞれ1.163、1.230、
+1.141、1.161、1.035倍だった。028の大差は再現せず、残る4問についてsource表現と生成形状を分離した。
+
+073はgraph indexまで`Int64`の一枚Bufferに置き、負値の正規化を二回の剰余で書いていた。index collectionを独立した
+`Buffer<Int32>`、DP値を独立した`Buffer<Int64>`とし、剰余を一回と負値への加算に直した。これは論理collectionと必要な値域に対応する
+通常の表現であり、Mal / C比は30 roundで1.003倍になった。したがって073はcompiler差ではなくsource storageと演算回数の差だった。
+
+027もlengthとhash tableを`Buffer<Int32>`へ分け、first occurrenceを回答Bufferへ蓄積せず逐次`printInt32`する形へ直した。
+Callgrind instructionはMal 112.382 M、C 111.123 Mの1.011倍まで揃った。10万行のstdioを含む100 roundは15.579対14.143 msの
+1.102倍だったが、algorithm部分のinstruction差を伴わないためcompiler本体の課題には分類しない。固定長Address領域、byte単位のhashと
+比較、open-address tableをsourceで組む形自体は、名前のhash setを直接表せないことによるperformance目的の実装である。残差を追う場合は
+backendではなく、token/Symbol admissionとhash collectionの表現力として扱う。
+
+035は回答Bufferを除いて逐次出力してもCallgrind instructionが231.95 Mから231.45 Mへ0.5 Mしか減らず、Cの208.42 Mとの差が残った。
+Cachegrindではconditional branchが32.608 M対26.174 M、data readが43.463 M対37.461 M、data writeが23.800 M対22.967 Mで、
+branch mispredictは2.083 M対2.155 Mだった。生成LLVMではhotな`distance`の入口が、borrowedな`TreeDistanceIndex`を分解するときに
+内包する5個のBufferをすべてretainし、未使用4個を直ちにreleaseし、使用する`depths`もreturn前にreleaseする。この処理が約50万回の
+distance計算ごとに残る。treeをmanaged fieldごとの引数へ展開するsource回避は自然なproduct表現を損なうため採らず、
+`execution/ownership`がborrowed parameterから得たnested product bindingのauthorityを後続のdestructureへ伝播できないcompiler課題とする。
+
+032は従来の分類どおり、bounded native stackのためのexplicit continuation push/popとstate復元が残差である。現行Callgrindも
+Mal 1,365.63 M、C 923.38 M instructionsで、値返却Cとmutable-best Cが同等だった過去の診断と一致する。したがってsource整理後の
+activeなcompiler課題は、035のnested managed product borrowと032のnon-tail recursive continuation costの二つである。
