@@ -6,6 +6,7 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 #ifndef MAL_GENERATED_INTERFACE_419D5FBC34D596D4_H
 #define MAL_GENERATED_INTERFACE_419D5FBC34D596D4_H
+
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_RAW_REPR_6a09db6e50421494_DECLARED
@@ -60,5 +61,6 @@ static MalType_Int32 mal_detail_inspect( \
     mal_call_t *call, \
     mal_repr_product_6a09db6e50421494_t value \
 )
+
 #endif
 #endif

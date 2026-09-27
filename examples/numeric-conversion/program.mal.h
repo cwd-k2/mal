@@ -6,6 +6,7 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 #ifndef MAL_GENERATED_INTERFACE_BE56D7DDA56049E4_H
 #define MAL_GENERATED_INTERFACE_BE56D7DDA56049E4_H
+
 /* External operations */
 
 void mal_ext_printUInt64(MalContext *context, MalType_UInt64 value);
@@ -23,5 +24,6 @@ static MalType_Unit mal_detail_printUInt64( \
     mal_call_t *call, \
     mal_UInt64_t value \
 )
+
 #endif
 #endif

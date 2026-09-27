@@ -256,7 +256,6 @@ impl TypeRegistry {
                     id(#{ format!("mal_detail_memory_write_{helper}") }),
                 ])
             });
-            output.blank_line();
             return;
         }
         let source = offset(

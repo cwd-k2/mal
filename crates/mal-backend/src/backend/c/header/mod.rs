@@ -58,11 +58,18 @@ fn append_interface(
     let mut types = TypeRegistry::default();
     let host = HostTypes::collect(interface, &mut types);
     let body = interface_body(interface, &types, &host, target);
+    let has_body = !body.is_empty();
     let guard = interface_guard(&body.render());
     output.blank_line();
     output.push(c_directive!(ifndef #{ guard.clone() }));
     output.push(c_directive!(define #{ guard };));
+    if has_body {
+        output.blank_line();
+    }
     output.extend(body);
+    if has_body {
+        output.blank_line();
+    }
     output.push(c_directive!(endif));
 }
 

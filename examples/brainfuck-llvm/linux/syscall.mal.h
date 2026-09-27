@@ -4,8 +4,9 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_4E8C99E633E579A6_H
-#define MAL_GENERATED_INTERFACE_4E8C99E633E579A6_H
+#ifndef MAL_GENERATED_INTERFACE_70A3978125754712_H
+#define MAL_GENERATED_INTERFACE_70A3978125754712_H
+
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_RAW_REPR_4647bb25c84fca76_DECLARED
@@ -542,19 +543,12 @@ MAL_DETAIL_DEFINE_MEMORY_SUM(mal_detail_memory_read_46708725c872772e, mal_detail
 #endif
 
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_OptionalAddress_read, mal_OptionalAddress_write, mal_OptionalAddress_t, 16, mal_detail_memory_read_4647bb25c84fca76, mal_detail_memory_write_4647bb25c84fca76)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_MapRequest_read, mal_MapRequest_write, mal_MapRequest_t, 48, mal_detail_memory_read_fac85322fcb836ab, mal_detail_memory_write_fac85322fcb836ab)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ResizeRequest_read, mal_ResizeRequest_write, mal_ResizeRequest_t, 32, mal_detail_memory_read_1a78737f3c5897b2, mal_detail_memory_write_1a78737f3c5897b2)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_AddressResult_read, mal_AddressResult_write, mal_AddressResult_t, 16, mal_detail_memory_read_4658c725c85e520d, mal_detail_memory_write_4658c725c85e520d)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_FileDescriptorResult_read, mal_FileDescriptorResult_write, mal_FileDescriptorResult_t, 8, mal_detail_memory_read_463d9725c84738c5, mal_detail_memory_write_463d9725c84738c5)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_OffsetResult_read, mal_OffsetResult_write, mal_OffsetResult_t, 16, mal_detail_memory_read_4662f725c866f822, mal_detail_memory_write_4662f725c866f822)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_TransferResult_read, mal_TransferResult_write, mal_TransferResult_t, 16, mal_detail_memory_read_46708725c872772e, mal_detail_memory_write_46708725c872772e)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_SyscallStatus_read, mal_SyscallStatus_write, mal_SyscallStatus_t, 8, mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda)
 
 /* External operations */
@@ -678,5 +672,6 @@ static MalType_Unit mal_detail_storeZero( \
     mal_call_t *call, \
     mal_repr_product_1e5c21e9f35816c1_t value \
 )
+
 #endif
 #endif

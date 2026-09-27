@@ -60,7 +60,9 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(header.contains("#define MAL_DEFINE__privateConsume(call, value)"));
     assert!(!header.contains("Symbol"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
-    assert!(!header.contains("\n\n#endif"));
+    assert!(header.ends_with("\n\n#endif\n#endif\n"));
+    assert!(!header.contains(")\n\nMAL_DETAIL_DEFINE_MEMORY_ALIAS"));
+    assert!(header.contains("_H\n\n/* Host-visible types */"));
     assert!(!directory.join("generated/program.c").exists());
 }
 

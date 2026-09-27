@@ -4,8 +4,9 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_27A44E39E8C7707E_H
-#define MAL_GENERATED_INTERFACE_27A44E39E8C7707E_H
+#ifndef MAL_GENERATED_INTERFACE_650EF373F7807D3E_H
+#define MAL_GENERATED_INTERFACE_650EF373F7807D3E_H
+
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Socket;
@@ -316,11 +317,8 @@ MAL_DETAIL_DEFINE_MEMORY_SUM(mal_detail_memory_read_df02f3d72e6af636, mal_detail
 #endif
 
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_SocketStatus_read, mal_SocketStatus_write, mal_SocketStatus_t, 8, mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ReceivedPacket_read, mal_ReceivedPacket_write, mal_ReceivedPacket_t, 16, mal_detail_memory_read_1e5f80e9f35aee05, mal_detail_memory_write_1e5f80e9f35aee05)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ReceiveResult_read, mal_ReceiveResult_write, mal_ReceiveResult_t, 24, mal_detail_memory_read_df02f3d72e6af636, mal_detail_memory_write_df02f3d72e6af636)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_PacketBuffer_read, mal_PacketBuffer_write, mal_PacketBuffer_t, 16, mal_detail_memory_read_1e5c20e9f358150e, mal_detail_memory_write_1e5c20e9f358150e)
 
 /* External operations */
@@ -403,5 +401,6 @@ static MalType_Unit mal_detail_writeError( \
     mal_call_t *call, \
     mal_UInt32_t value \
 )
+
 #endif
 #endif

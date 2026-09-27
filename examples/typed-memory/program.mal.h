@@ -6,6 +6,7 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 #ifndef MAL_GENERATED_INTERFACE_3FDAA1697F5FF9F0_H
 #define MAL_GENERATED_INTERFACE_3FDAA1697F5FF9F0_H
+
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DECLARED
@@ -66,5 +67,6 @@ static MalType_Unit mal_detail_incrementSample( \
     mal_call_t *call, \
     mal_Address_t value \
 )
+
 #endif
 #endif

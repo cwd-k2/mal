@@ -4,8 +4,9 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_A3D83D7DDD6715DE_H
-#define MAL_GENERATED_INTERFACE_A3D83D7DDD6715DE_H
+#ifndef MAL_GENERATED_INTERFACE_97730DB6A3A45E50_H
+#define MAL_GENERATED_INTERFACE_97730DB6A3A45E50_H
+
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -355,15 +356,10 @@ MAL_DETAIL_DEFINE_MEMORY_SUM(mal_detail_memory_read_4647c725c84fdeda, mal_detail
 #endif
 
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ByteBuffer_read, mal_ByteBuffer_write, mal_ByteBuffer_t, 24, mal_detail_memory_read_bebfef0e190e1724, mal_detail_memory_write_bebfef0e190e1724)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_WritableBytes_read, mal_WritableBytes_write, mal_WritableBytes_t, 16, mal_detail_memory_read_1e5c20e9f358150e, mal_detail_memory_write_1e5c20e9f358150e)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_IoError_read, mal_IoError_write, mal_IoError_t, 4, mal_detail_memory_read_UInt32, mal_detail_memory_write_UInt32)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ReadResult_read, mal_ReadResult_write, mal_ReadResult_t, 16, mal_detail_memory_read_466d2725c86f9e37, mal_detail_memory_write_466d2725c86f9e37)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_CloseResult_read, mal_CloseResult_write, mal_CloseResult_t, 8, mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_CopyResult_read, mal_CopyResult_write, mal_CopyResult_t, 8, mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda)
 
 /* External operations */
@@ -461,5 +457,6 @@ static MalType_Unit mal_detail_writeError( \
     mal_call_t *call, \
     mal_IoError_t value \
 )
+
 #endif
 #endif

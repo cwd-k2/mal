@@ -4,8 +4,9 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_5F08971E22D33C83_H
-#define MAL_GENERATED_INTERFACE_5F08971E22D33C83_H
+#ifndef MAL_GENERATED_INTERFACE_547550E4F821D9CB_H
+#define MAL_GENERATED_INTERFACE_547550E4F821D9CB_H
+
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocator;
@@ -152,9 +153,7 @@ MAL_DETAIL_DEFINE_MEMORY_PRODUCT(mal_detail_memory_read_cc5512c1c1db9776, mal_de
 #endif
 
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_NodeAddress_read, mal_NodeAddress_write, mal_NodeAddress_t, 8, mal_detail_memory_read_Address, mal_detail_memory_write_Address)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_NodeBuildResult_read, mal_NodeBuildResult_write, mal_NodeBuildResult_t, 16, mal_detail_memory_read_4658c025c85e4628, mal_detail_memory_write_4658c025c85e4628)
-
 MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_NodeRecord_read, mal_NodeRecord_write, mal_NodeRecord_t, 24, mal_detail_memory_read_cc5512c1c1db9776, mal_detail_memory_write_cc5512c1c1db9776)
 
 /* External operations */
@@ -213,5 +212,6 @@ static MalType_Unit mal_detail_destroyAllocator( \
     mal_call_t *call, \
     mal_Allocator_t value \
 )
+
 #endif
 #endif

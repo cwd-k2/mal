@@ -6,6 +6,7 @@ _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the 
 
 #ifndef MAL_GENERATED_INTERFACE_2EE0C96CCFF27660_H
 #define MAL_GENERATED_INTERFACE_2EE0C96CCFF27660_H
+
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -152,5 +153,6 @@ static MalType_UInt64 mal_detail_handleBits( \
     mal_call_t *call, \
     mal_Allocation_t value \
 )
+
 #endif
 #endif
