@@ -52,7 +52,8 @@ repository全体の完了判定は、rootで一つのcheck scriptを実行する
 nu scripts/dev.nu check
 ```
 
-このscriptはRust workspace、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを順に検証する。`--fast`はVS Code packageとNix flakeを省く。Tree-sitterは
+このscriptはRust workspace、repository内文書のlocal link、Tree-sitter grammar、VS Code extension、VSIX package、Nix flakeを
+順に検証する。`--fast`はVS Code packageとNix flakeを省く。文書検査はnetworkに依存せずrepository内の参照先が存在することを検査する。Tree-sitterは
 committed parser sourceが再生成結果と一致すること、corpus、repository内の全`.mal` sourceを検査する。VS Codeの
 `node_modules`は`package-lock.json`から`npm ci`で再構成し、VSIXを`/tmp/mal-language-support-test.vsix`へ生成する。Nix flakeは
 editor runtimeをbuildし、NeovimとHelixのparser path、三つのquery、exportされたTree-sitter symbolを検査する。toolchain packageが

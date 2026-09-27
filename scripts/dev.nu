@@ -27,6 +27,7 @@ def "main check" [
     step "Rust format" { cargo fmt --all --check }
     step "Rust lint" { cargo clippy --workspace --all-targets --locked -- -D warnings }
     step "Rust tests" { cargo test --workspace --locked }
+    step "Documentation links" { check_document_links }
     step "Tree-sitter generation" { check_tree_sitter_generation }
     step "Tree-sitter corpus" { cd editors/tree-sitter-mal; tree-sitter test }
     step "Tree-sitter repository sources" {
@@ -49,6 +50,48 @@ def "main check" [
         npm exec -- vsce package --out /tmp/mal-language-support-test.vsix --allow-missing-repository
     }
     step "Nix flake" { nix flake check }
+}
+
+# Verify repository-local Markdown file links without making the check depend on the network.
+def check_document_links [] {
+    let documents = (
+        rg --files . -g "*.md" -g "!**/node_modules/**"
+        | lines
+    )
+    let broken = (
+        $documents
+        | each {|document|
+            let directory = ($document | path dirname)
+            open --raw $document
+            | parse --regex '\]\((?<target>[^)]+)\)'
+            | get target
+            | where {|target|
+                let external = (
+                    ($target | str starts-with "http://")
+                    or ($target | str starts-with "https://")
+                    or ($target | str starts-with "mailto:")
+                    or ($target | str starts-with "#")
+                )
+                let local_file = (
+                    ($target | str contains "/")
+                    or ($target | str contains ".md")
+                    or $target == "LICENSE"
+                )
+                (not $external) and $local_file
+            }
+            | each {|target|
+                let path = ($target | split row "#" | first)
+                if not (($directory | path join $path) | path exists) {
+                    $"($document): ($target)"
+                }
+            }
+        }
+        | flatten
+        | compact --empty
+    )
+    if ($broken | is-not-empty) {
+        error make { msg: $"broken repository documentation links:\n($broken | str join '\n')" }
+    }
 }
 
 # Launch VS Code with this repository's extension and a freshly built mal-lsp.
