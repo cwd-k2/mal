@@ -214,6 +214,48 @@ mod tests {
     }
 
     #[test]
+    fn propagates_parameter_authority_through_a_call_resume() {
+        let source = SourceFile::new(
+            FileId::new(106),
+            "borrowed-resume-destructure.mal",
+            "observe :: (Symbol, Int64) -> USize := (pair) -> { (_, number) := pair; number.usize; };\ninspect :: ((Symbol, Int64), Bool) -> USize := (argument) -> { (pair, _) := argument; (text, _) := pair; offset := observe(pair); #text + offset; };\nmain :: Unit -> Int32 := () -> { inspect(((\"a\" + \"b\", 0i64), true)).i32; };"
+                .into(),
+        );
+        let checked =
+            mal_frontend::analysis::check(&source).expect("check resume destructure fixture");
+        let core = crate::core::lower(
+            &mal_frontend::check::specialize(checked)
+                .expect("specialize resume destructure fixture"),
+        );
+        let anf = crate::anf::lower(&core);
+        let closure = crate::closure::convert(&anf);
+        let execution =
+            crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+        let text = execution
+            .control
+            .states
+            .iter()
+            .flat_map(|state| &state.bindings)
+            .find_map(|binding| match &binding.pattern {
+                Pattern::Product { elements, .. }
+                    if matches!(binding.operation, Operation::Atom(_)) =>
+                {
+                    elements.iter().find_map(|element| match element {
+                        Pattern::Binding {
+                            id,
+                            ty: Type::Symbol,
+                        } => Some(*id),
+                        _ => None,
+                    })
+                }
+                _ => None,
+            })
+            .expect("nested Symbol binding");
+
+        assert!(execution.ownership.binding_is_borrowed(text));
+    }
+
+    #[test]
     fn borrows_a_case_payload_while_the_sum_owner_covers_the_arm() {
         let source = SourceFile::new(
             FileId::new(88),

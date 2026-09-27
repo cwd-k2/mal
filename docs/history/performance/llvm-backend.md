@@ -622,4 +622,24 @@ distance計算ごとに残る。treeをmanaged fieldごとの引数へ展開す�
 
 032は従来の分類どおり、bounded native stackのためのexplicit continuation push/popとstate復元が残差である。現行Callgrindも
 Mal 1,365.63 M、C 923.38 M instructionsで、値返却Cとmutable-best Cが同等だった過去の診断と一致する。したがってsource整理後の
-activeなcompiler課題は、035のnested managed product borrowと032のnon-tail recursive continuation costの二つである。
+この時点で確認できたcompiler課題は、035のnested managed product borrowと032のnon-tail recursive continuation costの二つだった。
+
+## 2026-09-27 — nested borrow authorityの正規化
+
+035の形を縮小すると、borrowed parameterから取り出した中間productをnative calleeへ渡し、そのproductから先に取り出したmanaged leafを
+resume後にも使う場合に再現した。ownership collectorはleafから中間product、中間productからparameterへの依存辺を個別には構成していたが、
+state境界の包含判定前に最終lenderへ閉じていなかった。このため中間carrierがresume stateでdeadになると、caller authorityが呼び出し全体を
+包含していてもleafをownerへ昇格していた。
+
+収集後のauthority graphを推移的に解き、中間aliasをstorageを実際に所有するlocal lenderへ置換した。borrowed ABIやactive environmentの
+ようにactivation外のauthorityが包含する値は空のlocal lender集合になり、通常のlocal ownerは終端として残る。最終authorityへ到達できない
+cycleはborrowの証明として採用しない。これによりsource順やproductの入れ子ではなく、最終authorityのlifetimeだけでstate境界を検証する。
+
+修正後の035 LLVMでは、hotな`distance`入口にあった5個のBufferのretain、未使用4個の即時release、使用する`depths`のreturn前releaseが
+すべて消えた。maximum-order inputのCallgrindは231,445,380から221,145,452 instructionsへ10,299,928、4.45%減った。Cは
+208,420,192 instructionsで、Mal / Cは1.110倍から1.061倍へ縮小し、instruction差の44.7%を除去した。
+
+修正前、修正後、Cを5 warmup、rotating 100 roundで同時比較したmedianは31.799、30.873、26.609 msだった。修正後は修正前より
+2.9%短く、Mal / Cは1.195倍から1.160倍へ縮小した。実時間sampleの分散が大きいため、局所変更の効果量はCallgrindを主な根拠とする。
+269 Mal sample、269 C sample、79 maximum-order比較、72 diagnostic variantはすべて通過した。このnested borrow defectは解消し、035に
+残る12.73 M instructionsは別の生成形状として再診断する。
