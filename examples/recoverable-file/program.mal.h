@@ -1,12 +1,11 @@
 #ifndef MAL_BUILD_UMBRELLA
 #include <mal.h>
-#include <string.h>
 
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_BCE378523B8417B4_H
-#define MAL_GENERATED_INTERFACE_BCE378523B8417B4_H
+#ifndef MAL_GENERATED_INTERFACE_965973C92DD3174E_H
+#define MAL_GENERATED_INTERFACE_965973C92DD3174E_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -231,26 +230,20 @@ struct mal_detail_repr_sum_4647c725c84fdeda {
 
 #ifndef MAL_DETAIL_HOST_REPR_bebfef0e190e1724_HELPERS
 #define MAL_DETAIL_HOST_REPR_bebfef0e190e1724_HELPERS
-static inline MalRepr_Product_bebfef0e190e1724 mal_repr_product_bebfef0e190e1724_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_bebfef0e190e1724_t value) {
-    return (MalRepr_Product_bebfef0e190e1724){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2 };
-}
-
+#define MAL_DETAIL_TO_RAW_bebfef0e190e1724 (MalRepr_Product_bebfef0e190e1724){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_bebfef0e190e1724_return, MalRepr_Product_bebfef0e190e1724, mal_repr_product_bebfef0e190e1724_t, MAL_DETAIL_TO_RAW_bebfef0e190e1724)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_c02233566497164f_HELPERS
 #define MAL_DETAIL_HOST_REPR_c02233566497164f_HELPERS
-static inline MalRepr_Product_c02233566497164f mal_repr_product_c02233566497164f_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_c02233566497164f_t value) {
-    return (MalRepr_Product_c02233566497164f){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_bebfef0e190e1724){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1, .field_2 = value.field_1.field_2 } };
-}
-
+#define MAL_DETAIL_TO_RAW_c02233566497164f (MalRepr_Product_c02233566497164f){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_bebfef0e190e1724){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1, .field_2 = value.field_1.field_2 } }
+MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_c02233566497164f_return, MalRepr_Product_c02233566497164f, mal_repr_product_c02233566497164f_t, MAL_DETAIL_TO_RAW_c02233566497164f)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
 #define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
-static inline MalRepr_Product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5c20e9f358150e_t value) {
-    return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
-}
-
+#define MAL_DETAIL_TO_RAW_1e5c20e9f358150e (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_24e3218f7b4d917f_HELPERS
@@ -305,10 +298,8 @@ static inline MalRepr_Sum_24e3218f7b4d917f mal_repr_sum_24e3218f7b4d917f_return_
 
 #ifndef MAL_DETAIL_HOST_REPR_be1b6939f45cf1f4_HELPERS
 #define MAL_DETAIL_HOST_REPR_be1b6939f45cf1f4_HELPERS
-static inline MalRepr_Product_be1b6939f45cf1f4 mal_repr_product_be1b6939f45cf1f4_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_be1b6939f45cf1f4_t value) {
-    return (MalRepr_Product_be1b6939f45cf1f4){ .field_0 = (MalType_File){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1 } };
-}
-
+#define MAL_DETAIL_TO_RAW_be1b6939f45cf1f4 (MalRepr_Product_be1b6939f45cf1f4){ .field_0 = (MalType_File){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1 } }
+MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_be1b6939f45cf1f4_return, MalRepr_Product_be1b6939f45cf1f4, mal_repr_product_be1b6939f45cf1f4_t, MAL_DETAIL_TO_RAW_be1b6939f45cf1f4)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_466d2725c86f9e37_HELPERS
@@ -435,22 +426,11 @@ static inline MalType_File mal_File_return(mal_call_t *call MAL_DETAIL_MAYBE_UNU
     return (MalType_File){ .bits = value.mal_detail_bits };
 }
 
-static inline MalType_ByteBuffer mal_ByteBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ByteBuffer_t value) {
-    return (MalRepr_Product_bebfef0e190e1724){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1, .field_2 = value.field_2 };
-}
-
-static inline MalType_WritableBytes mal_WritableBytes_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_WritableBytes_t value) {
-    return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
-}
-
-static inline MalType_IoError mal_IoError_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_IoError_t value) {
-    return value;
-}
-
-static inline MalType_OwnedBuffer mal_OwnedBuffer_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_OwnedBuffer_t value) {
-    return (MalRepr_Product_c02233566497164f){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = (MalRepr_Product_bebfef0e190e1724){ .field_0 = mal_Address_return(call, value.field_1.field_0), .field_1 = value.field_1.field_1, .field_2 = value.field_1.field_2 } };
-}
-
+MAL_DETAIL_DEFINE_CONVERSION(mal_ByteBuffer_return, MalType_ByteBuffer, mal_ByteBuffer_t, MAL_DETAIL_TO_RAW_bebfef0e190e1724)
+MAL_DETAIL_DEFINE_CONVERSION(mal_WritableBytes_return, MalType_WritableBytes, mal_WritableBytes_t, MAL_DETAIL_TO_RAW_1e5c20e9f358150e)
+#define MAL_DETAIL_TO_RAW_ALIAS_IoError value
+MAL_DETAIL_DEFINE_CONVERSION(mal_IoError_return, MalType_IoError, mal_IoError_t, MAL_DETAIL_TO_RAW_ALIAS_IoError)
+MAL_DETAIL_DEFINE_CONVERSION(mal_OwnedBuffer_return, MalType_OwnedBuffer, mal_OwnedBuffer_t, MAL_DETAIL_TO_RAW_c02233566497164f)
 #define mal_OpenResult_tag_0 UINT32_C(0)
 static inline mal_OpenResult_t mal_OpenResult_make_0(mal_File_t value) {
     return (mal_OpenResult_t){ .tag = mal_OpenResult_tag_0, .payload.variant_0 = value };
@@ -507,228 +487,50 @@ static inline MalType_CloseResult mal_CloseResult_return_1(mal_call_t *call, mal
 
 /* Canonical memory access */
 
-#ifndef MAL_DETAIL_MEMORY_UInt8_HELPERS
-#define MAL_DETAIL_MEMORY_UInt8_HELPERS
-static inline mal_UInt8_t mal_detail_memory_read_UInt8(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
-    mal_UInt8_t value;
-    memcpy(&value, source, sizeof(value));
-    return value;
-}
-
-static inline void mal_detail_memory_write_UInt8(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_UInt8_t value) {
-    memcpy(destination, &value, sizeof(value));
-}
-
-#endif
-
-#ifndef MAL_DETAIL_MEMORY_UInt32_HELPERS
-#define MAL_DETAIL_MEMORY_UInt32_HELPERS
-static inline mal_UInt32_t mal_detail_memory_read_UInt32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
-    mal_UInt32_t value;
-    memcpy(&value, source, sizeof(value));
-    return value;
-}
-
-static inline void mal_detail_memory_write_UInt32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_UInt32_t value) {
-    memcpy(destination, &value, sizeof(value));
-}
-
-#endif
-
-#ifndef MAL_DETAIL_MEMORY_Address_HELPERS
-#define MAL_DETAIL_MEMORY_Address_HELPERS
-static inline mal_Address_t mal_detail_memory_read_Address(mal_call_t *call, const uint8_t *source) {
-    mal_Address_t value;
-    memcpy(&value, source, sizeof(value));
-    return mal_Address_return(call, value);
-}
-
-static inline void mal_detail_memory_write_Address(mal_call_t *call, uint8_t *destination, mal_Address_t value) {
-    mal_Address_return(call, value);
-    memcpy(destination, &value, sizeof(value));
-}
-
-#endif
-
-#ifndef MAL_DETAIL_MEMORY_USize_HELPERS
-#define MAL_DETAIL_MEMORY_USize_HELPERS
-static inline mal_USize_t mal_detail_memory_read_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source) {
-    mal_USize_t value;
-    memcpy(&value, source, sizeof(value));
-    return value;
-}
-
-static inline void mal_detail_memory_write_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination, mal_USize_t value) {
-    memcpy(destination, &value, sizeof(value));
-}
-
-#endif
-
 #ifndef MAL_DETAIL_MEMORY_REPR_bebfef0e190e1724_HELPERS
 #define MAL_DETAIL_MEMORY_REPR_bebfef0e190e1724_HELPERS
-static inline mal_repr_product_bebfef0e190e1724_t mal_detail_memory_read_bebfef0e190e1724(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_bebfef0e190e1724_t value;
-    value.field_0 = mal_detail_memory_read_Address(call, source + 0);
-    value.field_1 = mal_detail_memory_read_USize(call, source + 8);
-    value.field_2 = mal_detail_memory_read_USize(call, source + 16);
-    return value;
-}
-
-static inline void mal_detail_memory_write_bebfef0e190e1724(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_bebfef0e190e1724_t value) {
-    mal_detail_memory_write_Address(call, destination + 0, value.field_0);
-    mal_detail_memory_write_USize(call, destination + 8, value.field_1);
-    mal_detail_memory_write_USize(call, destination + 16, value.field_2);
-}
-
+#define MAL_DETAIL_MEMORY_FIELDS_bebfef0e190e1724(unit, value) \
+value(field_0, mal_detail_memory_read_Address, mal_detail_memory_write_Address, 0) \
+value(field_1, mal_detail_memory_read_USize, mal_detail_memory_write_USize, 8) \
+value(field_2, mal_detail_memory_read_USize, mal_detail_memory_write_USize, 16)
+MAL_DETAIL_DEFINE_MEMORY_PRODUCT(mal_detail_memory_read_bebfef0e190e1724, mal_detail_memory_write_bebfef0e190e1724, mal_repr_product_bebfef0e190e1724_t, MAL_DETAIL_MEMORY_FIELDS_bebfef0e190e1724)
 #endif
 
 #ifndef MAL_DETAIL_MEMORY_REPR_1e5c20e9f358150e_HELPERS
 #define MAL_DETAIL_MEMORY_REPR_1e5c20e9f358150e_HELPERS
-static inline mal_repr_product_1e5c20e9f358150e_t mal_detail_memory_read_1e5c20e9f358150e(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    mal_repr_product_1e5c20e9f358150e_t value;
-    value.field_0 = mal_detail_memory_read_Address(call, source + 0);
-    value.field_1 = mal_detail_memory_read_USize(call, source + 8);
-    return value;
-}
-
-static inline void mal_detail_memory_write_1e5c20e9f358150e(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5c20e9f358150e_t value) {
-    mal_detail_memory_write_Address(call, destination + 0, value.field_0);
-    mal_detail_memory_write_USize(call, destination + 8, value.field_1);
-}
-
+#define MAL_DETAIL_MEMORY_FIELDS_1e5c20e9f358150e(unit, value) \
+value(field_0, mal_detail_memory_read_Address, mal_detail_memory_write_Address, 0) \
+value(field_1, mal_detail_memory_read_USize, mal_detail_memory_write_USize, 8)
+MAL_DETAIL_DEFINE_MEMORY_PRODUCT(mal_detail_memory_read_1e5c20e9f358150e, mal_detail_memory_write_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_MEMORY_FIELDS_1e5c20e9f358150e)
 #endif
 
 #ifndef MAL_DETAIL_MEMORY_REPR_466d2725c86f9e37_HELPERS
 #define MAL_DETAIL_MEMORY_REPR_466d2725c86f9e37_HELPERS
-static inline mal_repr_sum_466d2725c86f9e37_t mal_detail_memory_read_466d2725c86f9e37(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    switch (mal_detail_memory_read_UInt8(call, source)) {
-        case 0: {
-            return (mal_repr_sum_466d2725c86f9e37_t){ .tag = UINT32_C(0), .payload.variant_0 = mal_detail_memory_read_USize(call, source + 8) };
-        }
-        case 1: {
-            return (mal_repr_sum_466d2725c86f9e37_t){ .tag = UINT32_C(1), .payload.variant_1 = mal_detail_memory_read_UInt32(call, source + 8) };
-        }
-        default: {
-            mal_call_trap(call, "invalid canonical sum tag");
-        }
-    }
-}
-
-static inline void mal_detail_memory_write_466d2725c86f9e37(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_sum_466d2725c86f9e37_t value) {
-    switch (value.tag) {
-        case UINT32_C(0): {
-            mal_detail_memory_write_UInt8(call, destination, (mal_UInt8_t)value.tag);
-            mal_detail_memory_write_USize(call, destination + 8, value.payload.variant_0);
-            return;
-        }
-        case UINT32_C(1): {
-            mal_detail_memory_write_UInt8(call, destination, (mal_UInt8_t)value.tag);
-            mal_detail_memory_write_UInt32(call, destination + 8, value.payload.variant_1);
-            return;
-        }
-        default: {
-            mal_call_trap(call, "invalid sum tag");
-        }
-    }
-}
-
+#define MAL_DETAIL_MEMORY_MEMBERS_466d2725c86f9e37(member) \
+member(mal_repr_sum_466d2725c86f9e37_t, mal_UInt8_t, mal_detail_memory_write_UInt8, 0, variant_0, mal_detail_memory_read_USize, mal_detail_memory_write_USize, 8) \
+member(mal_repr_sum_466d2725c86f9e37_t, mal_UInt8_t, mal_detail_memory_write_UInt8, 1, variant_1, mal_detail_memory_read_UInt32, mal_detail_memory_write_UInt32, 8)
+MAL_DETAIL_DEFINE_MEMORY_SUM(mal_detail_memory_read_466d2725c86f9e37, mal_detail_memory_write_466d2725c86f9e37, mal_repr_sum_466d2725c86f9e37_t, mal_detail_memory_read_UInt8, MAL_DETAIL_MEMORY_MEMBERS_466d2725c86f9e37)
 #endif
 
 #ifndef MAL_DETAIL_MEMORY_REPR_4647c725c84fdeda_HELPERS
 #define MAL_DETAIL_MEMORY_REPR_4647c725c84fdeda_HELPERS
-static inline mal_repr_sum_4647c725c84fdeda_t mal_detail_memory_read_4647c725c84fdeda(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, const uint8_t *source MAL_DETAIL_MAYBE_UNUSED) {
-    switch (mal_detail_memory_read_UInt8(call, source)) {
-        case 0: {
-            return (mal_repr_sum_4647c725c84fdeda_t){ .tag = UINT32_C(0), .payload.variant_0 = (mal_Unit_t){ 0 } };
-        }
-        case 1: {
-            return (mal_repr_sum_4647c725c84fdeda_t){ .tag = UINT32_C(1), .payload.variant_1 = mal_detail_memory_read_UInt32(call, source + 4) };
-        }
-        default: {
-            mal_call_trap(call, "invalid canonical sum tag");
-        }
-    }
-}
-
-static inline void mal_detail_memory_write_4647c725c84fdeda(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, uint8_t *destination MAL_DETAIL_MAYBE_UNUSED, mal_repr_sum_4647c725c84fdeda_t value) {
-    switch (value.tag) {
-        case UINT32_C(0): {
-            mal_detail_memory_write_UInt8(call, destination, (mal_UInt8_t)value.tag);
-            (void)value.payload.variant_0;
-            return;
-        }
-        case UINT32_C(1): {
-            mal_detail_memory_write_UInt8(call, destination, (mal_UInt8_t)value.tag);
-            mal_detail_memory_write_UInt32(call, destination + 4, value.payload.variant_1);
-            return;
-        }
-        default: {
-            mal_call_trap(call, "invalid sum tag");
-        }
-    }
-}
-
+#define MAL_DETAIL_MEMORY_MEMBERS_4647c725c84fdeda(member) \
+member(mal_repr_sum_4647c725c84fdeda_t, mal_UInt8_t, mal_detail_memory_write_UInt8, 0, variant_0, mal_detail_memory_read_Unit, mal_detail_memory_write_Unit, 4) \
+member(mal_repr_sum_4647c725c84fdeda_t, mal_UInt8_t, mal_detail_memory_write_UInt8, 1, variant_1, mal_detail_memory_read_UInt32, mal_detail_memory_write_UInt32, 4)
+MAL_DETAIL_DEFINE_MEMORY_SUM(mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda, mal_repr_sum_4647c725c84fdeda_t, mal_detail_memory_read_UInt8, MAL_DETAIL_MEMORY_MEMBERS_4647c725c84fdeda)
 #endif
 
-static inline mal_ByteBuffer_t mal_ByteBuffer_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_bebfef0e190e1724(call, (const uint8_t *)address + (index * 24));
-}
+MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ByteBuffer_read, mal_ByteBuffer_write, mal_ByteBuffer_t, 24, mal_detail_memory_read_bebfef0e190e1724, mal_detail_memory_write_bebfef0e190e1724)
 
-static inline void mal_ByteBuffer_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_ByteBuffer_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_bebfef0e190e1724(call, (uint8_t *)address + (index * 24), value);
-}
+MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_WritableBytes_read, mal_WritableBytes_write, mal_WritableBytes_t, 16, mal_detail_memory_read_1e5c20e9f358150e, mal_detail_memory_write_1e5c20e9f358150e)
 
-static inline mal_WritableBytes_t mal_WritableBytes_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_1e5c20e9f358150e(call, (const uint8_t *)address + (index * 16));
-}
+MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_IoError_read, mal_IoError_write, mal_IoError_t, 4, mal_detail_memory_read_UInt32, mal_detail_memory_write_UInt32)
 
-static inline void mal_WritableBytes_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_WritableBytes_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_1e5c20e9f358150e(call, (uint8_t *)address + (index * 16), value);
-}
+MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_ReadResult_read, mal_ReadResult_write, mal_ReadResult_t, 16, mal_detail_memory_read_466d2725c86f9e37, mal_detail_memory_write_466d2725c86f9e37)
 
-static inline mal_IoError_t mal_IoError_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_UInt32(call, (const uint8_t *)address + (index * 4));
-}
+MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_CloseResult_read, mal_CloseResult_write, mal_CloseResult_t, 8, mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda)
 
-static inline void mal_IoError_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_IoError_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_UInt32(call, (uint8_t *)address + (index * 4), value);
-}
-
-static inline mal_ReadResult_t mal_ReadResult_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_466d2725c86f9e37(call, (const uint8_t *)address + (index * 16));
-}
-
-static inline void mal_ReadResult_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_ReadResult_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_466d2725c86f9e37(call, (uint8_t *)address + (index * 16), value);
-}
-
-static inline mal_CloseResult_t mal_CloseResult_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_4647c725c84fdeda(call, (const uint8_t *)address + (index * 8));
-}
-
-static inline void mal_CloseResult_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_CloseResult_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_4647c725c84fdeda(call, (uint8_t *)address + (index * 8), value);
-}
-
-static inline mal_CopyResult_t mal_CopyResult_read(mal_call_t *call, mal_Address_t address, mal_USize_t index) {
-    mal_Address_return(call, address);
-    return mal_detail_memory_read_4647c725c84fdeda(call, (const uint8_t *)address + (index * 8));
-}
-
-static inline void mal_CopyResult_write(mal_call_t *call, mal_Address_t address, mal_USize_t index, mal_CopyResult_t value) {
-    mal_Address_return(call, address);
-    mal_detail_memory_write_4647c725c84fdeda(call, (uint8_t *)address + (index * 8), value);
-}
+MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_CopyResult_read, mal_CopyResult_write, mal_CopyResult_t, 8, mal_detail_memory_read_4647c725c84fdeda, mal_detail_memory_write_4647c725c84fdeda)
 
 /* External operations */
 

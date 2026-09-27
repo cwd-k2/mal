@@ -53,6 +53,11 @@ impl Statement {
                 write_indent(output, depth);
                 output.push_str("}\n");
             }
+            Self::MacroInvocation(invocation) => {
+                write_indent(output, depth);
+                invocation.render_into(output);
+                output.push_str(";\n");
+            }
         }
     }
 }
@@ -69,9 +74,22 @@ impl Block {
 }
 
 impl SwitchCase {
-    fn render(&self, output: &mut impl RenderWrite, depth: usize) {
+    pub(in crate::backend::c::syntax) fn render(
+        &self,
+        output: &mut impl RenderWrite,
+        depth: usize,
+    ) {
+        let Self::Case { label, body } = self else {
+            let Self::MacroInvocation(invocation) = self else {
+                unreachable!()
+            };
+            write_indent(output, depth);
+            invocation.render_into(output);
+            output.push('\n');
+            return;
+        };
         write_indent(output, depth);
-        match &self.label {
+        match label {
             Some(label) => {
                 output.push_str("case ");
                 label.render(output);
@@ -79,7 +97,7 @@ impl SwitchCase {
             None => output.push_str("default"),
         }
         output.push_str(": {\n");
-        for statement in &self.body.statements {
+        for statement in &body.statements {
             statement.render(output, depth + 1);
         }
         write_indent(output, depth);

@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_16B2EFC8FFB50517_H
-#define MAL_GENERATED_INTERFACE_16B2EFC8FFB50517_H
+#ifndef MAL_GENERATED_INTERFACE_36FBE73C5F0F9EF5_H
+#define MAL_GENERATED_INTERFACE_36FBE73C5F0F9EF5_H
 /* Host-visible types */
 
 #ifndef MAL_DETAIL_RAW_REPR_6a09db6e50421494_DECLARED
@@ -43,10 +43,8 @@ struct mal_detail_repr_product_6a09db6e50421494 {
 
 #ifndef MAL_DETAIL_HOST_REPR_6a09db6e50421494_HELPERS
 #define MAL_DETAIL_HOST_REPR_6a09db6e50421494_HELPERS
-static inline MalRepr_Product_6a09db6e50421494 mal_repr_product_6a09db6e50421494_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_6a09db6e50421494_t value) {
-    return (MalRepr_Product_6a09db6e50421494){ .field_0 = value.field_0, .field_1 = value.field_1, .field_2 = value.field_2, .field_3 = value.field_3 };
-}
-
+#define MAL_DETAIL_TO_RAW_6a09db6e50421494 (MalRepr_Product_6a09db6e50421494){ .field_0 = value.field_0, .field_1 = value.field_1, .field_2 = value.field_2, .field_3 = value.field_3 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_6a09db6e50421494_return, MalRepr_Product_6a09db6e50421494, mal_repr_product_6a09db6e50421494_t, MAL_DETAIL_TO_RAW_6a09db6e50421494)
 #endif
 
 /* External operations */

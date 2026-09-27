@@ -1,7 +1,9 @@
 use crate::backend::c::syntax::{
-    TranslationUnit, c_aggregate, c_comment, c_declaration, c_directive, c_expr, c_function,
-    c_signature, c_type,
+    Block, Directive, FunctionDefinition, MacroInvocation, Statement, SwitchCase, TranslationUnit,
+    c_aggregate, c_block, c_comment, c_declaration, c_directive, c_expr, c_function, c_signature,
+    c_statement, c_type,
 };
+use crate::backend::c::types::TypeRegistry;
 
 pub(super) fn emit() -> String {
     let mut output = TranslationUnit::default();
@@ -13,6 +15,7 @@ pub(super) fn emit() -> String {
     output.push(c_directive!(include(system "stdint.h")));
     output.push(c_directive!(include(system "limits.h")));
     output.push(c_directive!(include(system "float.h")));
+    output.push(c_directive!(include(system "string.h")));
     output.blank_line();
     output.push(c_directive!(define "MAL_C_ABI_VERSION" = (number("0x000900u"));));
     output.blank_line();
@@ -144,8 +147,305 @@ pub(super) fn emit() -> String {
     });
     append_builtin_returns(&mut output);
     output.blank_line();
+    output.push(c_comment!("Canonical scalar memory access"));
+    output.blank_line();
+    output.push(c_function! {
+        #[static] #[inline] fn "mal_detail_memory_read_Unit"(
+            #[maybe_unused] "call": ptr(named("mal_call_t")),
+            #[maybe_unused] "source": ptr(const(named("uint8_t"))),
+        ) -> named("mal_Unit_t") {
+            return (compound((named("mal_Unit_t")), [positional((number(0)))]));
+        }
+    });
+    output.push(c_function! {
+        #[static] #[inline] fn "mal_detail_memory_write_Unit"(
+            #[maybe_unused] "call": ptr(named("mal_call_t")),
+            #[maybe_unused] "destination": ptr(named("uint8_t")),
+            "value": named("mal_Unit_t"),
+        ) -> named("void") {
+            cast((named("void")), (id("value")));
+        }
+    });
+    output.blank_line();
+    output.extend(TypeRegistry::default().common_scalar_memory_helpers());
+    output.blank_line();
+    append_generated_header_templates(&mut output);
+    output.blank_line();
     output.push(c_directive!(endif));
     output.render()
+}
+
+fn append_generated_header_templates(output: &mut TranslationUnit) {
+    output.push(c_comment!("Generated header templates"));
+    output.blank_line();
+    let conversion = c_function! {
+        #[static] #[inline] fn "function_name"(
+            #[maybe_unused] "call": ptr(named("mal_call_t")),
+            "value": named("value_type"),
+        ) -> named("result_type") {
+            return (id("conversion"));
+        }
+    };
+    output.push(c_directive! {
+        define_functions "MAL_DETAIL_DEFINE_CONVERSION" {
+            parameters: #{ ["function_name", "result_type", "value_type", "conversion"] },
+            definitions: #{ [conversion] },
+        }
+    });
+    let memory_read = c_function! {
+        #[static] #[inline] fn "read_name"(
+            "call": ptr(named("mal_call_t")),
+            "address": named("mal_Address_t"),
+            "index": named("mal_USize_t"),
+        ) -> named("value_type") {
+            call("mal_Address_return", [id("call"), id("address")]);
+            return (call("reader", [
+                id("call"),
+                add(
+                    (cast(
+                        (ptr(const(named("uint8_t")))),
+                        (id("address"))
+                    )),
+                    (multiply((id("index")), (id("stride"))))
+                ),
+            ]));
+        }
+    };
+    let memory_write = c_function! {
+        #[static] #[inline] fn "write_name"(
+            "call": ptr(named("mal_call_t")),
+            "address": named("mal_Address_t"),
+            "index": named("mal_USize_t"),
+            "value": named("value_type"),
+        ) -> named("void") {
+            call("mal_Address_return", [id("call"), id("address")]);
+            call("writer", [
+                id("call"),
+                add(
+                    (cast((ptr(named("uint8_t"))), (id("address")))),
+                    (multiply((id("index")), (id("stride"))))
+                ),
+                id("value"),
+            ]);
+        }
+    };
+    output.push(c_directive! {
+        define_functions "MAL_DETAIL_DEFINE_MEMORY_ALIAS" {
+            parameters: #{ [
+                "read_name", "write_name", "value_type", "stride", "reader", "writer",
+            ] },
+            definitions: #{ [memory_read, memory_write] },
+        }
+    });
+    append_product_memory_template(output);
+    append_sum_memory_template(output);
+}
+
+fn append_product_memory_template(output: &mut TranslationUnit) {
+    let member = c_expr!(field((id("value")), "member"));
+    let unit = c_expr!(compound((named("mal_Unit_t")), [positional((number(0)))]));
+    output.push(Directive::statements_define(
+        "MAL_DETAIL_MEMORY_PRODUCT_READ_UNIT",
+        ["member"],
+        [c_statement!(assign(#{ member.clone() }, #{ unit });)],
+    ));
+    output.push(Directive::statements_define(
+        "MAL_DETAIL_MEMORY_PRODUCT_READ_VALUE",
+        ["member", "reader", "writer", "offset"],
+        [c_statement! {
+            assign(
+                #{ member.clone() },
+                (call("reader", [
+                    id("call"),
+                    add((id("source")), (id("offset"))),
+                ]))
+            );
+        }],
+    ));
+    output.push(Directive::statements_define(
+        "MAL_DETAIL_MEMORY_PRODUCT_WRITE_UNIT",
+        ["member"],
+        [c_statement!(cast((named("void")), #{ member.clone() });)],
+    ));
+    output.push(Directive::statements_define(
+        "MAL_DETAIL_MEMORY_PRODUCT_WRITE_VALUE",
+        ["member", "reader", "writer", "offset"],
+        [c_statement! {
+            call("writer", [
+                id("call"),
+                add((id("destination")), (id("offset"))),
+                #{ member },
+            ]);
+        }],
+    ));
+
+    let mut read_body = Block::default();
+    read_body.push(c_statement!(let "value": named("value_type");));
+    read_body.push(Statement::macro_invocation(MacroInvocation::new(
+        "fields",
+        [
+            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_READ_UNIT")),
+            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_READ_VALUE")),
+        ],
+    )));
+    read_body.push(c_statement!(return (id("value"));));
+    let read = FunctionDefinition::from_signature(
+        c_signature! {
+            #[static] #[inline] fn "read_name"(
+                #[maybe_unused] "call": ptr(named("mal_call_t")),
+                #[maybe_unused] "source": ptr(const(named("uint8_t"))),
+            ) -> named("value_type")
+        },
+        read_body,
+    );
+    let mut write_body = Block::default();
+    write_body.push(Statement::macro_invocation(MacroInvocation::new(
+        "fields",
+        [
+            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_WRITE_UNIT")),
+            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_WRITE_VALUE")),
+        ],
+    )));
+    let write = FunctionDefinition::from_signature(
+        c_signature! {
+            #[static] #[inline] fn "write_name"(
+                #[maybe_unused] "call": ptr(named("mal_call_t")),
+                #[maybe_unused] "destination": ptr(named("uint8_t")),
+                "value": named("value_type"),
+            ) -> named("void")
+        },
+        write_body,
+    );
+    output.push(Directive::function_definitions_define(
+        "MAL_DETAIL_DEFINE_MEMORY_PRODUCT",
+        ["read_name", "write_name", "value_type", "fields"],
+        [read, write],
+    ));
+}
+
+fn append_sum_memory_template(output: &mut TranslationUnit) {
+    let tag = c_expr!(call("UINT32_C", [id("variant_tag")]));
+    let payload = c_expr! {
+        call("reader", [
+            id("call"),
+            add((id("source")), (id("offset"))),
+        ])
+    };
+    output.push(Directive::switch_cases_define(
+        "MAL_DETAIL_MEMORY_SUM_READ_CASE",
+        [
+            "value_type",
+            "tag_type",
+            "tag_writer",
+            "variant_tag",
+            "member",
+            "reader",
+            "writer",
+            "offset",
+        ],
+        [SwitchCase::case(
+            c_expr!(id("variant_tag")),
+            c_block! {
+                return (compound((named("value_type")), [
+                    field("tag", #{ tag.clone() }),
+                    path(#{ ["payload".to_string(), "member".to_string()] }, #{ payload }),
+                ]));
+            },
+        )],
+    ));
+    let host_tag = c_expr!(field((id("value")), "tag"));
+    let host_payload = c_expr!(field((field((id("value")), "payload")), "member"));
+    output.push(Directive::switch_cases_define(
+        "MAL_DETAIL_MEMORY_SUM_WRITE_CASE",
+        [
+            "value_type",
+            "tag_type",
+            "tag_writer",
+            "variant_tag",
+            "member",
+            "reader",
+            "writer",
+            "offset",
+        ],
+        [SwitchCase::case(
+            tag.clone(),
+            c_block! {
+                call("tag_writer", [
+                    id("call"),
+                    id("destination"),
+                    cast((named("tag_type")), #{ host_tag }),
+                ]);
+                call("writer", [
+                    id("call"),
+                    add((id("destination")), (id("offset"))),
+                    #{ host_payload },
+                ]);
+                return;
+            },
+        )],
+    ));
+
+    let mut read_body = Block::default();
+    read_body.push(Statement::switch(
+        c_expr!(call("tag_reader", [id("call"), id("source")])),
+        [
+            SwitchCase::macro_invocation(MacroInvocation::new(
+                "members",
+                [c_expr!(id("MAL_DETAIL_MEMORY_SUM_READ_CASE"))],
+            )),
+            SwitchCase::default(c_block! {
+                call("mal_call_trap", [
+                    id("call"),
+                    string("invalid canonical sum tag"),
+                ]);
+            }),
+        ]
+        .into(),
+    ));
+    let read = FunctionDefinition::from_signature(
+        c_signature! {
+            #[static] #[inline] fn "read_name"(
+                #[maybe_unused] "call": ptr(named("mal_call_t")),
+                #[maybe_unused] "source": ptr(const(named("uint8_t"))),
+            ) -> named("value_type")
+        },
+        read_body,
+    );
+    let mut write_body = Block::default();
+    write_body.push(Statement::switch(
+        c_expr!(field((id("value")), "tag")),
+        [
+            SwitchCase::macro_invocation(MacroInvocation::new(
+                "members",
+                [c_expr!(id("MAL_DETAIL_MEMORY_SUM_WRITE_CASE"))],
+            )),
+            SwitchCase::default(c_block! {
+                call("mal_call_trap", [id("call"), string("invalid sum tag")]);
+            }),
+        ]
+        .into(),
+    ));
+    let write = FunctionDefinition::from_signature(
+        c_signature! {
+            #[static] #[inline] fn "write_name"(
+                #[maybe_unused] "call": ptr(named("mal_call_t")),
+                #[maybe_unused] "destination": ptr(named("uint8_t")),
+                "value": named("value_type"),
+            ) -> named("void")
+        },
+        write_body,
+    );
+    output.push(Directive::function_definitions_define(
+        "MAL_DETAIL_DEFINE_MEMORY_SUM",
+        [
+            "read_name",
+            "write_name",
+            "value_type",
+            "tag_reader",
+            "members",
+        ],
+        [read, write],
+    ));
 }
 
 fn append_builtin_returns(output: &mut TranslationUnit) {

@@ -2,7 +2,7 @@ use crate::backend::c::syntax::{TranslationUnit, c_declaration, c_directive};
 
 pub(super) fn emit_prefix(
     index_bits: usize,
-    memory_access: bool,
+    _memory_access: bool,
     dependencies: &[String],
     umbrella: bool,
 ) -> TranslationUnit {
@@ -14,9 +14,6 @@ pub(super) fn emit_prefix(
     if umbrella {
         output.push(c_directive!(define "MAL_BUILD_UMBRELLA";));
         output.push(c_directive!(define "MAL_PROGRAM_MAL_H";));
-    }
-    if memory_access {
-        output.push(c_directive!(include(system "string.h")));
     }
     output.blank_line();
     output.push(c_declaration! {

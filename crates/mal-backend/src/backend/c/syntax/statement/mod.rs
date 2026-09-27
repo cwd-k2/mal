@@ -19,6 +19,7 @@ pub(in crate::backend) enum Statement {
         value: Expr,
         cases: Vec<SwitchCase>,
     },
+    MacroInvocation(MacroInvocation),
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -39,9 +40,9 @@ enum FunctionHeader {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend) struct SwitchCase {
-    label: Option<Expr>,
-    body: Block,
+pub(in crate::backend) enum SwitchCase {
+    Case { label: Option<Expr>, body: Block },
+    MacroInvocation(MacroInvocation),
 }
 
 impl Statement {
@@ -74,6 +75,10 @@ impl Statement {
     pub(in crate::backend) fn switch(value: Expr, cases: Vec<SwitchCase>) -> Self {
         Self::Switch { value, cases }
     }
+
+    pub(in crate::backend) fn macro_invocation(invocation: MacroInvocation) -> Self {
+        Self::MacroInvocation(invocation)
+    }
 }
 
 impl Block {
@@ -95,14 +100,18 @@ impl Block {
 
 impl SwitchCase {
     pub(in crate::backend) fn case(label: Expr, body: Block) -> Self {
-        Self {
+        Self::Case {
             label: Some(label),
             body,
         }
     }
 
     pub(in crate::backend) fn default(body: Block) -> Self {
-        Self { label: None, body }
+        Self::Case { label: None, body }
+    }
+
+    pub(in crate::backend) fn macro_invocation(invocation: MacroInvocation) -> Self {
+        Self::MacroInvocation(invocation)
     }
 }
 

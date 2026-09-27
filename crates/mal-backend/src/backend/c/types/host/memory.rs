@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, Statement, TranslationUnit, c_block, c_directive, c_expr, c_parameter,
-    c_signature, c_statement, c_switch_case, c_type,
+    Directive, Expr, MacroInvocation, Statement, TranslationUnit, c_block, c_directive, c_expr,
+    c_macro_invocation, c_parameter, c_signature, c_statement, c_type,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -20,34 +20,148 @@ impl TypeRegistry {
         if !aliases.iter().any(|alias| alias.host_memory_access) {
             return output;
         }
-        let tag_types = self
-            .aggregates
-            .iter()
-            .filter(|ty| host.memory_contains(ty) && !is_bool(ty))
-            .filter_map(|ty| layouts.sum(ty).map(|layout| integer_type(layout.tag_bits)))
-            .collect::<Vec<_>>();
-        for ty in scalar_types() {
-            if host.memory_contains(&ty) || tag_types.contains(&ty) {
-                let guard = format!("MAL_DETAIL_MEMORY_{}_HELPERS", scalar_name(&ty));
-                output.push(c_directive!(ifndef #{ guard.clone() }));
-                output.push(c_directive!(define #{ guard };));
-                self.append_scalar_memory_helpers(&mut output, &ty);
-                output.push(c_directive!(endif));
-                output.blank_line();
-            }
-        }
         for ty in &self.aggregates {
             if host.memory_contains(ty) && !is_bool(ty) {
                 let guard = format!("MAL_DETAIL_MEMORY_REPR_{}_HELPERS", self.index(ty));
                 output.push(c_directive!(ifndef #{ guard.clone() }));
                 output.push(c_directive!(define #{ guard };));
-                self.append_aggregate_memory_helpers(&mut output, self.index(ty), ty, layouts);
+                match ty {
+                    Type::Product(elements) => self.append_product_memory_template(
+                        &mut output,
+                        self.index(ty),
+                        ty,
+                        elements,
+                        layouts,
+                    ),
+                    Type::Sum(members) => self.append_sum_memory_template(
+                        &mut output,
+                        self.index(ty),
+                        ty,
+                        members,
+                        layouts,
+                    ),
+                    _ => unreachable!("only aggregate types have representation identities"),
+                }
                 output.push(c_directive!(endif));
                 output.blank_line();
             }
         }
         for alias in aliases.iter().filter(|alias| alias.host_memory_access) {
             self.append_alias_memory_helpers(&mut output, alias, layouts);
+        }
+        output
+    }
+
+    fn append_product_memory_template(
+        &self,
+        output: &mut TranslationUnit,
+        index: RepresentationId,
+        ty: &Type,
+        elements: &[Type],
+        layouts: SourceLayouts,
+    ) {
+        let fields = layouts
+            .product_fields(ty)
+            .expect("checker-approved memory product has a layout");
+        let descriptor = format!("MAL_DETAIL_MEMORY_FIELDS_{index}");
+        let invocations =
+            elements
+                .iter()
+                .zip(fields)
+                .enumerate()
+                .map(|(field, (element, layout))| {
+                    let member = c_expr!(id(#{ format!("field_{field}") }));
+                    if matches!(element, Type::Unit) {
+                        return MacroInvocation::new("unit", [member]);
+                    }
+                    let helper = match element {
+                        Type::Product(_) | Type::Sum(_) if !is_bool(element) => {
+                            self.index(element).to_string()
+                        }
+                        _ => scalar_name(element).into(),
+                    };
+                    MacroInvocation::new(
+                        "value",
+                        [
+                            member,
+                            c_expr!(id(#{ format!("mal_detail_memory_read_{helper}") })),
+                            c_expr!(id(#{ format!("mal_detail_memory_write_{helper}") })),
+                            c_expr!(number(#{ layout.offset })),
+                        ],
+                    )
+                });
+        output.push(Directive::invocations_define(
+            descriptor.clone(),
+            ["unit", "value"],
+            invocations,
+        ));
+        output.push(c_macro_invocation! {
+            "MAL_DETAIL_DEFINE_MEMORY_PRODUCT"([
+                id(#{ format!("mal_detail_memory_read_{index}") }),
+                id(#{ format!("mal_detail_memory_write_{index}") }),
+                id(#{ self.host_value_c_type(ty, None).to_string() }),
+                id(#{ descriptor }),
+            ])
+        });
+    }
+
+    fn append_sum_memory_template(
+        &self,
+        output: &mut TranslationUnit,
+        index: RepresentationId,
+        ty: &Type,
+        members: &[Type],
+        layouts: SourceLayouts,
+    ) {
+        let layout = layouts
+            .sum(ty)
+            .expect("checker-approved memory sum has a layout");
+        let tag_type = integer_type(layout.tag_bits);
+        let tag_name = scalar_name(&tag_type);
+        let value_type = self.host_value_c_type(ty, None).to_string();
+        let descriptor = format!("MAL_DETAIL_MEMORY_MEMBERS_{index}");
+        let invocations = members.iter().enumerate().map(|(variant, member)| {
+            let helper = match member {
+                Type::Unit => "Unit".into(),
+                Type::Product(_) | Type::Sum(_) if !is_bool(member) => {
+                    self.index(member).to_string()
+                }
+                _ => scalar_name(member).into(),
+            };
+            MacroInvocation::new(
+                "member",
+                [
+                    c_expr!(id(#{ value_type.clone() })),
+                    c_expr!(id(#{ format!("mal_{tag_name}_t") })),
+                    c_expr!(id(#{ format!("mal_detail_memory_write_{tag_name}") })),
+                    c_expr!(number(#{ variant })),
+                    c_expr!(id(#{ format!("variant_{variant}") })),
+                    c_expr!(id(#{ format!("mal_detail_memory_read_{helper}") })),
+                    c_expr!(id(#{ format!("mal_detail_memory_write_{helper}") })),
+                    c_expr!(number(#{ layout.payload_offset })),
+                ],
+            )
+        });
+        output.push(Directive::invocations_define(
+            descriptor.clone(),
+            ["member"],
+            invocations,
+        ));
+        output.push(c_macro_invocation! {
+            "MAL_DETAIL_DEFINE_MEMORY_SUM"([
+                id(#{ format!("mal_detail_memory_read_{index}") }),
+                id(#{ format!("mal_detail_memory_write_{index}") }),
+                id(#{ value_type }),
+                id(#{ format!("mal_detail_memory_read_{tag_name}") }),
+                id(#{ descriptor }),
+            ])
+        });
+    }
+
+    pub(in crate::backend::c) fn common_scalar_memory_helpers(&self) -> TranslationUnit {
+        let mut output = TranslationUnit::default();
+        for ty in scalar_types() {
+            self.append_scalar_memory_helpers(&mut output, &ty);
         }
         output
     }
@@ -115,186 +229,6 @@ impl TypeRegistry {
         );
     }
 
-    fn append_aggregate_memory_helpers(
-        &self,
-        output: &mut TranslationUnit,
-        index: RepresentationId,
-        ty: &Type,
-        layouts: SourceLayouts,
-    ) {
-        let host_type = self.host_value_c_type(ty, None);
-        let read_body =
-            match ty {
-                Type::Product(elements) => {
-                    let fields = layouts
-                        .product_fields(ty)
-                        .expect("checker-approved memory product has a layout");
-                    let field_reads = elements.iter().zip(fields).enumerate().map(
-                        |(field, (element, layout))| {
-                            c_statement! {
-                                assign(
-                                    (field((id("value")), #{ format!("field_{field}") })),
-                                    #{ self.memory_read_value(
-                                        element,
-                                        c_expr!(id("call")),
-                                        offset(c_expr!(id("source")), layout.offset),
-                                    ) }
-                                );
-                            }
-                        },
-                    );
-                    c_block! {
-                        let "value": #{ host_type.clone() };
-                        ...#{ field_reads }
-                        return (id("value"));
-                    }
-                }
-                Type::Sum(members) => self.sum_memory_read_body(ty, members, layouts),
-                _ => unreachable!("only aggregate types have representation identities"),
-            };
-        append_function(
-            output,
-            c_signature! {
-                #[static] #[inline] fn #{ format!("mal_detail_memory_read_{index}") }(
-                    #[maybe_unused] "call": ptr(named("mal_call_t")),
-                    #[maybe_unused] "source": ptr(const(named("uint8_t"))),
-                ) -> #{ host_type.clone() }
-            },
-            read_body,
-        );
-
-        let write_body = match ty {
-            Type::Product(elements) => {
-                let fields = layouts
-                    .product_fields(ty)
-                    .expect("checker-approved memory product has a layout");
-                c_block! {
-                    ...#{
-                        elements.iter().zip(fields).enumerate().map(
-                            |(field, (element, layout))| {
-                                self.memory_write_statement(
-                                    element,
-                                    c_expr!(id("call")),
-                                    offset(c_expr!(id("destination")), layout.offset),
-                                    c_expr! {
-                                        field(
-                                            (id("value")),
-                                            #{ format!("field_{field}") }
-                                        )
-                                    },
-                                )
-                            },
-                        )
-                    }
-                }
-            }
-            Type::Sum(members) => self.sum_memory_write_body(ty, members, layouts),
-            _ => unreachable!("only aggregate types have representation identities"),
-        };
-        append_function(
-            output,
-            c_signature! {
-                #[static] #[inline] fn #{ format!("mal_detail_memory_write_{index}") }(
-                    #[maybe_unused] "call": ptr(named("mal_call_t")),
-                    #[maybe_unused] "destination": ptr(named("uint8_t")),
-                    "value": #{ host_type },
-                ) -> named("void")
-            },
-            write_body,
-        );
-    }
-
-    fn sum_memory_read_body(&self, ty: &Type, members: &[Type], layouts: SourceLayouts) -> Block {
-        let layout = layouts
-            .sum(ty)
-            .expect("checker-approved memory sum has a layout");
-        let tag_type = integer_type(layout.tag_bits);
-        let cases = members
-            .iter()
-            .enumerate()
-            .map(|(variant, member)| {
-                c_switch_case! {
-                    (number(#{ variant })) => {
-                        return (compound(#{ self.host_value_c_type(ty, None) }, [
-                            field("tag", (call("UINT32_C", [number(#{ variant })]))),
-                            path(#{ ["payload".into(), format!("variant_{variant}")] },
-                                #{ self.memory_read_value(
-                                    member,
-                                    c_expr!(id("call")),
-                                    offset(c_expr!(id("source")), layout.payload_offset),
-                                ) }
-                            ),
-                        ]));
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-        c_block! {
-            switch #{ self.memory_read_value(
-                &tag_type,
-                c_expr!(id("call")),
-                c_expr!(id("source")),
-            ) } {
-                ...#{ cases },
-                _ => {
-                    call("mal_call_trap", [
-                        id("call"),
-                        string("invalid canonical sum tag"),
-                    ]);
-                },
-            }
-        }
-    }
-
-    fn sum_memory_write_body(&self, ty: &Type, members: &[Type], layouts: SourceLayouts) -> Block {
-        let layout = layouts
-            .sum(ty)
-            .expect("checker-approved memory sum has a layout");
-        let tag_type = integer_type(layout.tag_bits);
-        let cases: Vec<_> = members
-            .iter()
-            .enumerate()
-            .map(|(variant, member)| {
-                let tag_value = c_expr! {
-                    cast(
-                        #{ self.host_value_c_type(&tag_type, None) },
-                        (field((id("value")), "tag"))
-                    )
-                };
-                let payload = c_expr! {
-                    field((field((id("value")), "payload")), #{ format!("variant_{variant}") })
-                };
-                c_switch_case! {
-                    (call("UINT32_C", [number(#{ variant })])) => {
-                        #{ self.memory_write_statement(
-                            &tag_type,
-                            c_expr!(id("call")),
-                            c_expr!(id("destination")),
-                            tag_value,
-                        ) }
-                        #{ self.memory_write_statement(
-                            member,
-                            c_expr!(id("call")),
-                            offset(c_expr!(id("destination")), layout.payload_offset),
-                            payload,
-                        ) }
-                        return;
-                    }
-                }
-            })
-            .chain([c_switch_case! {
-                _ => {
-                    call("mal_call_trap", [id("call"), string("invalid sum tag")]);
-                }
-            }])
-            .collect();
-        c_block! {
-            switch (field((id("value")), "tag")) {
-                ...#{ cases },
-            }
-        }
-    }
-
     fn append_alias_memory_helpers(
         &self,
         output: &mut TranslationUnit,
@@ -305,6 +239,26 @@ impl TypeRegistry {
             .layout(&alias.ty)
             .expect("checker-approved memory alias has a layout")
             .stride;
+        if !matches!(alias.ty, Type::Unit) {
+            let helper = match &alias.ty {
+                Type::Product(_) | Type::Sum(_) if !is_bool(&alias.ty) => {
+                    self.index(&alias.ty).to_string()
+                }
+                _ => scalar_name(&alias.ty).into(),
+            };
+            output.push(c_macro_invocation! {
+                "MAL_DETAIL_DEFINE_MEMORY_ALIAS"([
+                    id(#{ format!("mal_{}_read", alias.name) }),
+                    id(#{ format!("mal_{}_write", alias.name) }),
+                    id(#{ format!("mal_{}_t", alias.name) }),
+                    number(#{ stride }),
+                    id(#{ format!("mal_detail_memory_read_{helper}") }),
+                    id(#{ format!("mal_detail_memory_write_{helper}") }),
+                ])
+            });
+            output.blank_line();
+            return;
+        }
         let source = offset(
             c_expr! {
                 cast(

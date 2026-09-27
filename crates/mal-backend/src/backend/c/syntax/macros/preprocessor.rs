@@ -66,6 +66,16 @@ macro_rules! c_directive_normalized {
             { $($trailing)* },
         )
     };
+    (define_functions $name:tt {
+        parameters: (@rust $($parameters:tt)*),
+        definitions: (@rust $($definitions:tt)*),
+    }) => {
+        $crate::backend::c::syntax::Directive::function_definitions_define(
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            { $($parameters)* },
+            { $($definitions)* },
+        )
+    };
 }
 
 macro_rules! c_macro_invocation_normalized {

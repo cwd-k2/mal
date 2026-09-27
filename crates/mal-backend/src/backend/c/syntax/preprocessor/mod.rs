@@ -1,6 +1,6 @@
 use std::ops::Deref;
 
-use super::{Expr, FunctionDefinition, FunctionSignature, Identifier};
+use super::{Expr, FunctionDefinition, FunctionSignature, Identifier, Statement, SwitchCase};
 
 mod render;
 
@@ -54,6 +54,26 @@ pub(in crate::backend) enum Directive {
         declarations: Vec<FunctionSignature>,
         definitions: Vec<FunctionDefinition>,
         trailing_signature: FunctionSignature,
+    },
+    FunctionDefinitionsDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        definitions: Vec<FunctionDefinition>,
+    },
+    InvocationsDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        invocations: Vec<MacroInvocation>,
+    },
+    StatementsDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        statements: Vec<Statement>,
+    },
+    SwitchCasesDefine {
+        name: Identifier,
+        parameters: Vec<MacroParameter>,
+        cases: Vec<SwitchCase>,
     },
     If(PreprocessorExpr),
     Ifndef(Identifier),
@@ -139,6 +159,54 @@ impl Directive {
             declarations: declarations.into_iter().collect(),
             definitions: definitions.into_iter().collect(),
             trailing_signature,
+        }
+    }
+
+    pub(in crate::backend) fn function_definitions_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        definitions: impl IntoIterator<Item = FunctionDefinition>,
+    ) -> Self {
+        Self::FunctionDefinitionsDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            definitions: definitions.into_iter().collect(),
+        }
+    }
+
+    pub(in crate::backend) fn invocations_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        invocations: impl IntoIterator<Item = MacroInvocation>,
+    ) -> Self {
+        Self::InvocationsDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            invocations: invocations.into_iter().collect(),
+        }
+    }
+
+    pub(in crate::backend) fn statements_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        statements: impl IntoIterator<Item = Statement>,
+    ) -> Self {
+        Self::StatementsDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            statements: statements.into_iter().collect(),
+        }
+    }
+
+    pub(in crate::backend) fn switch_cases_define(
+        name: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
+        cases: impl IntoIterator<Item = SwitchCase>,
+    ) -> Self {
+        Self::SwitchCasesDefine {
+            name: name.into(),
+            parameters: parameters.into_iter().map(Into::into).collect(),
+            cases: cases.into_iter().collect(),
         }
     }
 }

@@ -54,6 +54,48 @@ impl Directive {
                 output.push('\n');
                 output.finish()
             }
+            Self::FunctionDefinitionsDefine {
+                name,
+                parameters,
+                definitions,
+            } => {
+                let mut prefix = format!("#define {name}(");
+                render_macro_parameters(&mut prefix, parameters);
+                prefix.push_str(") \\\n");
+                let mut output = MacroReplacementWriter::new(prefix);
+                for definition in definitions {
+                    definition.render_into(&mut output);
+                }
+                output.finish()
+            }
+            Self::InvocationsDefine {
+                name,
+                parameters,
+                invocations,
+            } => render_replacement(name, parameters, |output| {
+                for invocation in invocations {
+                    invocation.render_into(output);
+                    output.push('\n');
+                }
+            }),
+            Self::StatementsDefine {
+                name,
+                parameters,
+                statements,
+            } => render_replacement(name, parameters, |output| {
+                for statement in statements {
+                    statement.render(output, 0);
+                }
+            }),
+            Self::SwitchCasesDefine {
+                name,
+                parameters,
+                cases,
+            } => render_replacement(name, parameters, |output| {
+                for case in cases {
+                    case.render(output, 0);
+                }
+            }),
             Self::If(condition) => {
                 let mut output = String::from("#if ");
                 condition.render(&mut output);
@@ -65,6 +107,19 @@ impl Directive {
             Self::Endif => "#endif\n".into(),
         }
     }
+}
+
+fn render_replacement(
+    name: &Identifier,
+    parameters: &[MacroParameter],
+    render: impl FnOnce(&mut MacroReplacementWriter),
+) -> String {
+    let mut prefix = format!("#define {name}(");
+    render_macro_parameters(&mut prefix, parameters);
+    prefix.push_str(") \\\n");
+    let mut output = MacroReplacementWriter::new(prefix);
+    render(&mut output);
+    output.finish()
 }
 
 impl MacroInvocation {

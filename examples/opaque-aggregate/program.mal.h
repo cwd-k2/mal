@@ -4,8 +4,8 @@
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
-#ifndef MAL_GENERATED_INTERFACE_4DACB4AAAF918F4D_H
-#define MAL_GENERATED_INTERFACE_4DACB4AAAF918F4D_H
+#ifndef MAL_GENERATED_INTERFACE_2139B5494D535697_H
+#define MAL_GENERATED_INTERFACE_2139B5494D535697_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
@@ -76,10 +76,8 @@ struct mal_detail_repr_sum_e70fcef055657787 {
 
 #ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
 #define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
-static inline MalRepr_Product_01ed5581230a2b12 mal_repr_product_01ed5581230a2b12_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_01ed5581230a2b12_t value) {
-    return (MalRepr_Product_01ed5581230a2b12){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1 };
-}
-
+#define MAL_DETAIL_TO_RAW_01ed5581230a2b12 (MalRepr_Product_01ed5581230a2b12){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1 }
+MAL_DETAIL_DEFINE_CONVERSION(mal_repr_product_01ed5581230a2b12_return, MalRepr_Product_01ed5581230a2b12, mal_repr_product_01ed5581230a2b12_t, MAL_DETAIL_TO_RAW_01ed5581230a2b12)
 #endif
 
 #ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS

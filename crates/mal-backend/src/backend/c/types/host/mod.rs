@@ -1,6 +1,7 @@
 use crate::backend::c::syntax::{
     Block, Expr, FunctionSignature, TranslationUnit, TypeName, c_block, c_directive, c_expr,
-    c_function, c_initializer, c_parameters, c_signature, c_switch_case, c_type,
+    c_function, c_initializer, c_macro_invocation, c_parameters, c_signature, c_switch_case,
+    c_type,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -27,24 +28,24 @@ impl TypeRegistry {
             match ty {
                 Type::Product(_) => {
                     let id = self.index(ty);
-                    append_function(
-                        &mut output,
-                        c_signature! {
-                            #[static] #[inline] fn #{ format!("mal_repr_product_{id}_return") }(
-                                #[maybe_unused] "call": ptr(named("mal_call_t")),
-                                "value": named(#{ format!("mal_repr_product_{id}_t") }),
-                            ) -> #{ self.c_type(ty) }
-                        },
-                        c_block! {
-                            return #{
-                                    self.host_to_raw_value(
-                                        ty,
-                                        c_expr!(id("call")),
-                                        c_expr!(id("value")),
-                                    )
-                                };
-                        },
-                    )
+                    let conversion = format!("MAL_DETAIL_TO_RAW_{id}");
+                    output.push(c_directive! {
+                        define #{ conversion.clone() } = #{
+                            self.host_to_raw_value(
+                                ty,
+                                c_expr!(id("call")),
+                                c_expr!(id("value")),
+                            )
+                        };
+                    });
+                    output.push(c_macro_invocation! {
+                        "MAL_DETAIL_DEFINE_CONVERSION"([
+                            id(#{ format!("mal_repr_product_{id}_return") }),
+                            id(#{ format!("MalRepr_Product_{id}") }),
+                            id(#{ format!("mal_repr_product_{id}_t") }),
+                            id(#{ conversion }),
+                        ])
+                    });
                 }
                 Type::Sum(members) => {
                     let id = self.index(ty);
@@ -121,24 +122,29 @@ impl TypeRegistry {
                 );
                 continue;
             }
-            append_function(
-                &mut output,
-                c_signature! {
-                    #[static] #[inline] fn #{ format!("mal_{}_return", alias.name) }(
-                        #[maybe_unused] "call": ptr(named("mal_call_t")),
-                        "value": named(#{ format!("mal_{}_t", alias.name) }),
-                    ) -> #{ self.header_c_type(&alias.ty, Some(&alias.name)) }
-                },
-                c_block! {
-                    return #{
-                            self.host_to_raw_value(
-                                &alias.ty,
-                                c_expr!(id("call")),
-                                c_expr!(id("value")),
-                            )
-                        };
-                },
-            );
+            let conversion = if matches!(&alias.ty, Type::Product(_)) {
+                format!("MAL_DETAIL_TO_RAW_{}", self.index(&alias.ty))
+            } else {
+                let conversion = format!("MAL_DETAIL_TO_RAW_ALIAS_{}", alias.name);
+                output.push(c_directive! {
+                    define #{ conversion.clone() } = #{
+                        self.host_to_raw_value(
+                            &alias.ty,
+                            c_expr!(id("call")),
+                            c_expr!(id("value")),
+                        )
+                    };
+                });
+                conversion
+            };
+            output.push(c_macro_invocation! {
+                "MAL_DETAIL_DEFINE_CONVERSION"([
+                    id(#{ format!("mal_{}_return", alias.name) }),
+                    id(#{ format!("MalType_{}", alias.name) }),
+                    id(#{ format!("mal_{}_t", alias.name) }),
+                    id(#{ conversion }),
+                ])
+            });
         }
         output
     }

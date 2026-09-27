@@ -1,4 +1,6 @@
-use super::{AggregateDefinition, Comment, Declaration, Directive, FunctionDefinition};
+use super::{
+    AggregateDefinition, Comment, Declaration, Directive, FunctionDefinition, MacroInvocation,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend) enum UnitItem {
@@ -7,6 +9,7 @@ pub(in crate::backend) enum UnitItem {
     Declaration(Declaration),
     Directive(Directive),
     Function(FunctionDefinition),
+    MacroInvocation(MacroInvocation),
     BlankLine,
 }
 
@@ -49,6 +52,10 @@ impl TranslationUnit {
                 UnitItem::Declaration(declaration) => output.push_str(&declaration.render()),
                 UnitItem::Directive(directive) => output.push_str(&directive.render()),
                 UnitItem::Function(definition) => output.push_str(&definition.render()),
+                UnitItem::MacroInvocation(invocation) => {
+                    invocation.render_into(&mut output);
+                    output.push('\n');
+                }
                 UnitItem::BlankLine => output.push('\n'),
             }
         }
@@ -83,6 +90,12 @@ impl From<Directive> for UnitItem {
 impl From<FunctionDefinition> for UnitItem {
     fn from(value: FunctionDefinition) -> Self {
         Self::Function(value)
+    }
+}
+
+impl From<MacroInvocation> for UnitItem {
+    fn from(value: MacroInvocation) -> Self {
+        Self::MacroInvocation(value)
     }
 }
 
