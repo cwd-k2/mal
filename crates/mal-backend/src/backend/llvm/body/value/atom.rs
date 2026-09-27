@@ -43,13 +43,13 @@ impl FunctionEmitter<'_> {
                 let data = self.register();
                 emit_instruction! {
                     self;
-                    let {{ data.clone() }} = get_element_ptr {
+                    let #{ data.clone() } = get_element_ptr {
                         inbounds: false,
                         element_type: (int(8_u16)),
-                        pointer: {{ format!("@{name}") }},
+                        pointer: #{ format!("@{name}") },
                         indices: [typed(
                             (int(64_u16)),
-                            {{ super::super::symbol::STATIC_OWNER_DATA_OFFSET.to_string() }},
+                            #{ super::super::symbol::STATIC_OWNER_DATA_OFFSET.to_string() },
                         )],
                     };
                 };
@@ -66,9 +66,9 @@ impl FunctionEmitter<'_> {
                 let with_code = self.register();
                 emit_instruction! {
                     self;
-                    let {{ with_code.clone() }} = insert_value {
-                        aggregate: typed({{ value_type.llvm.clone() }}, "zeroinitializer"),
-                        element: typed((ptr), {{ format!("@{}", super::super::function_name(*function)) }}),
+                    let #{ with_code.clone() } = insert_value {
+                        aggregate: typed(#{ value_type.llvm.clone() }, "zeroinitializer"),
+                        element: typed((ptr), #{ format!("@{}", super::super::function_name(*function)) }),
                         indices: [0],
                     };
                 };
@@ -76,9 +76,9 @@ impl FunctionEmitter<'_> {
                 let closure = self.register();
                 emit_instruction! {
                     self;
-                    let {{ closure.clone() }} = insert_value {
-                        aggregate: typed({{ value_type.llvm }}, {{ with_code }}),
-                        element: typed((ptr), {{ environment }}),
+                    let #{ closure.clone() } = insert_value {
+                        aggregate: typed(#{ value_type.llvm }, #{ with_code }),
+                        element: typed((ptr), #{ environment }),
                         indices: [1],
                     };
                 };
@@ -94,10 +94,10 @@ impl FunctionEmitter<'_> {
                 let value = self.register();
                 emit_instruction! {
                     self;
-                    let {{ value.clone() }} = load {
-                        ty: {{ value_type.llvm }},
-                        pointer: {{ pointer }},
-                        alignment: {{ value_type.alignment }},
+                    let #{ value.clone() } = load {
+                        ty: #{ value_type.llvm },
+                        pointer: #{ pointer },
+                        alignment: #{ value_type.alignment },
                         metadata: [],
                     };
                 };
@@ -123,10 +123,10 @@ impl FunctionEmitter<'_> {
                 let register = self.register();
                 emit_instruction! {
                     self;
-                    let {{ register.clone() }} = load {
-                        ty: {{ value_type.llvm }},
-                        pointer: {{ format!("%mal_slot_{}", slot.index) }},
-                        alignment: {{ value_type.alignment }},
+                    let #{ register.clone() } = load {
+                        ty: #{ value_type.llvm },
+                        pointer: #{ format!("%mal_slot_{}", slot.index) },
+                        alignment: #{ value_type.alignment },
                         metadata: [],
                     };
                 };
@@ -164,11 +164,11 @@ impl FunctionEmitter<'_> {
         let pointer = self.register();
         emit_instruction! {
             self;
-            let {{ pointer.clone() }} = get_element_ptr {
+            let #{ pointer.clone() } = get_element_ptr {
                 inbounds: false,
                 element_type: (int(8_u16)),
-                pointer: {{ environment }},
-                indices: [typed((int(64_u16)), {{ offset.to_string() }})],
+                pointer: #{ environment },
+                indices: [typed((int(64_u16)), #{ offset.to_string() })],
             };
         };
         Some(pointer)
@@ -200,10 +200,10 @@ impl FunctionEmitter<'_> {
                 let register = self.register();
                 emit_instruction! {
                     self;
-                    let {{ register.clone() }} = insert_value {
-                        aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ aggregate }}),
-                        element: typed({{ element_type.llvm }}, {{ element.representation }}),
-                        indices: [{{ index }}],
+                    let #{ register.clone() } = insert_value {
+                        aggregate: typed(#{ aggregate_type.llvm.clone() }, #{ aggregate }),
+                        element: typed(#{ element_type.llvm }, #{ element.representation }),
+                        indices: [#{ index }],
                     };
                 };
                 aggregate = register;

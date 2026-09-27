@@ -42,9 +42,9 @@ impl FunctionEmitter<'_> {
                 let with_code = self.register();
                 emit_instruction! {
                     self;
-                    let {{ with_code.clone() }} = insert_value {
-                        aggregate: typed({{ closure_type.llvm.clone() }}, "zeroinitializer"),
-                        element: typed((ptr), {{ format!("@{}", super::function_name(*function)) }}),
+                    let #{ with_code.clone() } = insert_value {
+                        aggregate: typed(#{ closure_type.llvm.clone() }, "zeroinitializer"),
+                        element: typed((ptr), #{ format!("@{}", super::function_name(*function)) }),
                         indices: [0],
                     };
                 };
@@ -81,17 +81,17 @@ impl FunctionEmitter<'_> {
                     let environment = self.register();
                     emit_instruction! {
                         self;
-                        let {{ environment.clone() }} = call {
+                        let #{ environment.clone() } = call {
                             tail: false,
                             result_type: (ptr),
                             callee: direct("mal_runtime_environment_allocate"),
                             arguments: [
                                 typed((ptr), "%mal_context"),
-                                typed({{ self.types.index_llvm_type() }}, {{ environment_layout.size.to_string() }}),
-                                typed((ptr), {{ format!(
+                                typed(#{ self.types.index_llvm_type() }, #{ environment_layout.size.to_string() }),
+                                typed((ptr), #{ format!(
                                     "@mal_destroy_environment_{}",
                                     super::function_number(*function)
-                                ) }}),
+                                ) }),
                             ],
                         };
                     };
@@ -99,11 +99,11 @@ impl FunctionEmitter<'_> {
                         self;
                         store {
                             value: typed(
-                                {{ environment_layout.llvm }},
-                                {{ environment_value.value.representation.as_str() }},
+                                #{ environment_layout.llvm },
+                                #{ environment_value.value.representation.as_str() },
                             ),
-                            pointer: {{ environment.as_str() }},
-                            alignment: {{ environment_layout.alignment }},
+                            pointer: #{ environment.as_str() },
+                            alignment: #{ environment_layout.alignment },
                             metadata: [],
                         };
                     };
@@ -111,9 +111,9 @@ impl FunctionEmitter<'_> {
                     let closure = self.register();
                     emit_instruction! {
                         self;
-                        let {{ closure.clone() }} = insert_value {
-                            aggregate: typed({{ closure_type.llvm }}, {{ with_code }}),
-                            element: typed((ptr), {{ environment }}),
+                        let #{ closure.clone() } = insert_value {
+                            aggregate: typed(#{ closure_type.llvm }, #{ with_code }),
+                            element: typed((ptr), #{ environment }),
                             indices: [1],
                         };
                     };
@@ -134,30 +134,30 @@ impl FunctionEmitter<'_> {
                     UnaryPrimitive::Negate if scalar.floating => {
                         emit_instruction! {
                             self;
-                            let {{ register.clone() }} = unary {
-                                operator: {{ UnaryOperator::FNeg }},
-                                value: typed({{ scalar.llvm_type() }}, {{ operand.representation }}),
+                            let #{ register.clone() } = unary {
+                                operator: #{ UnaryOperator::FNeg },
+                                value: typed(#{ scalar.llvm_type() }, #{ operand.representation }),
                             };
                         };
                     }
                     UnaryPrimitive::Negate => {
                         emit_instruction! {
                             self;
-                            let {{ register.clone() }} = binary {
-                                operator: {{ BinaryOperator::Sub }},
-                                ty: {{ scalar.llvm_type() }},
+                            let #{ register.clone() } = binary {
+                                operator: #{ BinaryOperator::Sub },
+                                ty: #{ scalar.llvm_type() },
                                 left: "0",
-                                right: {{ operand.representation }},
+                                right: #{ operand.representation },
                             };
                         };
                     }
                     UnaryPrimitive::BitwiseNot if !scalar.floating => {
                         emit_instruction! {
                             self;
-                            let {{ register.clone() }} = binary {
-                                operator: {{ BinaryOperator::Xor }},
-                                ty: {{ scalar.llvm_type() }},
-                                left: {{ operand.representation }},
+                            let #{ register.clone() } = binary {
+                                operator: #{ BinaryOperator::Xor },
+                                ty: #{ scalar.llvm_type() },
+                                left: #{ operand.representation },
                                 right: "-1",
                             };
                         };
@@ -196,11 +196,11 @@ impl FunctionEmitter<'_> {
                             let negated = self.register();
                             emit_instruction! {
                                 self;
-                                let {{ negated.clone() }} = binary {
-                                    operator: {{ BinaryOperator::Sub }},
-                                    ty: {{ self.types.index_llvm_type() }},
+                                let #{ negated.clone() } = binary {
+                                    operator: #{ BinaryOperator::Sub },
+                                    ty: #{ self.types.index_llvm_type() },
                                     left: "0",
-                                    right: {{ right.representation }},
+                                    right: #{ right.representation },
                                 };
                             };
                             negated
@@ -210,11 +210,11 @@ impl FunctionEmitter<'_> {
                     let register = self.register();
                     emit_instruction! {
                         self;
-                        let {{ register.clone() }} = get_element_ptr {
+                        let #{ register.clone() } = get_element_ptr {
                             inbounds: false,
                             element_type: (int(8_u16)),
-                            pointer: {{ left.representation }},
-                            indices: [typed({{ self.types.index_llvm_type() }}, {{ offset }})],
+                            pointer: #{ left.representation },
+                            indices: [typed(#{ self.types.index_llvm_type() }, #{ offset })],
                         };
                     };
                     return Some(Some(EmittedValue {
@@ -239,15 +239,15 @@ impl FunctionEmitter<'_> {
                         let equality = self.register();
                         emit_instruction! {
                             self;
-                            let {{ equality.clone() }} = call {
+                            let #{ equality.clone() } = call {
                                 tail: false,
                                 result_type: (int(8_u16)),
                                 callee: direct("mal_runtime_symbol_equal"),
                                 arguments: [
-                                    typed((ptr), {{ left.data }}),
-                                    typed({{ self.types.index_llvm_type() }}, {{ left.count }}),
-                                    typed((ptr), {{ right.data }}),
-                                    typed({{ self.types.index_llvm_type() }}, {{ right.count }}),
+                                    typed((ptr), #{ left.data }),
+                                    typed(#{ self.types.index_llvm_type() }, #{ left.count }),
+                                    typed((ptr), #{ right.data }),
+                                    typed(#{ self.types.index_llvm_type() }, #{ right.count }),
                                 ],
                             };
                         };
@@ -258,11 +258,11 @@ impl FunctionEmitter<'_> {
                         };
                         emit_instruction! {
                             self;
-                            let {{ register.clone() }} = compare {
-                                kind: {{ ComparisonKind::Integer }},
-                                predicate: {{ predicate }},
+                            let #{ register.clone() } = compare {
+                                kind: #{ ComparisonKind::Integer },
+                                predicate: #{ predicate },
                                 ty: (int(8_u16)),
-                                left: {{ equality }},
+                                left: #{ equality },
                                 right: "0",
                             };
                         };
@@ -274,12 +274,12 @@ impl FunctionEmitter<'_> {
                         };
                         emit_instruction! {
                             self;
-                            let {{ register.clone() }} = compare {
-                                kind: {{ ComparisonKind::Integer }},
-                                predicate: {{ predicate }},
+                            let #{ register.clone() } = compare {
+                                kind: #{ ComparisonKind::Integer },
+                                predicate: #{ predicate },
                                 ty: (int(1_u16)),
-                                left: {{ left.representation }},
-                                right: {{ right.representation }},
+                                left: #{ left.representation },
+                                right: #{ right.representation },
                             };
                         };
                     } else {
@@ -288,12 +288,12 @@ impl FunctionEmitter<'_> {
                             super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
                         emit_instruction! {
                             self;
-                            let {{ register.clone() }} = compare {
-                                kind: {{ kind }},
-                                predicate: {{ predicate }},
-                                ty: {{ scalar.llvm_type() }},
-                                left: {{ left.representation }},
-                                right: {{ right.representation }},
+                            let #{ register.clone() } = compare {
+                                kind: #{ kind },
+                                predicate: #{ predicate },
+                                ty: #{ scalar.llvm_type() },
+                                left: #{ left.representation },
+                                right: #{ right.representation },
                             };
                         };
                     }
@@ -308,11 +308,11 @@ impl FunctionEmitter<'_> {
                 let register = self.register();
                 emit_instruction! {
                     self;
-                    let {{ register.clone() }} = binary {
-                        operator: {{ instruction }},
-                        ty: {{ scalar.llvm_type() }},
-                        left: {{ left.representation }},
-                        right: {{ right.representation }},
+                    let #{ register.clone() } = binary {
+                        operator: #{ instruction },
+                        ty: #{ scalar.llvm_type() },
+                        left: #{ left.representation },
+                        right: #{ right.representation },
                     };
                 };
                 Some(Some(EmittedValue {
@@ -367,10 +367,10 @@ impl FunctionEmitter<'_> {
                 let register = self.register();
                 emit_instruction! {
                     self;
-                    let {{ register.clone() }} = cast {
-                        operator: {{ instruction }},
-                        value: typed({{ source.llvm_type() }}, {{ operand.representation }}),
-                        to: {{ target.llvm_type() }},
+                    let #{ register.clone() } = cast {
+                        operator: #{ instruction },
+                        value: typed(#{ source.llvm_type() }, #{ operand.representation }),
+                        to: #{ target.llvm_type() },
                     };
                 };
                 Some(Some(EmittedValue {

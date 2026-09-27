@@ -20,9 +20,9 @@ impl FunctionEmitter<'_> {
             let field = self.register();
             emit_instruction! {
                 self;
-                let {{ field.clone() }} = extract_value {
-                    aggregate: typed({{ product_type.llvm.clone() }}, {{ product.representation.clone() }}),
-                    indices: [{{ index }}],
+                let #{ field.clone() } = extract_value {
+                    aggregate: typed(#{ product_type.llvm.clone() }, #{ product.representation.clone() }),
+                    indices: [#{ index }],
                 };
             };
             EmittedValue {

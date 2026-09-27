@@ -74,13 +74,13 @@ impl TypeRegistry {
             Type::Address => c_type!(named("MalType_Address")),
             Type::ByteSize => c_type!(named("MalType_ByteSize")),
             Type::USize => c_type!(named("MalType_USize")),
-            Type::External { name, .. } => c_type!(named({ { format!("MalType_{name}") } })),
+            Type::External { name, .. } => c_type!(named(#{ format!("MalType_{name}") })),
             Type::Product(_) => {
-                c_type!(named({ { format!("MalRepr_Product_{}", self.index(ty)) } }))
+                c_type!(named(#{ format!("MalRepr_Product_{}", self.index(ty)) }))
             }
-            Type::Sum(_) => c_type!(named({ { format!("MalRepr_Sum_{}", self.index(ty)) } })),
+            Type::Sum(_) => c_type!(named(#{ format!("MalRepr_Sum_{}", self.index(ty)) })),
             Type::Function { .. } => {
-                c_type!(named({ { format!("MalRepr_Closure_{}", self.index(ty)) } }))
+                c_type!(named(#{ format!("MalRepr_Closure_{}", self.index(ty)) }))
             }
             Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
                 unreachable!("these types never enter the C host registry")
@@ -90,7 +90,7 @@ impl TypeRegistry {
 
     pub(super) fn host_value_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
         if let Some(alias) = alias {
-            return c_type!(named({ { format!("mal_{alias}_t") } }));
+            return c_type!(named(#{ format!("mal_{alias}_t") }));
         }
         if is_bool(ty) {
             return c_type!(named("mal_Bool_t"));
@@ -110,15 +110,13 @@ impl TypeRegistry {
             Type::Address => c_type!(named("mal_Address_t")),
             Type::ByteSize => c_type!(named("mal_ByteSize_t")),
             Type::USize => c_type!(named("mal_USize_t")),
-            Type::External { name, .. } => c_type!(named({ { format!("mal_{name}_t") } })),
+            Type::External { name, .. } => c_type!(named(#{ format!("mal_{name}_t") })),
             Type::Product(_) => {
                 c_type! {
-                    named({
-                        { format!("mal_repr_product_{}_t", self.index(ty)) }
-                    })
+                    named(#{ format!("mal_repr_product_{}_t", self.index(ty)) })
                 }
             }
-            Type::Sum(_) => c_type!(named({ { format!("mal_repr_sum_{}_t", self.index(ty)) } })),
+            Type::Sum(_) => c_type!(named(#{ format!("mal_repr_sum_{}_t", self.index(ty)) })),
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
@@ -158,7 +156,7 @@ impl TypeRegistry {
                 }
             };
             let name = format!("{kind}_{index}");
-            output.push(c_declaration!(type {{ name }} = struct({{ format!("{kind}_{index}") }})));
+            output.push(c_declaration!(type #{ name } = struct(#{ format!("{kind}_{index}") })));
         }
         if !output.is_empty() {
             output.blank_line();
@@ -171,16 +169,16 @@ impl TypeRegistry {
                 Type::Product(elements) => {
                     let fields = elements.iter().enumerate().map(|(element_index, element)| {
                         let name = format!("field_{element_index}");
-                        c_aggregate_field!({{ name }} : {{ self.c_type(element) }})
+                        c_aggregate_field!(#{ name } : #{ self.c_type(element) })
                     });
                     let tag = format!("MalRepr_Product_{index}");
-                    output.push(c_aggregate!(struct {{ tag }} { ...{{ fields }} }));
+                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                     output.blank_line();
                 }
                 Type::Sum(members) => {
                     let tag = format!("MalRepr_Sum_{index}");
                     let fields = sum_representation_fields(members, |member| self.c_type(member));
-                    output.push(c_aggregate!(struct {{ tag }} { ...{{ fields }} }));
+                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                     output.blank_line();
                 }
                 Type::Function { parameter, result } => {
@@ -189,15 +187,15 @@ impl TypeRegistry {
                         fn "call"(
                             _: ptr(named("MalContext")),
                             _: ptr(const(named("void"))),
-                            _: {{ self.c_type(parameter) }},
-                        ) -> {{ self.c_type(result) }},
+                            _: #{ self.c_type(parameter) },
+                        ) -> #{ self.c_type(result) },
                         "environment": ptr(const(named("void"))),
                         fn "destroy_environment"(
                             _: ptr(named("MalContext")),
                             _: ptr(const(named("void"))),
                         ) -> named("void"),
                     };
-                    output.push(c_aggregate!(struct {{ tag }} { ...{{ fields }} }));
+                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                     output.blank_line();
                 }
                 Type::External { .. }
@@ -232,9 +230,9 @@ fn sum_representation_fields(
     if !members.is_empty() {
         let members = members.iter().enumerate().map(|(index, member)| {
             let name = format!("variant_{index}");
-            c_aggregate_field!({{ name }} : {{ c_type(member) }})
+            c_aggregate_field!(#{ name } : #{ c_type(member) })
         });
-        fields.push(c_aggregate_field!(union "payload" { ...{{ members }} }));
+        fields.push(c_aggregate_field!(union "payload" { ...#{ members } }));
     }
     fields
 }
@@ -272,7 +270,7 @@ mod tests {
         ] {
             assert_eq!(
                 registry.host_value_c_type(&ty, None),
-                c_type!(named({ { expected } }))
+                c_type!(named(#{ expected }))
             );
         }
         assert_eq!(

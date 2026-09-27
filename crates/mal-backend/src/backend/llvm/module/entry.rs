@@ -16,17 +16,17 @@ pub(super) fn definition(
         function
             .structured_instruction(llvm_instruction! {
                 let "%mal_control_top" = alloca {
-                    ty: {{ types.index_llvm_type() }},
-                    alignment: {{ types.index_alignment() }},
+                    ty: #{ types.index_llvm_type() },
+                    alignment: #{ types.index_alignment() },
                 };
             }?)
             .then_some(())?;
         function
             .structured_instruction(llvm_instruction! {
                 store {
-                    value: typed({{ types.index_llvm_type() }}, "0"),
+                    value: typed(#{ types.index_llvm_type() }, "0"),
                     pointer: "%mal_control_top",
-                    alignment: {{ types.index_alignment() }},
+                    alignment: #{ types.index_alignment() },
                     metadata: [],
                 };
             }?)
@@ -57,9 +57,9 @@ pub(super) fn definition(
             function
                 .structured_instruction(llvm_instruction! {
                     let "%mal_entry_argument" = load {
-                        ty: {{ value.llvm.clone() }},
+                        ty: #{ value.llvm.clone() },
                         pointer: "%mal_argument",
-                        alignment: {{ value.alignment }},
+                        alignment: #{ value.alignment },
                         metadata: [],
                     };
                 }?)
@@ -73,8 +73,8 @@ pub(super) fn definition(
             let "%mal_entry_result" = call {
                 tail: false,
                 result_type: (int(32_u16)),
-                callee: direct({{ function_name(body.main) }}),
-                arguments: [...{{ arguments }}],
+                callee: direct(#{ function_name(body.main) }),
+                arguments: [...#{ arguments }],
             };
         }?)
         .then_some(())?;

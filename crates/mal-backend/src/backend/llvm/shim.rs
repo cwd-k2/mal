@@ -26,9 +26,9 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 fn unit_main(entry: &str) -> FunctionDefinition {
     c_function! {
         fn "main"() -> named("int") {
-            let "context": named("MalContext") = {{ zero_initializer() }};
+            let "context": named("MalContext") = #{ zero_initializer() };
             let "result": named("int32_t");
-            call({{ entry }}, [
+            call(#{ entry }, [
                 address((id("context"))),
                 id("NULL"),
                 address((id("result"))),
@@ -59,23 +59,23 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let value = types.value(parameter)?;
 
     let body = c_block! {
-        let "context": named("MalContext") = {{ zero_initializer() }};
+        let "context": named("MalContext") = #{ zero_initializer() };
         let "argument_count": named("size_t") = (conditional(
             (greater((id("mal_argc")), (number(1)))),
             (cast((named("size_t")), (subtract((id("mal_argc")), (number(1)))))),
             (number(0))
         ));
-        let {{
-            c_variable!(array "argument": named("uint8_t"); size (number({{ value.size }})))
+        let #{
+            c_variable!(array "argument": named("uint8_t"); size (number(#{ value.size })))
                 .aligned(number(value.alignment))
-        }} = {{ zero_initializer() }};
+        } = #{ zero_initializer() };
         let "arguments": ptr(named("void")) = (call("mal_runtime_buffer_from_arguments", [
             address((id("context"))),
             add((id("mal_argv")), (number(1))),
             id("argument_count"),
-            number({{ stride }}),
-            number({{ data_offset }}),
-            number({{ length_offset }}),
+            number(#{ stride }),
+            number(#{ data_offset }),
+            number(#{ length_offset }),
         ]));
         call("memcpy", [
             id("argument"),
@@ -83,7 +83,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
             sizeof((id("arguments"))),
         ]);
         let "result": named("int32_t");
-        call({{ entry }}, [
+        call(#{ entry }, [
             address((id("context"))),
             id("argument"),
             address((id("result"))),
@@ -98,12 +98,12 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
         fn "main"(
             "mal_argc": named("int"),
             "mal_argv": ptr(ptr(named("char"))),
-        ) -> named("int") {{ body }}
+        ) -> named("int") #{ body }
     })
 }
 
 fn number(value: impl ToString) -> Expr {
-    c_expr!(number({ { value } }))
+    c_expr!(number(#{ value }))
 }
 
 fn zero_initializer() -> Expr {

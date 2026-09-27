@@ -1,350 +1,352 @@
-macro_rules! c_scalar {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_scalar_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     ($literal:literal) => { $literal };
 }
 
-macro_rules! c_comment {
+macro_rules! c_comment_normalized {
     ($text:tt) => {
-        $crate::backend::c::syntax::Comment::new($crate::backend::c::syntax::c_scalar!($text))
+        $crate::backend::c::syntax::Comment::new($crate::backend::c::syntax::c_scalar_normalized!(
+            $text
+        ))
     };
 }
 
-macro_rules! c_type {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_type_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     (named($name:tt)) => {
         $crate::backend::c::syntax::TypeName::named(
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
     (struct($name:tt)) => {
         $crate::backend::c::syntax::TypeName::structure(
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
     (const(named($name:tt))) => {
         $crate::backend::c::syntax::TypeName::const_named(
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
     (ptr($($inner:tt)+)) => {
-        ($crate::backend::c::syntax::c_type!($($inner)+)).pointer()
+        ($crate::backend::c::syntax::c_type_normalized!($($inner)+)).pointer()
     };
 }
 
-macro_rules! c_variable {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_variable_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     ($name:tt : $kind:ident($($ty:tt)*)) => {
         $crate::backend::c::syntax::VariableDeclaration::new(
-            $crate::backend::c::syntax::c_type!($kind($($ty)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($ty)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
-    ($name:tt : {{ $($ty:tt)* }}) => {
+    ($name:tt : (@rust $($ty:tt)*)) => {
         $crate::backend::c::syntax::VariableDeclaration::new(
             { $($ty)* },
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
     (array $name:tt : $kind:ident($($ty:tt)*); size $size:tt) => {
         $crate::backend::c::syntax::VariableDeclaration::array(
-            $crate::backend::c::syntax::c_type!($kind($($ty)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_expr_child!($size),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($ty)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            $crate::backend::c::syntax::c_expr_child_normalized!($size),
         )
     };
-    (array $name:tt : {{ $($ty:tt)* }}; size $size:tt) => {
+    (array $name:tt : (@rust $($ty:tt)*); size $size:tt) => {
         $crate::backend::c::syntax::VariableDeclaration::array(
             { $($ty)* },
-            $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_expr_child!($size),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            $crate::backend::c::syntax::c_expr_child_normalized!($size),
         )
     };
 }
 
-macro_rules! c_aggregate_field {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_aggregate_field_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     ($name:tt : $kind:ident($($ty:tt)*)) => {
         $crate::backend::c::syntax::AggregateField::variable(
-            $crate::backend::c::syntax::c_type!($kind($($ty)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($ty)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
-    ($name:tt : {{ $($ty:tt)* }}) => {
+    ($name:tt : (@rust $($ty:tt)*)) => {
         $crate::backend::c::syntax::AggregateField::variable(
             { $($ty)* },
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
     (fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*)) => {
         $crate::backend::c::syntax::AggregateField::function_pointer(
-            $crate::backend::c::syntax::c_type!($kind($($result)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_parameters!($($parameter)*),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($result)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            $crate::backend::c::syntax::c_parameters_normalized!($($parameter)*),
         )
     };
-    (fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }}) => {
+    (fn $name:tt($($parameter:tt)*) -> (@rust $($result:tt)*)) => {
         $crate::backend::c::syntax::AggregateField::function_pointer(
             { $($result)* },
-            $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_parameters!($($parameter)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            $crate::backend::c::syntax::c_parameters_normalized!($($parameter)*),
         )
     };
     (struct $name:tt { $($field:tt)* }) => {
         $crate::backend::c::syntax::AggregateField::aggregate(
             $crate::backend::c::syntax::AggregateKind::Struct,
-            $crate::backend::c::syntax::c_aggregate_fields!($($field)*),
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_aggregate_fields_normalized!($($field)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
     (union $name:tt { $($field:tt)* }) => {
         $crate::backend::c::syntax::AggregateField::aggregate(
             $crate::backend::c::syntax::AggregateKind::Union,
-            $crate::backend::c::syntax::c_aggregate_fields!($($field)*),
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_aggregate_fields_normalized!($($field)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
 }
 
-macro_rules! c_aggregate_fields {
+macro_rules! c_aggregate_fields_normalized {
     ($($field:tt)*) => {{
         #[allow(unused_mut, clippy::vec_init_then_push)]
         let mut fields = Vec::from([]);
-        $crate::backend::c::syntax::c_aggregate_fields_items!(fields; $($field)*);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!(fields; $($field)*);
         fields
     }};
 }
 
-macro_rules! c_aggregate_fields_items {
+macro_rules! c_aggregate_fields_items_normalized {
     ($fields:ident;) => {};
-    ($fields:ident; ...{{ $($rust:tt)* }} $(, $($rest:tt)*)?) => {
+    ($fields:ident; ...(@rust $($rust:tt)*) $(, $($rest:tt)*)?) => {
         $fields.extend({ $($rust)* });
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
-    ($fields:ident; {{ $($rust:tt)* }} $(, $($rest:tt)*)?) => {
+    ($fields:ident; (@rust $($rust:tt)*) $(, $($rest:tt)*)?) => {
         $fields.push({ $($rust)* });
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
     ($fields:ident; $name:tt : $kind:ident($($ty:tt)*) $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field!($name : $kind($($ty)*)));
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $fields.push($crate::backend::c::syntax::c_aggregate_field_normalized!($name : $kind($($ty)*)));
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
-    ($fields:ident; $name:tt : {{ $($ty:tt)* }} $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field!($name : {{ $($ty)* }}));
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+    ($fields:ident; $name:tt : (@rust $($ty:tt)*) $(, $($rest:tt)*)?) => {
+        $fields.push($crate::backend::c::syntax::c_aggregate_field_normalized!($name : (@rust $($ty)*)));
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
     ($fields:ident; fn $name:tt($($parameter:tt)*) -> $kind:ident($($result:tt)*) $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
+        $fields.push($crate::backend::c::syntax::c_aggregate_field_normalized! {
             fn $name($($parameter)*) -> $kind($($result)*)
         });
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
-    ($fields:ident; fn $name:tt($($parameter:tt)*) -> {{ $($result:tt)* }} $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
-            fn $name($($parameter)*) -> {{ $($result)* }}
+    ($fields:ident; fn $name:tt($($parameter:tt)*) -> (@rust $($result:tt)*) $(, $($rest:tt)*)?) => {
+        $fields.push($crate::backend::c::syntax::c_aggregate_field_normalized! {
+            fn $name($($parameter)*) -> (@rust $($result)*)
         });
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
     ($fields:ident; struct $name:tt { $($field:tt)* } $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
+        $fields.push($crate::backend::c::syntax::c_aggregate_field_normalized! {
             struct $name { $($field)* }
         });
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
     ($fields:ident; union $name:tt { $($field:tt)* } $(, $($rest:tt)*)?) => {
-        $fields.push($crate::backend::c::syntax::c_aggregate_field! {
+        $fields.push($crate::backend::c::syntax::c_aggregate_field_normalized! {
             union $name { $($field)* }
         });
-        $crate::backend::c::syntax::c_aggregate_fields_items!($fields; $($($rest)*)?);
+        $crate::backend::c::syntax::c_aggregate_fields_items_normalized!($fields; $($($rest)*)?);
     };
 }
 
-macro_rules! c_aggregate {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_aggregate_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     (struct $tag:tt { $($field:tt)* }) => {
         $crate::backend::c::syntax::AggregateDefinition::structure(
-            $crate::backend::c::syntax::c_scalar!($tag),
-            $crate::backend::c::syntax::c_aggregate_fields!($($field)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($tag),
+            $crate::backend::c::syntax::c_aggregate_fields_normalized!($($field)*),
         )
     };
     (type $alias:tt = struct $tag:tt { $($field:tt)* }) => {
         $crate::backend::c::syntax::AggregateDefinition::typedef_structure(
-            Some($crate::backend::c::syntax::c_scalar!($tag).to_string()),
-            $crate::backend::c::syntax::c_aggregate_fields!($($field)*),
-            $crate::backend::c::syntax::c_scalar!($alias),
+            Some($crate::backend::c::syntax::c_scalar_normalized!($tag).to_string()),
+            $crate::backend::c::syntax::c_aggregate_fields_normalized!($($field)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($alias),
         )
     };
     (type $alias:tt = struct { $($field:tt)* }) => {
         $crate::backend::c::syntax::AggregateDefinition::typedef_structure(
             None,
-            $crate::backend::c::syntax::c_aggregate_fields!($($field)*),
-            $crate::backend::c::syntax::c_scalar!($alias),
+            $crate::backend::c::syntax::c_aggregate_fields_normalized!($($field)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($alias),
         )
     };
 }
 
-macro_rules! c_declaration {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
-    (fn {{ $($signature:tt)* }};) => {
+macro_rules! c_declaration_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
+    (fn (@rust $($signature:tt)*);) => {
         $crate::backend::c::syntax::Declaration::function({ $($signature)* })
     };
     (type $alias:tt = $kind:ident($($source:tt)*)) => {
         $crate::backend::c::syntax::Declaration::type_alias(
-            $crate::backend::c::syntax::c_type!($kind($($source)*)),
-            $crate::backend::c::syntax::c_scalar!($alias),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($source)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($alias),
         )
     };
-    (type $alias:tt = {{ $($source:tt)* }}) => {
+    (type $alias:tt = (@rust $($source:tt)*)) => {
         $crate::backend::c::syntax::Declaration::type_alias(
             { $($source)* },
-            $crate::backend::c::syntax::c_scalar!($alias),
+            $crate::backend::c::syntax::c_scalar_normalized!($alias),
         )
     };
     (static_assert($condition:tt, $message:tt);) => {
         $crate::backend::c::syntax::Declaration::static_assert(
-            $crate::backend::c::syntax::c_expr_child!($condition),
-            $crate::backend::c::syntax::c_scalar!($message),
+            $crate::backend::c::syntax::c_expr_child_normalized!($condition),
+            $crate::backend::c::syntax::c_scalar_normalized!($message),
         )
     };
 }
 
-macro_rules! c_parameter_attributes {
+macro_rules! c_parameter_attributes_normalized {
     ($parameter:ident;) => {};
     ($parameter:ident; maybe_unused $(, $rest:ident)*) => {
         $parameter = $parameter.maybe_unused();
-        $crate::backend::c::syntax::c_parameter_attributes!($parameter; $($rest),*);
+        $crate::backend::c::syntax::c_parameter_attributes_normalized!($parameter; $($rest),*);
     };
 }
 
-macro_rules! c_parameter {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_parameter_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     (_ : $kind:ident($($type:tt)*)) => {
         $crate::backend::c::syntax::Parameter::unnamed(
-            $crate::backend::c::syntax::c_type!($kind($($type)*)),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($type)*)),
         )
     };
-    (_ : {{ $($type:tt)* }}) => {
+    (_ : (@rust $($type:tt)*)) => {
         $crate::backend::c::syntax::Parameter::unnamed({ $($type)* })
     };
     (#[maybe_unused] $name:tt : $kind:ident($($type:tt)*)) => {{
         let mut parameter = $crate::backend::c::syntax::Parameter::named(
-            $crate::backend::c::syntax::c_type!($kind($($type)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($type)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         );
-        $crate::backend::c::syntax::c_parameter_attributes!(parameter; maybe_unused);
+        $crate::backend::c::syntax::c_parameter_attributes_normalized!(parameter; maybe_unused);
         parameter
     }};
-    (#[maybe_unused] $name:tt : {{ $($type:tt)* }}) => {{
+    (#[maybe_unused] $name:tt : (@rust $($type:tt)*)) => {{
         let mut parameter = $crate::backend::c::syntax::Parameter::named(
             { $($type)* },
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         );
-        $crate::backend::c::syntax::c_parameter_attributes!(parameter; maybe_unused);
+        $crate::backend::c::syntax::c_parameter_attributes_normalized!(parameter; maybe_unused);
         parameter
     }};
     ($name:tt : $kind:ident($($type:tt)*)) => {
         $crate::backend::c::syntax::Parameter::named(
-            $crate::backend::c::syntax::c_type!($kind($($type)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($type)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
-    ($name:tt : {{ $($type:tt)* }}) => {
+    ($name:tt : (@rust $($type:tt)*)) => {
         $crate::backend::c::syntax::Parameter::named(
             { $($type)* },
-            $crate::backend::c::syntax::c_scalar!($name),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
         )
     };
 }
 
-macro_rules! c_parameters {
+macro_rules! c_parameters_normalized {
     ($($parameter:tt)*) => {{
         #[allow(unused_mut, clippy::vec_init_then_push)]
         let mut parameters = Vec::from([]);
-        $crate::backend::c::syntax::c_parameters_items!(parameters; $($parameter)*);
+        $crate::backend::c::syntax::c_parameters_items_normalized!(parameters; $($parameter)*);
         parameters
     }};
 }
 
-macro_rules! c_parameters_items {
+macro_rules! c_parameters_items_normalized {
     ($parameters:ident;) => {};
-    ($parameters:ident; ...{{ $($rust:tt)* }} $(, $($rest:tt)*)?) => {
+    ($parameters:ident; ...(@rust $($rust:tt)*) $(, $($rest:tt)*)?) => {
         $parameters.extend({ $($rust)* });
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
-    ($parameters:ident; {{ $($rust:tt)* }} $(, $($rest:tt)*)?) => {
+    ($parameters:ident; (@rust $($rust:tt)*) $(, $($rest:tt)*)?) => {
         $parameters.push({ $($rust)* });
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
     ($parameters:ident; _ : $kind:ident($($type:tt)*) $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter!(_ : $kind($($type)*)));
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+        $parameters.push($crate::backend::c::syntax::c_parameter_normalized!(_ : $kind($($type)*)));
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
-    ($parameters:ident; _ : {{ $($type:tt)* }} $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter!(_ : {{ $($type)* }}));
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+    ($parameters:ident; _ : (@rust $($type:tt)*) $(, $($rest:tt)*)?) => {
+        $parameters.push($crate::backend::c::syntax::c_parameter_normalized!(_ : (@rust $($type)*)));
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
     ($parameters:ident; #[maybe_unused] $name:tt : $kind:ident($($type:tt)*) $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter! {
+        $parameters.push($crate::backend::c::syntax::c_parameter_normalized! {
             #[maybe_unused] $name : $kind($($type)*)
         });
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
-    ($parameters:ident; #[maybe_unused] $name:tt : {{ $($type:tt)* }} $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter! {
-            #[maybe_unused] $name : {{ $($type)* }}
+    ($parameters:ident; #[maybe_unused] $name:tt : (@rust $($type:tt)*) $(, $($rest:tt)*)?) => {
+        $parameters.push($crate::backend::c::syntax::c_parameter_normalized! {
+            #[maybe_unused] $name : (@rust $($type)*)
         });
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
     ($parameters:ident; $name:tt : $kind:ident($($type:tt)*) $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter!($name : $kind($($type)*)));
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+        $parameters.push($crate::backend::c::syntax::c_parameter_normalized!($name : $kind($($type)*)));
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
-    ($parameters:ident; $name:tt : {{ $($type:tt)* }} $(, $($rest:tt)*)?) => {
-        $parameters.push($crate::backend::c::syntax::c_parameter!($name : {{ $($type)* }}));
-        $crate::backend::c::syntax::c_parameters_items!($parameters; $($($rest)*)?);
+    ($parameters:ident; $name:tt : (@rust $($type:tt)*) $(, $($rest:tt)*)?) => {
+        $parameters.push($crate::backend::c::syntax::c_parameter_normalized!($name : (@rust $($type)*)));
+        $crate::backend::c::syntax::c_parameters_items_normalized!($parameters; $($($rest)*)?);
     };
 }
 
-macro_rules! c_signature_from_parts {
+macro_rules! c_signature_from_parts_normalized {
     ($constructor:ident; $name:tt; [$($parameter:tt)*]; $kind:ident($($result:tt)*)) => {
         $crate::backend::c::syntax::FunctionSignature::$constructor(
-            $crate::backend::c::syntax::c_type!($kind($($result)*)),
-            $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_parameters!($($parameter)*),
+            $crate::backend::c::syntax::c_type_normalized!($kind($($result)*)),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            $crate::backend::c::syntax::c_parameters_normalized!($($parameter)*),
         )
     };
-    ($constructor:ident; $name:tt; [$($parameter:tt)*]; {{ $($result:tt)* }}) => {
+    ($constructor:ident; $name:tt; [$($parameter:tt)*]; (@rust $($result:tt)*)) => {
         $crate::backend::c::syntax::FunctionSignature::$constructor(
             { $($result)* },
-            $crate::backend::c::syntax::c_scalar!($name),
-            $crate::backend::c::syntax::c_parameters!($($parameter)*),
+            $crate::backend::c::syntax::c_scalar_normalized!($name),
+            $crate::backend::c::syntax::c_parameters_normalized!($($parameter)*),
         )
     };
 }
 
-macro_rules! c_signature {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! c_signature_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     (fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts! {
+        $crate::backend::c::syntax::c_signature_from_parts_normalized! {
             new; $name; [$($parameter)*]; $($result)+
         }
     };
     (#[static] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts! {
+        $crate::backend::c::syntax::c_signature_from_parts_normalized! {
             static_function; $name; [$($parameter)*]; $($result)+
         }
     };
     (#[static] #[inline] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts! {
+        $crate::backend::c::syntax::c_signature_from_parts_normalized! {
             static_inline; $name; [$($parameter)*]; $($result)+
         }
     };
     (#[noreturn] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {
-        $crate::backend::c::syntax::c_signature_from_parts! {
+        $crate::backend::c::syntax::c_signature_from_parts_normalized! {
             no_return; $name; [$($parameter)*]; $($result)+
         }
     };
     (#[static] #[inline] #[noreturn] fn $name:tt($($parameter:tt)*) -> $($result:tt)+) => {{
-        let signature = $crate::backend::c::syntax::c_signature! {
+        let signature = $crate::backend::c::syntax::c_signature_normalized! {
             fn $name($($parameter)*) -> $($result)+
         };
         signature.with_specifiers([
@@ -355,8 +357,126 @@ macro_rules! c_signature {
     }};
 }
 
+macro_rules! c_comment {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_comment_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_comment]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_type {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_type_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_type]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_variable {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_variable_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_variable]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_aggregate_field {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_aggregate_field_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_aggregate_field]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_aggregate_fields {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_aggregate_fields_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_aggregate_fields]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_aggregate {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_aggregate_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_aggregate]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_declaration {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_declaration_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_declaration]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_parameter {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_parameter_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_parameter]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_parameters {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_parameters_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_parameters]; $($syntax)*
+        )
+    };
+}
+
+macro_rules! c_signature {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::c::syntax::c_signature_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::c::syntax::c_signature]; $($syntax)*
+        )
+    };
+}
+
 pub(in crate::backend) use {
-    c_aggregate, c_aggregate_field, c_aggregate_fields, c_aggregate_fields_items, c_comment,
-    c_declaration, c_parameter, c_parameter_attributes, c_parameters, c_parameters_items, c_scalar,
-    c_signature, c_signature_from_parts, c_type, c_variable,
+    c_aggregate_field_normalized, c_aggregate_fields_items_normalized,
+    c_aggregate_fields_normalized, c_aggregate_normalized, c_comment_normalized,
+    c_declaration_normalized, c_parameter_attributes_normalized, c_parameter_normalized,
+    c_parameters_items_normalized, c_parameters_normalized, c_scalar_normalized,
+    c_signature_from_parts_normalized, c_signature_normalized, c_type_normalized,
+    c_variable_normalized,
+};
+
+pub(in crate::backend) use {
+    c_aggregate, c_aggregate_field, c_aggregate_fields, c_comment, c_declaration, c_parameter,
+    c_parameters, c_signature, c_type, c_variable,
 };

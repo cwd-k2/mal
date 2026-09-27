@@ -212,7 +212,7 @@ impl<'a> FunctionEmitter<'a> {
                     "%mal_context" : ptr,
                     "%mal_control_top" : ptr,
                     "%mal_environment" : ptr,
-                    "%mal_parameter" : {{ parameter.llvm }},
+                    "%mal_parameter" : #{ parameter.llvm },
                 }
             };
         let result = self.types.value(&self.result_type)?;
@@ -229,19 +229,19 @@ impl<'a> FunctionEmitter<'a> {
         };
         self.begin_function(llvm_signature! {
             #[linkage(internal)]
-            #[attributes(...{{ attributes }})]
-            fn {{ format!("{}{suffix}", function_name(self.function.id)) }}(
-                ...{{ parameters }},
-            ) -> {{ result.llvm }}
+            #[attributes(...#{ attributes })]
+            fn #{ format!("{}{suffix}", function_name(self.function.id)) }(
+                ...#{ parameters },
+            ) -> #{ result.llvm }
         });
         self.block("entry");
         if !self.frame_sites.is_empty() {
             emit_instruction! {
                 self;
                 let "%mal_control_base" = load {
-                    ty: {{ self.types.index_llvm_type() }},
+                    ty: #{ self.types.index_llvm_type() },
                     pointer: "%mal_control_top",
-                    alignment: {{ self.types.index_alignment() }},
+                    alignment: #{ self.types.index_alignment() },
                     metadata: [],
                 };
             };
@@ -249,16 +249,16 @@ impl<'a> FunctionEmitter<'a> {
                 emit_instruction! {
                     self;
                     let "%mal_local_control_top" = alloca {
-                        ty: {{ self.types.index_llvm_type() }},
-                        alignment: {{ self.types.index_alignment() }},
+                        ty: #{ self.types.index_llvm_type() },
+                        alignment: #{ self.types.index_alignment() },
                     };
                 };
                 emit_instruction! {
                     self;
                     store {
-                        value: typed({{ self.types.index_llvm_type() }}, "%mal_control_base"),
+                        value: typed(#{ self.types.index_llvm_type() }, "%mal_control_base"),
                         pointer: "%mal_local_control_top",
-                        alignment: {{ self.types.index_alignment() }},
+                        alignment: #{ self.types.index_alignment() },
                         metadata: [],
                     };
                 };
@@ -268,14 +268,14 @@ impl<'a> FunctionEmitter<'a> {
                     self;
                     let "%mal_local_control_storage" = alloca {
                         ty: (ptr),
-                        alignment: {{ self.types.pointer_alignment() }},
+                        alignment: #{ self.types.pointer_alignment() },
                     };
                 };
                 emit_instruction! {
                     self;
                     let "%mal_local_control_capacity" = alloca {
-                        ty: {{ self.types.index_llvm_type() }},
-                        alignment: {{ self.types.index_alignment() }},
+                        ty: #{ self.types.index_llvm_type() },
+                        alignment: #{ self.types.index_alignment() },
                     };
                 };
                 self.refresh_control_storage();
@@ -287,18 +287,18 @@ impl<'a> FunctionEmitter<'a> {
             let value_type = self.types.value(&slot.ty)?;
             emit_instruction! {
                 self;
-                let {{ format!("%mal_slot_{}", slot.index) }} = alloca {
-                    ty: {{ value_type.llvm.clone() }},
-                    alignment: {{ value_type.alignment }},
+                let #{ format!("%mal_slot_{}", slot.index) } = alloca {
+                    ty: #{ value_type.llvm.clone() },
+                    alignment: #{ value_type.alignment },
                 };
             };
             if crate::execution::ownership::is_managed(&slot.ty) {
                 emit_instruction! {
                     self;
                     store {
-                        value: typed({{ value_type.llvm }}, "zeroinitializer"),
-                        pointer: {{ format!("%mal_slot_{}", slot.index) }},
-                        alignment: {{ value_type.alignment }},
+                        value: typed(#{ value_type.llvm }, "zeroinitializer"),
+                        pointer: #{ format!("%mal_slot_{}", slot.index) },
+                        alignment: #{ value_type.alignment },
                         metadata: [],
                     };
                 };
@@ -309,13 +309,13 @@ impl<'a> FunctionEmitter<'a> {
                 self;
                 let "%mal_active_environment" = alloca {
                     ty: (ptr),
-                    alignment: {{ self.types.pointer_alignment() }},
+                    alignment: #{ self.types.pointer_alignment() },
                 };
             };
             let environment = self.register();
             emit_instruction! {
                 self;
-                let {{ environment.clone() }} = call {
+                let #{ environment.clone() } = call {
                     tail: false,
                     result_type: (ptr),
                     callee: direct("mal_runtime_environment_retain"),
@@ -325,27 +325,27 @@ impl<'a> FunctionEmitter<'a> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed((ptr), {{ environment }}),
+                    value: typed((ptr), #{ environment }),
                     pointer: "%mal_active_environment",
-                    alignment: {{ self.types.pointer_alignment() }},
+                    alignment: #{ self.types.pointer_alignment() },
                     metadata: [],
                 };
             };
         }
         if let Some((size, alignment)) = self.external_storage {
-            let storage_type = llvm_type!(array({ { size } }, int(8)));
+            let storage_type = llvm_type!(array(#{ size }, int(8)));
             emit_instruction! {
                 self;
                 let "%mal_bridge_argument" = alloca {
-                    ty: {{ storage_type.clone() }},
-                    alignment: {{ alignment }},
+                    ty: #{ storage_type.clone() },
+                    alignment: #{ alignment },
                 };
             };
             emit_instruction! {
                 self;
                 let "%mal_bridge_result" = alloca {
-                    ty: {{ storage_type }},
-                    alignment: {{ alignment }},
+                    ty: #{ storage_type },
+                    alignment: #{ alignment },
                 };
             };
         }
@@ -354,8 +354,8 @@ impl<'a> FunctionEmitter<'a> {
             emit_instruction! {
                 self;
                 let "%mal_symbol_result" = alloca {
-                    ty: {{ symbol.llvm }},
-                    alignment: {{ symbol.alignment }},
+                    ty: #{ symbol.llvm },
+                    alignment: #{ symbol.alignment },
                 };
             };
         }
@@ -363,8 +363,8 @@ impl<'a> FunctionEmitter<'a> {
             emit_instruction! {
                 self;
                 let "%mal_buffer_value" = alloca {
-                    ty: {{ llvm_type!(array({{ size }}, int(8_u16))) }},
-                    alignment: {{ alignment }},
+                    ty: #{ llvm_type!(array(#{ size }, int(8_u16))) },
+                    alignment: #{ alignment },
                 };
             };
         }
@@ -393,7 +393,7 @@ impl<'a> FunctionEmitter<'a> {
         emit_terminator! {
             self;
             branch {
-                target: {{ format!("mal_state_{}", self.function.entry.0) }},
+                target: #{ format!("mal_state_{}", self.function.entry.0) },
             };
         };
 

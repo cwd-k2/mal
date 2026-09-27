@@ -1,45 +1,45 @@
-macro_rules! llvm_instruction_atom {
+macro_rules! llvm_instruction_atom_normalized {
     ($value:tt) => {
-        $crate::backend::llvm::syntax::llvm_scalar!($value)
+        $crate::backend::llvm::syntax::llvm_scalar_normalized!($value)
     };
 }
 
-macro_rules! llvm_instruction_type {
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+macro_rules! llvm_instruction_type_normalized {
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
     (($($ty:tt)*)) => {
-        $crate::backend::llvm::syntax::llvm_type!($($ty)*)
+        $crate::backend::llvm::syntax::llvm_type_normalized!($($ty)*)
     };
 }
 
-macro_rules! llvm_instruction_sequence {
+macro_rules! llvm_instruction_sequence_normalized {
     ([]) => { [] };
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
 }
 
-macro_rules! llvm_instruction_indices {
+macro_rules! llvm_instruction_indices_normalized {
     ([$($index:tt),* $(,)?]) => {
         [$(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($index)
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($index)
         ),*]
     };
-    ({{ $($rust:tt)* }}) => {{ $($rust)* }};
+    ((@rust $($rust:tt)*)) => {{ $($rust)* }};
 }
 
-macro_rules! llvm_instruction_callee {
+macro_rules! llvm_instruction_callee_normalized {
     (direct($callee:tt)) => {
         $crate::backend::llvm::syntax::Callee::direct(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($callee),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($callee),
         )
     };
     (indirect($callee:tt)) => {
         $crate::backend::llvm::syntax::Callee::indirect(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($callee),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($callee),
         )
     };
 }
 
-macro_rules! llvm_instruction {
-    ({{ $($rust:tt)* }}) => {
+macro_rules! llvm_instruction_normalized {
+    ((@rust $($rust:tt)*)) => {
         Some({ $($rust)* })
     };
     (let $result:tt = alloca {
@@ -47,9 +47,9 @@ macro_rules! llvm_instruction {
         alignment: $alignment:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::Instruction::alloca(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($alignment),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+            $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($ty),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($alignment),
         )
     };
     (let $result:tt = load {
@@ -59,11 +59,11 @@ macro_rules! llvm_instruction {
         metadata: $metadata:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::Instruction::load(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($pointer),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($alignment),
-            $crate::backend::llvm::syntax::llvm_instruction_sequence!($metadata),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+            $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($ty),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($pointer),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($alignment),
+            $crate::backend::llvm::syntax::llvm_instruction_sequence_normalized!($metadata),
         )
     };
     (store {
@@ -73,11 +73,11 @@ macro_rules! llvm_instruction {
         metadata: $metadata:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::Instruction::store(
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($value),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($pointer),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($alignment),
-            $crate::backend::llvm::syntax::llvm_instruction_sequence!($metadata),
+            $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($ty),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($value),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($pointer),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($alignment),
+            $crate::backend::llvm::syntax::llvm_instruction_sequence_normalized!($metadata),
         )
     };
     (let $result:tt = call {
@@ -86,13 +86,13 @@ macro_rules! llvm_instruction {
         callee: $callee_kind:ident($callee:tt),
         arguments: [$($argument:tt)*] $(,)?
     };) => {{
-        $crate::backend::llvm::syntax::llvm_instruction_callee!($callee_kind($callee)).and_then(
+        $crate::backend::llvm::syntax::llvm_instruction_callee_normalized!($callee_kind($callee)).and_then(
             |callee| {
-                $crate::backend::llvm::syntax::llvm_values!($($argument)*).and_then(
+                $crate::backend::llvm::syntax::llvm_values_normalized!($($argument)*).and_then(
                     |arguments| $crate::backend::llvm::syntax::Instruction::call(
-                        Some($crate::backend::llvm::syntax::llvm_instruction_atom!($result)),
-                        $crate::backend::llvm::syntax::llvm_instruction_atom!($tail),
-                        $crate::backend::llvm::syntax::llvm_instruction_type!($result_type),
+                        Some($crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result)),
+                        $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($tail),
+                        $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($result_type),
                         callee,
                         arguments,
                     ),
@@ -106,13 +106,13 @@ macro_rules! llvm_instruction {
         callee: $callee_kind:ident($callee:tt),
         arguments: [$($argument:tt)*] $(,)?
     };) => {{
-        $crate::backend::llvm::syntax::llvm_instruction_callee!($callee_kind($callee)).and_then(
+        $crate::backend::llvm::syntax::llvm_instruction_callee_normalized!($callee_kind($callee)).and_then(
             |callee| {
-                $crate::backend::llvm::syntax::llvm_values!($($argument)*).and_then(
+                $crate::backend::llvm::syntax::llvm_values_normalized!($($argument)*).and_then(
                     |arguments| $crate::backend::llvm::syntax::Instruction::call(
                         Option::<String>::None,
-                        $crate::backend::llvm::syntax::llvm_instruction_atom!($tail),
-                        $crate::backend::llvm::syntax::llvm_instruction_type!($result_type),
+                        $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($tail),
+                        $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($result_type),
                         callee,
                         arguments,
                     ),
@@ -124,10 +124,10 @@ macro_rules! llvm_instruction {
         operator: $operator:tt,
         value: typed($ty:tt, $value:tt $(,)?) $(,)?
     };) => {
-        $crate::backend::llvm::syntax::llvm_value!(typed($ty, $value)).and_then(|value| {
+        $crate::backend::llvm::syntax::llvm_value_normalized!(typed($ty, $value)).and_then(|value| {
             $crate::backend::llvm::syntax::Instruction::unary(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($operator),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($operator),
                 value,
             )
         })
@@ -137,12 +137,12 @@ macro_rules! llvm_instruction {
         value: typed($ty:tt, $value:tt $(,)?),
         to: $target:tt $(,)?
     };) => {
-        $crate::backend::llvm::syntax::llvm_value!(typed($ty, $value)).and_then(|value| {
+        $crate::backend::llvm::syntax::llvm_value_normalized!(typed($ty, $value)).and_then(|value| {
             $crate::backend::llvm::syntax::Instruction::cast(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($operator),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($operator),
                 value,
-                $crate::backend::llvm::syntax::llvm_instruction_type!($target),
+                $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($target),
             )
         })
     };
@@ -150,11 +150,11 @@ macro_rules! llvm_instruction {
         aggregate: typed($ty:tt, $value:tt $(,)?),
         indices: $indices:tt $(,)?
     };) => {
-        $crate::backend::llvm::syntax::llvm_value!(typed($ty, $value)).and_then(|value| {
+        $crate::backend::llvm::syntax::llvm_value_normalized!(typed($ty, $value)).and_then(|value| {
             $crate::backend::llvm::syntax::Instruction::extract_value(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
                 value,
-                $crate::backend::llvm::syntax::llvm_instruction_indices!($indices),
+                $crate::backend::llvm::syntax::llvm_instruction_indices_normalized!($indices),
             )
         })
     };
@@ -165,11 +165,11 @@ macro_rules! llvm_instruction {
         right: $right:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::Instruction::binary(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($operator),
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($left),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($right),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($operator),
+            $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($ty),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($left),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($right),
         )
     };
     (let $result:tt = compare {
@@ -180,12 +180,12 @@ macro_rules! llvm_instruction {
         right: $right:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::Instruction::compare(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($kind),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($predicate),
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($left),
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($right),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($kind),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($predicate),
+            $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($ty),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($left),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($right),
         )
     };
     (let $result:tt = get_element_ptr {
@@ -194,12 +194,12 @@ macro_rules! llvm_instruction {
         pointer: $pointer:tt,
         indices: [$($index:tt)*] $(,)?
     };) => {
-        $crate::backend::llvm::syntax::llvm_values!($($index)*).and_then(|indices| {
+        $crate::backend::llvm::syntax::llvm_values_normalized!($($index)*).and_then(|indices| {
             $crate::backend::llvm::syntax::Instruction::get_element_ptr(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($inbounds),
-                $crate::backend::llvm::syntax::llvm_instruction_type!($element_type),
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($pointer),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($inbounds),
+                $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($element_type),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($pointer),
                 indices,
             )
         })
@@ -209,14 +209,14 @@ macro_rules! llvm_instruction {
         element: typed($element_type:tt, $element:tt $(,)?),
         indices: $indices:tt $(,)?
     };) => {{
-        let aggregate = $crate::backend::llvm::syntax::llvm_value!(typed($aggregate_type, $aggregate));
-        let element = $crate::backend::llvm::syntax::llvm_value!(typed($element_type, $element));
+        let aggregate = $crate::backend::llvm::syntax::llvm_value_normalized!(typed($aggregate_type, $aggregate));
+        let element = $crate::backend::llvm::syntax::llvm_value_normalized!(typed($element_type, $element));
         aggregate.zip(element).and_then(|(aggregate, element)| {
             $crate::backend::llvm::syntax::Instruction::insert_value(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
+                $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
                 aggregate,
                 element,
-                $crate::backend::llvm::syntax::llvm_instruction_indices!($indices),
+                $crate::backend::llvm::syntax::llvm_instruction_indices_normalized!($indices),
             )
         })
     }};
@@ -225,14 +225,28 @@ macro_rules! llvm_instruction {
         incoming: $incoming:tt $(,)?
     };) => {
         $crate::backend::llvm::syntax::Instruction::phi(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
-            $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
-            $crate::backend::llvm::syntax::llvm_instruction_sequence!($incoming),
+            $crate::backend::llvm::syntax::llvm_instruction_atom_normalized!($result),
+            $crate::backend::llvm::syntax::llvm_instruction_type_normalized!($ty),
+            $crate::backend::llvm::syntax::llvm_instruction_sequence_normalized!($incoming),
+        )
+    };
+}
+
+macro_rules! llvm_instruction {
+    (@normalized $($syntax:tt)*) => {
+        $crate::backend::llvm::syntax::llvm_instruction_normalized!($($syntax)*)
+    };
+    ($($syntax:tt)*) => {
+        $crate::backend::normalize_syntax_interpolation!(
+            [$crate::backend::llvm::syntax::llvm_instruction]; $($syntax)*
         )
     };
 }
 
 pub(in crate::backend) use {
-    llvm_instruction, llvm_instruction_atom, llvm_instruction_callee, llvm_instruction_indices,
-    llvm_instruction_sequence, llvm_instruction_type,
+    llvm_instruction_atom_normalized, llvm_instruction_callee_normalized,
+    llvm_instruction_indices_normalized, llvm_instruction_normalized,
+    llvm_instruction_sequence_normalized, llvm_instruction_type_normalized,
 };
+
+pub(in crate::backend) use llvm_instruction;

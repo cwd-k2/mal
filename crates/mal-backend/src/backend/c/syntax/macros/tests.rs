@@ -10,10 +10,10 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     let result = super::c_type!(named("uint32_t"));
     let trailing = [super::c_parameter!("value" : named("uint8_t"))];
     let signature = super::c_signature! {
-        #[static] #[inline] fn {{ name }}(
+        #[static] #[inline] fn #{ name }(
             #[maybe_unused] "call": ptr(named("mal_call_t")),
-            ...{{ trailing }},
-        ) -> {{ result }}
+            ...#{ trailing },
+        ) -> #{ result }
     };
 
     assert_eq!(
@@ -34,7 +34,7 @@ fn composes_declarations_and_nested_aggregate_fields() {
                 "integer": named("int"),
                 "address": ptr(named("void")),
             },
-            ...{{ trailing }},
+            ...#{ trailing },
         }
     });
 
@@ -65,7 +65,7 @@ fn embeds_rust_expressions_once_inside_structured_expressions() {
     let expression = super::c_expr! {
         conditional(
             (greater((id("count")), (number(0)))),
-            (add({ { dynamic() } }, (number(1)))),
+            (add(#{ dynamic() }, (number(1)))),
             (cast((named("size_t")), (number(0))))
         )
     };
@@ -83,7 +83,7 @@ fn splices_runtime_call_arguments_in_order() {
     let expression = super::c_expr! {
         call("observe", [
             id("first"),
-            ...{{ middle }},
+            ...#{ middle },
             id("fourth"),
         ])
     };
@@ -101,8 +101,8 @@ fn constructs_compound_literals_from_static_and_rust_initializers() {
     let expression = super::c_expr! {
         compound((named("Pair")), [
             field("first", (number(1))),
-            {{ dynamic }},
-            ...{{ trailing }},
+            #{ dynamic },
+            ...#{ trailing },
         ])
     };
 
@@ -123,18 +123,18 @@ fn builds_nested_blocks_and_splices_runtime_node_sequences_in_order() {
     )];
     let body = super::c_block! {
         let "value": named("int") = (number(0));
-        ...{{ statements }}
+        ...#{ statements }
         if (equal((id("value")), (number(0)))) {
             switch (id("value")) {
-                ...{{ cases }},
+                ...#{ cases },
                 _ => { return (number(3)); },
             }
         }
     };
     let function = super::c_function! {
-        signature {{
+        signature #{
             FunctionSignature::new("int", "example", [])
-        }} body {{ body }}
+        } body #{ body }
     };
 
     assert_eq!(

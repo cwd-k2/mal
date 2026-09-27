@@ -86,7 +86,7 @@ impl TopLevelConstants {
                     structure([
                         typed(
                             (ptr),
-                            atom({ { format!("@{}", super::function_name(*function)) } })
+                            atom(#{ format!("@{}", super::function_name(*function)) })
                         ),
                         typed((ptr), atom("null")),
                     ])
@@ -148,18 +148,17 @@ impl TopLevelConstants {
                 let value = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => llvm_constant! {
                         unary {
-                            operator: { { UnaryOperator::FNeg } },
-                            operand: { { operand.typed(self.types.clone())? } },
+                            operator: #{ UnaryOperator::FNeg },
+                            operand: #{ operand.typed(self.types.clone())? },
                         }
                     }?,
                     crate::core::ast::UnaryPrimitive::Negate => {
-                        let zero =
-                            llvm_typed_constant!(typed({ { scalar.llvm_type() } }, atom(0)))?;
+                        let zero = llvm_typed_constant!(typed(#{ scalar.llvm_type() }, atom(0)))?;
                         llvm_constant! {
                             binary {
-                                operator: { { BinaryOperator::Sub } },
-                                left: { { zero } },
-                                right: { { operand.typed(self.types.clone())? } },
+                                operator: #{ BinaryOperator::Sub },
+                                left: #{ zero },
+                                right: #{ operand.typed(self.types.clone())? },
                             }
                         }?
                     }
@@ -184,9 +183,9 @@ impl TopLevelConstants {
                 let instruction = super::scalar::arithmetic_instruction(*operator, scalar)?;
                 let value = llvm_constant! {
                     binary {
-                        operator: { { instruction } },
-                        left: { { left.typed(self.types.clone())? } },
-                        right: { { right.typed(self.types.clone())? } },
+                        operator: #{ instruction },
+                        left: #{ left.typed(self.types.clone())? },
+                        right: #{ right.typed(self.types.clone())? },
                     }
                 }?;
                 Constant {
@@ -206,43 +205,38 @@ impl TopLevelConstants {
     ) -> Option<Constant> {
         let value = match &atom.kind {
             AtomKind::Integer(value) => llvm_constant! {
-                atom({
-                    { super::scalar::integer_literal(&atom.ty, *value, self.types.index_size())? }
-                })
+                atom(#{ super::scalar::integer_literal(&atom.ty, *value, self.types.index_size())? })
             }?,
             AtomKind::Float(bits) if atom.ty == Type::Float32 => llvm_constant! {
-                atom({
-                    { format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits()) }
-                })
+                atom(#{ format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits()) })
             }?,
             AtomKind::Float(bits) if atom.ty == Type::Float64 => {
-                llvm_constant!(atom({ { format!("0x{bits:016X}") } }))?
+                llvm_constant!(atom(#{ format!("0x{bits:016X}") }))?
             }
             AtomKind::Symbol(bytes) if bytes.is_empty() => llvm_constant!(zero)?,
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
                     .push(super::symbol::literal_definition(&name, bytes)?);
-                let address_constant = llvm_constant!(atom({ { format!("@{name}") } }))?;
-                let address =
-                    || llvm_typed_constant!(typed((ptr), { { address_constant.clone() } }));
+                let address_constant = llvm_constant!(atom(#{ format!("@{name}") }))?;
+                let address = || llvm_typed_constant!(typed((ptr), #{ address_constant.clone() }));
                 llvm_constant! {
                     structure([
-                        { { address()? } },
+                        #{ address()? },
                         typed(
                             (ptr),
                             get_element_ptr {
                                 element_type: (int(8_u16)),
-                                pointer: { { address()? } },
+                                pointer: #{ address()? },
                                 indices: [typed(
-                                    { { self.types.index_llvm_type() } },
-                                    atom({ { super::symbol::STATIC_OWNER_DATA_OFFSET } })
+                                    #{ self.types.index_llvm_type() },
+                                    atom(#{ super::symbol::STATIC_OWNER_DATA_OFFSET })
                                 )],
                             }
                         ),
                         typed(
-                            { { self.types.index_llvm_type() } },
-                            atom({ { bytes.len() } })
+                            #{ self.types.index_llvm_type() },
+                            atom(#{ bytes.len() })
                         ),
                     ])
                 }?
@@ -342,9 +336,7 @@ impl Constant {
 
     fn typed(&self, types: Types) -> Option<TypedConstant> {
         llvm_typed_constant! {
-            typed({ { types.value(&self.ty)?.llvm } }, {
-                { self.llvm()?.clone() }
-            })
+            typed(#{ types.value(&self.ty)?.llvm }, #{ self.llvm()?.clone() })
         }
     }
 
@@ -377,9 +369,9 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
         let modulus = 1_i128 << target.bits;
         let residue = value.rem_euclid(modulus);
         if target.signed && residue >= modulus / 2 {
-            llvm_constant!(atom({ { residue - modulus } }))?
+            llvm_constant!(atom(#{ residue - modulus }))?
         } else {
-            llvm_constant!(atom({ { residue } }))?
+            llvm_constant!(atom(#{ residue }))?
         }
     } else {
         let instruction = if source.floating && target.floating {
@@ -409,9 +401,9 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
         };
         llvm_constant! {
             cast {
-                operator: { { instruction } },
-                operand: { { operand.typed(types.clone())? } },
-                to: { { target.llvm_type() } },
+                operator: #{ instruction },
+                operand: #{ operand.typed(types.clone())? },
+                to: #{ target.llvm_type() },
             }
         }?
     };

@@ -22,9 +22,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ argument_type.llvm }}, {{ argument.representation.as_str() }}),
+                value: typed(#{ argument_type.llvm }, #{ argument.representation.as_str() }),
                 pointer: "%mal_bridge_argument",
-                alignment: {{ argument_type.alignment }},
+                alignment: #{ argument_type.alignment },
                 metadata: [],
             };
         };
@@ -34,7 +34,7 @@ impl FunctionEmitter<'_> {
             call {
                 tail: false,
                 result_type: (void),
-                callee: direct({{ bridge.name() }}),
+                callee: direct(#{ bridge.name() }),
                 arguments: [
                     typed((ptr), "%mal_context"),
                     typed((ptr), "%mal_bridge_argument"),
@@ -45,10 +45,10 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         emit_instruction! {
             self;
-            let {{ register.clone() }} = load {
-                ty: {{ result_value_type.llvm }},
+            let #{ register.clone() } = load {
+                ty: #{ result_value_type.llvm },
                 pointer: "%mal_bridge_result",
-                alignment: {{ result_value_type.alignment }},
+                alignment: #{ result_value_type.alignment },
                 metadata: [],
             };
         };

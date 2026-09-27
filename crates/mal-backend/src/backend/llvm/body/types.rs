@@ -64,7 +64,7 @@ impl Types {
                         _ => return None,
                     }
                 } else {
-                    llvm_type!(int({ { u16::from(scalar.bits) } }))
+                    llvm_type!(int(#{ u16::from(scalar.bits) }))
                 },
                 alignment: self.target.scalar_alignment(scalar.bits, scalar.floating)?,
                 size: usize::from(scalar.bits) / 8,
@@ -84,9 +84,7 @@ impl Types {
             Type::Symbol => self.byte_view(),
             Type::External { .. } => Some(ValueType {
                 llvm: llvm_type! {
-                    int({
-                        { u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()? }
-                    })
+                    int(#{ u16::try_from(self.target.pointer_size.checked_mul(8)?).ok()? })
                 },
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
@@ -132,9 +130,7 @@ impl Types {
             },
             ValueType {
                 llvm: llvm_type! {
-                    int({
-                        { u16::try_from(self.target.index_size.checked_mul(8)?).ok()? }
-                    })
+                    int(#{ u16::try_from(self.target.index_size.checked_mul(8)?).ok()? })
                 },
                 alignment: self.index_alignment(),
                 size: self.target.index_size,
@@ -144,20 +140,16 @@ impl Types {
 
     pub(in crate::backend::llvm) fn index_llvm_type(&self) -> LlvmType {
         llvm_type! {
-            int({
-                { u16::try_from(self.target.index_size * 8).expect("supported index width fits u16") }
-            })
+            int(#{ u16::try_from(self.target.index_size * 8).expect("supported index width fits u16") })
         }
     }
 
     pub(in crate::backend::llvm) fn pointer_representation_llvm_type(&self) -> LlvmType {
         llvm_type! {
-            int({
-                {
+            int(#{
                     u16::try_from(self.target.pointer_size * 8)
                     .expect("supported pointer width fits u16")
-                }
-            })
+                })
         }
     }
 
@@ -264,7 +256,7 @@ impl Types {
             .into_iter()
             .max();
         Some(size.map(|size| ValueType {
-            llvm: llvm_type!(array({ { size } }, int(8_u16))),
+            llvm: llvm_type!(array(#{ size }, int(8_u16))),
             alignment: 1,
             size,
         }))
@@ -284,9 +276,7 @@ fn aggregate_type(fields: Vec<ValueType>) -> Option<ValueType> {
     }
     Some(ValueType {
         llvm: llvm_type! {
-            structure([...{
-                { fields.iter().map(|field| field.llvm.clone()) }
-            },])
+            structure([...#{ fields.iter().map(|field| field.llvm.clone()) },])
         },
         alignment,
         size: align(size, alignment)?,

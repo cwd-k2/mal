@@ -52,11 +52,11 @@ impl FunctionEmitter<'_> {
         let frame_pointer = self.register();
         emit_instruction! {
             self;
-            let {{ frame_pointer.clone() }} = get_element_ptr {
+            let #{ frame_pointer.clone() } = get_element_ptr {
                 inbounds: false,
                 element_type: (int(8_u16)),
-                pointer: {{ reservation.storage }},
-                indices: [typed({{ self.types.index_llvm_type() }}, {{ reservation.top.clone() }})],
+                pointer: #{ reservation.storage },
+                indices: [typed(#{ self.types.index_llvm_type() }, #{ reservation.top.clone() })],
             };
         };
         if tagged {
@@ -64,8 +64,8 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed((int(32_u16)), {{ tag.to_string() }}),
-                    pointer: {{ frame_pointer.as_str() }},
+                    value: typed((int(32_u16)), #{ tag.to_string() }),
+                    pointer: #{ frame_pointer.as_str() },
                     alignment: 4,
                     metadata: [],
                 };
@@ -91,19 +91,19 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction! {
                 self;
-                let {{ pointer.clone() }} = get_element_ptr {
+                let #{ pointer.clone() } = get_element_ptr {
                     inbounds: false,
                     element_type: (int(8_u16)),
-                    pointer: {{ frame_pointer.as_str() }},
-                    indices: [typed((int(64_u16)), {{ layout.offset.to_string() }})],
+                    pointer: #{ frame_pointer.as_str() },
+                    indices: [typed((int(64_u16)), #{ layout.offset.to_string() })],
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed({{ layout.value_type.llvm.clone() }}, {{ value.value.representation.as_str() }}),
-                    pointer: {{ pointer }},
-                    alignment: {{ layout.value_type.alignment }},
+                    value: typed(#{ layout.value_type.llvm.clone() }, #{ value.value.representation.as_str() }),
+                    pointer: #{ pointer },
+                    alignment: #{ layout.value_type.alignment },
                     metadata: [],
                 };
             };
@@ -113,19 +113,19 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction! {
                 self;
-                let {{ pointer.clone() }} = get_element_ptr {
+                let #{ pointer.clone() } = get_element_ptr {
                     inbounds: false,
                     element_type: (int(8_u16)),
-                    pointer: {{ frame_pointer.as_str() }},
-                    indices: [typed((int(64_u16)), {{ offset.to_string() }})],
+                    pointer: #{ frame_pointer.as_str() },
+                    indices: [typed((int(64_u16)), #{ offset.to_string() })],
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed((ptr), {{ environment }}),
-                    pointer: {{ pointer }},
-                    alignment: {{ self.types.pointer_alignment() }},
+                    value: typed((ptr), #{ environment }),
+                    pointer: #{ pointer },
+                    alignment: #{ self.types.pointer_alignment() },
                     metadata: [],
                 };
             };
@@ -134,19 +134,19 @@ impl FunctionEmitter<'_> {
             let footer = self.register();
             emit_instruction! {
                 self;
-                let {{ footer.clone() }} = get_element_ptr {
+                let #{ footer.clone() } = get_element_ptr {
                     inbounds: false,
                     element_type: (int(8_u16)),
-                    pointer: {{ frame_pointer }},
-                    indices: [typed((int(64_u16)), {{ offset.to_string() }})],
+                    pointer: #{ frame_pointer },
+                    indices: [typed((int(64_u16)), #{ offset.to_string() })],
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed({{ self.types.index_llvm_type() }}, {{ reservation.top.as_str() }}),
-                    pointer: {{ footer }},
-                    alignment: {{ self.types.index_alignment() }},
+                    value: typed(#{ self.types.index_llvm_type() }, #{ reservation.top.as_str() }),
+                    pointer: #{ footer },
+                    alignment: #{ self.types.index_alignment() },
                     metadata: [],
                 };
             };
@@ -154,9 +154,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ self.types.index_llvm_type() }}, {{ reservation.next_top.as_str() }}),
-                pointer: {{ self.control_top_pointer() }},
-                alignment: {{ self.types.index_alignment() }},
+                value: typed(#{ self.types.index_llvm_type() }, #{ reservation.next_top.as_str() }),
+                pointer: #{ self.control_top_pointer() },
+                alignment: #{ self.types.index_alignment() },
                 metadata: [],
             };
         };
@@ -191,7 +191,7 @@ impl FunctionEmitter<'_> {
             emit_terminator! {
                 self;
                 branch {
-                    target: {{ format!("mal_state_{}", self.function.entry.0) }},
+                    target: #{ format!("mal_state_{}", self.function.entry.0) },
                 };
             };
             Some(())
@@ -243,8 +243,8 @@ impl FunctionEmitter<'_> {
             let code = self.register();
             emit_instruction! {
                 self;
-                let {{ code.clone() }} = extract_value {
-                    aggregate: typed({{ closure_type.llvm }}, {{ callee.value.representation.clone() }}),
+                let #{ code.clone() } = extract_value {
+                    aggregate: typed(#{ closure_type.llvm }, #{ callee.value.representation.clone() }),
                     indices: [0],
                 };
             };
@@ -283,16 +283,16 @@ impl FunctionEmitter<'_> {
                     tail: false,
                     result_type: (void),
                     callee: direct("mal_runtime_environment_release"),
-                    arguments: [typed((ptr), {{ previous }})],
+                    arguments: [typed((ptr), #{ previous })],
                 };
             };
         }
         emit_instruction! {
             self;
             store {
-                value: typed((ptr), {{ environment.as_str() }}),
+                value: typed((ptr), #{ environment.as_str() }),
                 pointer: "%mal_active_environment",
-                alignment: {{ self.types.pointer_alignment() }},
+                alignment: #{ self.types.pointer_alignment() },
                 metadata: [],
             };
         };
@@ -330,21 +330,21 @@ impl FunctionEmitter<'_> {
             let matched = self.register();
             emit_instruction! {
                 self;
-                let {{ matched.clone() }} = compare {
-                    kind: {{ ComparisonKind::Integer }},
-                    predicate: {{ ComparisonPredicate::Eq }},
+                let #{ matched.clone() } = compare {
+                    kind: #{ ComparisonKind::Integer },
+                    predicate: #{ ComparisonPredicate::Eq },
                     ty: (ptr),
-                    left: {{ code }},
-                    right: {{ format!("@{}", super::function_name(*target)) }},
+                    left: #{ code },
+                    right: #{ format!("@{}", super::function_name(*target)) },
                 };
             };
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
             emit_terminator! {
                 self;
                 branch {
-                    condition: {{ matched }},
-                    then: {{ format!("mal_region_target_{}_{index}", site.0) }},
-                    otherwise: {{ next.clone() }},
+                    condition: #{ matched },
+                    then: #{ format!("mal_region_target_{}_{index}", site.0) },
+                    otherwise: #{ next.clone() },
                 };
             };
             self.block(next);
@@ -371,11 +371,11 @@ impl FunctionEmitter<'_> {
             let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
             emit_instruction! {
                 self;
-                let {{ returned.clone() }} = call {
+                let #{ returned.clone() } = call {
                     tail: false,
-                    result_type: {{ result_type.llvm }},
-                    callee: indirect({{ code }}),
-                    arguments: [...{{ arguments }}],
+                    result_type: #{ result_type.llvm },
+                    callee: indirect(#{ code }),
+                    arguments: [...#{ arguments }],
                 };
             };
             if self
@@ -419,7 +419,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: {{ format!("mal_state_{}", entry.0) }},
+                target: #{ format!("mal_state_{}", entry.0) },
             };
         };
         Some(())

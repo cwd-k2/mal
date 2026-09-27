@@ -38,10 +38,10 @@ impl FunctionEmitter<'_> {
             let register = self.register();
             emit_instruction! {
                 self;
-                let {{ register.clone() }} = insert_value {
-                    aggregate: typed({{ aggregate_type.llvm.clone() }}, {{ aggregate }}),
-                    element: typed({{ element_type.llvm }}, {{ element.value.representation }}),
-                    indices: [{{ index }}],
+                let #{ register.clone() } = insert_value {
+                    aggregate: typed(#{ aggregate_type.llvm.clone() }, #{ aggregate }),
+                    element: typed(#{ element_type.llvm }, #{ element.value.representation }),
+                    indices: [#{ index }],
                 };
             };
             aggregate = register;
@@ -111,9 +111,9 @@ impl FunctionEmitter<'_> {
         let tag = self.register();
         emit_instruction! {
             self;
-            let {{ tag.clone() }} = insert_value {
-                aggregate: typed({{ sum_type.llvm.clone() }}, "zeroinitializer"),
-                element: typed((int(32_u16)), {{ index.to_string() }}),
+            let #{ tag.clone() } = insert_value {
+                aggregate: typed(#{ sum_type.llvm.clone() }, "zeroinitializer"),
+                element: typed((int(32_u16)), #{ index.to_string() }),
                 indices: [0],
             };
         };
@@ -121,27 +121,27 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ sum_type.llvm.clone() }}, {{ tag }}),
-                pointer: {{ storage.as_str() }},
-                alignment: {{ sum_type.alignment }},
+                value: typed(#{ sum_type.llvm.clone() }, #{ tag }),
+                pointer: #{ storage.as_str() },
+                alignment: #{ sum_type.alignment },
                 metadata: [],
             };
         };
         let payload = self.register();
         emit_instruction! {
             self;
-            let {{ payload.clone() }} = get_element_ptr {
+            let #{ payload.clone() } = get_element_ptr {
                 inbounds: true,
-                element_type: {{ sum_type.llvm.clone() }},
-                pointer: {{ storage.clone() }},
+                element_type: #{ sum_type.llvm.clone() },
+                pointer: #{ storage.clone() },
                 indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "1")],
             };
         };
         emit_instruction! {
             self;
             store {
-                value: typed({{ member_type.llvm }}, {{ value.representation }}),
-                pointer: {{ payload }},
+                value: typed(#{ member_type.llvm }, #{ value.representation }),
+                pointer: #{ payload },
                 alignment: 1,
                 metadata: [],
             };
@@ -149,10 +149,10 @@ impl FunctionEmitter<'_> {
         let result = self.register();
         emit_instruction! {
             self;
-            let {{ result.clone() }} = load {
-                ty: {{ sum_type.llvm.clone() }},
-                pointer: {{ storage }},
-                alignment: {{ sum_type.alignment }},
+            let #{ result.clone() } = load {
+                ty: #{ sum_type.llvm.clone() },
+                pointer: #{ storage },
+                alignment: #{ sum_type.alignment },
                 metadata: [],
             };
         };
@@ -182,23 +182,21 @@ impl FunctionEmitter<'_> {
             let tag = self.register();
             emit_instruction! {
                 self;
-                let {{ tag.clone() }} = extract_value {
-                    aggregate: typed({{ sum_type.llvm.clone() }}, {{ scrutinee.representation.clone() }}),
+                let #{ tag.clone() } = extract_value {
+                    aggregate: typed(#{ sum_type.llvm.clone() }, #{ scrutinee.representation.clone() }),
                     indices: [0],
                 };
             };
             tag
         };
         let tag_type = llvm_type! {
-            int({
-                {
+            int(#{
                     if is_bool(&scrutinee.ty) {
                         1_u16
                     } else {
                         32_u16
                     }
-                }
-            })
+                })
         };
         let cases = arms.iter().map(|arm| {
             (
@@ -208,9 +206,9 @@ impl FunctionEmitter<'_> {
         });
         emit_terminator! {
             self;
-            switch typed({{ tag_type }}, {{ tag }})  {
-                cases: [...{{ cases }}],
-                default: {{ format!("mal_invalid_case_{}", site.0) }},
+            switch typed(#{ tag_type }, #{ tag })  {
+                cases: [...#{ cases }],
+                default: #{ format!("mal_invalid_case_{}", site.0) },
             };
         };
         self.block(format!("mal_invalid_case_{}", site.0));
@@ -246,7 +244,7 @@ impl FunctionEmitter<'_> {
             emit_terminator! {
                 self;
                 branch {
-                    target: {{ format!("mal_state_{}", arm.target.0) }},
+                    target: #{ format!("mal_state_{}", arm.target.0) },
                 };
             };
         }
@@ -301,28 +299,28 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ sum_type.llvm.clone() }}, {{ value }}),
-                pointer: {{ storage.as_str() }},
-                alignment: {{ sum_type.alignment }},
+                value: typed(#{ sum_type.llvm.clone() }, #{ value }),
+                pointer: #{ storage.as_str() },
+                alignment: #{ sum_type.alignment },
                 metadata: [],
             };
         };
         let pointer = self.register();
         emit_instruction! {
             self;
-            let {{ pointer.clone() }} = get_element_ptr {
+            let #{ pointer.clone() } = get_element_ptr {
                 inbounds: true,
-                element_type: {{ sum_type.llvm }},
-                pointer: {{ storage }},
+                element_type: #{ sum_type.llvm },
+                pointer: #{ storage },
                 indices: [typed((int(32_u16)), "0"), typed((int(32_u16)), "1")],
             };
         };
         let payload = self.register();
         emit_instruction! {
             self;
-            let {{ payload.clone() }} = load {
-                ty: {{ member_type.llvm }},
-                pointer: {{ pointer }},
+            let #{ payload.clone() } = load {
+                ty: #{ member_type.llvm },
+                pointer: #{ pointer },
                 alignment: 1,
                 metadata: [],
             };

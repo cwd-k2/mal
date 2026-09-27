@@ -56,12 +56,12 @@ impl Function {
                     PointerAccess::ReadOnly => c_type!(ptr(const(named("void")))),
                     PointerAccess::ReadWrite => c_type!(ptr(named("void"))),
                 };
-                c_parameter!({{ format!("mal_{}", parameter.name) }} : {{ ty }})
+                c_parameter!(#{ format!("mal_{}", parameter.name) } : #{ ty })
             })
             .collect::<Vec<_>>();
         c_signature! {
-            fn {{ self.name.clone() }}(
-                ...{{ parameters }}
+            fn #{ self.name.clone() }(
+                ...#{ parameters }
             ) -> named("void")
         }
     }
@@ -71,7 +71,7 @@ impl Function {
 
         self.parameters
             .iter()
-            .map(|parameter| llvm_parameter!({{ format!("%mal_{}", parameter.name) }} : ptr))
+            .map(|parameter| llvm_parameter!(#{ format!("%mal_{}", parameter.name) } : ptr))
             .collect()
     }
 
@@ -91,8 +91,8 @@ impl Function {
 
         let parameters = self.llvm_parameters();
         llvm_signature! {
-            fn {{ self.name.clone() }}(
-                ...{{ parameters }}
+            fn #{ self.name.clone() }(
+                ...#{ parameters }
             ) -> void
         }
     }
@@ -104,8 +104,8 @@ impl Function {
 
         let parameters = self.llvm_unnamed_parameters();
         llvm_declaration! {
-            fn {{ self.name.clone() }}(
-                ...{{ parameters }}
+            fn #{ self.name.clone() }(
+                ...#{ parameters }
             ) -> void;
         }
     }

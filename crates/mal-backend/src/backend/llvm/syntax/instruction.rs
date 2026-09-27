@@ -867,7 +867,7 @@ mod tests {
                 tail: false,
                 result_type: (int(8_u16)),
                 callee: direct("observe"),
-                arguments: [...{{ arguments }}],
+                arguments: [...#{ arguments }],
             };
         }
         .unwrap();

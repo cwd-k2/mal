@@ -37,7 +37,7 @@ type、declaration、signature、parameter、aggregate、expression、statement�
 global、metadataはmacroから構築できる。LLVM function bodyでは`emit_instruction!`と`emit_terminator!`が、構築した
 nodeを現在の`FunctionBuilder`へ登録する。entry blockの先頭へ遅延挿入する`entry_alloca`のように配置semanticsを
 持つ操作だけは通常のemit経路と分ける。
-backendのproduction call siteはstateful root以外をmacroから構築する。動的policyは`{{}}`と`...{{}}`で構築済み
+backendのproduction call siteはstateful root以外をmacroから構築する。動的policyは`#{}`と`...#{}`で構築済み
 nodeを渡し、call siteでconstructorを直接組み合わせない。Rust側で保持する`(Type, value)`列は
 `TypedValue::from_pairs`のような名前付きhelperで一度だけ検証済みnode列へ正規化してからspliceする。個々のnodeの
 constructorはmacro展開先、名前付き正規化helper、syntax自身の検証で使う。
@@ -55,16 +55,17 @@ constructorはmacro展開先、名前付き正規化helper、syntax自身の検�
 | `(...)` | 静的node constructorの引数 |
 | `[...]` | source順を持つ構文列 |
 | `{...}` | block、名前付き構造、switch armの集合 |
-| `{{ rust_expression }}` | 構築済みscalarまたはnodeを一個挿入 |
-| `...{{ rust_iterator }}` | 構築済みnode列をその位置へsplice |
+| `#{ rust_expression }` | 構築済みscalarまたはnodeを一個挿入 |
+| `...#{ rust_iterator }` | 構築済みnode列をその位置へsplice |
 
 内部DSLはRustのliteral、call、array、block、attribute、`let`、function、match armに相当する小さな構文だけを使う。
 これはRust codeをmacro内で実行する仕組みではなく、typed syntax nodeを構築するquasiquoteである。文字列や数値など
-静的なscalarはliteralのまま書き、`{{}}`の中だけを明示的なRust interpolationとする。単一挿入と列spliceを型から
+静的なscalarはliteralのまま書き、`#{}`の中だけを明示的なRust interpolationとする。単一挿入と列spliceを型から
 推測せず、列spliceには必ず先行する`...`を要求する。補間は一度だけ評価し、spliceはiterator順を保存する。
-macro定義は裸のRust expressionを受けるmatcherを持たないため、動的な値から`{{}}`を省略するとcompile errorになる。
-brace間の空白はtokenの意味を変えない。`rustfmt`が`{{ value }}`を`{ { value } }`と表示する位置でも、macroには同じ
-二重のbrace groupとして渡る。
+`#()`は別記法として受理しない。macro入口は`#`とそれに続くbrace groupを内部の単一補間groupへ正規化してからtyped grammarを
+適用する。macro定義は裸のRust expressionを受けるmatcherを持たないため、動的な値から`#{}`を省略した場合や別のsigilまたは
+delimiterを使った場合はcompile errorになる。`rustfmt`は`#{}`の境界と内部のtoken表記を保存する。長いRust expressionはlocalで
+構築し、補間位置にはそのlocalを置く。
 
 macro invocationが一行で完結するときは`c_type!(ptr(named("void")))`のように`()`を使う。二行以上になるときは
 `c_function! {`の直後で改行し、本文を一段下げ、対応する`}`をinvocationの開始行と同じ深さへ置く。macro本文の
@@ -77,32 +78,37 @@ semantic fieldを持つnodeは位置引数ではなく`{ field: value }`で構�
 `typed(type, value)`へ正規化し、Rustの`Option`をDSLへ露出しない。Cのexpression statementはexpressionと終端の
 `;`から構築し、専用のcall statementを持たない。
 
+C functionを`fn name(parameters) -> result { statements }`として静的に記述する場合、signatureとbodyのroleは構文位置から
+一意なのでlabelを加えない。構築済みrootを合成する場合は、最初のnodeを`signature`または`macro`で識別する。bodyも構築済みなら
+`body`を必須とし、静的statement blockなら`{}`自体がbodyを識別するため`body`を置かない。このlabelは同義の糖衣ではなく、静的な
+下位grammarと構築済みrootの境界を示す。
+
 ```rust
 let body = c_block! {
     let "count": named("size_t") = number(0);
-    ...{{ generated_statements }}
+    ...#{ generated_statements }
     if greater(id("count"), number(0)) {
-        return {{ dynamic_result }};
+        return #{ dynamic_result };
     }
 };
 
 let signature = llvm_signature! {
-    #[linkage(internal)] #[attributes(nounwind)] fn {{ name }}(
+    #[linkage(internal)] #[attributes(nounwind)] fn #{ name }(
         "%context": ptr,
-        ...{{ generated_parameters }},
+        ...#{ generated_parameters },
     ) -> int(32)
 };
 
 emit_instruction! {
     self;
-    let {{ result }} = call {
+    let #{ result } = call {
         tail: false,
-        result_type: {{ result_type }},
-        callee: direct({{ callee }}),
+        result_type: #{ result_type },
+        callee: direct(#{ callee }),
         arguments: [
             typed((ptr), "%context"),
-            {{ dynamic_argument }},
-            ...{{ generated_arguments }},
+            #{ dynamic_argument },
+            ...#{ generated_arguments },
         ],
     };
 };
@@ -110,9 +116,9 @@ emit_instruction! {
 emit_terminator! {
     self;
     branch {
-        condition: {{ condition }},
+        condition: #{ condition },
         then: "done",
-        otherwise: {{ fallback_label }},
+        otherwise: #{ fallback_label },
     };
 };
 ```
@@ -163,7 +169,7 @@ optimization passはtyped syntax構築より前の`execution` decision、また�
 
 - call siteから生成される構造とsource順が読める。
 - CとLLVMで型、列、補間、対応関係の記法が同じ意味を持つ。
-- 動的な単一値は`{{}}`、動的な列は`...{{}}`にだけ現れ、静的な`{}`の中に裸のRust expressionを置かない。
+- 動的な単一値は`#{}`、動的な列は`...#{}`にだけ現れ、静的な`{}`の中に裸のRust expressionを置かない。
 - `=>`、`->`、`,`、`;`、`()`、`[]`、`{}`は共通記法で定めた意味以外に転用しない。
 - 同じtyped nodeへ到達する別名やstatement専用のexpression糖衣を置かない。
 - macroとbuilderのどちらを通っても同じtyped constructorとvalidationへ到達する。

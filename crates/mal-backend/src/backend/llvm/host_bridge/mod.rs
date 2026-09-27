@@ -54,13 +54,13 @@ pub(super) fn generate(
     call_arguments.extend(arguments);
     let call = c_expr! {
         call(
-            {{ format!("mal_ext_{}", external.name) }},
-            [...{{ call_arguments }}]
+            #{ format!("mal_ext_{}", external.name) },
+            [...#{ call_arguments }]
         )
     };
     match &result.kind {
         plan::Kind::Unit => {
-            statements.push(c_statement!({{ call }};));
+            statements.push(c_statement!(#{ call };));
             statements.push(store(
                 "uint8_t",
                 identifier("mal_result"),
@@ -69,7 +69,7 @@ pub(super) fn generate(
         }
         plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
             statements.push(c_statement! {
-                let "result": {{ raw_types.c_type(&external.result) }} = {{ call }};
+                let "result": #{ raw_types.c_type(&external.result) } = #{ call };
             });
             statements.extend(marshalling.write(
                 &result,
@@ -88,8 +88,8 @@ pub(super) fn generate(
     }
     marshalling.helpers.blank_line();
     marshalling.helpers.push(c_function! {
-        signature {{ bridge.c_signature() }} {
-            ...{{ statements }}
+        signature #{ bridge.c_signature() } {
+            ...#{ statements }
         }
     });
     Some(Bridge {
@@ -145,10 +145,8 @@ impl<'a> Marshalling<'a> {
             }),
             plan::Kind::External => Some(c_expr! {
                 compound(
-                    { { self.raw_types.c_type(value.ty) } },
-                    [field("bits", {
-                        { load(c_type!(ptr(const(named("uintptr_t")))), pointer) }
-                    })]
+                    #{ self.raw_types.c_type(value.ty) },
+                    [field("bits", #{ load(c_type!(ptr(const(named("uintptr_t")))), pointer) })]
                 )
             }),
             plan::Kind::Product(fields) => {
@@ -157,23 +155,21 @@ impl<'a> Marshalling<'a> {
                     .enumerate()
                     .map(|(index, field)| {
                         Some(c_initializer! {
-                            field({ { format!("field_{index}") } }, {
-                                {
+                            field(#{ format!("field_{index}") }, #{
                                     self.read(
                                         &field.value,
                                         base.clone(),
                                         offset.checked_add(field.offset)?,
                                         context.clone(),
                                     )?
-                                }
-                            })
+                                })
                         })
                     })
                     .collect::<Option<Vec<_>>>()?;
                 Some(c_expr! {
                     compound(
-                        {{ self.raw_types.c_type(value.ty) }},
-                        [...{{ initializers }}]
+                        #{ self.raw_types.c_type(value.ty) },
+                        [...#{ initializers }]
                     )
                 })
             }
@@ -182,7 +178,7 @@ impl<'a> Marshalling<'a> {
                 variants,
             } => self.read_sum(value.ty, *tag_offset, variants, pointer, context),
             plan::Kind::Scalar => Some(load(
-                c_type!(ptr(const(named({{ c_scalar_type(value.ty)? }})))),
+                c_type!(ptr(const(named(#{ c_scalar_type(value.ty)? })))),
                 pointer,
             )),
         }
@@ -199,8 +195,8 @@ impl<'a> Marshalling<'a> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.read_helpers.get(&id)) {
             return Some(c_expr! {
                 call(
-                    { { helper.clone() } },
-                    [{ { context } }, { { pointer } }]
+                    #{ helper.clone() },
+                    [#{ context }, #{ pointer }]
                 )
             });
         }
@@ -220,12 +216,12 @@ impl<'a> Marshalling<'a> {
                     identifier("context"),
                 )?;
                 Some(c_switch_case! {
-                    (call("UINT32_C", [number({{ index }})])) => {
-                        return (compound({{ c_type.clone() }}, [
-                            field("tag", (call("UINT32_C", [number({{ index }})]))),
+                    (call("UINT32_C", [number(#{ index })])) => {
+                        return (compound(#{ c_type.clone() }, [
+                            field("tag", (call("UINT32_C", [number(#{ index })]))),
                             path(
-                                {{ ["payload".into(), format!("variant_{index}")] }},
-                                {{ payload }}
+                                #{ ["payload".into(), format!("variant_{index}")] },
+                                #{ payload }
                             ),
                         ]));
                     }
@@ -234,31 +230,31 @@ impl<'a> Marshalling<'a> {
             .collect::<Option<Vec<_>>>()?;
         let mut cases = cases;
         cases.push(c_switch_case! {
-            _ => { {{ trap(
+            _ => { #{ trap(
                 identifier("context"),
                 "invalid sum tag at LLVM bridge",
-            ) }} }
+            ) } }
         });
         let tag = load(
             c_type!(ptr(const(named("uint32_t")))),
-            c_expr!(add((id("value")), (number({ { tag_offset } })))),
+            c_expr!(add((id("value")), (number(#{ tag_offset })))),
         );
         self.helpers.push(c_function! {
-            #[static] fn {{ helper.clone() }}(
+            #[static] fn #{ helper.clone() }(
                 "context": ptr(named("MalContext")),
                 "value": ptr(const(named("uint8_t"))),
-            ) -> {{ c_type }} {
-                let "tag": named("uint32_t") = {{ tag }};
+            ) -> #{ c_type } {
+                let "tag": named("uint32_t") = #{ tag };
                 switch (id("tag")) {
-                    ...{{ cases }},
+                    ...#{ cases },
                 }
             }
         });
         self.helpers.blank_line();
         Some(c_expr! {
             call(
-                { { helper } },
-                [{ { context } }, { { pointer } }]
+                #{ helper },
+                [#{ context }, #{ pointer }]
             )
         })
     }
@@ -291,7 +287,7 @@ impl<'a> Marshalling<'a> {
             plan::Kind::External => Some(vec![store(
                 "uintptr_t",
                 pointer,
-                c_expr!(field({ { value } }, "bits")),
+                c_expr!(field(#{ value }, "bits")),
             )]),
             plan::Kind::Product(fields) => {
                 let mut statements = Vec::new();
@@ -300,9 +296,7 @@ impl<'a> Marshalling<'a> {
                         &field.value,
                         base.clone(),
                         c_expr! {
-                            field({ { value.clone() } }, {
-                                { format!("field_{index}") }
-                            })
+                            field(#{ value.clone() }, #{ format!("field_{index}") })
                         },
                         offset.checked_add(field.offset)?,
                         context.clone(),
@@ -331,10 +325,10 @@ impl<'a> Marshalling<'a> {
     ) -> Option<Statement> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.write_helpers.get(&id)) {
             return Some(c_statement! {
-                call({{ helper.clone() }}, [
-                    {{ context }},
-                    {{ pointer }},
-                    {{ value }},
+                call(#{ helper.clone() }, [
+                    #{ context },
+                    #{ pointer },
+                    #{ value },
                 ]);
             });
         }
@@ -349,49 +343,47 @@ impl<'a> Marshalling<'a> {
                 &field.value,
                 identifier("value"),
                 c_expr! {
-                    field((field((id("input")), "payload")), {
-                        { format!("variant_{index}") }
-                    })
+                    field((field((id("input")), "payload")), #{ format!("variant_{index}") })
                 },
                 field.offset,
                 identifier("context"),
             )?;
             statements.push(c_statement!(return;));
             cases.push(c_switch_case! {
-                (call("UINT32_C", [number({{ index }})])) => {
-                    ...{{ statements }}
+                (call("UINT32_C", [number(#{ index })])) => {
+                    ...#{ statements }
                 }
             });
         }
         cases.push(c_switch_case! {
-            _ => { {{ trap(
+            _ => { #{ trap(
                 identifier("context"),
                 "invalid sum tag at LLVM bridge",
-            ) }} }
+            ) } }
         });
         let tag_store = store(
             "uint32_t",
-            c_expr!(add((id("value")), (number({ { tag_offset } })))),
+            c_expr!(add((id("value")), (number(#{ tag_offset })))),
             c_expr!(field((id("input")), "tag")),
         );
         self.helpers.push(c_function! {
-            #[static] fn {{ helper.clone() }}(
+            #[static] fn #{ helper.clone() }(
                 "context": ptr(named("MalContext")),
                 "value": ptr(named("uint8_t")),
-                "input": {{ c_type }},
+                "input": #{ c_type },
             ) -> named("void") {
-                {{ tag_store }}
+                #{ tag_store }
                 switch (field((id("input")), "tag")) {
-                    ...{{ cases }},
+                    ...#{ cases },
                 }
             }
         });
         self.helpers.blank_line();
         Some(c_statement! {
-            call({{ helper }}, [
-                {{ context }},
-                {{ pointer }},
-                {{ value }},
+            call(#{ helper }, [
+                #{ context },
+                #{ pointer },
+                #{ value },
             ]);
         })
     }
@@ -403,42 +395,42 @@ fn bridge_pointer(base: Expr, offset: usize, read_only: bool) -> Expr {
     } else {
         c_type!(ptr(named("uint8_t")))
     };
-    let pointer = c_expr!(cast({ { ty } }, { { base } }));
+    let pointer = c_expr!(cast(#{ ty }, #{ base }));
     if offset == 0 {
         pointer
     } else {
-        c_expr!(add({ { pointer } }, (number({ { offset } }))))
+        c_expr!(add(#{ pointer }, (number(#{ offset }))))
     }
 }
 
 fn context_cast() -> Expr {
     c_expr! {
         cast(
-            { { c_type!(ptr(named("MalContext"))) } },
+            #{ c_type!(ptr(named("MalContext"))) },
             (id("mal_context"))
         )
     }
 }
 
 fn load(ty: TypeName, pointer: Expr) -> Expr {
-    c_expr!(dereference((cast({ { ty } }, { { pointer } }))))
+    c_expr!(dereference((cast(#{ ty }, #{ pointer }))))
 }
 
 fn store(ty: impl Into<TypeName>, pointer: Expr, value: Expr) -> Statement {
     c_statement! {
         assign(
-            (dereference((cast({{ c_type!({{ ty.into().pointer() }}) }}, {{ pointer }})))),
-            {{ value }}
+            (dereference((cast(#{ c_type!(#{ ty.into().pointer() }) }, #{ pointer })))),
+            #{ value }
         );
     }
 }
 
 fn identifier(name: impl Into<crate::backend::c::syntax::Identifier>) -> Expr {
-    c_expr!(id({ { name } }))
+    c_expr!(id(#{ name }))
 }
 
 fn trap(context: Expr, message: &str) -> Statement {
-    c_statement!(call("mal_trap", [{{ context }}, string({{ message }})]);)
+    c_statement!(call("mal_trap", [#{ context }, string(#{ message })]);)
 }
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {

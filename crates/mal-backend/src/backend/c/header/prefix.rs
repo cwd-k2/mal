@@ -51,14 +51,14 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ("size_t", "MalType_ByteSize"),
         ("size_t", "MalType_USize"),
     ] {
-        output.push(c_declaration!(type {{ alias }} = {{ c_type!(named({{ source }})) }}));
+        output.push(c_declaration!(type #{ alias } = #{ c_type!(named(#{ source })) }));
     }
     output.push(c_declaration!(type "MalType_Address" = ptr(named("void"))));
     output.push(c_declaration! {
         static_assert(
             (equal(
                 (multiply((sizeof((cast((named("size_t")), (number(0)))))), (id("CHAR_BIT")))),
-                (number({{ index_bits }}))
+                (number(#{ index_bits }))
             )),
             "size_t does not match the mal target pointer index width"
         );
@@ -67,37 +67,31 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         c_expr! {
             equal(
                 (multiply(
-                    (sizeof((cast({ { c_type!(named({ { ty } })) } }, (number(0)))))),
+                    (sizeof((cast(#{ c_type!(named(#{ ty })) }, (number(0)))))),
                     (id("CHAR_BIT"))
                 )),
-                (number({ { bits } }))
+                (number(#{ bits }))
             )
         }
     };
     let macro_equals =
-        |name: &str, value: &str| c_expr!(equal((id({ { name } })), (number({ { value } }))));
+        |name: &str, value: &str| c_expr!(equal((id(#{ name })), (number(#{ value }))));
     for (condition, message) in [
         (
             c_expr! {
-                logical_and({ { width_of("float", 32) } }, {
-                    { macro_equals("FLT_MANT_DIG", "24") }
-                })
+                logical_and(#{ width_of("float", 32) }, #{ macro_equals("FLT_MANT_DIG", "24") })
             },
             "float is not IEEE 754 binary32",
         ),
         (
             c_expr! {
-                logical_and({ { width_of("double", 64) } }, {
-                    { macro_equals("DBL_MANT_DIG", "53") }
-                })
+                logical_and(#{ width_of("double", 64) }, #{ macro_equals("DBL_MANT_DIG", "53") })
             },
             "double is not IEEE 754 binary64",
         ),
         (
             c_expr! {
-                logical_and({ { macro_equals("FLT_HAS_SUBNORM", "1") } }, {
-                    { macro_equals("DBL_HAS_SUBNORM", "1") }
-                })
+                logical_and(#{ macro_equals("FLT_HAS_SUBNORM", "1") }, #{ macro_equals("DBL_HAS_SUBNORM", "1") })
             },
             "the target does not preserve subnormal floating-point values",
         ),
@@ -106,7 +100,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
             "floating-point expressions are evaluated with extra precision",
         ),
     ] {
-        output.push(c_declaration!(static_assert({{ condition }}, {{ message }});));
+        output.push(c_declaration!(static_assert(#{ condition }, #{ message });));
     }
     for (source, alias) in [
         ("MalType_Unit", "mal_Unit_t"),
@@ -125,7 +119,7 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
         ("MalType_ByteSize", "mal_ByteSize_t"),
         ("MalType_USize", "mal_USize_t"),
     ] {
-        output.push(c_declaration!(type {{ alias }} = {{ c_type!(named({{ source }})) }}));
+        output.push(c_declaration!(type #{ alias } = #{ c_type!(named(#{ source })) }));
     }
     output.push(c_aggregate! {
         type "mal_call_t" = struct {
@@ -143,14 +137,14 @@ pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> Translation
     });
     output.blank_line();
     output.push(c_declaration! {
-        fn {{
+        fn #{
             c_signature! {
                 #[noreturn] fn "mal_trap"(
                     "context": ptr(named("MalContext")),
                     "message": ptr(const(named("char"))),
                 ) -> named("void")
             }
-        }};
+        };
     });
     output.push(c_function! {
         #[static] #[inline] #[noreturn] fn "mal_call_trap"(
@@ -192,10 +186,10 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_USize", "mal_USize_t", "USize"),
     ] {
         output.push(c_function! {
-            #[static] #[inline] fn {{ format!("mal_{name}_return") }}(
+            #[static] #[inline] fn #{ format!("mal_{name}_return") }(
                 #[maybe_unused] "call": ptr(named("mal_call_t")),
-                "value": named({{ host }}),
-            ) -> named({{ raw }}) {
+                "value": named(#{ host }),
+            ) -> named(#{ raw }) {
                 return (id("value"));
             }
         });

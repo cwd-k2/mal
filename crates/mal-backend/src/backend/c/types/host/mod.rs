@@ -25,21 +25,19 @@ impl TypeRegistry {
                 Type::Product(_) => append_function(
                     &mut output,
                     c_signature! {
-                        #[static] #[inline] fn {{ format!("mal_repr_product_{index}_return") }}(
+                        #[static] #[inline] fn #{ format!("mal_repr_product_{index}_return") }(
                             #[maybe_unused] "call": ptr(named("mal_call_t")),
-                            "value": named({{ format!("mal_repr_product_{index}_t") }}),
-                        ) -> {{ self.c_type(ty) }}
+                            "value": named(#{ format!("mal_repr_product_{index}_t") }),
+                        ) -> #{ self.c_type(ty) }
                     },
                     c_block! {
-                        return {
-                            {
+                        return #{
                                 self.host_to_raw_value(
                                     ty,
                                     c_expr!(id("call")),
                                     c_expr!(id("value")),
                                 )
-                            }
-                        };
+                            };
                     },
                 ),
                 Type::Sum(members) => {
@@ -61,13 +59,13 @@ impl TypeRegistry {
             append_function(
                 &mut output,
                 c_signature! {
-                    #[static] #[inline] fn {{ format!("mal_{name}_from_bits") }}(
+                    #[static] #[inline] fn #{ format!("mal_{name}_from_bits") }(
                         "bits": named("uintptr_t"),
-                    ) -> named({{ host_type.clone() }})
+                    ) -> named(#{ host_type.clone() })
                 },
                 c_block! {
                     return (compound(
-                        { { c_type!(named({ { host_type.clone() } })) } },
+                        #{ c_type!(named(#{ host_type.clone() })) },
                         [field("mal_detail_bits", (id("bits")))],
                     ));
                 },
@@ -75,8 +73,8 @@ impl TypeRegistry {
             append_function(
                 &mut output,
                 c_signature! {
-                    #[static] #[inline] fn {{ format!("mal_{name}_to_bits") }}(
-                        "value": named({{ host_type.clone() }}),
+                    #[static] #[inline] fn #{ format!("mal_{name}_to_bits") }(
+                        "value": named(#{ host_type.clone() }),
                     ) -> named("uintptr_t")
                 },
                 c_block! {
@@ -86,14 +84,14 @@ impl TypeRegistry {
             append_function(
                 &mut output,
                 c_signature! {
-                    #[static] #[inline] fn {{ format!("mal_{name}_return") }}(
+                    #[static] #[inline] fn #{ format!("mal_{name}_return") }(
                         #[maybe_unused] "call": ptr(named("mal_call_t")),
-                        "value": named({{ host_type }}),
-                    ) -> named({{ format!("MalType_{name}") }})
+                        "value": named(#{ host_type }),
+                    ) -> named(#{ format!("MalType_{name}") })
                 },
                 c_block! {
                     return (compound(
-                        { { c_type!(named({ { format!("MalType_{name}") } })) } },
+                        #{ c_type!(named(#{ format!("MalType_{name}") })) },
                         [field("bits", (field((id("value")), "mal_detail_bits")))],
                     ));
                 },
@@ -117,21 +115,19 @@ impl TypeRegistry {
             append_function(
                 &mut output,
                 c_signature! {
-                    #[static] #[inline] fn {{ format!("mal_{}_return", alias.name) }}(
+                    #[static] #[inline] fn #{ format!("mal_{}_return", alias.name) }(
                         #[maybe_unused] "call": ptr(named("mal_call_t")),
-                        "value": named({{ format!("mal_{}_t", alias.name) }}),
-                    ) -> {{ self.header_c_type(&alias.ty, Some(&alias.name)) }}
+                        "value": named(#{ format!("mal_{}_t", alias.name) }),
+                    ) -> #{ self.header_c_type(&alias.ty, Some(&alias.name)) }
                 },
                 c_block! {
-                    return {
-                        {
+                    return #{
                             self.host_to_raw_value(
                                 &alias.ty,
                                 c_expr!(id("call")),
                                 c_expr!(id("value")),
                             )
-                        }
-                    };
+                        };
                 },
             );
         }
@@ -154,8 +150,8 @@ impl TypeRegistry {
             let tag_name = format!("mal_{public_name}_tag_{variant}");
             let macro_name = tag_name.clone();
             output.push(c_directive! {
-                define {{ macro_name }} =
-                    (call("UINT32_C", [number({{ variant }})]));
+                define #{ macro_name } =
+                    (call("UINT32_C", [number(#{ variant })]));
             });
             let (parameters, payload) = if *member == Type::Unit {
                 (
@@ -165,33 +161,31 @@ impl TypeRegistry {
             } else {
                 (
                     c_parameters! {
-                        "value": {{
+                        "value": #{
                             self.host_value_c_type(member, element_aliases[variant].as_deref())
-                        }}
+                        }
                     },
                     c_expr!(id("value")),
                 )
             };
             let host_value = c_expr! {
                 compound(
-                    { { c_type!(named({ { host_type } })) } },
+                    #{ c_type!(named(#{ host_type })) },
                     [
-                        field("tag", (id({ { tag_name } }))),
-                        path({ { ["payload".into(), format!("variant_{variant}")] } }, {
-                            { payload }
-                        }),
+                        field("tag", (id(#{ tag_name }))),
+                        path(#{ ["payload".into(), format!("variant_{variant}")] }, #{ payload }),
                     ]
                 )
             };
             append_function(
                 output,
                 c_signature! {
-                    #[static] #[inline] fn {{ format!("mal_{public_name}_make_{variant}") }}(
-                        ...{{ parameters.clone() }},
-                    ) -> named({{ host_type }})
+                    #[static] #[inline] fn #{ format!("mal_{public_name}_make_{variant}") }(
+                        ...#{ parameters.clone() },
+                    ) -> named(#{ host_type })
                 },
                 c_block! {
-                    return { { host_value.clone() } };
+                    return #{ host_value.clone() };
                 },
             );
             let mut return_parameters = c_parameters!("call": ptr(named("mal_call_t")));
@@ -199,12 +193,12 @@ impl TypeRegistry {
             append_function(
                 output,
                 c_signature! {
-                    #[static] #[inline] fn {{ format!("mal_{public_name}_return_{variant}") }}(
-                        ...{{ return_parameters }},
-                    ) -> {{ raw_type.clone() }}
+                    #[static] #[inline] fn #{ format!("mal_{public_name}_return_{variant}") }(
+                        ...#{ return_parameters },
+                    ) -> #{ raw_type.clone() }
                 },
                 c_block! {
-                    return { { self.host_to_raw_value(ty, c_expr!(id("call")), host_value) } };
+                    return #{ self.host_to_raw_value(ty, c_expr!(id("call")), host_value) };
                 },
             );
         }
@@ -219,33 +213,31 @@ impl TypeRegistry {
         let mut to_host_cases = Vec::new();
         let mut to_raw_cases = Vec::new();
         for (variant, member) in members.iter().enumerate() {
-            let tag = c_expr!(call("UINT32_C", [number({ { variant } })]));
+            let tag = c_expr!(call("UINT32_C", [number(#{ variant })]));
             let payload = c_expr! {
-                field((field((id("value")), "payload")), {
-                    { format!("variant_{variant}") }
-                })
+                field((field((id("value")), "payload")), #{ format!("variant_{variant}") })
             };
             let host_payload =
                 self.raw_to_host_value(member, None, c_expr!(id("call")), payload.clone());
             to_host_cases.push(c_switch_case! {
-                {{ tag.clone() }} => {
-                    return (compound({{ host_type.clone() }}, [
-                        field("tag", {{ tag.clone() }}),
+                #{ tag.clone() } => {
+                    return (compound(#{ host_type.clone() }, [
+                        field("tag", #{ tag.clone() }),
                         path(
-                            {{ ["payload".into(), format!("variant_{variant}")] }},
-                            {{ host_payload }}
+                            #{ ["payload".into(), format!("variant_{variant}")] },
+                            #{ host_payload }
                         ),
                     ]));
                 }
             });
             let raw_payload = self.host_to_raw_value(member, c_expr!(id("call")), payload);
             to_raw_cases.push(c_switch_case! {
-                {{ tag.clone() }} => {
-                    return (compound({{ raw_type.clone() }}, [
-                        field("tag", {{ tag }}),
+                #{ tag.clone() } => {
+                    return (compound(#{ raw_type.clone() }, [
+                        field("tag", #{ tag }),
                         path(
-                            {{ ["payload".into(), format!("variant_{variant}")] }},
-                            {{ raw_payload }}
+                            #{ ["payload".into(), format!("variant_{variant}")] },
+                            #{ raw_payload }
                         ),
                     ]));
                 }
@@ -260,23 +252,23 @@ impl TypeRegistry {
         }
         let mut output = TranslationUnit::default();
         output.push(c_function! {
-            #[static] #[inline] fn {{ format!("mal_detail_to_host_{index}") }}(
+            #[static] #[inline] fn #{ format!("mal_detail_to_host_{index}") }(
                 "call": ptr(named("mal_call_t")),
-                "value": {{ raw_type.clone() }},
-            ) -> {{ host_type.clone() }} {
+                "value": #{ raw_type.clone() },
+            ) -> #{ host_type.clone() } {
                 switch (field((id("value")), "tag")) {
-                    ...{{ to_host_cases }},
+                    ...#{ to_host_cases },
                 }
             }
         });
         output.blank_line();
         output.push(c_function! {
-            #[static] #[inline] fn {{ format!("mal_detail_to_raw_{index}") }}(
+            #[static] #[inline] fn #{ format!("mal_detail_to_raw_{index}") }(
                 "call": ptr(named("mal_call_t")),
-                "value": {{ host_type }},
-            ) -> {{ raw_type }} {
+                "value": #{ host_type },
+            ) -> #{ raw_type } {
                 switch (field((id("value")), "tag")) {
-                    ...{{ to_raw_cases }},
+                    ...#{ to_raw_cases },
                 }
             }
         });
@@ -289,34 +281,30 @@ impl TypeRegistry {
             Type::Product(elements) => {
                 let initializers = elements.iter().enumerate().map(|(field, element)| {
                     c_initializer! {
-                        field({ { format!("field_{field}") } }, {
-                            {
+                        field(#{ format!("field_{field}") }, #{
                                 self.host_to_raw_value(
                                     element,
                                     call.clone(),
                                     c_expr! {
-                                        field({ { value.clone() } }, {
-                                            { format!("field_{field}") }
-                                        })
+                                        field(#{ value.clone() }, #{ format!("field_{field}") })
                                     },
                                 )
-                            }
-                        })
+                            })
                     }
                 });
-                c_expr!(compound({{ self.c_type(ty) }}, [...{{ initializers }}]))
+                c_expr!(compound(#{ self.c_type(ty) }, [...#{ initializers }]))
             }
             Type::Sum(_) if !is_bool(ty) => c_expr! {
                 call(
-                    { { format!("mal_detail_to_raw_{}", self.index(ty)) } },
-                    [{ { call } }, { { value } }]
+                    #{ format!("mal_detail_to_raw_{}", self.index(ty)) },
+                    [#{ call }, #{ value }]
                 )
             },
-            Type::Address => c_expr!(call("mal_Address_return", [{ { call } }, { { value } }])),
+            Type::Address => c_expr!(call("mal_Address_return", [#{ call }, #{ value }])),
             Type::External { .. } => c_expr! {
                 compound(
-                    { { self.c_type(ty) } },
-                    [field("bits", (field({ { value } }, "mal_detail_bits"))),]
+                    #{ self.c_type(ty) },
+                    [field("bits", (field(#{ value }, "mal_detail_bits"))),]
                 )
             },
             Type::Unit => c_expr!(compound((named("MalType_Unit")), [positional((number(0)))])),
@@ -338,40 +326,36 @@ impl TypeRegistry {
             Type::Product(elements) => {
                 let initializers = elements.iter().enumerate().map(|(field, element)| {
                     c_initializer! {
-                        field({ { format!("field_{field}") } }, {
-                            {
+                        field(#{ format!("field_{field}") }, #{
                                 self.raw_to_host_value(
                                     element,
                                     None,
                                     call.clone(),
                                     c_expr! {
-                                        field({ { value.clone() } }, {
-                                            { format!("field_{field}") }
-                                        })
+                                        field(#{ value.clone() }, #{ format!("field_{field}") })
                                     },
                                 )
-                            }
-                        })
+                            })
                     }
                 });
                 c_expr! {
                     compound(
-                        {{ self.host_value_c_type(ty, alias) }},
-                        [...{{ initializers }}]
+                        #{ self.host_value_c_type(ty, alias) },
+                        [...#{ initializers }]
                     )
                 }
             }
             Type::Sum(_) if !is_bool(ty) => c_expr! {
                 call(
-                    { { format!("mal_detail_to_host_{}", self.index(ty)) } },
-                    [{ { call } }, { { value } }]
+                    #{ format!("mal_detail_to_host_{}", self.index(ty)) },
+                    [#{ call }, #{ value }]
                 )
             },
             Type::Address => value,
             Type::External { .. } => c_expr! {
                 compound(
-                    { { self.host_value_c_type(ty, alias) } },
-                    [field("mal_detail_bits", (field({ { value } }, "bits")))]
+                    #{ self.host_value_c_type(ty, alias) },
+                    [field("mal_detail_bits", (field(#{ value }, "bits")))]
                 )
             },
             Type::Symbol | Type::Function { .. } => {
@@ -383,6 +367,6 @@ impl TypeRegistry {
 }
 
 fn append_function(output: &mut TranslationUnit, signature: FunctionSignature, body: Block) {
-    output.push(c_function!(signature {{ signature }} body {{ body }}));
+    output.push(c_function!(signature #{ signature } body #{ body }));
     output.blank_line();
 }

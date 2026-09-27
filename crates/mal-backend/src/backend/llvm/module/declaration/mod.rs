@@ -26,12 +26,12 @@ fn declaration(
 ) -> FunctionDeclaration {
     let parameters = parameters
         .into_iter()
-        .map(|ty| llvm_parameter!(_ : {{ ty }}))
+        .map(|ty| llvm_parameter!(_ : #{ ty }))
         .collect::<Vec<_>>();
     llvm_declaration! {
-        fn {{ name.into() }}(
-            ...{{ parameters }},
-        ) -> {{ result }};
+        fn #{ name.into() }(
+            ...#{ parameters },
+        ) -> #{ result };
     }
 }
 

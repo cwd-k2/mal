@@ -90,7 +90,7 @@ pub(crate) fn generate(
         c_directive!(include(system "string.h")).into(),
     ]);
     shim.blank_line();
-    shim.push(c_declaration!(fn {{ entry.c_signature() }};));
+    shim.push(c_declaration!(fn #{ entry.c_signature() };));
     for bridge in external_bridges {
         shim.blank_line();
         shim.extend(bridge.c_definitions);

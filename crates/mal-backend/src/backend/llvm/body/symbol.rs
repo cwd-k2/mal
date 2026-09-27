@@ -20,9 +20,9 @@ pub(super) fn literal_definition(
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
     llvm_global! {
         byte_owner {
-            name: { { name } },
-            bytes: { { bytes.to_vec() } },
-            alignment: { { STATIC_OWNER_ALIGNMENT } },
+            name: #{ name },
+            bytes: #{ bytes.to_vec() },
+            alignment: #{ STATIC_OWNER_ALIGNMENT },
         }
     }
 }
@@ -48,13 +48,13 @@ impl FunctionEmitter<'_> {
         let result = self.register();
         emit_instruction! {
             self;
-            let {{ result.clone() }} = call {
+            let #{ result.clone() } = call {
                 tail: false,
                 result_type: (int(8_u16)),
                 callee: direct("mal_runtime_symbol_at"),
                 arguments: [
-                    typed((ptr), {{ data }}),
-                    typed({{ self.types.index_llvm_type() }}, {{ index.representation }}),
+                    typed((ptr), #{ data }),
+                    typed(#{ self.types.index_llvm_type() }, #{ index.representation }),
                 ],
             };
         };
@@ -115,26 +115,26 @@ impl FunctionEmitter<'_> {
             call {
                 tail: false,
                 result_type: (void),
-                callee: direct({{ operation }}),
+                callee: direct(#{ operation }),
                 arguments: [
                     typed((ptr), "%mal_context"),
-                    typed((ptr), {{ result_storage }}),
-                    typed((ptr), {{ left_owner }}),
-                    typed((ptr), {{ left_data }}),
-                    typed({{ self.types.index_llvm_type() }}, {{ left_length }}),
-                    typed((ptr), {{ right_owner }}),
-                    typed((ptr), {{ right_data }}),
-                    typed({{ self.types.index_llvm_type() }}, {{ right_length }}),
+                    typed((ptr), #{ result_storage }),
+                    typed((ptr), #{ left_owner }),
+                    typed((ptr), #{ left_data }),
+                    typed(#{ self.types.index_llvm_type() }, #{ left_length }),
+                    typed((ptr), #{ right_owner }),
+                    typed((ptr), #{ right_data }),
+                    typed(#{ self.types.index_llvm_type() }, #{ right_length }),
                 ],
             };
         };
         let result = self.register();
         emit_instruction! {
             self;
-            let {{ result.clone() }} = load {
-                ty: {{ result_type.llvm }},
-                pointer: {{ result_storage }},
-                alignment: {{ result_type.alignment }},
+            let #{ result.clone() } = load {
+                ty: #{ result_type.llvm },
+                pointer: #{ result_storage },
+                alignment: #{ result_type.alignment },
                 metadata: [],
             };
         };
@@ -163,9 +163,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ value_type.llvm }}, "zeroinitializer"),
-                pointer: {{ format!("%mal_slot_{slot_index}") }},
-                alignment: {{ value_type.alignment }},
+                value: typed(#{ value_type.llvm }, "zeroinitializer"),
+                pointer: #{ format!("%mal_slot_{slot_index}") },
+                alignment: #{ value_type.alignment },
                 metadata: [],
             };
         };

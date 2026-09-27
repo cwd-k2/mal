@@ -53,11 +53,11 @@ impl FunctionEmitter<'_> {
         let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction! {
             self;
-            let {{ register.clone() }} = call {
-                tail: {{ tail }},
-                result_type: {{ result_value_type.llvm }},
-                callee: direct({{ function_name(target.id) }}),
-                arguments: [...{{ arguments }}],
+            let #{ register.clone() } = call {
+                tail: #{ tail },
+                result_type: #{ result_value_type.llvm },
+                callee: direct(#{ function_name(target.id) }),
+                arguments: [...#{ arguments }],
             };
         };
         if self.optimizations.localizes_control_storage(target.id) {
@@ -97,16 +97,16 @@ impl FunctionEmitter<'_> {
         let code = self.register();
         emit_instruction! {
             self;
-            let {{ code.clone() }} = extract_value {
-                aggregate: typed({{ closure_type.llvm.clone() }}, {{ callee.representation.clone() }}),
+            let #{ code.clone() } = extract_value {
+                aggregate: typed(#{ closure_type.llvm.clone() }, #{ callee.representation.clone() }),
                 indices: [0],
             };
         };
         let environment = self.register();
         emit_instruction! {
             self;
-            let {{ environment.clone() }} = extract_value {
-                aggregate: typed({{ closure_type.llvm }}, {{ callee.representation }}),
+            let #{ environment.clone() } = extract_value {
+                aggregate: typed(#{ closure_type.llvm }, #{ callee.representation }),
                 indices: [1],
             };
         };
@@ -133,11 +133,11 @@ impl FunctionEmitter<'_> {
         let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction! {
             self;
-            let {{ register.clone() }} = call {
-                tail: {{ tail }},
-                result_type: {{ result_type.llvm }},
-                callee: indirect({{ code }}),
-                arguments: [...{{ arguments }}],
+            let #{ register.clone() } = call {
+                tail: #{ tail },
+                result_type: #{ result_type.llvm },
+                callee: indirect(#{ code }),
+                arguments: [...#{ arguments }],
             };
         };
         if self
@@ -211,9 +211,9 @@ impl FunctionEmitter<'_> {
             return storage;
         };
         let instruction = llvm_instruction! {
-            let {{ storage.clone() }} = alloca {
-                ty: {{ llvm.clone() }},
-                alignment: {{ alignment }},
+            let #{ storage.clone() } = alloca {
+                ty: #{ llvm.clone() },
+                alignment: #{ alignment },
             };
         };
         let Some(instruction) = instruction else {

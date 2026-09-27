@@ -38,7 +38,7 @@ or rendered text to recover structure. The model admits only the LLVM subset use
 invariants before rendering. Rendering is the only operation that turns that model into LLVM text.
 
 Template macros cover types, signatures, parameters, declarations, constants, instructions, terminators, globals, and
-metadata. `{ ... }` embeds one typed Rust node and `{{ ... }}` splices a runtime-generated node sequence. LLVM functions
+metadata. `#{ ... }` embeds one typed Rust node and `...#{ ... }` splices a runtime-generated node sequence. LLVM functions
 and basic blocks remain under `FunctionBuilder`: CFG construction has stateful block, terminator, and entry-instruction
 invariants that should not be hidden in a block macro. Module symbol ordering and uniqueness likewise remain under
 `Module`. Dynamic lowering policy therefore stays in ordinary Rust code. The shared notation and complete boundary are

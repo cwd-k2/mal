@@ -41,10 +41,10 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         emit_instruction! {
             self;
-            let {{ register.clone() }} = load {
-                ty: {{ value_type.llvm }},
-                pointer: {{ format!("%mal_slot_{}", slot.index) }},
-                alignment: {{ value_type.alignment }},
+            let #{ register.clone() } = load {
+                ty: #{ value_type.llvm },
+                pointer: #{ format!("%mal_slot_{}", slot.index) },
+                alignment: #{ value_type.alignment },
                 metadata: [],
             };
         };
@@ -109,19 +109,19 @@ impl FunctionEmitter<'_> {
         let unique = self.register();
         emit_instruction! {
             self;
-            let {{ unique.clone() }} = call {
+            let #{ unique.clone() } = call {
                 tail: false,
                 result_type: (int(8_u16)),
                 callee: direct("mal_runtime_environment_is_unique"),
-                arguments: [typed((ptr), {{ environment }})],
+                arguments: [typed((ptr), #{ environment })],
             };
         };
         let condition = self.register();
         emit_instruction! {
             self;
-            let {{ condition.clone() }} = cast {
-                operator: {{ CastOperator::Trunc }},
-                value: typed((int(8_u16)), {{ unique }}),
+            let #{ condition.clone() } = cast {
+                operator: #{ CastOperator::Trunc },
+                value: typed((int(8_u16)), #{ unique }),
                 to: (int(1_u16)),
             };
         };
@@ -129,9 +129,9 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                condition: {{ condition }},
-                then: {{ format!("mal_capture_take_{label}") }},
-                otherwise: {{ format!("mal_capture_share_{label}") }},
+                condition: #{ condition },
+                then: #{ format!("mal_capture_take_{label}") },
+                otherwise: #{ format!("mal_capture_share_{label}") },
             };
         };
         self.block(format!("mal_capture_take_{label}"));
@@ -140,16 +140,16 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ value_type.llvm }}, "zeroinitializer"),
-                pointer: {{ pointer }},
-                alignment: {{ value_type.alignment }},
+                value: typed(#{ value_type.llvm }, "zeroinitializer"),
+                pointer: #{ pointer },
+                alignment: #{ value_type.alignment },
                 metadata: [],
             };
         };
         emit_terminator! {
             self;
             branch {
-                target: {{ format!("mal_capture_ready_{label}") }},
+                target: #{ format!("mal_capture_ready_{label}") },
             };
         };
         self.block(format!("mal_capture_share_{label}"));
@@ -157,7 +157,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: {{ format!("mal_capture_ready_{label}") }},
+                target: #{ format!("mal_capture_ready_{label}") },
             };
         };
         self.block(format!("mal_capture_ready_{label}"));
@@ -177,9 +177,9 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed({{ value_type.llvm }}, "zeroinitializer"),
-                    pointer: {{ format!("%mal_slot_{}", slot.index) }},
-                    alignment: {{ value_type.alignment }},
+                    value: typed(#{ value_type.llvm }, "zeroinitializer"),
+                    pointer: #{ format!("%mal_slot_{}", slot.index) },
+                    alignment: #{ value_type.alignment },
                     metadata: [],
                 };
             };

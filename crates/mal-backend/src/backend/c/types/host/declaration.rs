@@ -16,7 +16,7 @@ impl TypeRegistry {
         for name in &host.opaque_names {
             let alias = format!("mal_{name}_t");
             output.push(c_aggregate! {
-                type {{ alias }} = struct {
+                type #{ alias } = struct {
                     "mal_detail_bits": named("uintptr_t"),
                 }
             });
@@ -33,8 +33,8 @@ impl TypeRegistry {
             };
             let alias = format!("mal_repr_{kind}_{index}_t");
             output.push(c_declaration! {
-                type {{ alias }} =
-                    struct({{ format!("mal_detail_repr_{kind}_{index}") }})
+                type #{ alias } =
+                    struct(#{ format!("mal_detail_repr_{kind}_{index}") })
             });
         }
         for alias in aliases {
@@ -53,17 +53,17 @@ impl TypeRegistry {
                 Type::Product(elements) => {
                     let fields = elements.iter().enumerate().map(|(field, ty)| {
                         let name = format!("field_{field}");
-                        c_aggregate_field!({{ name }} : {{ self.host_value_c_type(ty, None) }})
+                        c_aggregate_field!(#{ name } : #{ self.host_value_c_type(ty, None) })
                     });
                     let tag = format!("mal_detail_repr_product_{index}");
-                    output.push(c_aggregate!(struct {{ tag }} { ...{{ fields }} }));
+                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                 }
                 Type::Sum(members) => {
                     let fields = sum_representation_fields(members, |member| {
                         self.host_value_c_type(member, None)
                     });
                     let tag = format!("mal_detail_repr_sum_{index}");
-                    output.push(c_aggregate!(struct {{ tag }} { ...{{ fields }} }));
+                    output.push(c_aggregate!(struct #{ tag } { ...#{ fields } }));
                 }
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
@@ -76,9 +76,9 @@ impl TypeRegistry {
     fn host_alias_declaration(&self, alias: &TypeAlias) -> Declaration {
         let name = format!("mal_{}_t", alias.name);
         c_declaration! {
-            type {{ name }} = {{
+            type #{ name } = #{
                 self.host_value_c_type(&alias.ty, None)
-            }}
+            }
         }
     }
 
@@ -87,7 +87,7 @@ impl TypeRegistry {
         for name in &host.opaque_names {
             let alias = format!("MalType_{name}");
             output.push(c_aggregate! {
-                type {{ alias }} = struct {
+                type #{ alias } = struct {
                     "bits": named("uintptr_t"),
                 }
             });
@@ -109,9 +109,9 @@ impl TypeRegistry {
             if host.exposes_external_alias(alias) {
                 let name = format!("MalType_{}", alias.name);
                 output.push(c_declaration! {
-                    type {{ name }} = {{
+                    type #{ name } = #{
                         self.c_type(&alias.ty)
-                    }}
+                    }
                 });
             }
         }
@@ -124,7 +124,7 @@ impl TypeRegistry {
     pub(in crate::backend::c) fn header_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
         alias.map_or_else(
             || self.c_type(ty),
-            |alias| c_type!(named({ { format!("MalType_{alias}") } })),
+            |alias| c_type!(named(#{ format!("MalType_{alias}") })),
         )
     }
 }

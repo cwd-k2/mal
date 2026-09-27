@@ -10,15 +10,7 @@ mod statement;
 mod translation_unit;
 mod unit;
 
-pub(in crate::backend) use macros::{
-    c_aggregate, c_aggregate_field, c_aggregate_fields, c_aggregate_fields_items, c_block,
-    c_block_items, c_comment, c_declaration, c_directive, c_expr, c_expr_child, c_exprs,
-    c_exprs_items, c_function, c_function_from_syntax, c_initializer, c_initializers,
-    c_initializers_items, c_macro_invocation, c_parameter, c_parameter_attributes, c_parameters,
-    c_parameters_items, c_preprocessor_expr, c_scalar, c_signature, c_signature_from_parts,
-    c_statement, c_switch_case, c_switch_cases, c_switch_cases_items, c_type, c_type_child,
-    c_variable,
-};
+pub(in crate::backend) use macros::*;
 
 pub(in crate::backend) use self::declaration::{
     FunctionSignature, FunctionSpecifier, Parameter, TypeName, VariableDeclaration,

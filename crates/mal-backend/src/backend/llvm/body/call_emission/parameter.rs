@@ -82,9 +82,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed({{ value_type.llvm }}, {{ value.representation.as_str() }}),
-                pointer: {{ format!("%mal_slot_{}", slot.index) }},
-                alignment: {{ value_type.alignment }},
+                value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
+                pointer: #{ format!("%mal_slot_{}", slot.index) },
+                alignment: #{ value_type.alignment },
                 metadata: [],
             };
         };
