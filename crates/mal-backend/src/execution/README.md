@@ -10,7 +10,7 @@ responsibilities. The derivation order and its rules are documented in
 | `closure` | closure creators, aliases, and statically known application targets |
 | `environment_alias` | values that may borrow from the active closure environment: capture reads and what derives from them |
 | `application` | possible application graph: caller and possible targets per application site, from the closure flow and the type-compatible functions |
-| `optimization/*` | one module per technique (`self_tail`, `tail_forwarder`, `direct_call`, `unique_capture`, `frame_pass_through`); each owns a single applicability rule and yields decisions only |
+| `optimization/*` | one module per technique (`self_tail`, `tail_forwarder`, `direct_call`, `unique_capture`, `frame_pass_through`); each owns a single applicability rule and yields decisions only; `direct_call` also marks code pointers unused by every possible application |
 | `pass_through` | structural correspondence between a parameter pattern and its argument |
 | `continuation` | continuation edges left after selected elisions |
 | `region` | recursive SCC partition of the residual graph, and site/target membership |

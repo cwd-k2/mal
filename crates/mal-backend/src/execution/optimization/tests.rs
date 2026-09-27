@@ -251,6 +251,12 @@ fn direct_call_selects_the_only_type_compatible_target() {
     let baseline =
         OptimizationPlan::new(&closure, &control, &applications, OptimizationSet::none());
     assert_eq!(baseline.direct_target(site), None);
+    let target = applications
+        .targets(site)
+        .and_then(|targets| targets.first())
+        .copied()
+        .expect("singleton application target");
+    assert!(!baseline.omits_code_pointer(target));
 
     let direct = OptimizationPlan::new(
         &closure,
@@ -261,5 +267,46 @@ fn direct_call_selects_the_only_type_compatible_target() {
     assert_eq!(
         direct.direct_target(site),
         applications.targets(site).map(|targets| targets[0])
+    );
+    assert!(direct.omits_code_pointer(target));
+}
+
+#[test]
+fn direct_call_keeps_code_pointers_needed_by_a_shared_indirect_site() {
+    let source = SourceFile::new(
+        FileId::new(109),
+        "shared-indirect-targets.mal",
+        "inc :: Int32 -> Int32 := (value) -> value + 1i32;
+         dec :: Int32 -> Int32 := (value) -> value - 1i32;
+         apply :: ((Int32 -> Int32), Int32) -> Int32 := (function, value) -> function(value);
+         main :: Unit -> Int32 := () -> apply(inc, 1i32) + apply(dec, 2i32);"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check shared indirect fixture");
+    let core =
+        core::lower(&check::specialize(checked).expect("specialize shared indirect fixture"));
+    let anf = anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let control = crate::control::lower(&closure);
+    let uses = ClosureUsePlan::new(&closure);
+    let applications = ApplicationGraph::new(&closure, &control, &uses);
+    let targets = applications
+        .sites()
+        .filter_map(|(site, _)| applications.targets(site))
+        .find(|targets| targets.len() == 2)
+        .expect("shared indirect application targets")
+        .to_vec();
+
+    let direct = OptimizationPlan::new(
+        &closure,
+        &control,
+        &applications,
+        OptimizationSet::none().with(Technique::DirectCall),
+    );
+
+    assert!(
+        targets
+            .iter()
+            .all(|target| !direct.omits_code_pointer(*target))
     );
 }

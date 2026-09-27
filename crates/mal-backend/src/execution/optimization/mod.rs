@@ -54,6 +54,7 @@ pub(crate) struct OptimizationPlan {
     fused_sites: HashSet<StateId>,
     forwarded_self_arguments: HashMap<StateId, closure::Atom>,
     direct_targets: HashMap<StateId, FunctionId>,
+    code_pointer_free_functions: HashSet<FunctionId>,
     unique_captures: HashSet<AtomId>,
     frame_pass_through: HashMap<StateId, HashSet<crate::anf::ast::ValueId>>,
 }
@@ -82,6 +83,11 @@ impl OptimizationPlan {
         } else {
             HashMap::new()
         };
+        let code_pointer_free_functions = if enabled.contains(Technique::DirectCall) {
+            direct_call::code_pointer_free_functions(closure, applications, &direct_targets)
+        } else {
+            HashSet::new()
+        };
         let unique_captures = if enabled.contains(Technique::UniqueCapture) {
             unique_capture::plan(closure, control, applications)
         } else {
@@ -96,6 +102,7 @@ impl OptimizationPlan {
             fused_sites,
             forwarded_self_arguments,
             direct_targets,
+            code_pointer_free_functions,
             unique_captures,
             frame_pass_through,
         }
@@ -116,6 +123,7 @@ impl OptimizationPlan {
         self.fused_sites == expected.fused_sites
             && self.forwarded_self_arguments == expected.forwarded_self_arguments
             && self.direct_targets == expected.direct_targets
+            && self.code_pointer_free_functions == expected.code_pointer_free_functions
             && self.unique_captures == expected.unique_captures
             && self.frame_pass_through == expected.frame_pass_through
     }
@@ -126,6 +134,10 @@ impl OptimizationPlan {
 
     pub(crate) fn direct_target(&self, site: StateId) -> Option<FunctionId> {
         self.direct_targets.get(&site).copied()
+    }
+
+    pub(crate) fn omits_code_pointer(&self, function: FunctionId) -> bool {
+        self.code_pointer_free_functions.contains(&function)
     }
 
     pub(crate) fn takes_unique_capture(&self, atom: AtomId) -> bool {

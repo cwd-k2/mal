@@ -79,9 +79,11 @@ environment destructorと`free`を実行する列が残る。100万要素caseで
 higher-order callでは固定costとcode sizeの比率が上がる。call-pattern specializationがcallee targetを単一化した後もclosure parameterと
 構築operation自体は残すため、LLVMはallocationのfailure pathとcaptureのdestructionを消せない。
 
-改善候補は、specialized copyについてclosure argumentがcode pointerとして不要になったことと、captureをcalleeへ直接渡せることを同時に証明する
-変換である。単なるstack allocationはheap allocation failureのtrapとcapture owner lifetimeを変えるため採用条件を満たさない。まず短い反復を含む
-独立benchmarkで固定costを分離し、trapとowner終状態を保持するrepresentationを定義してから判断する。
+改善候補は、specialized copyについてclosure argumentがcode pointerとして不要になったことと、captureをcalleeへ直接渡せることを証明する
+変換である。実行意味論は物理的なenvironment配置を規定せず、不要になったstorageのallocation failureも観測対象にしないため、heap allocationの
+省略やstack配置自体は許される。ただしclosureがcreatorのtail callを越えて使われる場合、単純なcreator activation内のstack配置ではlifetimeを
+満たさない。まずcode identityとcapture storageを別々に扱い、後者はlambda liftingまたはspecialized call chainへのcapture引数化として
+owner終状態まで証明する必要がある。
 
 このほか、最終assemblyには定数falseを作った直後に`test`して分岐する列が`generic-loop`に1箇所、`buffer-handles`に2箇所、
 `recoverable-file`に1箇所残った。いずれも各実行で高々一度通る数命令であり、現corpusでは最適化追加の根拠にならない。
@@ -89,3 +91,21 @@ allocation / runtimeの大きい箇所では、`fallible-tree`の`free`が動的
 前者はfailureとpartial cleanupを反復するexampleの主目的、後者は生成LLVM textの構築そのものである。`mini-database`は10個のcommandで
 106 allocationと最多だがbaseline / productionで回数は同じで、全allocationが解放されている。これらは今回の入力に対する意図した仕事と
 不要なcompiler bookkeepingを区別し、直ちにsourceを書き換える対象にはしない。
+
+## 2026-09-27 — direct call後のclosure code pointer省略
+
+上記監査で見つかったdead function bodyに対し、possible application graph上であるfunctionへ届き得る全siteがそのfunctionへの
+`DirectCall`に確定した場合だけ、そのfunctionのclosure carrierへcode addressを格納しないdecisionを`execution/optimization/direct_call`へ
+追加した。function値にはequalityもrepresentation観測もなく、internal functionをhostへ渡せないため、indirect dispatchが残らないcode addressは
+観測不能である。capture environmentのallocation、reference count、destructionは変更しない。複数targetが同じindirect siteへ届くnegative caseも
+decision testで固定した。
+
+`1f749399`のproduction artifactと同じ20 exampleを比較した。stdoutとexit statusは全件一致した。Callgrindの動的命令は
+`generic-loop`で149、`relation-views`で8、`csr-dijkstra`で5減り、他17件は同数だった。最終ELFに残る`mal_function_*` symbolは
+合計40個から28個、machine instructionは合計146、GNU `size`のtextは合計491 bytes減った。`generic-loop`では6個のdead function bodyが
+すべて消え、textは5,477 bytesから5,042 bytesへ減った。
+
+`json-query`だけはtextが200 bytes、machine instructionが25増えた。code addressをzeroにしたことでLLVMがUnicode escape検査の4回loopを
+unrollしたためであり、function symbol数と測定fixtureの動的命令は変わらなかった。全体のcode sizeと3件の動的costを減らし、backend固有の
+再推論を増やさず、pointer storeを省く原理的なdecisionなので採用した。この変更だけでは`generic-loop`の7個の40-byte environment allocationは
+残る。capture storageの除去はcode identityとは別の、owner lifetimeを含む変換として扱う。

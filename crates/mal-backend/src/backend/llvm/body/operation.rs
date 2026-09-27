@@ -39,14 +39,19 @@ impl FunctionEmitter<'_> {
                     return None;
                 };
                 let closure_type = self.types.value(&result_type)?;
-                let with_code = self.register();
-                emit_instruction! {
-                    self;
-                    let #{ with_code.clone() } = insert_value {
-                        aggregate: typed(#{ closure_type.llvm.clone() }, "zeroinitializer"),
-                        element: typed((ptr), #{ format!("@{}", super::function_name(*function)) }),
-                        indices: [0],
+                let with_code = if self.execution.optimizations.omits_code_pointer(*function) {
+                    "zeroinitializer".into()
+                } else {
+                    let with_code = self.register();
+                    emit_instruction! {
+                        self;
+                        let #{ with_code.clone() } = insert_value {
+                            aggregate: typed(#{ closure_type.llvm.clone() }, "zeroinitializer"),
+                            element: typed((ptr), #{ format!("@{}", super::function_name(*function)) }),
+                            indices: [0],
+                        };
                     };
+                    with_code
                 };
                 let target = *self.index.lowered_functions.get(function)?;
                 let environment = &target.captures;
