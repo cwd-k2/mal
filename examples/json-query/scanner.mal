@@ -1,0 +1,178 @@
+require "./bytes.mal";
+
+// ScanProgress carries the unread input and an empty success message or a non-empty error message.
+_ScanProgress :: (Bytes, Symbol);
+
+_loop<A, B> :: (A, A -> [A, B]) -> B :=
+    (state, step) -> step(state)[
+        (nextState) -> _loop<A, B>(nextState, step),
+        (result) -> result
+    ];
+
+_isWhitespace :: UInt8 -> Bool := (byte) ->
+    byte == ' ' || byte == '\n' || byte == '\r' || byte == '\t';
+
+_isDigit :: UInt8 -> Bool := (byte) -> byte >= '0' && byte <= '9';
+
+startsNumber :: UInt8 -> Bool := (byte) -> byte == '-' || byte._isDigit();
+
+_isNonzeroDigit :: UInt8 -> Bool := (byte) -> byte >= '1' && byte <= '9';
+
+_isHexDigit :: UInt8 -> Bool := (byte) ->
+    byte._isDigit()
+        || (byte >= 'a' && byte <= 'f')
+        || (byte >= 'A' && byte <= 'F');
+
+skipWhitespace :: Bytes -> Bytes := (source) ->
+    _loop<Bytes, Bytes>(source, (remaining) -> [continue, break] => {
+        when (remaining.byteCount() == 0usize) {
+            break(remaining);
+        };
+        byte := remaining.byteAt(0usize);
+        if (byte._isWhitespace())
+        then continue(remaining.dropBytes(1usize))
+        else break(remaining);
+    });
+
+scanLiteral :: (Bytes, Symbol) -> _ScanProgress := (source, expected) -> {
+    if (source.startsWith(expected))
+    then (source.dropBytes(#expected), "")
+    else (source, "invalid JSON literal");
+};
+
+_hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
+    _loop<(Bytes, USize), Bool>(
+        (source, count),
+        (remaining, count) -> [continue, break] => {
+            when (count == 0usize) {
+                break(true);
+            };
+            when (remaining.byteCount() == 0usize) {
+                break(false);
+            };
+            byte := remaining.byteAt(0usize);
+            when (!byte._isHexDigit()) {
+                break(false);
+            };
+            continue(remaining.dropBytes(1usize), count - 1usize);
+        });
+
+// The input starts after the opening quote. This validates escapes without decoding the string.
+scanString :: Bytes -> _ScanProgress := (source) ->
+    _loop<Bytes, _ScanProgress>(source, (remaining) -> [continue, break] => {
+        when (remaining.byteCount() == 0usize) {
+            break(remaining, "unterminated JSON string");
+        };
+        byte := remaining.byteAt(0usize);
+        when (byte == '"') {
+            break(remaining.dropBytes(1usize), "");
+        };
+        when (byte < 0x20u8) {
+            break(remaining, "control byte in JSON string");
+        };
+        when (byte != '\\') {
+            continue(remaining.dropBytes(1usize));
+        };
+
+        afterSlash := remaining.dropBytes(1usize);
+        when (afterSlash.byteCount() == 0usize) {
+            break(remaining, "unterminated JSON escape");
+        };
+        escaped := afterSlash.byteAt(0usize);
+        simple := escaped == '"'
+            || escaped == '\\'
+            || escaped == '/'
+            || escaped == 'b'
+            || escaped == 'f'
+            || escaped == 'n'
+            || escaped == 'r'
+            || escaped == 't';
+        when (simple) {
+            continue(afterSlash.dropBytes(1usize));
+        };
+        afterU := afterSlash.dropBytes(1usize);
+        when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
+            continue(afterU.dropBytes(4usize));
+        };
+        break(remaining, "invalid JSON escape");
+    });
+
+_scanDigits :: Bytes -> Bytes := (source) ->
+    _loop<Bytes, Bytes>(source, (remaining) -> [continue, break] => {
+        when (remaining.byteCount() == 0usize) {
+            break(remaining);
+        };
+        byte := remaining.byteAt(0usize);
+        when (!byte._isDigit()) {
+            break(remaining);
+        };
+        continue(remaining.dropBytes(1usize));
+    });
+
+// JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
+// require at least one digit without converting the numeric value.
+scanNumber :: Bytes -> _ScanProgress := (source) -> [return] => {
+    firstByte := source.byteAt(0usize);
+    unsigned := if (firstByte == '-')
+        then source.dropBytes(1usize)
+        else source;
+    when (unsigned.byteCount() == 0usize) {
+        return(source, "incomplete JSON number");
+    };
+
+    first := unsigned.byteAt(0usize);
+    integerEnd := if (first == '0')
+        then unsigned.dropBytes(1usize)
+        else {
+            when (!first._isNonzeroDigit()) {
+                return(source, "invalid JSON number");
+            };
+            (unsigned.dropBytes(1usize))._scanDigits();
+        };
+
+    afterFraction := if (integerEnd.byteCount() != 0usize)
+        then {
+            next := integerEnd.byteAt(0usize);
+            if (next == '.')
+            then {
+                fraction := integerEnd.dropBytes(1usize);
+                when (fraction.byteCount() == 0usize) {
+                    return(source, "invalid JSON fraction");
+                };
+                digit := fraction.byteAt(0usize);
+                when (!digit._isDigit()) {
+                    return(source, "invalid JSON fraction");
+                };
+                (fraction.dropBytes(1usize))._scanDigits();
+            }
+            else integerEnd;
+        }
+        else integerEnd;
+
+    afterExponent := if (afterFraction.byteCount() != 0usize)
+        then {
+            next := afterFraction.byteAt(0usize);
+            if (next == 'e' || next == 'E')
+            then {
+                exponent := afterFraction.dropBytes(1usize);
+                when (exponent.byteCount() == 0usize) {
+                    return(source, "incomplete JSON exponent");
+                };
+                firstExponent := exponent.byteAt(0usize);
+                digits := if (firstExponent == '+' || firstExponent == '-')
+                    then exponent.dropBytes(1usize)
+                    else exponent;
+                when (digits.byteCount() == 0usize) {
+                    return(source, "invalid JSON exponent");
+                };
+                digit := digits.byteAt(0usize);
+                when (!digit._isDigit()) {
+                    return(source, "invalid JSON exponent");
+                };
+                (digits.dropBytes(1usize))._scanDigits();
+            }
+            else afterFraction;
+        }
+        else afterFraction;
+    return(afterExponent, "");
+};

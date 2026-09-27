@@ -5,6 +5,9 @@ query selected by the sole process argument. `count` counts JSON values, excludi
 `depth` reports the maximum container/value nesting depth. Both results are rendered as JSON by the
 mal program and written to standard output.
 
+The source files follow the data path: `bytes.mal` owns the shared byte cursor, `scanner.mal` owns
+JSON token recognition, and `parser.mal` owns container state and complete-document admission.
+
 The parser accepts objects, arrays, strings with JSON escapes, numbers, booleans, null, and JSON
 whitespace. It defunctionalizes the recursive-descent control flow into one `_parse` dispatcher and
 a central `Buffer<ParserFrame>` stack instead of building a recursive syntax tree. `_parse`
@@ -15,8 +18,8 @@ a child value completes. The stack pairs reusable Buffer storage with a logical 
 reuses one slot, replacement uses `put`, and pop decrements the logical count. Nesting is limited only
 by the target-sized count and available memory.
 
-Whitespace, digit, escape, and string scans reuse the same loop with smaller cursor states. Their
-input `Bytes` values are the complete changing state, while token rules remain in the step callbacks.
+Whitespace, digit, escape, string, and number scans reuse the same loop with smaller cursor states.
+Their input `Bytes` values are the complete changing state, while token rules remain in the step callbacks.
 
 The input bytes and frame bytes are finite carriers with different interpretations. Parser operations
 give input positions their token meaning and frame values their control-state meaning. Recursive JSON
