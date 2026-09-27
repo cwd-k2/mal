@@ -142,3 +142,21 @@ copy-only caseはruntimeのargument数から100,000 iterationの上限を作り�
 430から409へ減り、Memcheckは両方errorなしだった。結果がloop上限だけで決まるfixtureでは旧形をLLVMがloopごと消した一方、変換後は
 3命令のscalar loopを残したため、採否のworkloadには実際の反復計算を含むfixtureを使った。最終20 exampleは直前commitのartifactと
 byte単位で一致した。
+
+## 2026-09-27 — self-tail lenderを保つmanaged captureのlambda lifting
+
+`SelfTailParameterPlan`が全back edgeで保持されるfieldを証明し、bodyがfresh managed ownerまたはmanaged resultを作らず、全entryが
+frameなしのdirect callであるfunctionでは、外側のcallerをinvocation全体のpersistent lenderとして使うownership規則を追加した。
+これにより、前節で退行したmanaged captureもenvironment borrowからparameter borrowへauthorityを保ったまま移せる。
+
+`generic-loop`を`73553787`のproduction artifactと比較すると、Callgrind命令は3,753,417から3,752,585、textは5,042 bytesから
+4,306 bytes、machine instructionは760から555、allocationは12回608 bytesから6回368 bytesへ減った。最終IRにはself-tail workerが
+残った。元の7個のcapturing environmentのうち6個が消え、nested closureを別closureがcaptureする1個は残る。この残りはdirect
+parameter pathだけではなくclosure captureを経るprovenance合成を要するため、同じ変換へ形だけで含めない。
+
+20 exampleの最終artifactを直前版と比較すると、変更されたのは`relation-views`、`csr-dijkstra`、`generic-loop`の3件だった。
+textは順に4,608から4,272 bytes、8,752から7,552 bytes、5,042から4,306 bytes、machine instructionは758から622、
+1,744から1,387、760から555へ減った。Callgrind命令は4,687から3,260、9,902から6,967、3,753,417から3,752,585、
+allocationは20回880 bytesから12回560 bytes、34回2,112 bytesから18回1,112 bytes、12回608 bytesから6回368 bytesへ減った。
+他17件はbyte単位で同一だった。全20件で旧版とstdout、stderr、exit statusが一致し、Memcheckはerrorなし、終了時のlive allocationは
+0だった。

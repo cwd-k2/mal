@@ -45,6 +45,11 @@ impl OptimizationSet {
         Self(self.0 | (1 << technique as u8))
     }
 
+    #[cfg(test)]
+    pub(crate) const fn without(self, technique: Technique) -> Self {
+        Self(self.0 & !(1 << technique as u8))
+    }
+
     pub(crate) const fn contains(self, technique: Technique) -> bool {
         self.0 & (1 << technique as u8) != 0
     }

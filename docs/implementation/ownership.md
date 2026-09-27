@@ -91,6 +91,12 @@ non-tail self recursionでも、全self edgeがすべてのmanaged parameter lea
 aliasは、通常のstate livenessからlenderが一時的に消えるpathでもこのauthorityをborrowできる。back edgeは同じcarrierを再分解する
 ためのshareとreleaseを作らず、fieldが変化するself edgeまたは独立ownerへescapeするuseだけが通常どおり`Share`する。
 
+`SelfTailParameterPlan`が保持fieldを証明し、function bodyがfresh managed ownerもmanaged resultも作らず、到達する全call siteが
+`DirectSelfTail`またはframeを持たない同じfunctionへの`Direct`である場合、外側のdirect callerをinvocation全体のlenderとして扱う。
+capture-free closureの構築はenvironment ownerを作らないため、このbounded body判定に含める。この条件では通常のowned calling
+conventionよりpersistent lenderの証明を優先し、lambda-liftでclosure environmentからparameter fieldへ移ったmanaged captureにも
+入口から終了まで同じborrowを保つ。frame、dispatch、別target、fresh ownerのいずれかがあれば通常のowned handoffを使う。
+
 callee が managed parameter を保持する（return する、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。従来はcalleeが入口で参照を取り、callerが呼び出し後にreleaseしていたため、callerが不要な値では`retain`と`release`の対が生じた。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetは従来のborrowed conventionのままで、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。
 
 LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。

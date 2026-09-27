@@ -6,7 +6,7 @@ use crate::control::ast::{Operation, Program, StateId, Terminator};
 
 use super::super::{
     ApplicationGraph, ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan,
-    ParameterDestination, ParameterPlan,
+    ParameterDestination, ParameterPlan, SelfTailParameterPlan,
 };
 use super::convention::OwnedConvention;
 use super::managed::is_managed;
@@ -44,6 +44,7 @@ impl ParameterBorrows {
         regions: &ControlRegionPlan,
         frames: &ControlFramePlan,
         native_recursion: &super::super::NativeRecursionPlan,
+        self_tail_parameters: &SelfTailParameterPlan,
     ) -> Self {
         let mut functions = control
             .functions
@@ -84,8 +85,43 @@ impl ParameterBorrows {
                 .map(|function| function.id)
                 .filter(|function| native_recursion.borrows_parameter(*function)),
         );
-        let owned = OwnedConvention::new(control, applications, calls, regions, frames);
+        let self_tail_borrows = control
+            .functions
+            .iter()
+            .filter_map(|function| {
+                let admitted = self_tail_parameters.get(function.id).is_some()
+                    && parameter_is_bounded(control, function.id)
+                    && applications.sites().all(|(site, _)| {
+                        !applications
+                            .targets(site)
+                            .is_some_and(|targets| targets.contains(&function.id))
+                            || match calls.mode(site) {
+                                Some(ControlCallMode::DirectSelfTail) => true,
+                                Some(ControlCallMode::Direct(target)) if target == function.id => {
+                                    frames.frame(site).is_none()
+                                }
+                                _ => false,
+                            }
+                    });
+                admitted.then_some(function.id)
+            })
+            .collect::<HashSet<_>>();
+        let mut owned = OwnedConvention::new(control, applications, calls, regions, frames);
+        // A frame-free caller remains the lender for a bounded self-tail invocation.
+        // OwnedConvention cannot infer that persistent authority from parameter use alone.
+        owned
+            .functions
+            .retain(|function| !self_tail_borrows.contains(function));
+        owned.sites.retain(|site| {
+            !applications.targets(*site).is_some_and(|targets| {
+                !targets.is_empty()
+                    && targets
+                        .iter()
+                        .all(|target| self_tail_borrows.contains(target))
+            })
+        });
         functions.retain(|function| !owned.functions.contains(function));
+        functions.extend(self_tail_borrows);
         let bindings = control
             .functions
             .iter()
@@ -130,10 +166,13 @@ fn parameter_is_bounded(control: &Program, function: FunctionId) -> bool {
         let state = &control.states[site.0];
         let bindings_are_bounded = state.bindings.iter().all(|binding| {
             !is_managed(binding.pattern.ty())
-                || matches!(
-                    binding.operation,
-                    Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
-                )
+                || match &binding.operation {
+                    Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. } => {
+                        true
+                    }
+                    Operation::MakeClosure { captures, .. } => captures.is_empty(),
+                    _ => false,
+                }
         });
         let result_is_bounded = !matches!(
             &state.terminator,

@@ -3,7 +3,7 @@ use mal_syntax::source::{FileId, SourceFile};
 use crate::closure::ast::{AtomKind, Pattern, Reference};
 use crate::control::ast::Operation;
 
-use super::super::{OptimizationSet, Program, lower};
+use super::super::{OptimizationSet, Program, Technique, lower};
 
 fn plan(text: &str) -> Program {
     let source = SourceFile::new(FileId::new(97), "environment-alias.mal", text.into());
@@ -12,7 +12,8 @@ fn plan(text: &str) -> Program {
         &mal_frontend::check::specialize(checked).expect("specialize environment fixture"),
     );
     let anf = crate::anf::lower(&core);
-    lower(crate::closure::convert(&anf), OptimizationSet::production())
+    let optimizations = OptimizationSet::production().without(Technique::CallPattern);
+    lower(crate::closure::convert(&anf), optimizations)
 }
 
 /// The managed leaves bound by the destructuring of a captured value, in source order.

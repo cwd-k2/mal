@@ -157,6 +157,7 @@ impl Plan {
         } = inputs;
         let effective = fused_arguments(control, calls);
         let control = &*effective;
+        let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);
         let parameter_borrows = ParameterBorrows::new(
             control,
             applications,
@@ -164,8 +165,8 @@ impl Plan {
             regions,
             frames,
             native_recursion,
+            &self_tail_parameters,
         );
-        let self_tail_parameters = SelfTailParameterPlan::candidates(control, applications, calls);
         let environment_aliases = EnvironmentAliasPlan::new(control, optimizations);
         let borrows = BorrowPlan::new(
             control,

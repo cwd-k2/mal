@@ -1,6 +1,6 @@
 use super::*;
 use crate::control::ast::StateId;
-use crate::execution::ownership::PatternDestination;
+use crate::execution::ownership::{ParameterEffect, ParameterEntry, PatternDestination};
 use mal_frontend::check::ast::Type;
 use mal_syntax::source::{FileId, SourceFile};
 
@@ -168,4 +168,48 @@ fn rejects_an_expanded_aggregate_used_by_the_body() {
     );
 
     assert!(execution.self_tail_parameters.entries.is_empty());
+}
+
+#[test]
+fn borrows_preserved_captures_lifted_from_a_callback_parameter() {
+    let execution = execution(
+        "loop :: (Int32, Int32 -> [Int32, Int32]) -> Int32 := (state, step) -> step(state)[(next) -> loop(next, step), (result) -> result];
+         main :: Unit -> Int32 := () -> {
+           values := make<Int32>(1usize);
+           values.new(1i32);
+           loop(0i32, (value) -> [continue, break] => {
+             when (value == 1i32) { break(values.get(0usize)); };
+             continue(value + 1i32);
+           });
+         };",
+    );
+
+    assert_eq!(execution.self_tail_parameters.entries.len(), 1);
+    let function = *execution
+        .self_tail_parameters
+        .entries
+        .keys()
+        .next()
+        .expect("one lifted self-tail function");
+    let binding = execution
+        .control
+        .functions
+        .iter()
+        .find(|candidate| candidate.id == function)
+        .and_then(|candidate| candidate.parameter.binding)
+        .expect("lifted parameter binding");
+
+    assert_eq!(
+        execution
+            .ownership
+            .parameter_effect(function, ParameterEntry::BorrowedAbi),
+        Some(ParameterEffect::BorrowInto(binding))
+    );
+    assert_eq!(
+        execution
+            .ownership
+            .parameter_effect(function, ParameterEntry::OwnedHandoff),
+        Some(ParameterEffect::BorrowInto(binding))
+    );
+    assert!(execution.ownership.binding_is_borrowed(binding));
 }

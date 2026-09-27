@@ -137,7 +137,7 @@ fn keeps_a_callback_environment_when_an_alias_escapes_the_parameter_path() {
 }
 
 #[test]
-fn keeps_a_managed_callback_capture_until_ownership_can_preserve_the_loop_lender() {
+fn lifts_a_managed_callback_capture_through_a_recursive_parameter() {
     let program = specialize(closure_program(
         "loop :: (Int32, Int32 -> [Int32, Int32]) -> Int32 := (state, step) -> step(state)[(next) -> loop(next, step), (result) -> result];
          main :: Unit -> Int32 := () -> {
@@ -154,6 +154,6 @@ fn keeps_a_managed_callback_capture_until_ownership_can_preserve_the_loop_lender
         program
             .functions
             .iter()
-            .any(|function| !function.captures.is_empty())
+            .all(|function| function.captures.is_empty())
     );
 }

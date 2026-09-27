@@ -169,9 +169,6 @@ fn admit_candidate(
         .iter()
         .map(|capture| capture.ty.clone())
         .collect::<Vec<_>>();
-    if capture_types.iter().any(requires_owned_storage) {
-        return None;
-    }
     let capture_type = Type::Product(capture_types.clone().into());
     if replacements.values().any(|captures| {
         Type::Product(
@@ -234,9 +231,4 @@ fn admit_candidate(
         host_parameter_type,
         host_closure_type,
     })
-}
-
-fn requires_owned_storage(ty: &Type) -> bool {
-    ty.data_subtypes()
-        .any(|part| matches!(part, Type::Symbol | Type::Buffer(_) | Type::Function { .. }))
 }
