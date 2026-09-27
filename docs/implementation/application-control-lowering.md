@@ -39,6 +39,12 @@ specialization後に一つのclosure targetだけが届くfunction parameterに�
 self-recursive forwardingだけに使われる場合は、capture productをそのparameter pathへ伝播してlambda-liftする。recursive argumentは
 同じcapture fieldを再構成するため、後段のself-tail parameter解析が不変fieldとpersistent lenderを決められる。captureがruntime ownerを
 含むかどうかは構造変換のadmissionに使わず、owner transferは`execution/ownership`がcall modeとbody全体から決める。
+parameter leafのdirect useが別closureの一つのcapture fieldだけで、そのfieldがouter function内でdirect application以外に使われず、
+同じouter functionを作る全creatorが同じparameter leafを対応するfieldへ渡す場合は、inner captureをouter closureへ平坦化する。
+inner functionのparameterとouter closureのcapture fieldへcaptureを追加し、inner closureをcapture-freeにする。outer closure自体の
+escapeは妨げないが、
+inner closureがresult、aggregate、別capture field、またはcall argumentとして使われる場合はadmitしない。nested captureの変換を先に行い、
+そのedgeを消すouter callbackの通常変換は後に行う。
 `execution/optimization`はpossible application graphを変更せず、構文からtarget identityを追跡できるsiteまたは型互換target集合が
 一要素のsiteに対するdirect call、direct self-tail fusion、pureなknown tail forwarder fusionのdecisionだけを構成する。あるfunctionへ届き得る
 全application siteがそのfunctionへのdirect callに確定した場合、同じdirect-call decisionからclosure carrierのcode pointerが不要であることも

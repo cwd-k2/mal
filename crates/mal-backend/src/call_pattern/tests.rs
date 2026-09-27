@@ -157,3 +157,54 @@ fn lifts_a_managed_callback_capture_through_a_recursive_parameter() {
             .all(|function| function.captures.is_empty())
     );
 }
+
+#[test]
+fn lifts_a_callback_captured_by_a_recursive_callback() {
+    let program = specialize(closure_program(
+        "loop :: ((Int32, Int32), (Int32, Int32) -> [(Int32, Int32), Int32]) -> Int32 :=
+           (state, step) -> step(state)[(next) -> loop(next, step), (result) -> result];
+         times :: (Int32, Int32, Int32 -> Int32) -> Int32 := (count, initial, step) ->
+           loop((0i32, initial), (index, value) -> [continue, break] => {
+             when (index == count) { break(value); };
+             continue(index + 1i32, step(value));
+           });
+         main :: Unit -> Int32 := () -> {
+           captured := 2i32;
+           times(3i32, 0i32, (value) -> value + captured) - 6i32;
+         };",
+    ));
+
+    assert!(
+        program
+            .functions
+            .iter()
+            .all(|function| function.captures.is_empty()),
+        "{:?}",
+        program
+            .functions
+            .iter()
+            .map(|function| (function.id, function.captures.len()))
+            .collect::<Vec<_>>()
+    );
+    assert!(ids::are_unique(&mut program.clone()));
+}
+
+#[test]
+fn keeps_a_nested_callback_environment_when_the_capture_is_returned() {
+    let program = specialize(closure_program(
+        "wrap :: (Int32 -> Int32) -> (Unit -> (Int32 -> Int32)) := (step) -> () -> step;
+         main :: Unit -> Int32 := () -> {
+           captured := 40i32;
+           get := wrap((value) -> value + captured);
+           kept := get();
+           kept(2i32) - 42i32;
+         };",
+    ));
+
+    assert!(
+        program
+            .functions
+            .iter()
+            .any(|function| !function.captures.is_empty())
+    );
+}

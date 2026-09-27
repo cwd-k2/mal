@@ -240,7 +240,7 @@ fn for_each_pattern(program: &Program, visit: &mut impl FnMut(&Pattern)) {
     });
 }
 
-fn operation_atoms(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
+pub(super) fn operation_atoms(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
     match operation {
         Operation::Atom(atom)
         | Operation::Goto { value: atom, .. }

@@ -10,6 +10,7 @@ use crate::closure::ast::{Atom, AtomId, AtomKind, FunctionId, Operation, Program
 use analysis::*;
 
 mod analysis;
+mod nested;
 mod rewrite;
 
 #[derive(Clone)]
@@ -26,6 +27,7 @@ struct Candidate {
     replacements: HashMap<AtomId, Vec<Atom>>,
     forwarded: HashSet<AtomId>,
     direct_calls: HashSet<AtomId>,
+    nested: Option<nested::Use>,
     capture_types: Vec<Type>,
     capture_type: Type,
     host_parameter_type: Type,
@@ -51,6 +53,7 @@ fn find_candidate(program: &Program) -> Option<Candidate> {
         .collect::<HashMap<_, _>>();
     let definitions = definitions(program);
     let aliases = aliases(&definitions);
+    let mut direct = None;
 
     for host in &program.functions {
         let Some(host_binding) = known.get(&host.id).copied() else {
@@ -70,11 +73,15 @@ fn find_candidate(program: &Program) -> Option<Candidate> {
                 callback,
                 path,
             ) {
-                return Some(candidate);
+                if candidate.nested.is_some() {
+                    // Lifting the outer callback first would erase the capture edge this proof needs.
+                    return Some(candidate);
+                }
+                direct.get_or_insert(candidate);
             }
         }
     }
-    None
+    direct
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -198,12 +205,16 @@ fn admit_candidate(
             }
         }
     });
+    let nested = nested::find(program, callback, aliases);
+    if let Some(nested) = &nested {
+        allowed_callback_uses.extend(nested.capture_atoms.iter().copied());
+    }
     let callback_escapes = has_unapproved_uses(program, callback, aliases, &allowed_callback_uses);
     let creator_escapes = creators.iter().any(|creator| {
         let allowed = replacements.keys().copied().collect::<HashSet<_>>();
         has_unapproved_uses(program, *creator, aliases, &allowed)
     });
-    if direct_calls.is_empty()
+    if (direct_calls.is_empty() && nested.is_none())
         || indirect_callback_alias
         || callback_escapes
         || creator_escapes
@@ -226,6 +237,7 @@ fn admit_candidate(
         replacements,
         forwarded,
         direct_calls,
+        nested,
         capture_types,
         capture_type,
         host_parameter_type,

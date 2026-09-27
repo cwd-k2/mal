@@ -14,4 +14,5 @@ lowered to control, and stops at a fixed point or when the program has grown pas
 | `ids` | fresh identities and the check that every binder and atom identity is unique |
 | `lambda_lift` | capture-to-parameter rewriting for a non-recursive local closure whose aliases are used only as direct callees |
 | `parameter_lift` | capture propagation through a known function parameter and its self-recursive forwarding edges |
+| `parameter_lift/nested` | propagation through a callback used only as a directly called capture of another closure |
 | `walk` | a mutable walk over the closure program that reports the identities a rewrite touches |

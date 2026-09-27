@@ -20,6 +20,9 @@ pub(super) fn apply(program: &mut Program, candidate: Candidate) {
         .iter()
         .map(|ty| (ids.value(), ty.clone()))
         .collect::<Vec<_>>();
+    if let Some(nested) = &candidate.nested {
+        super::nested::prepare_function(program, nested, &candidate.capture_types, shape, &mut ids);
+    }
     for function in &mut program.functions {
         if function.id == candidate.host {
             function.parameter.ty = candidate.host_parameter_type.clone();
@@ -169,6 +172,9 @@ fn rewrite_block(
             && *function == candidate.host
         {
             set_pattern_type(&mut binding.pattern, &candidate.host_closure_type, types);
+        }
+        if let Some(nested) = &candidate.nested {
+            super::nested::extend_creator(&mut binding.operation, nested, capture_bindings, ids);
         }
 
         let mut capture_products = Vec::new();

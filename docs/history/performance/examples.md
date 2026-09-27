@@ -160,3 +160,17 @@ textは順に4,608から4,272 bytes、8,752から7,552 bytes、5,042から4,306 
 allocationは20回880 bytesから12回560 bytes、34回2,112 bytesから18回1,112 bytes、12回608 bytesから6回368 bytesへ減った。
 他17件はbyte単位で同一だった。全20件で旧版とstdout、stderr、exit statusが一致し、Memcheckはerrorなし、終了時のlive allocationは
 0だった。
+
+## 2026-09-27 — nested callback captureの平坦化
+
+function parameterのcallbackが別closureの一つのcapture fieldだけへ渡され、そのfieldがouter function内でdirect applicationだけに
+使われる場合、inner closureのcaptureをouter closureへ平坦化してinner functionもlambda-liftする規則を追加した。全outer creatorが
+同じfield対応を持ち、inner creatorとparameter leafにほかのuseがないことを構造的に検査する。outer callbackを先にlambda-liftすると
+このcapture edgeがparameter constructionへ変わって証明を失うため、nested candidateを通常candidateより先に変換する。
+
+直前の`7203fd53` artifactと比べ、変更されたのは同じ3 exampleだけだった。`relation-views`、`csr-dijkstra`、`generic-loop`の
+Callgrind命令は3,260から2,064、6,967から5,996、3,752,585から3,752,141、textは4,272から3,698 bytes、7,552から
+6,941 bytes、4,306から3,726 bytes、machine instructionは622から496、1,387から1,223、555から420へ減った。
+allocationは12回560 bytesから6回392 bytes、18回1,112 bytesから14回1,000 bytes、6回368 bytesから5回328 bytesへ減った。
+`generic-loop`ではprogram固有のenvironment allocation callがLLVM IRからなくなり、当初残っていた7個のclosure environmentを
+すべて除去した。全20件でstdout、stderr、exit statusが一致し、Memcheckはerrorなし、終了時のlive allocationは0だった。
