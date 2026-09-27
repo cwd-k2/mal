@@ -67,7 +67,7 @@ pub(super) fn definition(
             arguments.push((value.llvm, "%mal_entry_argument".into()));
         }
     }
-    let arguments = super::super::syntax::TypedValue::many(arguments)?;
+    let arguments = super::super::syntax::TypedValue::from_pairs(arguments)?;
     function
         .structured_instruction(llvm_instruction!(
             let "%mal_entry_result" = call {

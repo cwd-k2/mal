@@ -14,8 +14,10 @@ macro_rules! llvm_typed_constant {
     }};
     (typed($ty:tt, {{ $($constant:tt)* }})) => {{
         let ty = $crate::backend::llvm::syntax::llvm_instruction_type!($ty);
-        Some({ $($constant)* })
-            .map(|constant| $crate::backend::llvm::syntax::TypedConstant::new(ty, constant))
+        Some($crate::backend::llvm::syntax::TypedConstant::new(
+            ty,
+            { $($constant)* },
+        ))
     }};
 }
 macro_rules! llvm_typed_constants_item {
@@ -30,7 +32,7 @@ macro_rules! llvm_typed_constants_item {
     };
 }
 macro_rules! llvm_typed_constants {
-    (@new $($constant:tt)*) => {{
+    ($($constant:tt)*) => {{
         #[allow(clippy::redundant_closure_call)]
         (|| {
             #[allow(unused_mut)]
@@ -66,7 +68,7 @@ macro_rules! llvm_constant {
         )
     };
     (structure([$($field:tt)*])) => {
-        $crate::backend::llvm::syntax::llvm_typed_constants!(@new $($field)*)
+        $crate::backend::llvm::syntax::llvm_typed_constants!($($field)*)
             .map($crate::backend::llvm::syntax::Constant::structure)
     };
     (get_element_ptr {
@@ -75,7 +77,7 @@ macro_rules! llvm_constant {
         indices: [$($index:tt)*] $(,)?
     }) => {{
         $crate::backend::llvm::syntax::llvm_typed_constant!($pointer_kind($($pointer)*)).and_then(
-            |pointer| $crate::backend::llvm::syntax::llvm_typed_constants!(@new $($index)*)
+            |pointer| $crate::backend::llvm::syntax::llvm_typed_constants!($($index)*)
                 .map(|indices| $crate::backend::llvm::syntax::Constant::get_element_ptr(
                     $crate::backend::llvm::syntax::llvm_instruction_type!($element_type),
                     pointer,
@@ -89,7 +91,7 @@ macro_rules! llvm_constant {
         indices: [$($index:tt)*] $(,)?
     }) => {{
         Some({ $($pointer)* }).and_then(|pointer| {
-            $crate::backend::llvm::syntax::llvm_typed_constants!(@new $($index)*)
+            $crate::backend::llvm::syntax::llvm_typed_constants!($($index)*)
                 .map(|indices| $crate::backend::llvm::syntax::Constant::get_element_ptr(
                     $crate::backend::llvm::syntax::llvm_instruction_type!($element_type),
                     pointer,
@@ -109,8 +111,9 @@ macro_rules! llvm_constant {
         )
     };
     (unary { operator: $operator:tt, operand: {{ $($operand:tt)* }} $(,)? }) => {
-        Some({ $($operand)* }).map(|operand| $crate::backend::llvm::syntax::Constant::unary(
-            $crate::backend::llvm::syntax::llvm_instruction_atom!($operator), operand,
+        Some($crate::backend::llvm::syntax::Constant::unary(
+            $crate::backend::llvm::syntax::llvm_instruction_atom!($operator),
+            { $($operand)* },
         ))
     };
     (binary {
@@ -127,23 +130,22 @@ macro_rules! llvm_constant {
         })
     }};
     (binary { operator: $operator:tt, left: {{ $($left:tt)* }}, right: {{ $($right:tt)* }} $(,)? }) => {
-        Some(({ $($left)* }, { $($right)* })).and_then(|(left, right)| {
-            $crate::backend::llvm::syntax::Constant::binary(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($operator), left, right,
-            )
-        })
+        $crate::backend::llvm::syntax::Constant::binary(
+            $crate::backend::llvm::syntax::llvm_instruction_atom!($operator),
+            { $($left)* },
+            { $($right)* },
+        )
     };
     (cast {
         operator: $operator:tt,
         operand: {{ $($operand:tt)* }},
         to: $target:tt $(,)?
     }) => {
-        Some({ $($operand)* }).map(|operand| {
-            $crate::backend::llvm::syntax::Constant::cast(
-                $crate::backend::llvm::syntax::llvm_instruction_atom!($operator), operand,
-                $crate::backend::llvm::syntax::llvm_instruction_type!($target),
-            )
-        })
+        Some($crate::backend::llvm::syntax::Constant::cast(
+            $crate::backend::llvm::syntax::llvm_instruction_atom!($operator),
+            { $($operand)* },
+            $crate::backend::llvm::syntax::llvm_instruction_type!($target),
+        ))
     };
     (zero) => {
         Some($crate::backend::llvm::syntax::Constant::ZeroInitializer)

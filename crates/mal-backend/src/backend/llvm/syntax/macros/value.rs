@@ -23,7 +23,7 @@ macro_rules! llvm_values_item {
 }
 
 macro_rules! llvm_values {
-    (@new $($value:tt)*) => {{
+    ($($value:tt)*) => {{
         #[allow(clippy::redundant_closure_call)]
         (|| {
             #[allow(unused_mut)]

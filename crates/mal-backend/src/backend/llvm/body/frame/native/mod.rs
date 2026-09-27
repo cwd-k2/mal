@@ -152,7 +152,7 @@ impl FunctionEmitter<'_> {
         let result_llvm = self.types.value(&result_type)?.llvm;
         let name = self.native_worker_name();
         let register = self.register();
-        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
+        let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction!(
             self;
             let {{ register.clone() }} = call {
@@ -256,7 +256,7 @@ impl FunctionEmitter<'_> {
             arguments.push((self.types.value(&leaf.ty)?.llvm, register));
         }
         let returned = self.register();
-        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
+        let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction!(
             self;
             let {{ returned.clone() }} = call {
@@ -408,7 +408,7 @@ impl FunctionEmitter<'_> {
         );
         self.block("mal_deep_entry");
         let continued = self.register();
-        let parameters = crate::backend::llvm::syntax::TypedValue::many(parameters)?;
+        let parameters = crate::backend::llvm::syntax::TypedValue::from_pairs(parameters)?;
         emit_instruction!(
             self;
             let {{ continued.clone() }} = call {

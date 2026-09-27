@@ -108,7 +108,7 @@ macro_rules! c_aggregate_field {
 macro_rules! c_aggregate_fields {
     ($($field:tt)*) => {{
         #[allow(unused_mut, clippy::vec_init_then_push)]
-        let mut fields = Vec::new();
+        let mut fields = Vec::from([]);
         $crate::backend::c::syntax::c_aggregate_fields_items!(fields; $($field)*);
         fields
     }};

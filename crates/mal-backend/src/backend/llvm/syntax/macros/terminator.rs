@@ -10,7 +10,7 @@ macro_rules! llvm_switch_cases_item {
     };
 }
 macro_rules! llvm_switch_cases {
-    (@new $($case:tt)*) => {{
+    ($($case:tt)*) => {{
         #[allow(unused_mut)]
         let mut cases = Vec::from([]);
         $crate::backend::llvm::syntax::llvm_switch_cases_items!(cases; $($case)*);
@@ -66,7 +66,7 @@ macro_rules! llvm_terminator {
             $crate::backend::llvm::syntax::llvm_instruction_type!($ty),
             $crate::backend::llvm::syntax::llvm_scalar!($value),
             $crate::backend::llvm::syntax::llvm_scalar!($default),
-            $crate::backend::llvm::syntax::llvm_switch_cases!(@new $($case)*),
+            $crate::backend::llvm::syntax::llvm_switch_cases!($($case)*),
         )
     };
     (unreachable;) => {

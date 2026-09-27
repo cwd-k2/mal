@@ -88,7 +88,7 @@ macro_rules! llvm_instruction {
     };) => {{
         $crate::backend::llvm::syntax::llvm_instruction_callee!($callee_kind($callee)).and_then(
             |callee| {
-                $crate::backend::llvm::syntax::llvm_values!(@new $($argument)*).and_then(
+                $crate::backend::llvm::syntax::llvm_values!($($argument)*).and_then(
                     |arguments| $crate::backend::llvm::syntax::Instruction::call(
                         Some($crate::backend::llvm::syntax::llvm_instruction_atom!($result)),
                         $crate::backend::llvm::syntax::llvm_instruction_atom!($tail),
@@ -108,7 +108,7 @@ macro_rules! llvm_instruction {
     };) => {{
         $crate::backend::llvm::syntax::llvm_instruction_callee!($callee_kind($callee)).and_then(
             |callee| {
-                $crate::backend::llvm::syntax::llvm_values!(@new $($argument)*).and_then(
+                $crate::backend::llvm::syntax::llvm_values!($($argument)*).and_then(
                     |arguments| $crate::backend::llvm::syntax::Instruction::call(
                         Option::<String>::None,
                         $crate::backend::llvm::syntax::llvm_instruction_atom!($tail),
@@ -194,7 +194,7 @@ macro_rules! llvm_instruction {
         pointer: $pointer:tt,
         indices: [$($index:tt)*] $(,)?
     };) => {
-        $crate::backend::llvm::syntax::llvm_values!(@new $($index)*).and_then(|indices| {
+        $crate::backend::llvm::syntax::llvm_values!($($index)*).and_then(|indices| {
             $crate::backend::llvm::syntax::Instruction::get_element_ptr(
                 $crate::backend::llvm::syntax::llvm_instruction_atom!($result),
                 $crate::backend::llvm::syntax::llvm_instruction_atom!($inbounds),

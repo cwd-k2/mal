@@ -368,7 +368,7 @@ impl FunctionEmitter<'_> {
             }
             let returned = self.register();
             self.sync_control_top()?;
-            let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
+            let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
             emit_instruction!(
                 self;
                 let {{ returned.clone() }} = call {

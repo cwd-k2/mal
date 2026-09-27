@@ -16,7 +16,7 @@ macro_rules! c_switch_case {
 macro_rules! c_switch_cases {
     ({ $($case:tt)* }) => {{
         #[allow(unused_mut)]
-        let mut cases = Vec::new();
+        let mut cases = Vec::from([]);
         $crate::backend::c::syntax::c_switch_cases_items!(cases; $($case)*);
         cases
     }};

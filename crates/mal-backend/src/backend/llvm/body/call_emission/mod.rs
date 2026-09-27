@@ -50,7 +50,7 @@ impl FunctionEmitter<'_> {
         let result_value_type = self.types.value(&result_type)?;
         let register = self.register();
         self.sync_control_top()?;
-        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
+        let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction!(
             self;
             let {{ register.clone() }} = call {
@@ -130,7 +130,7 @@ impl FunctionEmitter<'_> {
         let result_type = self.types.value(result)?;
         let register = self.register();
         self.sync_control_top()?;
-        let arguments = crate::backend::llvm::syntax::TypedValue::many(arguments)?;
+        let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction!(
             self;
             let {{ register.clone() }} = call {

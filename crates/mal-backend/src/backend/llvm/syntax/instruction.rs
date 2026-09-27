@@ -720,7 +720,7 @@ impl TypedValue {
         is_value(&value).then_some(Self { ty, value })
     }
 
-    pub(in crate::backend) fn many<Value: Into<String>>(
+    pub(in crate::backend) fn from_pairs<Value: Into<String>>(
         values: impl IntoIterator<Item = (Type, Value)>,
     ) -> Option<Vec<Self>> {
         values
@@ -861,7 +861,7 @@ mod tests {
 
     #[test]
     fn instruction_macro_builds_typed_calls() {
-        let arguments = TypedValue::many([(Type::Pointer, "%value".to_owned())]).unwrap();
+        let arguments = TypedValue::from_pairs([(Type::Pointer, "%value".to_owned())]).unwrap();
         let instruction = super::super::llvm_instruction!(
             let "%result" = call {
                 tail: false,
