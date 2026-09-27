@@ -1,5 +1,6 @@
 use crate::backend::c::syntax::{
-    Declaration, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_declaration, c_type,
+    Declaration, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_declaration,
+    c_directive, c_type,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -32,11 +33,15 @@ impl TypeRegistry {
                 _ => unreachable!("only aggregate types have representation identities"),
             };
             let id = self.index(ty);
+            let guard = format!("MAL_DETAIL_HOST_REPR_{id}_DECLARED");
             let alias = format!("mal_repr_{kind}_{id}_t");
+            output.push(c_directive!(ifndef #{ guard.clone() }));
+            output.push(c_directive!(define #{ guard };));
             output.push(c_declaration! {
                 type #{ alias } =
                     struct(#{ format!("mal_detail_repr_{kind}_{id}") })
             });
+            output.push(c_directive!(endif));
         }
         for alias in aliases {
             if host.exposes_alias(alias) {
@@ -50,6 +55,9 @@ impl TypeRegistry {
             if !host.contains(ty) || is_bool(ty) {
                 continue;
             }
+            let guard = format!("MAL_DETAIL_HOST_REPR_{}_DEFINED", self.index(ty));
+            output.push(c_directive!(ifndef #{ guard.clone() }));
+            output.push(c_directive!(define #{ guard };));
             match ty {
                 Type::Product(elements) => {
                     let fields = elements.iter().enumerate().map(|(field, ty)| {
@@ -69,6 +77,7 @@ impl TypeRegistry {
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
             }
+            output.push(c_directive!(endif));
             output.blank_line();
         }
         output

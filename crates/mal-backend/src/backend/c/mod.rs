@@ -17,23 +17,28 @@ pub fn common_header() -> String {
 }
 
 pub(crate) fn emit_header(interface: &ProgramInterface) -> String {
-    emit_header_for_target(
-        interface,
-        crate::backend::llvm::TargetLayout::natural(
-            std::mem::size_of::<*const ()>(),
-            std::mem::size_of::<usize>(),
-        )
-        .expect("host pointer and size widths are supported"),
+    emit_file_header(interface, &[])
+}
+
+pub(crate) fn emit_file_header(interface: &ProgramInterface, dependencies: &[String]) -> String {
+    let target = crate::backend::llvm::TargetLayout::natural(
+        std::mem::size_of::<*const ()>(),
+        std::mem::size_of::<usize>(),
     )
+    .expect("host pointer and size widths are supported");
+    header::emit(std::slice::from_ref(interface), target, dependencies, false)
 }
 
 pub(crate) fn emit_header_for_target(
     interface: &ProgramInterface,
+    files: &[mal_syntax::source::FileId],
     target: crate::backend::llvm::TargetLayout,
 ) -> String {
-    let mut types = TypeRegistry::default();
-    let host = HostTypes::collect(interface, &mut types);
-    header::emit(interface, &types, &host, target)
+    let interfaces = files
+        .iter()
+        .map(|file| interface.for_file(*file))
+        .collect::<Vec<_>>();
+    header::emit(&interfaces, target, &[], true)
 }
 
 pub(crate) fn emit_host(

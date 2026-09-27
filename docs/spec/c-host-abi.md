@@ -12,7 +12,8 @@ toolchainはprogram非依存の`mal.h`を提供する。`malc emit header file.m
 C interfaceをfile headerとして生成する。file headerは`mal.h`と、直接requireした`.mal` fileに対応するfile headerをincludeする。
 host implementationは自身を所有するfile headerをincludeし、生成artifactと同じtarget ABIでcompileする。
 
-`build`では各file interfaceと同等の宣言を持つ内部umbrella header、LLVM module、C shim、C runtimeを構成する。`.mal` sourceから
+`build`ではroot fileとexternal operationを所有するfile、および後者のrequire先のfile interfaceと同等の宣言を持つ内部umbrella
+header、LLVM module、C shim、C runtimeを構成する。C boundaryを持たない間接fileのpublic aliasはumbrellaに入れない。`.mal` sourceから
 推移的にrequireされた`.c` fileはlink入力になる。build時には今回生成したumbrella headerをC translation unitへ先に読み込み、host
 sourceの隣にある保存済みfile headerが生成物を置き換えない。既存libraryには薄いC adapterを介して接続し、必要なlibrary、object、
 archive、include path、macroなどのtoolchain argumentは`malc`の明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。

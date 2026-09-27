@@ -116,7 +116,7 @@ fn mini_database_output_chunks_symbols_larger_than_the_host_buffer() {
         .nth(2)
         .expect("compiler has a repository parent")
         .join("examples/mini-database");
-    for name in ["host.mal", "host.c", "program.mal.h"] {
+    for name in ["host.mal", "host.c", "host.mal.h", "program.mal.h"] {
         directory.write(
             name,
             std::fs::read(example.join(name)).expect("read mini database host fixture"),

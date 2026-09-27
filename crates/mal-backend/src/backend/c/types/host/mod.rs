@@ -21,6 +21,9 @@ impl TypeRegistry {
             if !host.external_contains(ty) || is_bool(ty) {
                 continue;
             }
+            let guard = format!("MAL_DETAIL_HOST_REPR_{}_HELPERS", self.index(ty));
+            output.push(c_directive!(ifndef #{ guard.clone() }));
+            output.push(c_directive!(define #{ guard };));
             match ty {
                 Type::Product(_) => {
                     let id = self.index(ty);
@@ -57,6 +60,8 @@ impl TypeRegistry {
                 }
                 _ => unreachable!("only aggregates have structural host helpers"),
             }
+            output.push(c_directive!(endif));
+            output.blank_line();
         }
         for name in &host.opaque_names {
             let host_type = format!("mal_{name}_t");

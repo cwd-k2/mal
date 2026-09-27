@@ -1,32 +1,49 @@
-#ifndef MAL_PROGRAM_MAL_H
-#define MAL_PROGRAM_MAL_H
-
+#ifndef MAL_BUILD_UMBRELLA
 #include <mal.h>
 
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
+#ifndef MAL_GENERATED_INTERFACE_C880DF65D47096AA_H
+#define MAL_GENERATED_INTERFACE_C880DF65D47096AA_H
 /* Host-visible types */
 
+#ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DECLARED
+#define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DECLARED
 typedef struct MalRepr_Product_1e5c20e9f358150e MalRepr_Product_1e5c20e9f358150e;
+#endif
 
+#ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
+#define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
 struct MalRepr_Product_1e5c20e9f358150e {
     MalType_Address field_0;
     MalType_USize field_1;
 };
 
-typedef struct mal_detail_repr_product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_t;
+#endif
 
+#ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DECLARED
+#define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DECLARED
+typedef struct mal_detail_repr_product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_t;
+#endif
+
+#ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DEFINED
+#define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DEFINED
 struct mal_detail_repr_product_1e5c20e9f358150e {
     mal_Address_t field_0;
     mal_USize_t field_1;
 };
+#endif
 
 /* Type helpers */
 
+#ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
+#define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
 static inline MalRepr_Product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e5c20e9f358150e_t value) {
     return (MalRepr_Product_1e5c20e9f358150e){ .field_0 = mal_Address_return(call, value.field_0), .field_1 = value.field_1 };
 }
+
+#endif
 
 /* External operations */
 
@@ -71,4 +88,5 @@ static MalType_Unit mal_detail_send( \
     mal_repr_product_1e5c20e9f358150e_t value \
 )
 
+#endif
 #endif

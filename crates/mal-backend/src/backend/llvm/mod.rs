@@ -49,10 +49,25 @@ pub(crate) fn supports(program: &crate::execution::Program) -> bool {
     body::supports(program)
 }
 
+#[cfg(test)]
 pub(crate) fn generate(
     program: &crate::execution::Program,
     target: Target<'_>,
     optimizations: OptimizationSet,
+) -> Result<LlvmArtifacts, Error> {
+    generate_with_header_files(
+        program,
+        target,
+        optimizations,
+        &[program.lowered.span.file()],
+    )
+}
+
+pub(crate) fn generate_with_header_files(
+    program: &crate::execution::Program,
+    target: Target<'_>,
+    optimizations: OptimizationSet,
+    header_files: &[mal_syntax::source::FileId],
 ) -> Result<LlvmArtifacts, Error> {
     let layout = target_layout(target.data_layout).ok_or(Error::InvalidTargetDataLayout)?;
     body::admit_target(program, layout).map_err(Error::Diagnostic)?;
@@ -100,7 +115,11 @@ pub(crate) fn generate(
     Ok(LlvmArtifacts {
         module,
         shim: shim.render(),
-        header: crate::backend::c::emit_header_for_target(&program.lowered.interface, layout),
+        header: crate::backend::c::emit_header_for_target(
+            &program.lowered.interface,
+            header_files,
+            layout,
+        ),
         runtime,
     })
 }

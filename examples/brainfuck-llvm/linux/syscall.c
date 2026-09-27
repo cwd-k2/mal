@@ -1,6 +1,6 @@
 #define _GNU_SOURCE
 
-#include "../program.mal.h"
+#include "syscall.mal.h"
 
 #include <errno.h>
 #include <stdint.h>
@@ -151,4 +151,3 @@ MAL_DEFINE_storeZero(call, value) {
     ((uint8_t *)value.field_0)[(size_t)value.field_1] = 0;
     return mal_Unit_return(call);
 }
-

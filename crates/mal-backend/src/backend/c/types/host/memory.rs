@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Block, Expr, Statement, TranslationUnit, c_block, c_expr, c_parameter, c_signature,
-    c_statement, c_switch_case, c_type,
+    Block, Expr, Statement, TranslationUnit, c_block, c_directive, c_expr, c_parameter,
+    c_signature, c_statement, c_switch_case, c_type,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -28,12 +28,22 @@ impl TypeRegistry {
             .collect::<Vec<_>>();
         for ty in scalar_types() {
             if host.memory_contains(&ty) || tag_types.contains(&ty) {
+                let guard = format!("MAL_DETAIL_MEMORY_{}_HELPERS", scalar_name(&ty));
+                output.push(c_directive!(ifndef #{ guard.clone() }));
+                output.push(c_directive!(define #{ guard };));
                 self.append_scalar_memory_helpers(&mut output, &ty);
+                output.push(c_directive!(endif));
+                output.blank_line();
             }
         }
         for ty in &self.aggregates {
             if host.memory_contains(ty) && !is_bool(ty) {
+                let guard = format!("MAL_DETAIL_MEMORY_REPR_{}_HELPERS", self.index(ty));
+                output.push(c_directive!(ifndef #{ guard.clone() }));
+                output.push(c_directive!(define #{ guard };));
                 self.append_aggregate_memory_helpers(&mut output, self.index(ty), ty, layouts);
+                output.push(c_directive!(endif));
+                output.blank_line();
             }
         }
         for alias in aliases.iter().filter(|alias| alias.host_memory_access) {

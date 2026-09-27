@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     AggregateField, TranslationUnit, TypeName, c_aggregate, c_aggregate_field, c_aggregate_fields,
-    c_declaration, c_type,
+    c_declaration, c_directive, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -165,8 +165,12 @@ impl TypeRegistry {
                 }
             };
             let id = self.index(ty);
+            let guard = format!("MAL_DETAIL_RAW_REPR_{id}_DECLARED");
             let name = format!("{kind}_{id}");
+            output.push(c_directive!(ifndef #{ guard.clone() }));
+            output.push(c_directive!(define #{ guard };));
             output.push(c_declaration!(type #{ name } = struct(#{ format!("{kind}_{id}") })));
+            output.push(c_directive!(endif));
         }
         if !output.is_empty() {
             output.blank_line();
@@ -175,6 +179,9 @@ impl TypeRegistry {
             if host.external_contains(ty) != public {
                 continue;
             }
+            let guard = format!("MAL_DETAIL_RAW_REPR_{}_DEFINED", self.index(ty));
+            output.push(c_directive!(ifndef #{ guard.clone() }));
+            output.push(c_directive!(define #{ guard };));
             match ty {
                 Type::Product(elements) => {
                     let fields = elements.iter().enumerate().map(|(element_index, element)| {
@@ -227,6 +234,8 @@ impl TypeRegistry {
                     unreachable!("these types never enter the C host registry")
                 }
             }
+            output.push(c_directive!(endif));
+            output.blank_line();
         }
         output
     }

@@ -1,23 +1,35 @@
-#ifndef MAL_PROGRAM_MAL_H
-#define MAL_PROGRAM_MAL_H
-
+#ifndef MAL_BUILD_UMBRELLA
 #include <mal.h>
 
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
+#ifndef MAL_GENERATED_INTERFACE_4DACB4AAAF918F4D_H
+#define MAL_GENERATED_INTERFACE_4DACB4AAAF918F4D_H
 /* Host-visible types */
 
 typedef struct { uintptr_t bits; } MalType_Allocation;
 
+#ifndef MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DECLARED
+#define MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DECLARED
 typedef struct MalRepr_Product_01ed5581230a2b12 MalRepr_Product_01ed5581230a2b12;
+#endif
+#ifndef MAL_DETAIL_RAW_REPR_e70fcef055657787_DECLARED
+#define MAL_DETAIL_RAW_REPR_e70fcef055657787_DECLARED
 typedef struct MalRepr_Sum_e70fcef055657787 MalRepr_Sum_e70fcef055657787;
+#endif
 
+#ifndef MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DEFINED
+#define MAL_DETAIL_RAW_REPR_01ed5581230a2b12_DEFINED
 struct MalRepr_Product_01ed5581230a2b12 {
     MalType_Allocation field_0;
     MalType_USize field_1;
 };
 
+#endif
+
+#ifndef MAL_DETAIL_RAW_REPR_e70fcef055657787_DEFINED
+#define MAL_DETAIL_RAW_REPR_e70fcef055657787_DEFINED
 struct MalRepr_Sum_e70fcef055657787 {
     uint32_t tag;
     union {
@@ -26,18 +38,31 @@ struct MalRepr_Sum_e70fcef055657787 {
     } payload;
 };
 
+#endif
+
 typedef MalRepr_Sum_e70fcef055657787 MalType_ResizeResult;
 
 typedef struct { uintptr_t mal_detail_bits; } mal_Allocation_t;
+#ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_DECLARED
+#define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_DECLARED
 typedef struct mal_detail_repr_product_01ed5581230a2b12 mal_repr_product_01ed5581230a2b12_t;
+#endif
+#ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_DECLARED
+#define MAL_DETAIL_HOST_REPR_e70fcef055657787_DECLARED
 typedef struct mal_detail_repr_sum_e70fcef055657787 mal_repr_sum_e70fcef055657787_t;
+#endif
 typedef mal_repr_sum_e70fcef055657787_t mal_ResizeResult_t;
 
+#ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_DEFINED
+#define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_DEFINED
 struct mal_detail_repr_product_01ed5581230a2b12 {
     mal_Allocation_t field_0;
     mal_USize_t field_1;
 };
+#endif
 
+#ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_DEFINED
+#define MAL_DETAIL_HOST_REPR_e70fcef055657787_DEFINED
 struct mal_detail_repr_sum_e70fcef055657787 {
     uint32_t tag;
     union {
@@ -45,13 +70,20 @@ struct mal_detail_repr_sum_e70fcef055657787 {
         mal_repr_product_01ed5581230a2b12_t variant_1;
     } payload;
 };
+#endif
 
 /* Type helpers */
 
+#ifndef MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
+#define MAL_DETAIL_HOST_REPR_01ed5581230a2b12_HELPERS
 static inline MalRepr_Product_01ed5581230a2b12 mal_repr_product_01ed5581230a2b12_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_01ed5581230a2b12_t value) {
     return (MalRepr_Product_01ed5581230a2b12){ .field_0 = (MalType_Allocation){ .bits = value.field_0.mal_detail_bits }, .field_1 = value.field_1 };
 }
 
+#endif
+
+#ifndef MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS
+#define MAL_DETAIL_HOST_REPR_e70fcef055657787_HELPERS
 static inline mal_repr_sum_e70fcef055657787_t mal_detail_to_host_e70fcef055657787(mal_call_t *call, MalRepr_Sum_e70fcef055657787 value) {
     switch (value.tag) {
         case UINT32_C(0): {
@@ -97,6 +129,8 @@ static inline mal_repr_sum_e70fcef055657787_t mal_repr_sum_e70fcef055657787_make
 static inline MalRepr_Sum_e70fcef055657787 mal_repr_sum_e70fcef055657787_return_1(mal_call_t *call, mal_repr_product_01ed5581230a2b12_t value) {
     return mal_detail_to_raw_e70fcef055657787(call, (mal_repr_sum_e70fcef055657787_t){ .tag = mal_repr_sum_e70fcef055657787_tag_1, .payload.variant_1 = value });
 }
+
+#endif
 
 static inline mal_Allocation_t mal_Allocation_from_bits(uintptr_t bits) {
     return (mal_Allocation_t){ .mal_detail_bits = bits };
@@ -172,4 +206,5 @@ static MalType_UInt64 mal_detail_handleBits( \
     mal_Allocation_t value \
 )
 
+#endif
 #endif

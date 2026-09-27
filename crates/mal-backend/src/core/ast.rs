@@ -44,6 +44,7 @@ pub(crate) struct TypeAlias {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ExternalType {
     pub name: String,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

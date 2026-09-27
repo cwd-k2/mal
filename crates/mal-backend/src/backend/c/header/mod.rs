@@ -20,23 +20,64 @@ pub(super) fn emit_common() -> String {
 }
 
 pub(super) fn emit(
+    interfaces: &[ProgramInterface],
+    target: crate::backend::llvm::TargetLayout,
+    dependencies: &[String],
+    umbrella: bool,
+) -> String {
+    let memory_access = interfaces.iter().any(|interface| {
+        interface
+            .type_aliases
+            .iter()
+            .any(|alias| alias.host_memory_access)
+    });
+    let mut output = TranslationUnit::default();
+    if !umbrella {
+        output.push(c_directive!(ifndef "MAL_BUILD_UMBRELLA"));
+    }
+    output.extend(emit_prefix(
+        target.index_size * 8,
+        memory_access,
+        dependencies,
+        umbrella,
+    ));
+    for interface in interfaces {
+        append_interface(&mut output, interface, target);
+    }
+    if !umbrella {
+        output.push(c_directive!(endif));
+    }
+    output.render()
+}
+
+fn append_interface(
+    output: &mut TranslationUnit,
+    interface: &ProgramInterface,
+    target: crate::backend::llvm::TargetLayout,
+) {
+    let mut types = TypeRegistry::default();
+    let host = HostTypes::collect(interface, &mut types);
+    let body = interface_body(interface, &types, &host, target);
+    let guard = interface_guard(&body.render());
+    output.blank_line();
+    output.push(c_directive!(ifndef #{ guard.clone() }));
+    output.push(c_directive!(define #{ guard };));
+    output.extend(body);
+    output.push(c_directive!(endif));
+}
+
+fn interface_body(
     interface: &ProgramInterface,
     types: &TypeRegistry,
     host: &HostTypes,
     target: crate::backend::llvm::TargetLayout,
-) -> String {
+) -> TranslationUnit {
     let signatures: Vec<_> = interface
         .externals
         .iter()
         .map(|external| ExternalSignatures::new(external, types))
         .collect();
-    let mut output = emit_prefix(
-        target.index_size * 8,
-        interface
-            .type_aliases
-            .iter()
-            .any(|alias| alias.host_memory_access),
-    );
+    let mut output = TranslationUnit::default();
     let mut declarations = types.header_declarations(host);
     declarations.extend(types.header_alias_declarations(host, &interface.type_aliases));
     declarations.extend(types.host_value_declarations(host, &interface.type_aliases));
@@ -71,8 +112,14 @@ pub(super) fn emit(
             emit_definition_macro(&mut output, signatures, external, types);
         }
     }
-    output.push(c_directive!(endif));
-    output.render()
+    output
+}
+
+fn interface_guard(body: &str) -> String {
+    let fingerprint = body.bytes().fold(0xcbf29ce484222325_u64, |state, byte| {
+        (state ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+    });
+    format!("MAL_GENERATED_INTERFACE_{fingerprint:016X}_H")
 }
 
 pub(super) fn emit_host(

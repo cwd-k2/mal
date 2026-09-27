@@ -278,12 +278,17 @@ fn execute_emit_host(arguments: &[OsString]) -> Outcome {
         Ok(parsed) => parsed,
         Err(outcome) => return outcome,
     };
-    let header = parsed
-        .header
-        .as_deref()
-        .unwrap_or(mal_backend::pipeline::GENERATED_HEADER_NAME);
+    let header = match parsed.header {
+        Some(header) => header,
+        None => {
+            let Some(name) = parsed.source.file_name().and_then(OsStr::to_str) else {
+                return usage_error("emit host source file name must be valid UTF-8");
+            };
+            format!("{name}.h")
+        }
+    };
     deliver(
-        crate::driver::emit_host(&parsed.source, header),
+        crate::driver::emit_host(&parsed.source, &header),
         parsed.output,
         "write generated host template",
     )

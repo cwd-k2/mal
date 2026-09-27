@@ -90,6 +90,82 @@ fn emit_header_prints_to_stdout_without_output() {
 }
 
 #[test]
+fn emit_header_owns_one_file_and_includes_required_file_headers() {
+    let directory = NativeFixture::new("driver-file-header");
+    let root = directory.write(
+        "program.mal",
+        "require \"./dependency.mal\";\n\
+         Root :: (UInt32, UInt64);\n\
+         extern rootOperation :: Dep -> Root;",
+    );
+    let dependency = directory.write(
+        "dependency.mal",
+        "Dep :: (UInt8, UInt16);\n\
+         extern dependencyOperation :: Dep -> Unit;",
+    );
+    let root_header = directory.join("program.mal.h");
+    let dependency_header = directory.join("dependency.mal.h");
+
+    for (source, header) in [(&root, &root_header), (&dependency, &dependency_header)] {
+        let output = directory.malc([
+            OsStr::new("emit"),
+            OsStr::new("header"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            header.as_os_str(),
+        ]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    let root_interface = std::fs::read_to_string(&root_header).unwrap();
+    assert!(root_interface.contains("#include \"dependency.mal.h\""));
+    assert!(root_interface.contains("MAL_DEFINE_rootOperation"));
+    assert!(!root_interface.contains("MAL_DEFINE_dependencyOperation"));
+    let dependency_interface = std::fs::read_to_string(&dependency_header).unwrap();
+    assert!(dependency_interface.contains("MAL_DEFINE_dependencyOperation"));
+    assert!(!dependency_interface.contains("MAL_DEFINE_rootOperation"));
+    let host = directory.malc([
+        OsStr::new("emit"),
+        OsStr::new("host"),
+        dependency.as_os_str(),
+    ]);
+    assert!(host.status.success());
+    assert!(host.stdout.starts_with(b"#include \"dependency.mal.h\"\n"));
+
+    directory.write("mal.h", mal_backend::pipeline::COMMON_HEADER);
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_dependencyOperation(call, value) {\n\
+             (void)value;\n\
+             return mal_Unit_return(call);\n\
+         }\n\
+         MAL_DEFINE_rootOperation(call, value) {\n\
+             (void)value;\n\
+             return mal_Root_return(call, (mal_Root_t){0});\n\
+         }\n",
+    );
+    let compilation = std::process::Command::new("clang")
+        .args(["-std=c11", "-Wall", "-Wextra", "-Werror", "-pedantic", "-c"])
+        .arg("-I")
+        .arg(directory.join(""))
+        .arg(directory.join("host.c"))
+        .arg("-o")
+        .arg(directory.join("host.o"))
+        .output()
+        .expect("compile composed file headers");
+    assert!(
+        compilation.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compilation.stderr)
+    );
+}
+
+#[test]
 fn emit_host_prints_compilable_external_operation_stubs() {
     let directory = NativeFixture::new("driver-host");
     let source = directory.join("program.mal");
@@ -212,6 +288,35 @@ fn checked_in_example_headers_match_the_compiler() {
             "checked-in header is stale for {example}"
         );
     }
+    for relative in [
+        "brainfuck-llvm/linux/syscall",
+        "json-query/bytes",
+        "json-query/host",
+        "mini-database/host",
+    ] {
+        let source = repository.join("examples").join(format!("{relative}.mal"));
+        let checked_in = repository
+            .join("examples")
+            .join(format!("{relative}.mal.h"));
+        let generated = fixture.join(format!("{}.h", relative.replace('/', "-")));
+        let output = fixture.malc([
+            OsStr::new("emit"),
+            OsStr::new("header"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            generated.as_os_str(),
+        ]);
+        assert!(
+            output.status.success(),
+            "failed to generate {relative}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            std::fs::read_to_string(generated).unwrap(),
+            std::fs::read_to_string(checked_in).unwrap(),
+            "checked-in header is stale for {relative}"
+        );
+    }
 }
 
 #[test]
@@ -252,6 +357,49 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
         OsStr::new("CC"),
         unavailable.as_os_str(),
     );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(directory.run(executable).status.success());
+}
+
+#[test]
+fn build_umbrella_exposes_required_file_memory_helpers_to_host_inputs() {
+    let directory = NativeFixture::new("driver-required-file-header");
+    let source = directory.write(
+        "program.mal",
+        "require \"./host.mal\";\nmain :: Unit -> Int32 := () -> 0;",
+    );
+    directory.write(
+        "host.mal",
+        "require \"./types.mal\";\n\
+         require \"./host.c\";\n\
+         extern readFirst :: Address -> Int32;",
+    );
+    directory.write("types.mal", "Record :: (Int32, UInt8);");
+    directory.write(
+        "host.mal.h",
+        "#ifndef MAL_BUILD_UMBRELLA\n#error build must preinclude its current umbrella\n#endif\n",
+    );
+    directory.write(
+        "host.c",
+        "#include \"host.mal.h\"\n\
+         MAL_DEFINE_readFirst(call, address) {\n\
+             mal_Record_t value = mal_Record_read(call, address, 0);\n\
+             return mal_Int32_return(call, value.field_0);\n\
+         }\n",
+    );
+    let executable = directory.join("program");
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+
     assert!(
         output.status.success(),
         "{}",

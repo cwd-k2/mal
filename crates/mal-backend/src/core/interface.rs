@@ -27,6 +27,7 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
             checked::TopItem::ExternalType { binding } => {
                 interface.external_types.push(ExternalType {
                     name: binding.name.text.clone(),
+                    span: item.span,
                 });
             }
             checked::TopItem::ExternalOperation {
@@ -52,4 +53,29 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
         }
     }
     interface
+}
+
+impl ProgramInterface {
+    pub(crate) fn for_file(&self, file: mal_syntax::source::FileId) -> Self {
+        Self {
+            type_aliases: self
+                .type_aliases
+                .iter()
+                .filter(|alias| alias.span.file() == file)
+                .cloned()
+                .collect(),
+            external_types: self
+                .external_types
+                .iter()
+                .filter(|external| external.span.file() == file)
+                .cloned()
+                .collect(),
+            externals: self
+                .externals
+                .iter()
+                .filter(|external| external.span.file() == file)
+                .cloned()
+                .collect(),
+        }
+    }
 }

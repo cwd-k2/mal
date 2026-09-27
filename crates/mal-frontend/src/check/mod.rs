@@ -182,8 +182,7 @@ impl Checker {
                         _ => Vec::new(),
                     };
                     TopItem::TypeAlias {
-                        host_memory_access: binding.name.span.file() == program.span.file()
-                            && !binding.name.text.starts_with('_')
+                        host_memory_access: !binding.name.text.starts_with('_')
                             && interface::is_host_mappable(&ty)
                             && types::is_memory_representable(&ty),
                         binding: binding.clone(),

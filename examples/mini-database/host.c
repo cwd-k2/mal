@@ -1,4 +1,4 @@
-#include "program.mal.h"
+#include "host.mal.h"
 
 #include <errno.h>
 #include <stdint.h>

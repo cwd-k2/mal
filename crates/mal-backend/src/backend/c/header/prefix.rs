@@ -1,15 +1,20 @@
 use crate::backend::c::syntax::{TranslationUnit, c_declaration, c_directive};
 
-pub(super) fn emit_prefix(index_bits: usize, memory_access: bool) -> TranslationUnit {
+pub(super) fn emit_prefix(
+    index_bits: usize,
+    memory_access: bool,
+    dependencies: &[String],
+    umbrella: bool,
+) -> TranslationUnit {
     let mut output = TranslationUnit::default();
-    for directive in [
-        c_directive!(ifndef "MAL_PROGRAM_MAL_H"),
-        c_directive!(define "MAL_PROGRAM_MAL_H";),
-    ] {
-        output.push(directive);
-    }
-    output.blank_line();
     output.push(c_directive!(include(system "mal.h")));
+    for dependency in dependencies {
+        output.push(c_directive!(include(quoted #{ dependency })));
+    }
+    if umbrella {
+        output.push(c_directive!(define "MAL_BUILD_UMBRELLA";));
+        output.push(c_directive!(define "MAL_PROGRAM_MAL_H";));
+    }
     if memory_access {
         output.push(c_directive!(include(system "string.h")));
     }

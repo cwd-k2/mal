@@ -1,15 +1,20 @@
-#ifndef MAL_PROGRAM_MAL_H
-#define MAL_PROGRAM_MAL_H
-
+#ifndef MAL_BUILD_UMBRELLA
 #include <mal.h>
 
 _Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
 _Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
 
+#ifndef MAL_GENERATED_INTERFACE_16B2EFC8FFB50517_H
+#define MAL_GENERATED_INTERFACE_16B2EFC8FFB50517_H
 /* Host-visible types */
 
+#ifndef MAL_DETAIL_RAW_REPR_6a09db6e50421494_DECLARED
+#define MAL_DETAIL_RAW_REPR_6a09db6e50421494_DECLARED
 typedef struct MalRepr_Product_6a09db6e50421494 MalRepr_Product_6a09db6e50421494;
+#endif
 
+#ifndef MAL_DETAIL_RAW_REPR_6a09db6e50421494_DEFINED
+#define MAL_DETAIL_RAW_REPR_6a09db6e50421494_DEFINED
 struct MalRepr_Product_6a09db6e50421494 {
     MalType_Float32 field_0;
     MalType_Float32 field_1;
@@ -17,20 +22,32 @@ struct MalRepr_Product_6a09db6e50421494 {
     MalType_Int64 field_3;
 };
 
-typedef struct mal_detail_repr_product_6a09db6e50421494 mal_repr_product_6a09db6e50421494_t;
+#endif
 
+#ifndef MAL_DETAIL_HOST_REPR_6a09db6e50421494_DECLARED
+#define MAL_DETAIL_HOST_REPR_6a09db6e50421494_DECLARED
+typedef struct mal_detail_repr_product_6a09db6e50421494 mal_repr_product_6a09db6e50421494_t;
+#endif
+
+#ifndef MAL_DETAIL_HOST_REPR_6a09db6e50421494_DEFINED
+#define MAL_DETAIL_HOST_REPR_6a09db6e50421494_DEFINED
 struct mal_detail_repr_product_6a09db6e50421494 {
     mal_Float32_t field_0;
     mal_Float32_t field_1;
     mal_Float64_t field_2;
     mal_Int64_t field_3;
 };
+#endif
 
 /* Type helpers */
 
+#ifndef MAL_DETAIL_HOST_REPR_6a09db6e50421494_HELPERS
+#define MAL_DETAIL_HOST_REPR_6a09db6e50421494_HELPERS
 static inline MalRepr_Product_6a09db6e50421494 mal_repr_product_6a09db6e50421494_return(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_6a09db6e50421494_t value) {
     return (MalRepr_Product_6a09db6e50421494){ .field_0 = value.field_0, .field_1 = value.field_1, .field_2 = value.field_2, .field_3 = value.field_3 };
 }
+
+#endif
 
 /* External operations */
 
@@ -50,4 +67,5 @@ static MalType_Int32 mal_detail_inspect( \
     mal_repr_product_6a09db6e50421494_t value \
 )
 
+#endif
 #endif
