@@ -1,8 +1,12 @@
-use crate::backend::llvm::syntax::{BinaryOperator, MetadataAttachment, llvm_signature, llvm_type};
+mod address;
+mod managed;
+
+use crate::backend::llvm::syntax::{BinaryOperator, MetadataAttachment, llvm_type};
 use crate::core::ast::BufferOperation;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
+pub(in crate::backend::llvm::body) use managed::ManagedBufferElements;
 
 /// How a Buffer keeps one element. An element with a canonical memory representation is stored in it, so that `from`
 /// and `into` can copy the storage. An element that owns a `Symbol` has none and is stored as its runtime value; the
@@ -30,120 +34,7 @@ impl ElementStorage {
     }
 }
 
-/// The element types of the program's Buffers that own managed values. Each has one retain and one release callback,
-/// numbered by position.
-pub(in crate::backend::llvm::body) struct ManagedBufferElements(Vec<Type>);
-
-impl ManagedBufferElements {
-    pub(in crate::backend::llvm::body) fn collect(execution: &crate::execution::Program) -> Self {
-        let mut elements: Vec<Type> = Vec::new();
-        for binding in execution
-            .control
-            .states
-            .iter()
-            .flat_map(|state| &state.bindings)
-        {
-            if let crate::control::ast::Operation::Buffer {
-                operation: BufferOperation::Make,
-                element,
-                ..
-            } = &binding.operation
-                && crate::execution::ownership::is_managed(element)
-                && !elements.contains(element)
-            {
-                elements.push(element.clone());
-            }
-        }
-        Self(elements)
-    }
-
-    fn number(&self, element: &Type) -> Option<usize> {
-        self.0.iter().position(|candidate| candidate == element)
-    }
-}
-
 impl FunctionEmitter<'_> {
-    pub(in crate::backend::llvm::body) fn emit_buffer_from_address(
-        &mut self,
-        argument: &EmittedValue,
-        result_type: &Type,
-    ) -> Option<EmittedValue> {
-        let Type::Buffer(element) = result_type else {
-            return None;
-        };
-        let argument_type = Type::Product(vec![Type::Address, Type::USize, Type::USize].into());
-        if argument.ty != argument_type {
-            return None;
-        }
-        let [address, offset, length] =
-            self.product_fields(argument, [&Type::Address, &Type::USize, &Type::USize])?;
-        let stride = self.source_layouts.layout(element)?.stride;
-        let representation = self.register();
-        emit_instruction!(
-            self;
-            call { Some(representation.clone()) },
-            false,
-            (ptr),
-            direct "mal_runtime_buffer_from";
-            [
-                (typed (ptr) => "%mal_context"),
-                (typed (ptr) => { address.representation }),
-                (typed { self.types.index_llvm_type() } => { offset.representation }),
-                (typed { self.types.index_llvm_type() } => { length.representation }),
-                (typed { self.types.index_llvm_type() } => { stride.to_string() }),
-            ]
-        );
-        Some(emitted_buffer(representation, result_type.clone()))
-    }
-
-    pub(in crate::backend::llvm::body) fn emit_buffer_into_address(
-        &mut self,
-        argument: &EmittedValue,
-        result_type: &Type,
-    ) -> Option<EmittedValue> {
-        let Type::Product(elements) = &argument.ty else {
-            return None;
-        };
-        let [buffer_type, address_type, offset_type, length_type] = elements.as_ref() else {
-            return None;
-        };
-        let Type::Buffer(element) = buffer_type else {
-            return None;
-        };
-        if address_type != &Type::Address
-            || offset_type != &Type::USize
-            || length_type != &Type::USize
-            || result_type != &Type::Unit
-        {
-            return None;
-        }
-        let [buffer, address, offset, length] = self.product_fields(
-            argument,
-            [buffer_type, address_type, offset_type, length_type],
-        )?;
-        let stride = self.source_layouts.layout(element)?.stride;
-        emit_instruction!(
-            self;
-            call None,
-            false,
-            (void),
-            direct "mal_runtime_buffer_into";
-            [
-                (typed (ptr) => "%mal_context"),
-                (typed (ptr) => { buffer.representation }),
-                (typed (ptr) => { address.representation }),
-                (typed { self.types.index_llvm_type() } => { offset.representation }),
-                (typed { self.types.index_llvm_type() } => { length.representation }),
-                (typed { self.types.index_llvm_type() } => { stride.to_string() }),
-            ]
-        );
-        Some(EmittedValue {
-            ty: Type::Unit,
-            representation: "0".into(),
-            owned: false,
-        })
-    }
-
     pub(in crate::backend::llvm::body) fn emit_buffer(
         &mut self,
         operation: BufferOperation,
@@ -486,58 +377,6 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    /// Defines the callbacks that let the runtime retain and release one stored element of each managed element type.
-    pub(in crate::backend::llvm::body) fn emit_managed_buffer_element_callbacks(
-        &mut self,
-    ) -> Option<super::super::EmittedFunction> {
-        let index = self.index;
-        for (number, element) in index.managed_buffer_elements.0.iter().enumerate() {
-            self.emit_managed_element_callback(number, element, true)?;
-            self.emit_managed_element_callback(number, element, false)?;
-        }
-        (!self.emission_failed).then(|| super::super::EmittedFunction {
-            globals: std::mem::take(&mut self.globals),
-            definitions: std::mem::take(&mut self.definitions),
-        })
-    }
-
-    fn emit_managed_element_callback(
-        &mut self,
-        number: usize,
-        element: &Type,
-        retain: bool,
-    ) -> Option<()> {
-        let value_type = self.types.value(element)?;
-        let signature = if retain {
-            llvm_signature!(internal fn { format!("mal_buffer_retain_{number}") }(
-                "%mal_context": ptr,
-                "%mal_element": ptr,
-            ) -> void; attributes [])
-        } else {
-            llvm_signature!(internal fn { format!("mal_buffer_release_{number}") }(
-                "%mal_element": ptr,
-            ) -> void; attributes [])
-        };
-        self.begin_function(signature);
-        self.block("entry");
-        let value = self.register();
-        emit_instruction!(
-            self;
-            load { value.clone() },
-            { value_type.llvm },
-            "%mal_element",
-            { value_type.alignment },
-            []
-        );
-        if retain {
-            self.retain_value(element, &value)?;
-        } else {
-            self.release_value(element, &value)?;
-        }
-        emit_terminator!(self; return_void);
-        self.finish_function()
-    }
-
     fn buffer_element_pointer(
         &mut self,
         data: &str,
@@ -571,7 +410,7 @@ impl FunctionEmitter<'_> {
     }
 }
 
-fn emitted_buffer(representation: String, ty: Type) -> EmittedValue {
+pub(super) fn emitted_buffer(representation: String, ty: Type) -> EmittedValue {
     EmittedValue {
         ty,
         representation,

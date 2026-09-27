@@ -26,6 +26,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/aggregate` | product and sum construction, case dispatch, and payload extraction |
 | `body/value` | retain, transfer, and release of managed values, pattern destinations, and dead-slot cleanup |
 | `body/memory` | `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer snapshot conversion |
+| `body/memory/buffer` | Buffer operations, with host-memory transfer in `address` and managed-element callback emission in `managed` |
 | `body/scalar` | integer and floating-point widths, literals, and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |
 
