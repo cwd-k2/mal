@@ -157,6 +157,11 @@ impl Index {
             self.apply_declared_pattern_type(&binding.pattern, annotation);
         } else if let Some(inferred) = self.expression_display_type(&binding.value) {
             self.apply_declared_pattern_type(&binding.pattern, &inferred);
+        } else if let resolved::Pattern::Binding(name) = &binding.pattern.kind
+            && let Some(inferred) = self.inferred_expression_display_name(&binding.value)
+        {
+            self.value_types
+                .insert(self.canonical_value(name.id), inferred);
         }
         self.collect_resolved_expression_with_expected(&binding.value, binding.annotation.as_ref());
         self.collect_resolved_pattern(&binding.pattern, top_level, declaration_span);

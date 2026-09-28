@@ -1,0 +1,12 @@
+require "./operations.mal";
+
+equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;
+
+zero<Int32> :: Int32 := 0;
+
+same<A> :: (A, A) -> Bool := (left, right) -> equal(left, right);
+
+main :: Unit -> Int32 := () ->
+    if (same(21i32 + 21i32, 42i32) && same(zero, 0i32))
+        then 0
+        else 1;

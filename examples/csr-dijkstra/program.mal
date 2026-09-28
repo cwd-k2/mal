@@ -21,13 +21,13 @@ infinity :: Int64 := 2_305_843_009_213_693_951;
 // The sum separates another complete state from the independently typed result of an iteration.
 _loop<A, B> :: (A, A -> [A, B]) -> B :=
     (state, step) -> step(state)[
-        (nextState) -> _loop<A, B>(nextState, step),
+        (nextState) -> _loop(nextState, step),
         (result) -> result
     ];
 
 // Validation needs both a row and its coordinate because CSR offsets relate adjacent rows.
 _allIndexed<A> :: (Buffer<A>, (USize, A) -> Bool) -> Bool := (values, predicate) ->
-    _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
+    _loop(0usize, (index) -> [continue, break] => {
         when (index == #values) {
             break(true);
         };
@@ -55,7 +55,7 @@ validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
         && #offsets == (nodeCount + 1).usize
         && offsets.get(0usize) == 0
         && #neighbors == #costs
-        && offsets._allIndexed<Int64>((node, current) -> {
+        && offsets._allIndexed((node, current) -> {
             last := node + 1usize == #offsets;
             if (last)
             then current == (#neighbors).i64
@@ -64,15 +64,15 @@ validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
                 current >= 0 && current <= next && next <= (#neighbors).i64;
             };
         })
-        && neighbors._allIndexed<Int64>((_, neighbor) -> neighbor >= 0 && neighbor < nodeCount)
-        && costs._allIndexed<Int64>((_, cost) -> cost >= 0);
+        && neighbors._allIndexed((_, neighbor) -> neighbor >= 0 && neighbor < nodeCount)
+        && costs._allIndexed((_, cost) -> cost >= 0);
 };
 
 // The changing search candidate is loop state; the workspace and node bound stay invariant across
 // the scan, and both logical workspace columns alias one managed Buffer.
 selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
     (workspace, node, nodeCount, closest, closestDistance) ->
-        _loop<(Int64, Int64, Int64), Int64>(
+        _loop(
             (node, closest, closestDistance),
             (current, candidate, candidateDistance) -> [continue, break] => {
                 when (current == nodeCount) {
@@ -92,7 +92,7 @@ selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
 // the graph, writable workspace, and source distance stay invariant across transitions.
 relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit :=
     (graph, workspace, sourceDistance, edge, end) ->
-        _loop<(Int64, Int64), Unit>((edge, end), (current, terminal) -> [continue, break] => {
+        _loop((edge, end), (current, terminal) -> [continue, break] => {
             when (current == terminal) {
                 break();
             };
@@ -108,7 +108,7 @@ relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit 
 
 runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
     (graph, workspace, remaining) ->
-        _loop<Int64, Unit>(remaining, (remaining) -> [continue, break] => {
+        _loop(remaining, (remaining) -> [continue, break] => {
             when (remaining == 0) {
                 break();
             };

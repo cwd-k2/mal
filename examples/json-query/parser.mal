@@ -16,7 +16,7 @@ ParserState :: (Bytes, ParserFrames, UInt64, JsonStatistics);
 // configuration from the final ParseResult without giving either one a sentinel representation.
 _loop<A, B> :: (A, A -> [A, B]) -> B :=
     (state, step) -> step(state)[
-        (nextState) -> _loop<A, B>(nextState, step),
+        (nextState) -> _loop(nextState, step),
         (result) -> result
     ];
 
@@ -79,7 +79,7 @@ _completeValue :: ParserFrames -> ParserFrames := (frames) -> {
 // Every transition either consumes input, changes the active state, pops a completed container, or
 // returns a result, so malformed input cannot make an unchanged state loop forever.
 _parse :: ParserState -> ParseResult := (initial) ->
-    _loop<ParserState, ParseResult>(initial, (state) -> [continue, break] => {
+    _loop(initial, (state) -> [continue, break] => {
         (untrimmed, frames, frameDepth, stats) := state;
         source := untrimmed.skipWhitespace();
         frame := frames._readFrame();

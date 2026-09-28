@@ -5,7 +5,7 @@ _ScanProgress :: (Bytes, Symbol);
 
 _loop<A, B> :: (A, A -> [A, B]) -> B :=
     (state, step) -> step(state)[
-        (nextState) -> _loop<A, B>(nextState, step),
+        (nextState) -> _loop(nextState, step),
         (result) -> result
     ];
 
@@ -24,7 +24,7 @@ _isHexDigit :: UInt8 -> Bool := (byte) ->
         || (byte >= 'A' && byte <= 'F');
 
 skipWhitespace :: Bytes -> Bytes := (source) ->
-    _loop<Bytes, Bytes>(source, (remaining) -> [continue, break] => {
+    _loop(source, (remaining) -> [continue, break] => {
         when (remaining.byteCount() == 0usize) {
             break(remaining);
         };
@@ -41,7 +41,7 @@ scanLiteral :: (Bytes, Symbol) -> _ScanProgress := (source, expected) -> {
 };
 
 _hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
-    _loop<(Bytes, USize), Bool>(
+    _loop(
         (source, count),
         (remaining, count) -> [continue, break] => {
             when (count == 0usize) {
@@ -59,7 +59,7 @@ _hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
 
 // The input starts after the opening quote. This validates escapes without decoding the string.
 scanString :: Bytes -> _ScanProgress := (source) ->
-    _loop<Bytes, _ScanProgress>(source, (remaining) -> [continue, break] => {
+    _loop(source, (remaining) -> [continue, break] => {
         when (remaining.byteCount() == 0usize) {
             break(remaining, "unterminated JSON string");
         };
@@ -98,7 +98,7 @@ scanString :: Bytes -> _ScanProgress := (source) ->
     });
 
 _scanDigits :: Bytes -> Bytes := (source) ->
-    _loop<Bytes, Bytes>(source, (remaining) -> [continue, break] => {
+    _loop(source, (remaining) -> [continue, break] => {
         when (remaining.byteCount() == 0usize) {
             break(remaining);
         };

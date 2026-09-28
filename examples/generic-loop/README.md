@@ -21,6 +21,10 @@ unsigned underflow at the endpoint, and `repeat` carries an owned `Symbol`. Toge
 scalar, product, captured, managed, collection, and early-result paths without adding mutable
 bindings or a loop primitive.
 
+The calls omit type arguments because operands and callback signatures determine them. The
+`numbers` binding gives `make` its required expected `Buffer<UInt64>` result type; a `make` call with
+no expected buffer type would still need an explicit element type.
+
 `upto`, `downto`, and `foldBuffer` pass the accumulator before the current element or index, matching
 the order in their type signatures. Their implementations check the terminal endpoint before
 performing the final unsigned increment or decrement. Thus `upto` remains defined when `end` is the

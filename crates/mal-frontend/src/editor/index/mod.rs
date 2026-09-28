@@ -32,6 +32,7 @@ struct Index {
     declared_value_types:
         HashMap<resolved::ValueId, mal_syntax::ast::Node<resolved::TypeExpression>>,
     generic_value_types: HashMap<resolved::ValueId, GenericValueType>,
+    inferred_type_arguments: HashMap<Span, Vec<String>>,
     functions: HashSet<resolved::ValueId>,
     parameters: HashSet<resolved::ValueId>,
     result_binders: HashSet<resolved::ValueId>,
@@ -73,6 +74,7 @@ impl Index {
             generic_type_aliases: HashMap::new(),
             declared_value_types: HashMap::new(),
             generic_value_types: HashMap::new(),
+            inferred_type_arguments: HashMap::new(),
             functions: predefined::functions(),
             parameters: HashSet::new(),
             result_binders: HashSet::new(),
@@ -337,6 +339,65 @@ impl Index {
                 .or_else(|| self.expression_display_type(&else_branch.result)),
             _ => None,
         }
+    }
+
+    fn inferred_expression_display_name(
+        &self,
+        expression: &mal_syntax::ast::Node<resolved::Expression>,
+    ) -> Option<String> {
+        use resolved::Expression;
+        match &expression.kind {
+            Expression::Reference(reference) => {
+                self.instantiated_generic_type_name(reference.id, expression.span, false)
+            }
+            Expression::Parenthesized(inner) => self.inferred_expression_display_name(inner),
+            Expression::Call { callee, .. } => {
+                let Expression::Reference(reference) = &callee.kind else {
+                    return None;
+                };
+                self.instantiated_generic_type_name(reference.id, callee.span, true)
+            }
+            Expression::Block(block) => self.inferred_expression_display_name(&block.result),
+            Expression::ResultBlock { body, .. } => {
+                self.inferred_expression_display_name(&body.result)
+            }
+            Expression::If {
+                then_branch,
+                else_branch,
+                ..
+            } => self
+                .inferred_expression_display_name(&then_branch.result)
+                .or_else(|| self.inferred_expression_display_name(&else_branch.result)),
+            _ => None,
+        }
+    }
+
+    fn instantiated_generic_type_name(
+        &self,
+        id: resolved::ValueId,
+        span: Span,
+        call_result: bool,
+    ) -> Option<String> {
+        let signature = self.generic_value_types.get(&id)?;
+        let arguments = self.inferred_type_arguments.get(&span)?;
+        let substitutions = signature
+            .parameters
+            .iter()
+            .copied()
+            .zip(arguments.iter().cloned())
+            .collect();
+        let ty = if call_result {
+            let resolved::TypeExpression::Function { result, .. } = &signature.ty.kind else {
+                return None;
+            };
+            result.as_ref()
+        } else {
+            &signature.ty
+        };
+        Some(type_display::type_name_with_substitutions(
+            ty,
+            &substitutions,
+        ))
     }
 
     fn add_raw(

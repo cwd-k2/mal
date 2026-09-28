@@ -32,6 +32,7 @@ nominal proof.
 | `resizable-buffer` | automatic Buffer growth and mutation observed through aliases |
 | `buffer-handles` | Cell and View handles over a Buffer, with a runtime read-only flag |
 | `generic-loop` | iteration derived from a continue-or-break sum result |
+| `operation-family` | exact type-indexed function and value implementations |
 | `tail-recursion` | bounded-stack recursive control |
 | `print-and-closure` | ordered external effects and captured values |
 | `opaque-aggregate` | opaque handles inside product and sum ABI values |

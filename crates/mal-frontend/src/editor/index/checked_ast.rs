@@ -82,15 +82,26 @@ impl Index {
                     .entry(self.canonical_value(reference.id))
                     .or_insert(ty);
             }
-            ExpressionKind::GenericReference { reference, .. } => {
+            ExpressionKind::GenericReference {
+                reference,
+                arguments,
+            } => {
                 self.value_types
                     .entry(self.canonical_value(reference.id))
                     .or_insert(ty);
+                self.inferred_type_arguments.insert(
+                    expression.span,
+                    arguments.iter().map(crate::check::type_name).collect(),
+                );
             }
-            ExpressionKind::OperationReference { family, .. } => {
+            ExpressionKind::OperationReference { family, arguments } => {
                 self.value_types
                     .entry(self.canonical_value(family.id))
                     .or_insert(ty);
+                self.inferred_type_arguments.insert(
+                    expression.span,
+                    arguments.iter().map(crate::check::type_name).collect(),
+                );
             }
             ExpressionKind::Product(elements) => {
                 for element in elements {

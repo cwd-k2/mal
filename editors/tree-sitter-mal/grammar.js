@@ -76,8 +76,10 @@ module.exports = grammar({
       $.type_parameters,
       '::',
       field('type', $._type),
-      ':=',
-      field('value', $._expression),
+      optional(seq(
+        ':=',
+        field('value', $._expression),
+      )),
       ';',
     ),
 

@@ -1,0 +1,2 @@
+equal<A> :: (A, A) -> Bool;
+zero<A> :: A;

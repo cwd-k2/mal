@@ -59,26 +59,26 @@ write<A> :: (Cell<A>, A) -> Bool := (cell, value) -> {
 };
 
 poke<A> :: (View<A>, USize, A) -> Bool := (source, index, value) ->
-    at<A>(source, index)[() -> false, (cell) -> write<A>(cell, value)];
+    at(source, index)[() -> false, (cell) -> write(cell, value)];
 
 // Sequential traversal without an index.
 sumFrom :: (View<Int32>, Int32) -> Int32 := (source, total) ->
-    uncons<Int32>(source)[
+    uncons(source)[
         () -> total,
         (step) -> {
             (cell, rest) := step;
-            sumFrom(rest, total + read<Int32>(cell));
+            sumFrom(rest, total + read(cell));
         }
     ];
 
 // Divide and conquer over disjoint halves.
 sumHalves :: View<Int32> -> Int32 := (source) -> {
-    count := len<Int32>(source);
+    count := len(source);
     if (count == 0usize)
     then 0i32
     else if (count == 1usize)
-        then at<Int32>(source, 0usize)[() -> 0i32, (cell) -> read<Int32>(cell)]
-        else split<Int32>(source, count / 2usize)[
+        then at(source, 0usize)[() -> 0i32, (cell) -> read(cell)]
+        else split(source, count / 2usize)[
             () -> 0i32,
             (halves) -> {
                 (left, right) := halves;
@@ -94,11 +94,11 @@ main :: Unit -> Int32 := () -> {
     xs.new(3i32);
     xs.new(4i32);
 
-    writable := view<Int32>(xs);
-    readonly := freeze<Int32>(writable);
+    writable := view(xs);
+    readonly := freeze(writable);
 
-    poke<Int32>(writable, 0usize, 10i32);
-    denied := poke<Int32>(readonly, 1usize, 99i32);
+    poke(writable, 0usize, 10i32);
+    denied := poke(readonly, 1usize, 99i32);
 
     // A rejected write leaves the Buffer unchanged, so both traversals see [10, 2, 3, 4].
     if (denied)

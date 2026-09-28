@@ -7,14 +7,14 @@ PairRows :: Buffer<PairRow>;
 // early completion distinct from the next cursor instead of reserving a sentinel index.
 _loop<A, B> :: (A, A -> [A, B]) -> B :=
     (state, step) -> step(state)[
-        (nextState) -> _loop<A, B>(nextState, step),
+        (nextState) -> _loop(nextState, step),
         (result) -> result
     ];
 
 // Existential traversal stops at the first matching row. Its empty result is false because
 // there is no witness.
 _anyBuffer<A> :: (Buffer<A>, A -> Bool) -> Bool := (values, predicate) ->
-    _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
+    _loop(0usize, (index) -> [continue, break] => {
         when (index == #values) {
             break(false);
         };
@@ -28,7 +28,7 @@ _anyBuffer<A> :: (Buffer<A>, A -> Bool) -> Bool := (values, predicate) ->
 // Universal traversal stops at the first counterexample. Its empty result is true because no row
 // violates the predicate.
 _allBuffer<A> :: (Buffer<A>, A -> Bool) -> Bool := (values, predicate) ->
-    _loop<USize, Bool>(0usize, (index) -> [continue, break] => {
+    _loop(0usize, (index) -> [continue, break] => {
         when (index == #values) {
             break(true);
         };
@@ -42,7 +42,7 @@ _allBuffer<A> :: (Buffer<A>, A -> Bool) -> Bool := (values, predicate) ->
 // A fold has no early domain result, so the loop state pairs the shared cursor with the evolving
 // accumulator and returns it only after every row has contributed.
 _foldBuffer<A, B> :: (Buffer<A>, B, (B, A) -> B) -> B := (values, initial, combine) ->
-    _loop<(USize, B), B>((0usize, initial), (index, result) -> [continue, break] => {
+    _loop((0usize, initial), (index, result) -> [continue, break] => {
         when (index == #values) {
             break(result);
         };
@@ -72,19 +72,19 @@ buildInvalidIntervalRows :: Unit -> PairRows := () -> {
 // hasDirectedEdge requires nothing beyond PairRow's shape, but only some pairs are half-open
 // intervals, so validIntervals exists to tell those apart from ones that merely look like one.
 hasDirectedEdge :: (PairRows, USize, USize) -> Bool := (rows, source, target) ->
-    rows._anyBuffer<PairRow>((row) -> {
+    rows._anyBuffer((row) -> {
         (rowSource, rowTarget) := row;
         rowSource == source && rowTarget == target;
     });
 
 validIntervals :: PairRows -> Bool := (rows) ->
-    rows._allBuffer<PairRow>((row) -> {
+    rows._allBuffer((row) -> {
         (start, end) := row;
         start <= end;
     });
 
 coverageAt :: (PairRows, USize) -> USize := (rows, coordinate) ->
-    rows._foldBuffer<PairRow, USize>(0usize, (count, row) -> {
+    rows._foldBuffer(0usize, (count, row) -> {
         (start, end) := row;
         included := start <= coordinate && coordinate < end;
         if (included)

@@ -38,6 +38,55 @@ pub(super) fn type_name(ty: &Node<TypeExpression>) -> String {
     }
 }
 
+pub(super) fn type_name_with_substitutions(
+    ty: &Node<TypeExpression>,
+    substitutions: &HashMap<TypeId, String>,
+) -> String {
+    match &ty.kind {
+        TypeExpression::Named(reference) => substitutions
+            .get(&reference.id)
+            .cloned()
+            .unwrap_or_else(|| reference.name.text.clone()),
+        TypeExpression::Application {
+            constructor,
+            arguments,
+        } => format!(
+            "{}<{}>",
+            constructor.name.text,
+            arguments
+                .iter()
+                .map(|argument| type_name_with_substitutions(argument, substitutions))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        TypeExpression::Unit => "Unit".into(),
+        TypeExpression::Parenthesized(inner) => {
+            format!("({})", type_name_with_substitutions(inner, substitutions))
+        }
+        TypeExpression::Product(elements) => format!(
+            "({})",
+            elements
+                .iter()
+                .map(|element| type_name_with_substitutions(element, substitutions))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        TypeExpression::Sum(members) => format!(
+            "[{}]",
+            members
+                .iter()
+                .map(|member| type_name_with_substitutions(member, substitutions))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        TypeExpression::Function { parameter, result } => format!(
+            "{} -> {}",
+            type_name_with_substitutions(parameter, substitutions),
+            type_name_with_substitutions(result, substitutions)
+        ),
+    }
+}
+
 pub(super) fn substitute(
     ty: &Node<TypeExpression>,
     substitutions: &HashMap<TypeId, Node<TypeExpression>>,

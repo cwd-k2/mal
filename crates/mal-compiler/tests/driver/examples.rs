@@ -1,6 +1,33 @@
 use super::*;
 
 #[test]
+fn exact_operation_family_example_builds_and_runs() {
+    let directory = NativeFixture::new("operation-family");
+    let program = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("compiler has a repository parent")
+        .join("examples/operation-family/program.mal");
+    let executable = directory.join("example");
+    let output = directory.malc([
+        OsStr::new("build"),
+        program.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let output = directory.run(executable);
+    assert!(output.status.success(), "{}", output.status);
+    assert!(output.stdout.is_empty());
+    assert!(output.stderr.is_empty());
+}
+
+#[test]
 fn generic_loop_example_runs_in_baseline_and_production_profiles() {
     let directory = NativeFixture::new("generic-loop");
     let program = Path::new(env!("CARGO_MANIFEST_DIR"))
