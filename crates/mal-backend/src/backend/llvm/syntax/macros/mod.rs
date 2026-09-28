@@ -1,3 +1,8 @@
+//! Entry macros for the LLVM syntax DSL documented in `docs/implementation/backend-syntax-construction.md`.
+//!
+//! Public entries normalize `#{}` interpolation before delegating to grammar-specific helpers;
+//! normalized helpers are implementation details shared by nested productions.
+
 mod constant;
 mod declaration;
 mod instruction;

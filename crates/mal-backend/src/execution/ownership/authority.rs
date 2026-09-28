@@ -10,6 +10,12 @@ use super::liveness::{
 use super::parameter::ParameterBorrows;
 use crate::execution::EnvironmentAliasPlan;
 
+/// Derives the managed values whose lifetime authorizes each borrowed binding.
+///
+/// Collection first records parameter, alias, case-payload, and bounded-call candidates. It then
+/// traces discarded pure aggregates to their managed leaves, resolves deferred aliases to
+/// canonical lenders, and finally removes authorities invalidated by tail environments or
+/// unbounded lifetimes. Later phases rely on this order rather than repairing partial authorities.
 pub(super) fn collect(
     control: &Program,
     parameters: &ParameterBorrows,
@@ -151,6 +157,10 @@ fn collect_bounded_arguments(
     }
 }
 
+/// Traces a discarded alias, product, sum, or join input back to managed source bindings.
+///
+/// Effectful and otherwise unknown constructions deliberately stop the trace. Join inputs collect
+/// every incoming jump source so no path lends authority that another path cannot provide.
 fn trace_pure_construction(
     control: &Program,
     discarded: HashSet<ValueId>,

@@ -130,6 +130,10 @@ impl<'a> Marshalling<'a> {
         )
     }
 
+    /// Reads the LLVM bridge's raw byte carrier into the public C carrier for `value`.
+    ///
+    /// `base` and `offset` address the LLVM-produced result layout; recursive product offsets are
+    /// therefore plan offsets, not C field offsets.
     fn read(
         &mut self,
         value: &plan::Value<'_>,
@@ -186,6 +190,8 @@ impl<'a> Marshalling<'a> {
         }
     }
 
+    /// Builds or reuses the C helper that validates a raw LLVM sum tag and constructs its public
+    /// tagged carrier. Invalid tags trap instead of selecting an arbitrary union member.
     fn read_sum(
         &mut self,
         ty: &Type,
@@ -271,6 +277,10 @@ impl<'a> Marshalling<'a> {
         self.write_at(plan, identifier("mal_result"), value, offset, context)
     }
 
+    /// Writes a public C carrier into the raw byte layout consumed by LLVM.
+    ///
+    /// This is the reverse direction of `read`; `base` always denotes bridge storage rather than
+    /// the address of the C aggregate passed as `value`.
     fn write_at(
         &mut self,
         plan: &plan::Value<'_>,
@@ -316,6 +326,7 @@ impl<'a> Marshalling<'a> {
         }
     }
 
+    /// Builds or reuses one writer per shared sum type and traps on an invalid public tag.
     fn write_sum(
         &mut self,
         ty: &Type,

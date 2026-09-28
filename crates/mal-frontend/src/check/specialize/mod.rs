@@ -155,6 +155,11 @@ impl Specializer {
         Ok(())
     }
 
+    /// Returns the shared monomorphic binding for an exact generic argument list.
+    ///
+    /// Fingerprints only select a collision bucket; equality of the complete argument list
+    /// decides reuse. A new instance is registered before its body is expanded from `pending`, so
+    /// recursive references resolve to the same identity instead of requesting another instance.
     fn request(
         &mut self,
         reference: &ValueReference,

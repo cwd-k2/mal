@@ -11,3 +11,9 @@ syntax from types or names.
 | `expression/forms` | products, both application directions, receiver-first application, numeric conversion, and zero-continuation application |
 | `expression/lambda` | parameters and lambda bodies |
 | `expression/control` | `if`, `when`, direct blocks, and direct result blocks |
+
+The language grammar is owned by [`docs/spec`](../../../../docs/spec/). The parser is the compiler's accepting
+implementation; editor recovery grammar lives in [`editors/tree-sitter-mal`](../../../../editors/tree-sitter-mal/),
+and formatting lives in [`crates/mal-fmt`](../../../mal-fmt/). A syntax change normally updates the relevant spec,
+parser tests, tree-sitter grammar and corpus, formatter tests, and the verification commands in
+[`docs/development/testing.md`](../../../../docs/development/testing.md).

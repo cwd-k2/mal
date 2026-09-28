@@ -85,6 +85,12 @@ fn find_candidate(program: &Program) -> Option<Candidate> {
 }
 
 #[allow(clippy::too_many_arguments)]
+/// Proves that replacing one callback parameter leaf with its captures is semantics-preserving.
+///
+/// Every call of the host must supply either the parameter itself or a closure of one target and
+/// one capture shape. The callback and all such creators must have no uses outside the traced
+/// forwarding and direct-call sites, and self closures are excluded because rewriting them would
+/// change how their environment is obtained.
 fn admit_candidate(
     program: &Program,
     definitions: &HashMap<ValueId, Definition>,

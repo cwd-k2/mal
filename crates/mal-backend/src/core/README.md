@@ -19,3 +19,7 @@ Desugars a specialized checked program into the core language: explicit evaluati
 | `completion/result_block` | maps direct result binders to join targets and connects block body and continuation |
 | `completion/value` | operator values that contain control paths, rebuilt as core primitives and `Bool` elimination |
 | `completion/presence` | classifies checked subtrees that need lexical continuations |
+
+Core separates direct `Buffer` storage operations into `BufferOperation`. Snapshot conversion and copies across
+the C host-memory boundary remain `MemoryPrimitive`; they have different representation and ownership contracts
+even when the checked AST initially classifies both families as memory primitives.

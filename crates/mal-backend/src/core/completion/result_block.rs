@@ -4,6 +4,10 @@ use mal_frontend::check::ast as checked;
 use super::{Continuation, Lowerer};
 
 impl Lowerer {
+    /// Lowers a result block with a dynamically scoped mapping from its source binder to a join.
+    ///
+    /// The join is registered before the block is lowered so transfers within the block can target
+    /// it. Removing the mapping afterwards prevents the source identity from leaking into siblings.
     pub(super) fn lower_result_block_with(
         &mut self,
         source_target: mal_frontend::resolve::ast::ValueId,

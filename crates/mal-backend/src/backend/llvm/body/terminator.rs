@@ -19,7 +19,7 @@ impl FunctionEmitter<'_> {
                 Some(binding.pattern.ty()),
                 self.optimizations.symbol_concat_mode(site, binding_index),
             )?;
-            self.store_binding_pattern(site, binding_index, &binding.pattern, value.as_ref())?;
+            self.store_binding_pattern(site, binding_index, &binding.pattern, Some(&value))?;
             let mut drops = self
                 .ownership
                 .drops_after_binding(site, binding_index)

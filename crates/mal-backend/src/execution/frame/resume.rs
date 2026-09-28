@@ -53,6 +53,11 @@ impl Plan {
         Self { pairs, compatible }
     }
 
+    /// Classifies an exit against a suspended frame in the same control machine.
+    ///
+    /// `None` means the pair belongs to different machines. `Unreachable` means the machine is
+    /// shared but the result and resume-input types differ; `Resume` means both machine and type
+    /// are compatible.
     pub(super) fn disposition(&self, exit: StateId, frame: StateId) -> Option<FrameResume> {
         self.pairs.contains(&(exit, frame)).then(|| {
             if self.compatible.contains(&(exit, frame)) {
@@ -75,6 +80,8 @@ impl Plan {
     }
 }
 
+/// Common-control regions form one machine across function boundaries; local regions are confined
+/// to the function that owns the frame.
 fn same_machine(
     exit: StateId,
     frame: StateId,

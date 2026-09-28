@@ -10,6 +10,12 @@ pub(super) fn terminator_argument(terminator: &Terminator) -> Option<&Atom> {
     }
 }
 
+/// Enumerates operands with their stable identity and whether they may become an independent owner
+/// successor of the result.
+///
+/// Primitive, host, memory, and `Buffer` operations use their operands only as borrows here;
+/// runtime operations retain anything that must outlive the call. Aggregate construction can pass
+/// ownership into the result and therefore sets the final flag.
 pub(super) fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &Atom, bool)> {
     match operation {
         Operation::Atom(atom) => vec![(BindingOperand::Atom, atom, true)],

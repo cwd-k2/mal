@@ -143,15 +143,42 @@ emit_terminator! {
 |---|---|---|
 | type、parameter、signature、attribute | `llvm_type!`、`llvm_parameter!`、`llvm_signature!` | declarationとdefinitionで共有 |
 | function declaration | `llvm_declaration!` | `Module::declare`へ渡す |
-| typed value、constant | `llvm_value!`、`llvm_constant!`、`llvm_typed_constant!` | instruction operandまたはglobal plan |
+| typed value、constant | `typed(...)`を受ける親macro、`llvm_constant!`、`llvm_typed_constant!` | instruction operandまたはglobal plan。typed value単体のproduction用entryは持たない |
 | instruction、terminator、switch case | `llvm_instruction!`、`llvm_terminator!` | function bodyでは`emit_instruction!`、`emit_terminator!`を介して`FunctionBuilder`へ渡す |
 | byte-owner global | `llvm_global!` | `Module::add_global`へ渡す |
-| metadata nodeとoperand | `llvm_metadata!`、`llvm_metadata_operand!` | `Module::add_metadata`へ渡す |
+| metadata nodeとoperand | `llvm_metadata!`とその`operands` field | `Module::add_metadata`へ渡す。operand単体のentryはtest専用 |
 | basic block、function definition | なし | block/terminator invariantを`FunctionBuilder`が所有 |
 | moduleとitem ordering | なし | symbol uniquenessとsection順を`Module`が所有 |
 
-LLVM macroが返す`Option`はtyped constructorのadmission結果を保存する。macroがvalidationを複製したり、失敗を
-文字列へ変換して隠したりしてはならない。
+## 返り値と補間型
+
+| entry | 返り値 | `#{}` / `...#{}` |
+|---|---|---|
+| C syntax macro | 対応するtyped C node | fieldが要求するscalarまたはnode / 同じ子nodeの列 |
+| LLVM type、parameter、signature、declaration、metadata | 対応するtyped LLVM node | fieldが要求する検証済みnode / 同じ子nodeの列 |
+| LLVM constant、typed constant、instruction、terminator、global | `Option<typed LLVM node>` | fieldが要求する検証済みnode / 同じ子nodeの列 |
+
+LLVM instructionの`arguments`へspliceする列は`TypedValue`であり、Rust側の`(Type, value)`列は通常
+`TypedValue::from_pairs`で一度だけ検証する。補間式は通常のRustのmove規則に従い、一度だけ評価される。splice後の順序は
+iteratorの順序と一致する。
+
+## 失敗の境界
+
+LLVMの`Option`はtyped constructorのadmission結果を保存する。不正なoperand、alignment、結果を束縛した`void` call、空の
+index列、不正な`phi`などは`None`になる。function bodyの`emit_instruction!`と`emit_terminator!`はその失敗とbuilderの拒否を
+`FunctionEmitter::emission_failed`へ集約し、最終的なbody生成を失敗させる。`FunctionBuilder`は未開始または重複したblock、
+terminator後のinstruction、重複terminator、未終端blockを拒否し、`Module`は重複symbolを拒否する。
+
+C側の不正なidentifier、numeric token、include pathはcompiler内部のinvariant違反としてpanicする。user programの診断を
+このDSLへ委ねてはならず、macroがvalidationを複製したり失敗を文字列へ変換して隠したりしてはならない。
+
+## 構文を追加する手順
+
+1. typed enumまたはconstructor、renderer、単体testを追加する。
+2. normalized grammarを追加し、真に独立したrootである場合だけentry macroを公開する。
+3. [内部DSL reference](backend-syntax-reference.md)を更新する。
+4. 静的要素、`#{}`、`...#{}`を組み合わせたcomposition testを追加する。
+5. 順序や一意性などのstateを持つ処理はmacroでなく既存のroot builderへ置く。
 
 ## 分割とoptimization
 

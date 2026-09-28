@@ -1,3 +1,9 @@
+//! Token normalization shared by the C and LLVM quasiquote DSLs.
+//!
+//! Each `#{ rust_tokens }` group becomes one internal `(@rust ...)` token tree while surrounding
+//! delimiter structure is preserved for the target grammar. Evaluation happens only in that target
+//! grammar, so normalization neither duplicates nor reorders interpolation expressions.
+
 macro_rules! normalize_syntax_interpolation {
     ([$($callback:tt)+]; $($input:tt)*) => {
         $crate::backend::normalize_syntax_interpolation!(

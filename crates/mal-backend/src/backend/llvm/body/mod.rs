@@ -8,6 +8,8 @@ use crate::control::ast::{Operation, Program, StateId, Terminator};
 use crate::execution::{ControlCallMode, ControlRegionId, ParameterDestination};
 use mal_frontend::check::ast::Type;
 
+// These are the only function-body registration boundary: syntax admission and builder rejection
+// both set `emission_failed`, which makes the enclosing function emission return `None`.
 macro_rules! emit_instruction {
     ($emitter:expr; $($instruction:tt)*) => {
         $emitter.structured_instruction(

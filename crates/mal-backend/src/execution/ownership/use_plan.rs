@@ -38,6 +38,11 @@ pub(super) struct UseInputs<'a> {
     pub(super) borrows: &'a BorrowPlan,
 }
 
+/// Assigns the final borrow, share, or consume effect to every managed operand use.
+///
+/// Effects combine destination ownership, liveness, call mode, frame handoff, and parameter-borrow
+/// facts. Owner successors are examined in reverse emission order: the last successor of a dying
+/// local consumes it, while earlier successors must share it.
 pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
     let UseInputs {
         control,

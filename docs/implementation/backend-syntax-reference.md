@@ -13,7 +13,7 @@ entryで使えることを意味しない。動的なnodeは`#{}`、動的な列
 | variable | `c_variable!` | `name: type`、`array name: type; size length` |
 | parameter | `c_parameter!` | `name: type`、`_: type`、`#[maybe_unused] name: type` |
 | parameter列 | `c_parameters!` | `[parameter, ...]`相当のcomma区切り列 |
-| signature | `c_signature!` | `[attributes] fn name(parameters) -> type` |
+| signature | `c_signature!` | `[attributes] fn name(parameters) -> type`。attributeは`#[static]`、`#[inline]`、`#[noreturn]`の実装済み組合せ |
 | aggregate field | `c_aggregate_field!` | `name: type`、function pointer、nested `struct` / `union` |
 | aggregate field列 | `c_aggregate_fields!` | comma区切りfield列 |
 | aggregate | `c_aggregate!` | `struct tag { fields }`、`type alias = struct [tag] { fields }` |
@@ -24,7 +24,7 @@ entryで使えることを意味しない。動的なnodeは`#{}`、動的な列
 | block | `c_block!` | statement列 |
 | switch case | `c_switch_case!` | `value => { statements }`、`_ => { statements }` |
 | function definition | `c_function!` | static function構文、または下記の合成label |
-| preprocessor directive | `c_directive!` | `include`、`define`、`if`、`ifndef`、`else`、`endif`、`define_items` |
+| preprocessor directive | `c_directive!` | `include`、`define`、`if`、`ifndef`、`else`、`endif`、`define_items`、`define_functions` |
 | macro invocation | `c_macro_invocation!` | `name([arguments])` |
 
 `c_expr!`のconstructorは次のとおりである。
@@ -55,13 +55,11 @@ Cで名前付きfieldを取る形式は次のとおりである。
 | function attribute列 | `llvm_function_attributes!` | `nofree`、`noinline`、`nounwind`、`willreturn`、`memory_none`、`memory_argmem_read` |
 | signature | `llvm_signature!` | `[#[linkage(internal)]] [#[attributes(...)]] fn name(parameters) -> type` |
 | function declaration | `llvm_declaration!` | `[#[attributes(...)]] fn name(parameters) -> type;` |
-| typed value | `llvm_value!` | `typed(type, value)` |
 | constant | `llvm_constant!` | `atom`、`structure`、`get_element_ptr`、`unary`、`binary`、`cast`、`zero` |
 | typed constant | `llvm_typed_constant!` | `typed(type, constant)` |
 | instruction | `llvm_instruction!` | 下記form |
 | terminator | `llvm_terminator!` | `branch`、`return`、`switch`、`unreachable` |
 | byte-owner global | `llvm_global!` | `byte_owner { ... }` |
-| metadata operand | `llvm_metadata_operand!` | `node`、`text`、`integer` |
 | metadata | `llvm_metadata!` | `{ id: ..., distinct: ..., operands: [...] }` |
 
 function bodyでは`llvm_instruction!` / `llvm_terminator!`を直接登録せず、同じgrammarを受け取る
@@ -93,6 +91,7 @@ LLVMの名前付き形式とfield labelは次のとおりである。
 | `byte_owner` | `name`、`bytes`、`alignment` |
 | metadata | `id`、`distinct`、`operands` |
 
-`callee`は`direct(value)`または`indirect(value)`、LLVM operandは`typed(type, value)`で表す。`arguments`と
+`callee`は`direct(value)`または`indirect(value)`、LLVM operandは親macro内の`typed(type, value)`で表す。
+`typed`およびmetadata operandの`node`、`text`、`integer`は独立したproduction用entry macroではない。`arguments`と
 `operands`は静的要素、`#{}`、`...#{}`を混在でき、`cases`は静的armと`...#{}`を混在できる。`indices`と
 `incoming`のように固定長arrayまたは構築済み列を受けるfieldでは、列全体を`#{}`で渡す。

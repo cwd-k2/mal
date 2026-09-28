@@ -10,6 +10,11 @@ use super::{EmittedValue, FunctionEmitter};
 use crate::execution::ownership::BindingOperand;
 
 impl FunctionEmitter<'_> {
+    /// Emits one control binding operation and returns its materialized result.
+    ///
+    /// `None` rejects an inconsistent execution plan, unsupported target representation, ownership
+    /// mismatch, or nested syntax emission failure. Even `Unit` has an `EmittedValue`, so successful
+    /// operations never need a second sentinel for an absent result.
     pub(super) fn emit_operation(
         &mut self,
         site: crate::control::ast::StateId,
@@ -17,7 +22,7 @@ impl FunctionEmitter<'_> {
         operation: &Operation,
         result_type: Option<&Type>,
         symbol_concat: super::super::optimization::SymbolConcatMode,
-    ) -> Option<Option<EmittedValue>> {
+    ) -> Option<EmittedValue> {
         match operation {
             Operation::Atom(atom) => self
                 .prepare_atom_for_use(
@@ -31,7 +36,7 @@ impl FunctionEmitter<'_> {
                 )
                 .and_then(|prepared| {
                     self.commit_consumes(&prepared)?;
-                    Some(Some(prepared.value))
+                    Some(prepared.value)
                 }),
             Operation::MakeClosure { function, captures } => {
                 let result_type = result_type?.clone();
@@ -124,11 +129,11 @@ impl FunctionEmitter<'_> {
                     };
                     closure
                 };
-                Some(Some(EmittedValue {
+                Some(EmittedValue {
                     ty: result_type,
                     representation: closure,
                     owned: true,
-                }))
+                })
             }
             Operation::PrimitiveUnary { operator, operand } => {
                 self.require_binding_borrow(site, binding, BindingOperand::UnaryOperand, operand)?;
@@ -169,11 +174,11 @@ impl FunctionEmitter<'_> {
                     }
                     UnaryPrimitive::BitwiseNot => return None,
                 }
-                Some(Some(EmittedValue {
+                Some(EmittedValue {
                     ty: operand.ty,
                     representation: register,
                     owned: false,
-                }))
+                })
             }
             Operation::PrimitiveBinary {
                 operator,
@@ -186,9 +191,7 @@ impl FunctionEmitter<'_> {
                 {
                     self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
                     self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
-                    return self
-                        .emit_symbol_concatenate(left, right, symbol_concat)
-                        .map(Some);
+                    return self.emit_symbol_concatenate(left, right, symbol_concat);
                 }
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
@@ -222,11 +225,11 @@ impl FunctionEmitter<'_> {
                             indices: [typed(#{ self.types.index_llvm_type() }, #{ offset })],
                         };
                     };
-                    return Some(Some(EmittedValue {
+                    return Some(EmittedValue {
                         ty: Type::Address,
                         representation: register,
                         owned: false,
-                    }));
+                    });
                 }
                 let quantity_product = *operator == crate::core::ast::BinaryPrimitive::Multiply
                     && matches!(
@@ -302,11 +305,11 @@ impl FunctionEmitter<'_> {
                             };
                         };
                     }
-                    return Some(Some(EmittedValue {
+                    return Some(EmittedValue {
                         ty: result_type?.clone(),
                         representation: register,
                         owned: false,
-                    }));
+                    });
                 }
                 let scalar = scalar_type(&left.ty, self.types.index_size())?;
                 let instruction = arithmetic_instruction(*operator, scalar)?;
@@ -320,11 +323,11 @@ impl FunctionEmitter<'_> {
                         right: #{ right.representation },
                     };
                 };
-                Some(Some(EmittedValue {
+                Some(EmittedValue {
                     ty: result_type.cloned().unwrap_or(left.ty),
                     representation: register,
                     owned: false,
-                }))
+                })
             }
             Operation::NumericConversion { operand } => {
                 self.require_binding_borrow(
@@ -338,11 +341,11 @@ impl FunctionEmitter<'_> {
                 let result_type = result_type?.clone();
                 let target = scalar_type(&result_type, self.types.index_size())?;
                 if source.floating == target.floating && source.bits == target.bits {
-                    return Some(Some(EmittedValue {
+                    return Some(EmittedValue {
                         ty: result_type,
                         representation: operand.representation,
                         owned: false,
-                    }));
+                    });
                 }
                 let instruction = if source.floating && target.floating {
                     if source.bits > target.bits {
@@ -378,19 +381,19 @@ impl FunctionEmitter<'_> {
                         to: #{ target.llvm_type() },
                     };
                 };
-                Some(Some(EmittedValue {
+                Some(EmittedValue {
                     ty: result_type,
                     representation: register,
                     owned: false,
-                }))
+                })
             }
             Operation::SymbolLength { value } => {
                 self.require_binding_borrow(site, binding, BindingOperand::SymbolLength, value)?;
-                self.emit_symbol_length(value).map(Some)
+                self.emit_symbol_length(value)
             }
             Operation::SymbolAt { argument } => {
                 self.require_binding_borrow(site, binding, BindingOperand::SymbolAt, argument)?;
-                self.emit_symbol_at(argument).map(Some)
+                self.emit_symbol_at(argument)
             }
             Operation::ExternalCall { id, argument } => {
                 self.require_binding_borrow(
@@ -400,7 +403,6 @@ impl FunctionEmitter<'_> {
                     argument,
                 )?;
                 self.emit_external_call(*id, argument, result_type?)
-                    .map(Some)
             }
             Operation::Memory {
                 primitive,
@@ -427,7 +429,7 @@ impl FunctionEmitter<'_> {
                 };
                 let result = self.emit_memory(*primitive, &prepared.value, result_type?)?;
                 self.commit_consumes(&prepared)?;
-                Some(Some(result))
+                Some(result)
             }
             Operation::Buffer {
                 operation,
@@ -448,7 +450,6 @@ impl FunctionEmitter<'_> {
                     })
                     .collect::<Option<Vec<_>>>()?;
                 self.emit_buffer(*operation, element, &operands, result_type?)
-                    .map(Some)
             }
             Operation::Product(elements) => {
                 let effects = elements
@@ -465,7 +466,7 @@ impl FunctionEmitter<'_> {
                     .collect::<Option<Vec<_>>>()?;
                 let prepared = self.emit_product(elements, result_type?, &effects)?;
                 self.commit_consumes(&prepared)?;
-                Some(Some(prepared.value))
+                Some(prepared.value)
             }
             Operation::SumInjection { index, value } => {
                 let effect = self.ownership.binding_operand_use(
@@ -476,7 +477,7 @@ impl FunctionEmitter<'_> {
                 )?;
                 let prepared = self.emit_sum(*index, value, result_type?, effect)?;
                 self.commit_consumes(&prepared)?;
-                Some(Some(prepared.value))
+                Some(prepared.value)
             }
         }
     }

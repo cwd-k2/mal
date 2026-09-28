@@ -12,6 +12,8 @@ enum Availability {
 }
 
 impl Availability {
+    /// Meets a must-property: reuse survives a merge only when every reachable path carries the
+    /// same retired frame.
     fn meet(self, incoming: Self) -> Self {
         match (self, incoming) {
             (Self::Unreachable, value) | (value, Self::Unreachable) => value,
@@ -26,6 +28,11 @@ pub(super) struct Plan {
 }
 
 impl Plan {
+    /// Finds frame allocations that can reuse storage retired on every path to their site.
+    ///
+    /// Function entries start unavailable, each resume point introduces its retired call frame,
+    /// and another frame allocation is a propagation barrier. Merging ordinary entry flow or two
+    /// distinct retired origins therefore makes reuse unavailable.
     pub(super) fn new(program: &Program, frames: &HashMap<StateId, ControlFrame>) -> Self {
         let mut availability = vec![Availability::Unreachable; program.states.len()];
         let mut pending = VecDeque::new();

@@ -14,6 +14,10 @@ pub(super) struct FieldLayout {
 }
 
 impl FrameLayout {
+    /// Computes the physical arena layout while retaining each field's logical frame index.
+    ///
+    /// Pass-through fields have no physical slot. Tagged frames reserve a leading tag and a footer
+    /// index; final universal alignment keeps the leading tag aligned when frames are consecutive.
     pub(in crate::backend::llvm::body) fn new(
         frame: &crate::execution::ControlFrame,
         types: Types,

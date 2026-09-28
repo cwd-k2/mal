@@ -73,6 +73,9 @@ impl Lowerer {
         self.lower_preceding(&abrupt.preceding, terminal, result_type, abrupt.span)
     }
 
+    /// Wraps preceding values around an abrupt terminal without reversing source evaluation order.
+    ///
+    /// Iteration is reversed because each newly lowered value becomes the outer `let`.
     fn lower_preceding(
         &mut self,
         preceding: &[checked::Expression],

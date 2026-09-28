@@ -89,6 +89,10 @@ pub(super) fn origin(atom: &Atom, aliases: &HashMap<ValueId, ValueId>) -> Option
     Some(aliases.get(&binding).copied().unwrap_or(binding))
 }
 
+/// Resolves a product-leaf path while walking backwards through SSA aliases and constructors.
+///
+/// The returned atom identities cover every use along that trace. Admission treats precisely
+/// those identities as allowed forwarding uses of the callback.
 pub(super) fn resolve_path(
     root: &Atom,
     path: &[usize],

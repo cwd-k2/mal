@@ -26,6 +26,14 @@ source
 
 右列は各stageを所有するcrateである。crateの分け方は[compilerの責務境界](responsibilities.md#crate構成)を正とする。
 
+## expression変更の導線
+
+source expressionを追加または変更するときは、意味を初めて決めるstageに専用formを導入し、その後のstageでは既に決まった
+意味だけを変換する。典型的な導線は`mal-syntax`のASTとparser、`mal-frontend`のresolveとcheck、`mal-backend`のcore、ANF、
+closure、control、execution ownership、LLVM loweringである。すべての変更が全stageに専用variantを必要とするわけではないが、
+途中で通常callやproductへ落として後段で名前や形から意味を推測してはならない。各stage内の担当fileはstage directoryの
+`README.md`を入口とする。
+
 `malc` は Rust で実装する。compiler 自身を mal で書く必要はなく、mal の minimalism を実装言語へそのまま要求しない。
 
 stageごとのownershipは[compilerの責務境界](responsibilities.md)に置く。実装の変更履歴はGitを正とし、

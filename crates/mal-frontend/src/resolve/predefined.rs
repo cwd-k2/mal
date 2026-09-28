@@ -17,6 +17,8 @@ pub struct PredefinedValue {
     pub callable: bool,
 }
 
+// Each row defines the reserved identity and the metadata consumed by resolution and editor
+// features. IDs must remain unique and dense; source identities begin after the greatest one.
 macro_rules! predefined_types {
     ($( $constant:ident = $id:literal => ($name:literal, $detail:literal, $documentation:literal) ),+ $(,)?) => {
         $(pub const $constant: TypeId = TypeId($id);)+
@@ -52,6 +54,8 @@ predefined_types!(
     BUFFER_TYPE = 16 => ("Buffer", "Buffer<T>", "A mutable mal-owned sequence. Copies share the same buffer, and storage is reclaimed after its references disappear."),
 );
 
+// Keep the constant and metadata table in one declaration so name lookup, callable classification,
+// and editor documentation cannot acquire different identities for the same predefined value.
 macro_rules! predefined_values {
     ($( $constant:ident = $id:literal => ($name:literal, $detail:expr, $documentation:literal, $callable:literal) ),+ $(,)?) => {
         $(pub const $constant: ValueId = ValueId($id);)+

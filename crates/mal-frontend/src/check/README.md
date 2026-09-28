@@ -22,3 +22,8 @@ with a `Value` or `Abrupt` completion for every expression.
 | `specialize` | selection of bindings reachable from the entry, sharing of monomorphic instances per concrete type argument, and a fresh identity for every binder in each instance so that later stages can key facts by `ValueId` program-wide |
 | `specialization_identity` | the first value and lambda identities that no checked binder uses, from which specialization and core lowering allocate |
 | `type_fingerprint` | memoized structural hashes of canonical types, the keys that specialization and the backend closure flow group types by |
+
+Predefined memory and `Buffer` operations do not follow the ordinary function-call path. `resolve/predefined.rs`
+owns their names and stable identities; `expression/application::check_call` dispatches those identities to
+`memory/intrinsic.rs` and `memory/access.rs`. Additions must keep the resolver table, this dispatch, and the owned
+memory checker in sync.

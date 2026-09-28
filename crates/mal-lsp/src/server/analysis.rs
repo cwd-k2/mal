@@ -60,6 +60,12 @@ impl Server {
         }
     }
 
+    /// Analyzes the source graph while preferring diagnostics in the open root document.
+    ///
+    /// If graph loading fails, single-file analysis gets the first chance to report a root syntax
+    /// or type error. Only a valid root reports the load error. Diagnostics originating in a loaded
+    /// dependency are anchored at the root's zero range because LSP publishes this result for the
+    /// root URI.
     fn analyze_document(&mut self, uri: &str) -> Vec<Value> {
         let overlays = self
             .documents

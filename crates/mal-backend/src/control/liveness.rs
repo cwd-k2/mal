@@ -28,6 +28,10 @@ fn count_binding_use(atom: &Atom, uses: &mut HashMap<ValueId, usize>) {
 }
 
 impl Lowerer {
+    /// Resolves live inputs after a function's states have been emitted in successor-first order.
+    ///
+    /// The single forward scan relies on every successor having a smaller state index. Local
+    /// discovery rank is restored after set propagation so frame-field order remains deterministic.
     pub(super) fn resolve_liveness(&mut self, start: usize, locals: &[LiveValue]) {
         let end = self.states.len();
         let local_values = locals
