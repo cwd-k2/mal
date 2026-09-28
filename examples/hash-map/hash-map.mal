@@ -5,21 +5,11 @@ HashEntry<K, V> :: [Unit, (K, V)];
 HashMap<K, V> :: Buffer<HashEntry<K, V>>;
 HashLookup<V> :: [Unit, V];
 
-_loop<A, B> :: (A, A -> [A, B]) -> B :=
-    (state, step) -> step(state)[
-        (nextState) -> _loop(nextState, step),
-        (result) -> result
-    ];
-
 _emptyEntry<K, V> :: Unit -> HashEntry<K, V> := () ->
     [empty, occupied] => empty();
 
 _occupiedEntry<K, V> :: (K, V) -> HashEntry<K, V> := (key, value) ->
     [empty, occupied] => occupied(key, value);
-
-_missing<V> :: Unit -> HashLookup<V> := () -> [missing, found] => missing();
-
-_found<V> :: V -> HashLookup<V> := (value) -> [missing, found] => found(value);
 
 hashMap<K, V> :: USize -> HashMap<K, V> := (capacity) -> {
     slots :: HashMap<K, V> := make(capacity);
@@ -27,50 +17,55 @@ hashMap<K, V> :: USize -> HashMap<K, V> := (capacity) -> {
     slots;
 };
 
-hashMapGet<K, V> :: (HashMap<K, V>, K) -> HashLookup<V> := (slots, key) ->
-    if (#slots == 0usize)
-        then _missing()
-        else {
-            start := hash(key).usize % #slots;
-            _loop((start, #slots), (index, remaining) -> [continue, break] => {
-                when (remaining == 0usize) {
-                    break(_missing());
-                };
-                slots.get(index)[
-                    () -> break(_missing()),
-                    (entry) -> {
-                        (storedKey, storedValue) := entry;
-                        if (equal(storedKey, key))
-                        then break(_found(storedValue))
-                        else continue((index + 1usize) % #slots, remaining - 1usize);
-                    }
-                ];
-            });
-        };
+_hashMapGetFrom<K, V> :: (HashMap<K, V>, K, USize, USize) -> HashLookup<V> :=
+    (slots, key, index, remaining) -> [missing, found] => {
+        when (remaining == 0usize) missing();
+        slots.get(index)[
+            missing,
+            (entry) -> {
+                (storedKey, storedValue) := entry;
+                when (equal(storedKey, key)) found(storedValue);
+                slots._hashMapGetFrom(
+                    key,
+                    (index + 1usize) % #slots,
+                    remaining - 1usize
+                )[missing, found];
+            }
+        ];
+    };
 
-hashMapPut<K, V> :: (HashMap<K, V>, K, V) -> Bool := (slots, key, value) ->
-    if (#slots == 0usize)
-        then false
-        else {
-            start := hash(key).usize % #slots;
-            _loop((start, #slots), (index, remaining) -> [continue, break] => {
-                when (remaining == 0usize) {
-                    break(false);
+hashMapGet<K, V> :: (HashMap<K, V>, K) -> HashLookup<V> :=
+    (slots, key) -> [missing, found] => {
+        when (#slots == 0usize) missing();
+        slots._hashMapGetFrom(key, hash(key).usize % #slots, #slots)[missing, found];
+    };
+
+_hashMapPutFrom<K, V> :: (HashMap<K, V>, K, V, USize, USize) -> Bool :=
+    (slots, key, value, index, remaining) -> [return] => {
+        when (remaining == 0usize) return(false);
+        slots.get(index)[
+            () -> {
+                slots.put(index, _occupiedEntry(key, value));
+                return(true);
+            },
+            (entry) -> {
+                (storedKey, _) := entry;
+                when (equal(storedKey, key)) {
+                    slots.put(index, _occupiedEntry(key, value));
+                    return(true);
                 };
-                slots.get(index)[
-                    () -> {
-                        slots.put(index, _occupiedEntry(key, value));
-                        break(true);
-                    },
-                    (entry) -> {
-                        (storedKey, _) := entry;
-                        if (equal(storedKey, key))
-                        then {
-                            slots.put(index, _occupiedEntry(key, value));
-                            break(true);
-                        }
-                        else continue((index + 1usize) % #slots, remaining - 1usize);
-                    }
-                ];
-            });
-        };
+                return(slots._hashMapPutFrom(
+                    key,
+                    value,
+                    (index + 1usize) % #slots,
+                    remaining - 1usize
+                ));
+            }
+        ];
+    };
+
+hashMapPut<K, V> :: (HashMap<K, V>, K, V) -> Bool :=
+    (slots, key, value) -> [return] => {
+        when (#slots == 0usize) return(false);
+        return(slots._hashMapPutFrom(key, value, hash(key).usize % #slots, #slots));
+    };
