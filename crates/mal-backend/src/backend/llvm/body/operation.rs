@@ -197,40 +197,6 @@ impl FunctionEmitter<'_> {
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
                 let left = self.atom(left)?;
                 let right = self.atom(right)?;
-                if left.ty == Type::Address && right.ty == Type::ByteSize {
-                    let offset = match operator {
-                        crate::core::ast::BinaryPrimitive::Add => right.representation,
-                        crate::core::ast::BinaryPrimitive::Subtract => {
-                            let negated = self.register();
-                            emit_instruction! {
-                                self;
-                                let #{ negated.clone() } = binary {
-                                    operator: #{ BinaryOperator::Sub },
-                                    ty: #{ self.types.index_llvm_type() },
-                                    left: "0",
-                                    right: #{ right.representation },
-                                };
-                            };
-                            negated
-                        }
-                        _ => return None,
-                    };
-                    let register = self.register();
-                    emit_instruction! {
-                        self;
-                        let #{ register.clone() } = get_element_ptr {
-                            inbounds: false,
-                            element_type: (int(8_u16)),
-                            pointer: #{ left.representation },
-                            indices: [typed(#{ self.types.index_llvm_type() }, #{ offset })],
-                        };
-                    };
-                    return Some(EmittedValue {
-                        ty: Type::Address,
-                        representation: register,
-                        owned: false,
-                    });
-                }
                 let quantity_product = *operator == crate::core::ast::BinaryPrimitive::Multiply
                     && matches!(
                         (&left.ty, &right.ty),

@@ -10,7 +10,7 @@ use super::super::types::{bool_type, type_name};
 use super::super::{CheckFailure, CheckResult, Checker};
 
 impl Checker {
-    pub(super) fn check_pointer_or_numeric_arithmetic(
+    pub(super) fn check_additive(
         &mut self,
         operator: &Node<BinaryOperator>,
         left: &Node<resolved::Expression>,

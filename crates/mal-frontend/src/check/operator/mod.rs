@@ -29,8 +29,7 @@ impl Checker {
             BinaryOperator::SymbolAt => Some(Type::Symbol),
             BinaryOperator::Add | BinaryOperator::Subtract => expected
                 .filter(|ty| {
-                    **ty == Type::Address
-                        || (operator.kind == BinaryOperator::Add && **ty == Type::Symbol)
+                    (operator.kind == BinaryOperator::Add && **ty == Type::Symbol)
                         || is_integer(ty)
                         || is_float(ty)
                 })
@@ -191,7 +190,7 @@ impl Checker {
             operator.kind,
             BinaryOperator::Add | BinaryOperator::Subtract
         ) {
-            return self.check_pointer_or_numeric_arithmetic(operator, left, right, span, expected);
+            return self.check_additive(operator, left, right, span, expected);
         }
         let expected_integer = expected.filter(|expected| is_integer(expected));
         let expected_numeric =
