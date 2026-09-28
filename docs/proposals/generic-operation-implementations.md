@@ -6,6 +6,8 @@ Status: Exploratory
 現在のdeclaration、型引数推論、operation requirement、exact implementation selectionは
 [operation family](../spec/operation-families.md)と[parametric polymorphism](../spec/generics.md)を正とし、ここでは再定義しない。
 higher-kindedな型parameterは[higher-kinded constructor abstraction](higher-kinded-types.md)で別に扱う。
+[file-local opaque type](file-local-opaque-types.md)はhidden representationへ展開せず、opaque constructorをcanonical patternの
+headとして扱う。
 
 ## 目的と範囲
 
@@ -28,6 +30,9 @@ family parameter数を超える独立parameterへの分解と、argument列全�
 transparent aliasはkeyを作らない。`Array<T> :: Buffer<T>`なら`equal<Array<T>>`と`equal<Buffer<T>>`は同じcanonical patternである。
 alias固有のinvariantを必要とするoperationは通常のnamed functionに置き、generic family implementationはcanonical structureから
 一意に導けるbehaviorに限る。
+
+opaque typeはtransparent aliasと異なりdeclaration identityをkeyに残す。hidden representationが`Pool<USize, T>`でも、
+`equal<Buffer<T>>`と`equal<Pool<USize, T>>`は異なるpatternであり、宣言元fileのrepresentation viewによって重複しない。
 
 ## Matching、coherence、termination
 

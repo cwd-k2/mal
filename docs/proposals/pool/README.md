@@ -96,14 +96,16 @@ identity-bearing handleが存在すると、copy-on-writeがstorageを再利用�
 
 ## file-local opaque型
 
-Poolを安全なcontainerへ閉じ込めるには、transparent aliasとは別にnominalなopaque型が必要になる。候補syntaxを次に示す。
+Poolを安全なcontainerへ閉じ込めるには、transparent aliasとは別に
+[file-local opaque type](../file-local-opaque-types.md)が必要になる。候補syntaxを次に示す。
 
 ```mal
 opaque Buffer<T> :: _BufferRepresentation<T>;
 ```
 
-この宣言は`Buffer<T>`へnominal identityを与える。representationをpackまたはopenできるauthorityは宣言元source fileだけが持ち、
-`require`先へは移らない。同じfileの通常のmal bindingはauthorityを使って実装でき、operation側へ`opaque` markerを付けない。
+この宣言は`Buffer<T>`へcanonical declaration identityを与える。hidden representationを観察できるauthorityは宣言元source fileだけが
+持ち、`require`先へは移らない。同じfileの通常のmal bindingは、専用のpack/open構文なしに`Buffer<T>`をPool operationへ渡し、
+`Pool<USize, T>`を`Buffer<T>`が期待される位置から返せる。operation側へ`opaque` markerを付けない。
 
 ```mal
 makeBuffer<T> :: USize -> Buffer<T> := ...;
@@ -112,10 +114,9 @@ get<T> :: (Buffer<T>, USize) -> T := ...;
 put<T> :: (Buffer<T>, USize, T) -> Unit := ...;
 ```
 
-opaque型は宣言元fileでもrepresentationと型同一にしない。同じrepresentationを持つ二つのopaque型を混同しないよう、pack/openは
-型identityを指定する明示的な構文またはchecker operationとする。pack/openはallocation、copy、新しいEngram identityを作らず、
-同じrepresentation responsibilityをnominal boundary越しに受け渡す。具体的なsyntaxと、public signatureからrepresentationを
-意図的に返すことを許すかは未決定である。
+opaque型は宣言元fileでもcanonical typeとしてrepresentationと同一にせず、generic specializationとoperation familyのkeyに
+declaration identityを残す。宣言元fileのtype checkingだけがrepresentation viewを使い、同じrepresentationを持つ二つのopaque型を
+混同しない。このviewはallocation、copy、新しいEngram identityを作らず、同じcarrier responsibilityを受け渡す。
 
 mutable metadataはPoolの`State`として共有identity側に置く。例えばBufferは`Pool<USize, T>`をhidden representationとし、Stateを
 logical countとして使える。Mapはsize、使用bucket数、rehash thresholdなどを別のStateに持てる。opaque alias自体ではなく、
@@ -140,7 +141,7 @@ standard Bufferのcore operationをdownstream sourceが同じidentityのまま�
 
 | 部分 | managed Engramへの依存 |
 |---|---|
-| file-local opaque identity | frontendのsyntax、resolve、type checkingに閉じ、unmanaged representationだけならD055/D080に依存しない |
+| file-local opaque identityとrepresentation view | frontendのsyntax、resolve、type checkingに閉じ、unmanaged representationだけならD055/D080に依存しない |
 | `Pool<State, T>`のstateとslot | D080の`initialize`、`replace`、`vacate`と同じcarrier invariantをruntime storageへ適用する |
 | Pool primitiveのownership effect | function typeだけではowner successorを表せないため、trusted metadataをuse planとD083のparameter保持解析へ接続する必要がある |
 | writable-successor fast path | owner-successor effectをD083のowned native entryへ伝播できればlast-use argumentをConsumeできるが、storage再利用はruntime uniqueness検査に依存する |
@@ -170,7 +171,7 @@ lifetimeはEngram回収へ結合せず、従来どおり明示したhost operati
 
 ## 段階的な検証
 
-1. opaque identity、file-local pack/open、別fileからの構築と分解の拒否をfrontend testで固定する。
+1. opaque identity、file-local representation view、別fileからの構築と分解の拒否をfrontend testで固定する。
 2. backend内部にPoolのVacant/Live遷移を置き、unmanaged Stateとelementでreserve、init、put、take、dropを実行する。
 3. `Symbol`とmanaged aggregateでshare/drop回数、relocation、allocation failure後の元value保持、Pool終了時のlive allocation 0を検査する。
 4. Pool上に実験的なdense containerをmalで実装し、現在のBufferとalias、range、overlap、trap semanticsを比較する。
@@ -190,7 +191,7 @@ lifetimeはEngram回収へ結合せず、従来どおり明示したhost operati
 
 - optionalなPool handleのsource型、nonowning identity、generation幅、failure resultとtrapの境界。
 - live slot iteration、dense storage、bulk relocationのどこまでをcore外のextensionとして追加するか。
-- opaque型のpack/open構文と、public APIがrepresentationを返せる範囲。
+- opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - Bufferのcanonical host copyに対するruntime-layout Poolの性能と、追加fast pathの要否。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

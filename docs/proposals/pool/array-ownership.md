@@ -37,28 +37,24 @@ mutable arrayはopaque valueのcopy後も同じPool identityを共有する。
 ```mal
 opaque MutableArray<T> :: Pool<USize, T>;
 
-_packMutableArray<T> :: Pool<USize, T> -> MutableArray<T>;
-_openMutableArray<T> :: MutableArray<T> -> Pool<USize, T>;
-
 makeMutableArray<T> :: USize -> MutableArray<T> := (capacity) ->
-    _packMutableArray<T>(makePool<USize, T>(0usize, capacity));
+    makePool<USize, T>(0usize, capacity);
 
 mutableLength<T> :: MutableArray<T> -> USize := (array) ->
-    poolState<USize, T>(_openMutableArray<T>(array));
+    poolState<USize, T>(array);
 
 mutableGet<T> :: (MutableArray<T>, USize) -> T := (array, index) ->
-    poolGetAt<USize, T>(_openMutableArray<T>(array), index);
+    poolGetAt<USize, T>(array, index);
 
 mutableSet<T> :: (MutableArray<T>, USize, T) -> Unit :=
     (array, index, value) ->
-        poolPutAt<USize, T>(_openMutableArray<T>(array), index, value);
+        poolPutAt<USize, T>(array, index, value);
 
 mutableAppend<T> :: (MutableArray<T>, T) -> USize := (array, value) -> {
-    pool := _openMutableArray<T>(array);
-    length := poolState<USize, T>(pool);
-    _reserveArraySlot<T>(pool, length + 1usize);
-    poolInitAt<USize, T>(pool, length, value);
-    poolSetState<USize, T>(pool, length + 1usize);
+    length := poolState<USize, T>(array);
+    _reserveArraySlot<T>(array, length + 1usize);
+    poolInitAt<USize, T>(array, length, value);
+    poolSetState<USize, T>(array, length + 1usize);
     length;
 };
 ```
@@ -87,34 +83,29 @@ immutable arrayは破壊的な公開operationを持たず、更新後の値を�
 ```mal
 opaque Array<T> :: Pool<USize, T>;
 
-_packArray<T> :: Pool<USize, T> -> Array<T>;
-_openArray<T> :: Array<T> -> Pool<USize, T>;
-
 makeArray<T> :: USize -> Array<T> := (capacity) ->
-    _packArray<T>(makePool<USize, T>(0usize, capacity));
+    makePool<USize, T>(0usize, capacity);
 
 arrayLength<T> :: Array<T> -> USize := (array) ->
-    poolState<USize, T>(_openArray<T>(array));
+    poolState<USize, T>(array);
 
 arrayGet<T> :: (Array<T>, USize) -> T := (array, index) ->
-    poolGetAt<USize, T>(_openArray<T>(array), index);
+    poolGetAt<USize, T>(array, index);
 
 arraySet<T> :: (Array<T>, USize, T) -> Array<T> :=
     (array, index, value) -> {
-        source := _openArray<T>(array);
-        writable := poolWritableSuccessor<USize, T>(source);
+        writable := poolWritableSuccessor<USize, T>(array);
         poolPutAt<USize, T>(writable, index, value);
-        _packArray<T>(writable);
+        writable;
     };
 
 arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
-    source := _openArray<T>(array);
-    length := poolState<USize, T>(source);
-    writable := poolWritableSuccessor<USize, T>(source);
+    length := poolState<USize, T>(array);
+    writable := poolWritableSuccessor<USize, T>(array);
     _reserveArraySlot<T>(writable, length + 1usize);
     poolInitAt<USize, T>(writable, length, value);
     poolSetState<USize, T>(writable, length + 1usize);
-    _packArray<T>(writable);
+    writable;
 };
 ```
 

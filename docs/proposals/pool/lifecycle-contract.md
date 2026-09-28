@@ -70,8 +70,8 @@ lifecycleはcompilerがhidden representationから導く。
 aliasが後のmal-owned mutationを観測しないこと、container edgeからowner cycleを作らないことを登録時に検査する。shared mutableな
 Pool、Buffer、function、external opaque valueを除外する現在の制約を、opaque wrapperやplugin registrationで迂回させない。
 
-opaqueのpack/openはzero-costなnominal coercionであり、Poolのallocation、copy、share、新しいidentityを暗黙に発生させない。
-ownership上は同じcarrier responsibilityの受け渡しであり、必要なShareまたはConsumeはpack/openの周囲にある通常のvalue useが決める。
+opaqueのfile-local representation viewはPoolのallocation、copy、share、新しいidentityを暗黙に発生させない。ownership上は同じcarrier
+responsibilityの受け渡しであり、必要なShareまたはConsumeはopaque境界の周囲にある通常のvalue useが決める。
 
 Poolの`initAt`と`dropAt`は一般的なmanual memory operationではない。対象はPoolが所有する検査済みslotに限られ、raw address、
 uninitialized carrier、取り出し後にも残る`T`へのreferenceをsourceへ公開しない。この制限により、低レイヤcontainer authorへslot lifecycleを
@@ -108,7 +108,7 @@ plugin leafの導入時に暗黙に拡張しない。
 ## 実装前に固定する検査
 
 - zero-sized Stateとelement、capacity 0、capacity overflowでもslot遷移とdrop回数が一致する。
-- aliasしたPoolでStateとslotの更新が同じidentityへ見え、pack/open後もidentityが変わらない。
+- aliasしたPoolでStateとslotの更新が同じidentityへ見え、opaqueなrepresentation viewを通してもidentityが変わらない。
 - managed StateとelementについてShare、Consume、take、replace、Pool終了後のlive allocationが期待値と一致する。
 - allocation failure時に旧capacity、State、全slotが保存され、lifecycle callbackは呼ばれない。
 - canonical host copyがpaddingや非選択sum payloadへ依存せず、runtime representationとの差を越えてround-tripする。
