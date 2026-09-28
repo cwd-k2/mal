@@ -19,7 +19,8 @@ same :: Int32 -> Int32 := (value) -> identity(value);
 ```
 
 generic value referenceの型argumentは、declarationのparameter型とoperand、result型と周辺の期待型をalias展開後に構造的に
-unifyして決める。期待関数型から単独のreferenceも推論できる。lambda argumentはparameter側が他のconstraintから確定した場合だけ
+unifyして決める。期待関数型から単独のreferenceも推論できる。直和continuation位置ではpayload型と、既知なら除去結果型を
+期待関数型のconstraintにする。lambda argumentはparameter側が他のconstraintから確定した場合だけ
 bodyを検査し、そのresultをconstraintに加える。周辺型が未確定なnumeric literalは他のconstraintを先に適用し、なお未確定なら
 通常のliteral defaultを使う。矛盾するconstraintと、解決後も未確定なargumentはerrorであり、その箇所では型argumentを明示する。
 

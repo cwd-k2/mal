@@ -154,12 +154,79 @@ impl Checker {
         self.check_generic_reference(reference, arguments, span)
     }
 
+    pub(super) fn check_inferred_generic_continuation_reference(
+        &mut self,
+        reference: &resolved::ValueReference,
+        span: Span,
+        parameter: &Type,
+        result: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        let signature = self.generic_signatures[&reference.id].clone();
+        let Type::Function {
+            parameter: parameter_template,
+            result: result_template,
+        } = &signature.ty
+        else {
+            return self.check_inferred_generic_reference(reference, span, None);
+        };
+        let flexible = parameter_ids(&signature);
+        let mut substitutions = HashMap::new();
+        constrain(
+            parameter_template,
+            parameter,
+            &flexible,
+            &mut substitutions,
+            reference.name.span,
+        )?;
+        if let Some(result) = result {
+            constrain(
+                result_template,
+                result,
+                &flexible,
+                &mut substitutions,
+                reference.name.span,
+            )?;
+        }
+        let arguments = inferred_arguments(&signature, &substitutions, reference.name.span)?;
+        self.check_generic_reference(reference, arguments, span)
+    }
+
     pub(super) fn check_inferred_generic_call(
         &mut self,
         reference: &resolved::ValueReference,
         arguments: &[Node<resolved::Expression>],
         span: Span,
         expected: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        self.check_inferred_generic_call_with_expectations(
+            reference, arguments, span, expected, None,
+        )
+    }
+
+    pub(super) fn check_inferred_generic_continuation_call(
+        &mut self,
+        reference: &resolved::ValueReference,
+        arguments: &[Node<resolved::Expression>],
+        span: Span,
+        parameter: &Type,
+        result: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        self.check_inferred_generic_call_with_expectations(
+            reference,
+            arguments,
+            span,
+            None,
+            Some((parameter, result)),
+        )
+    }
+
+    fn check_inferred_generic_call_with_expectations(
+        &mut self,
+        reference: &resolved::ValueReference,
+        arguments: &[Node<resolved::Expression>],
+        span: Span,
+        expected: Option<&Type>,
+        expected_continuation: Option<(&Type, Option<&Type>)>,
     ) -> CheckResult<Expression> {
         let signature = self.generic_signatures[&reference.id].clone();
         let Type::Function { parameter, result } = &signature.ty else {
@@ -177,6 +244,29 @@ impl Checker {
                 &mut substitutions,
                 reference.name.span,
             )?;
+        }
+        if let Some((expected_parameter, expected_result)) = expected_continuation
+            && let Type::Function {
+                parameter,
+                result: function_result,
+            } = result.as_ref()
+        {
+            constrain(
+                parameter,
+                expected_parameter,
+                &flexible,
+                &mut substitutions,
+                reference.name.span,
+            )?;
+            if let Some(expected_result) = expected_result {
+                constrain(
+                    function_result,
+                    expected_result,
+                    &flexible,
+                    &mut substitutions,
+                    reference.name.span,
+                )?;
+            }
         }
 
         let templates = argument_templates(parameter, arguments.len());

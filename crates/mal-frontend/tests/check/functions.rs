@@ -403,6 +403,24 @@ fn infers_generic_arguments_from_operands_results_and_function_contexts() {
 }
 
 #[test]
+fn infers_a_generic_continuation_result_parameter_from_the_sum_payload() {
+    check_ok(
+        "const<A, B> :: A -> B -> A := (value) -> (_) -> value;\n\
+         identity<A> :: A -> A := (value) -> value;\n\
+         choose :: Bool -> [Unit, UInt8] := (condition) ->\n\
+           if (condition) then [none, some] => none() else [none, some] => some(1u8);\n\
+         chooseByte :: Bool -> [UInt8, UInt8] := (condition) ->\n\
+           if (condition) then [left, right] => left(1u8) else [left, right] => right(2u8);\n\
+         unwrap :: [UInt8, UInt8] -> UInt8 := (choice) -> [escape] => {\n\
+           value := choice[escape, (identity)];\n\
+           escape(value);\n\
+         };\n\
+         main :: Unit -> Int32 := () ->\n\
+           if (choose(true)[const(false), const(true)]) then unwrap(chooseByte(false)).i32 else 1;",
+    );
+}
+
+#[test]
 fn infers_a_generic_lambda_result_from_direct_result_payloads() {
     check_ok(
         "route<A, B> :: (A, A -> [A, B]) -> [A, B] := (value, step) -> step(value);\n\

@@ -21,10 +21,10 @@ main :: Unit -> Int32 := () -> [return] => {
     anotherCollision := words.hashMapPut("i", 30i32);
     overwrite := words.hashMapPut("e", 22i32);
 
-    aFound := words.hashMapGet("a")[() -> false, (value) -> value == 10i32];
-    eUpdated := words.hashMapGet("e")[() -> false, (value) -> value == 22i32];
-    iFound := words.hashMapGet("i")[() -> false, (value) -> value == 30i32];
-    missing := words.hashMapGet("missing")[() -> true, (_) -> false];
+    aFound := words.hashMapGet("a")[const(false), (value) -> value == 10i32];
+    eUpdated := words.hashMapGet("e")[const(false), (value) -> value == 22i32];
+    iFound := words.hashMapGet("i")[const(false), (value) -> value == 30i32];
+    missing := words.hashMapGet("missing")[const(true), const(false)];
 
     full :: HashMap<Symbol, Int32> := hashMap(2usize);
     full.hashMapPut("a", 1i32);
@@ -33,7 +33,7 @@ main :: Unit -> Int32 := () -> [return] => {
 
     empty :: HashMap<Symbol, Int32> := hashMap(0usize);
     emptyRejected := !empty.hashMapPut("a", 1i32);
-    emptyMissing := empty.hashMapGet("a")[() -> true, (_) -> false];
+    emptyMissing := empty.hashMapGet("a")[const(true), const(false)];
 
     when (!(
         first

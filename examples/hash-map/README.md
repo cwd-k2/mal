@@ -13,6 +13,11 @@ outside this example.
 
 The keys `"a"`, `"e"`, and `"i"` collide modulo four under the example hash. The executable checks
 collision traversal, overwrite, missing lookup, full capacity, and zero capacity.
+Its lookup assertions use `const<A, B> :: A -> (B -> A)` as a partially applied constant
+continuation; the continuation's expected parameter type supplies the otherwise unknown `B`.
+The probing functions use `identity<A> :: A -> A` to unwrap an occupied slot before applying the
+remaining lookup or insertion logic, while an empty-slot result exits through the enclosing result
+binder.
 
 From the repository root in Nushell:
 

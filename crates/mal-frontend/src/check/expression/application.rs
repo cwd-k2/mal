@@ -138,7 +138,43 @@ impl Checker {
             resolved::Expression::Lambda(lambda) => {
                 self.check_lambda_against(lambda, continuation.span, parameter.clone(), result)?
             }
-            _ => self.check_expression(continuation, None)?,
+            resolved::Expression::Parenthesized(inner) => {
+                let inner = self.check_continuation(inner, parameter, result)?;
+                Expression {
+                    ty: inner.ty.clone(),
+                    kind: ExpressionKind::Parenthesized(Box::new(inner)),
+                    span: continuation.span,
+                }
+            }
+            resolved::Expression::Reference(reference)
+                if self.generic_signatures.contains_key(&reference.id) =>
+            {
+                self.check_inferred_generic_continuation_reference(
+                    reference,
+                    continuation.span,
+                    parameter,
+                    result,
+                )?
+            }
+            resolved::Expression::Call { callee, arguments }
+                if let resolved::Expression::Reference(reference) = &callee.kind
+                    && self.generic_signatures.contains_key(&reference.id) =>
+            {
+                self.check_inferred_generic_continuation_call(
+                    reference,
+                    arguments,
+                    continuation.span,
+                    parameter,
+                    result,
+                )?
+            }
+            _ => {
+                let expected = result.map(|result| Type::Function {
+                    parameter: parameter.clone().into(),
+                    result: result.clone().into(),
+                });
+                self.check_expression(continuation, expected.as_ref())?
+            }
         };
         let Type::Function {
             parameter: actual_parameter,
