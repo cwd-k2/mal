@@ -13,6 +13,7 @@ T ::=
   | ByteSize | USize
   | Symbol
   | Address
+  | Index<T>
   | Buffer<T>
   | (T, T, ...)
   | []
@@ -46,6 +47,9 @@ mutable byte sequenceは`Buffer<UInt8>`で表す。`Symbol`との明示的なsna
 
 `Address`はhost-managed resourceへのopaque capabilityであり、mal codeはreferentを直接観測しない。`Buffer<T>`は
 mal-ownedなmutable有限sequenceへの共有参照である。型形成、operation、C host copy境界は[AddressとBuffer](memory.md)に定める。
+
+`Index<T>`は`USize`のpredefined transparent aliasであり、`T`は表現に寄与しない。Buffer要素型と座標の意図を
+source上に残すが、異なるBufferや要素型のindexを型として区別しない。完全な規則は[Buffer](memory.md#buffer)に定める。
 
 ## Unit
 
@@ -140,7 +144,9 @@ Point :: (Float64, Float64);
 Size :: (Float64, Float64);
 ```
 
-`Point`、`Size`、`(Float64, Float64)` は同じ型である。alias は新しい runtime representation や nominal identity を作らない。recursive alias は認めない。
+`Point`、`Size`、`(Float64, Float64)` は同じ型である。alias は新しい runtime representation や nominal identity を作らない。
+表現に寄与するrecursive aliasは認めない。表現に使われないphantom type argumentだけを通る参照はrecursive value typeを
+作らないため認める。
 
 aliasとtop-level value bindingは明示的な型parameterを持てる。
 

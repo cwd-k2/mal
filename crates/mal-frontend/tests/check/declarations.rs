@@ -116,6 +116,36 @@ fn expands_generic_aliases_with_canonical_concrete_arguments() {
 }
 
 #[test]
+fn erases_phantom_alias_arguments_without_forming_recursive_value_types() {
+    let program = check_ok(
+        "Node :: (Int32, Index<Node>);\n\
+         Tree :: Buffer<Node>;\n\
+         root :: Node := (1i32, 0usize);\n\
+         next :: Index<Node> -> Index<Node> := (index) -> index + 1usize;",
+    );
+
+    let TopItem::TypeAlias { ty, .. } = &program.items[0].kind else {
+        panic!("expected Node alias");
+    };
+    assert_eq!(*ty, Type::Product(vec![Type::Int32, Type::USize].into()));
+    assert_eq!(top_binding(&program, 2).value.ty, *ty);
+}
+
+#[test]
+fn keeps_phantom_detection_local_to_each_alias_declaration() {
+    check_ok(
+        "Discard<A> :: USize; Node :: (Int32, Discard<Node>); value :: Node := (1i32, 0usize);",
+    );
+
+    let error = check_error(
+        "Discard<A> :: USize;\n\
+         Forward<A> :: Discard<A>;\n\
+         Node :: (Int32, Forward<Node>);",
+    );
+    assert_eq!(error.message, "recursive type alias");
+}
+
+#[test]
 fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
     for (source, message) in [
         (
@@ -130,7 +160,12 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
             "Loop<A> :: Loop<A>; value := 0;",
             "recursive generic type alias",
         ),
+        (
+            "Discard<A> :: USize; Pair<A, B> :: (A, B); value :: Discard<Pair<Int32>> := 0usize;",
+            "generic type argument arity mismatch",
+        ),
         ("value :: Buffer := 0;", "generic type requires arguments"),
+        ("value :: Index := 0;", "generic type requires arguments"),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");
     }

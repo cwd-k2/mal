@@ -187,7 +187,7 @@ fn indexes_buffer_intrinsics_and_indexed_types_as_predefined_symbols() {
         assert!(document.hover_at(offset).is_some());
     }
     for name in [
-        "Buffer", "from", "into", "make", "new", "get", "put", "fill", "copy",
+        "Buffer", "Index", "from", "into", "make", "new", "get", "put", "fill", "copy",
     ] {
         assert!(
             document

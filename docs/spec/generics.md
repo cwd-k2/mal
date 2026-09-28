@@ -21,7 +21,11 @@ generic bindingではなく、`Buffer<A>`のreceiverまたはargumentから`A`�
 `make<A>`と`from<A>`は`A`がresultにしか現れないため明示する。[AddressとBuffer](memory.md#buffer)に各operationの型を定める。
 
 型parameterは通常のsource typeを表す。user-defined kind、bound、constraintはない。generic aliasはtransparentであり、型argumentを
-代入して展開したcanonical typeと同じ型になる。recursive generic aliasは拒否する。
+代入して展開したcanonical typeと同じ型になる。alias右辺のtype expressionに直接現れないparameterはphantomであり、
+canonical type構成時にそのtype argumentを展開しない。
+
+別のalias applicationのargument位置に現れたparameterは使用済みとする。参照先aliasのphantom parameterを調べてこの判定を
+逆向きに変えない。phantom argumentだけを通る自己参照は認め、実際の表現に寄与するrecursive generic aliasは拒否する。
 
 generic binding自体はruntime valueではない。non-generic codeはconcrete type argumentでspecializeした単相valueだけを参照、capture、
 applicationできる。generic本体ではscope内の型parameterをtype argumentに使え、外側のspecializationでargumentがconcreteになった時点で

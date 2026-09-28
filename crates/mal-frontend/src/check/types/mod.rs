@@ -2,8 +2,8 @@
 
 use crate::resolve::ast::{
     self as resolved, ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE,
-    FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,
-    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    FLOAT64_TYPE, INDEX_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId,
+    U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
@@ -23,6 +23,7 @@ pub(super) use properties::{
 #[derive(Clone)]
 pub(super) struct GenericAliasDefinition {
     pub(super) parameters: Vec<resolved::TypeBinding>,
+    used_parameters: Vec<bool>,
     pub(super) value: Node<resolved::TypeExpression>,
 }
 
@@ -68,6 +69,7 @@ impl Checker {
                         binding.id,
                         GenericAliasDefinition {
                             parameters: parameters.clone(),
+                            used_parameters: used_parameters(parameters, value),
                             value: value.clone(),
                         },
                     );
@@ -111,47 +113,107 @@ impl Checker {
         let mut values = Vec::new();
         while let Some(expansion) = pending.pop() {
             match expansion {
-                Expansion::Expression(expression, substitutions) => {
-                    match expression.kind {
-                        resolved::TypeExpression::Named(reference) => {
-                            pending.push(Expansion::Reference(
-                                reference.id,
-                                reference.name.span,
-                                substitutions,
-                            ));
+                Expansion::Expression(expression, substitutions) => match expression.kind {
+                    resolved::TypeExpression::Named(reference) => {
+                        pending.push(Expansion::Reference(
+                            reference.id,
+                            reference.name.span,
+                            substitutions,
+                        ));
+                    }
+                    resolved::TypeExpression::Application {
+                        constructor,
+                        arguments,
+                    } => {
+                        let expected = if constructor.id == BUFFER_TYPE
+                            || constructor.id == INDEX_TYPE
+                        {
+                            1
+                        } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
+                            definition.parameters.len()
+                        } else {
+                            return Err(Diagnostic::error("type does not accept arguments")
+                                .with_primary(
+                                    constructor.name.span,
+                                    "remove these type arguments",
+                                ));
+                        };
+                        if arguments.len() != expected {
+                            return Err(Diagnostic::error("generic type argument arity mismatch")
+                                .with_primary(
+                                    constructor.name.span,
+                                    format!(
+                                        "expected {expected} arguments but found {}",
+                                        arguments.len()
+                                    ),
+                                ));
                         }
-                        resolved::TypeExpression::Application {
-                            constructor,
-                            arguments,
-                        } => {
-                            pending.push(Expansion::Application(constructor, arguments.len()));
+                        if constructor.id == INDEX_TYPE {
+                            self.validate_phantom_type(&arguments[0])?;
+                            values.push(Type::USize);
+                        } else if constructor.id == BUFFER_TYPE {
+                            pending.push(Expansion::Buffer(constructor.name.span));
                             pending.extend(arguments.into_iter().rev().map(|argument| {
                                 Expansion::Expression(argument, substitutions.clone())
                             }));
-                        }
-                        resolved::TypeExpression::Unit => values.push(Type::Unit),
-                        resolved::TypeExpression::Parenthesized(inner) => {
-                            pending.push(Expansion::Expression(*inner, substitutions));
-                        }
-                        resolved::TypeExpression::Product(elements) => {
-                            pending.push(Expansion::Product(elements.len()));
-                            pending.extend(elements.into_iter().rev().map(|element| {
-                                Expansion::Expression(element, substitutions.clone())
+                        } else {
+                            let definition = self
+                                .generic_aliases
+                                .get(&constructor.id)
+                                .expect("generic alias was found above");
+                            let used_parameters = definition
+                                .parameters
+                                .iter()
+                                .zip(&definition.used_parameters)
+                                .filter_map(|(parameter, used)| used.then_some(parameter.id))
+                                .collect::<Vec<_>>();
+                            let mut used_arguments = Vec::new();
+                            for (argument, used) in
+                                arguments.into_iter().zip(&definition.used_parameters)
+                            {
+                                if *used {
+                                    used_arguments.push(argument);
+                                } else {
+                                    self.validate_phantom_type(&argument)?;
+                                }
+                            }
+                            pending.push(Expansion::GenericAlias {
+                                id: constructor.id,
+                                span: constructor.name.span,
+                                parameters: used_parameters,
+                            });
+                            pending.extend(used_arguments.into_iter().rev().map(|argument| {
+                                Expansion::Expression(argument, substitutions.clone())
                             }));
-                        }
-                        resolved::TypeExpression::Sum(members) => {
-                            pending.push(Expansion::Sum(members.len()));
-                            pending.extend(members.into_iter().rev().map(|member| {
-                                Expansion::Expression(member, substitutions.clone())
-                            }));
-                        }
-                        resolved::TypeExpression::Function { parameter, result } => {
-                            pending.push(Expansion::Function);
-                            pending.push(Expansion::Expression(*result, substitutions.clone()));
-                            pending.push(Expansion::Expression(*parameter, substitutions));
                         }
                     }
-                }
+                    resolved::TypeExpression::Unit => values.push(Type::Unit),
+                    resolved::TypeExpression::Parenthesized(inner) => {
+                        pending.push(Expansion::Expression(*inner, substitutions));
+                    }
+                    resolved::TypeExpression::Product(elements) => {
+                        pending.push(Expansion::Product(elements.len()));
+                        pending.extend(
+                            elements.into_iter().rev().map(|element| {
+                                Expansion::Expression(element, substitutions.clone())
+                            }),
+                        );
+                    }
+                    resolved::TypeExpression::Sum(members) => {
+                        pending.push(Expansion::Sum(members.len()));
+                        pending.extend(
+                            members
+                                .into_iter()
+                                .rev()
+                                .map(|member| Expansion::Expression(member, substitutions.clone())),
+                        );
+                    }
+                    resolved::TypeExpression::Function { parameter, result } => {
+                        pending.push(Expansion::Function);
+                        pending.push(Expansion::Expression(*result, substitutions.clone()));
+                        pending.push(Expansion::Expression(*parameter, substitutions));
+                    }
+                },
                 Expansion::Reference(id, use_span, substitutions) => {
                     if let Some(ty) = substitutions.get(&id) {
                         values.push(ty.clone());
@@ -164,7 +226,10 @@ impl Checker {
                         });
                     } else if let Some(expanded) = self.expanded_aliases.get(&id) {
                         values.push(expanded.clone());
-                    } else if id == BUFFER_TYPE || self.generic_aliases.contains_key(&id) {
+                    } else if id == BUFFER_TYPE
+                        || id == INDEX_TYPE
+                        || self.generic_aliases.contains_key(&id)
+                    {
                         return Err(Diagnostic::error("generic type requires arguments")
                             .with_primary(use_span, "supply the declared type arguments"));
                     } else {
@@ -180,55 +245,34 @@ impl Checker {
                         pending.push(Expansion::Expression(value.clone(), substitutions));
                     }
                 }
-                Expansion::Application(constructor, arity) => {
-                    let arguments = take_last(&mut values, arity);
-                    let expected = if constructor.id == BUFFER_TYPE {
-                        1
-                    } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
-                        definition.parameters.len()
-                    } else {
-                        return Err(Diagnostic::error("type does not accept arguments")
-                            .with_primary(constructor.name.span, "remove these type arguments"));
-                    };
-                    if arity != expected {
-                        return Err(Diagnostic::error("generic type argument arity mismatch")
-                            .with_primary(
-                                constructor.name.span,
-                                format!("expected {expected} arguments but found {arity}"),
-                            ));
-                    }
-                    if constructor.id == BUFFER_TYPE {
-                        let element = arguments.into_iter().next().unwrap();
-                        ensure_buffer_storable(&element, constructor.name.span)?;
-                        values.push(Type::Buffer(element.into()));
-                    } else {
-                        if !self.expanding.insert(constructor.id) {
-                            return Err(Diagnostic::error("recursive generic type alias")
-                                .with_primary(
-                                    constructor.name.span,
-                                    "this application forms an alias cycle",
-                                ));
-                        }
-                        let definition = self
-                            .generic_aliases
-                            .get(&constructor.id)
-                            .expect("generic alias was found above");
-                        let substitutions = std::sync::Arc::new(
-                            definition
-                                .parameters
-                                .iter()
-                                .map(|parameter| parameter.id)
-                                .zip(arguments)
-                                .collect(),
-                        );
-                        pending.push(Expansion::GenericAlias(constructor.id));
-                        pending.push(Expansion::Expression(
-                            definition.value.clone(),
-                            substitutions,
-                        ));
-                    }
+                Expansion::Buffer(span) => {
+                    let element = values.pop().expect("Buffer application has one argument");
+                    ensure_buffer_storable(&element, span)?;
+                    values.push(Type::Buffer(element.into()));
                 }
-                Expansion::GenericAlias(id) => {
+                Expansion::GenericAlias {
+                    id,
+                    span,
+                    parameters,
+                } => {
+                    if !self.expanding.insert(id) {
+                        return Err(Diagnostic::error("recursive generic type alias")
+                            .with_primary(span, "this application forms an alias cycle"));
+                    }
+                    let arguments = take_last(&mut values, parameters.len());
+                    let definition = self
+                        .generic_aliases
+                        .get(&id)
+                        .expect("generic alias was found before its expansion completes");
+                    let substitutions =
+                        std::sync::Arc::new(parameters.into_iter().zip(arguments).collect());
+                    pending.push(Expansion::FinishGenericAlias(id));
+                    pending.push(Expansion::Expression(
+                        definition.value.clone(),
+                        substitutions,
+                    ));
+                }
+                Expansion::FinishGenericAlias(id) => {
                     assert!(self.expanding.remove(&id));
                 }
                 Expansion::Alias(id) => {
@@ -258,6 +302,63 @@ impl Checker {
             .expect("one expansion must produce one type");
         Ok(value)
     }
+
+    fn validate_phantom_type(
+        &self,
+        root: &Node<resolved::TypeExpression>,
+    ) -> Result<(), Diagnostic> {
+        let mut pending = vec![root];
+        while let Some(expression) = pending.pop() {
+            match &expression.kind {
+                resolved::TypeExpression::Named(reference) => {
+                    if reference.id == BUFFER_TYPE
+                        || reference.id == INDEX_TYPE
+                        || self.generic_aliases.contains_key(&reference.id)
+                    {
+                        return Err(Diagnostic::error("generic type requires arguments")
+                            .with_primary(
+                                reference.name.span,
+                                "supply the declared type arguments",
+                            ));
+                    }
+                }
+                resolved::TypeExpression::Application {
+                    constructor,
+                    arguments,
+                } => {
+                    let expected = if constructor.id == BUFFER_TYPE || constructor.id == INDEX_TYPE
+                    {
+                        1
+                    } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
+                        definition.parameters.len()
+                    } else {
+                        return Err(Diagnostic::error("type does not accept arguments")
+                            .with_primary(constructor.name.span, "remove these type arguments"));
+                    };
+                    if arguments.len() != expected {
+                        return Err(Diagnostic::error("generic type argument arity mismatch")
+                            .with_primary(
+                                constructor.name.span,
+                                format!(
+                                    "expected {expected} arguments but found {}",
+                                    arguments.len()
+                                ),
+                            ));
+                    }
+                    pending.extend(arguments);
+                }
+                resolved::TypeExpression::Parenthesized(inner) => pending.push(inner),
+                resolved::TypeExpression::Product(elements)
+                | resolved::TypeExpression::Sum(elements) => pending.extend(elements),
+                resolved::TypeExpression::Function { parameter, result } => {
+                    pending.push(parameter);
+                    pending.push(result);
+                }
+                resolved::TypeExpression::Unit => {}
+            }
+        }
+        Ok(())
+    }
 }
 
 enum Expansion {
@@ -270,9 +371,14 @@ enum Expansion {
         Span,
         std::sync::Arc<std::collections::HashMap<TypeId, Type>>,
     ),
-    Application(resolved::TypeReference, usize),
+    Buffer(Span),
     Alias(TypeId),
-    GenericAlias(TypeId),
+    GenericAlias {
+        id: TypeId,
+        span: Span,
+        parameters: Vec<TypeId>,
+    },
+    FinishGenericAlias(TypeId),
     Product(usize),
     Sum(usize),
     Function,
@@ -307,6 +413,38 @@ fn take_last(values: &mut Vec<Type>, length: usize) -> Vec<Type> {
             .checked_sub(length)
             .expect("composite expansion must have all children"),
     )
+}
+
+fn used_parameters(
+    parameters: &[resolved::TypeBinding],
+    value: &Node<resolved::TypeExpression>,
+) -> Vec<bool> {
+    let positions = parameters
+        .iter()
+        .enumerate()
+        .map(|(index, parameter)| (parameter.id, index))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut used = vec![false; parameters.len()];
+    let mut pending = vec![value];
+    while let Some(expression) = pending.pop() {
+        match &expression.kind {
+            resolved::TypeExpression::Named(reference) => {
+                if let Some(index) = positions.get(&reference.id) {
+                    used[*index] = true;
+                }
+            }
+            resolved::TypeExpression::Application { arguments, .. }
+            | resolved::TypeExpression::Product(arguments)
+            | resolved::TypeExpression::Sum(arguments) => pending.extend(arguments),
+            resolved::TypeExpression::Parenthesized(inner) => pending.push(inner),
+            resolved::TypeExpression::Function { parameter, result } => {
+                pending.push(parameter);
+                pending.push(result);
+            }
+            resolved::TypeExpression::Unit => {}
+        }
+    }
+    used
 }
 
 pub(super) fn substitute_type(
