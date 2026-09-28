@@ -1,6 +1,9 @@
 # indexで結ぶBuffer構造
 
-Status: Exploratory
+Status: Accepted v0.6
+
+この文書は`Index<T>`を導入した理由と、Buffer上に座標構造を作る際のmodeling方針を記録する。現在の型規則と
+Buffer operation signatureは[型](../spec/types.md)と[AddressとBuffer](../spec/memory.md)を正とする。
 
 `Buffer<T>`の要素に`USize`座標を格納すると、recursive typeを導入せずにtree、DAG、graphを表現できる。
 Bufferは物理的なcarrierであり、座標の意味やtopologyの不変条件はdomain operationが所有する。
@@ -25,7 +28,7 @@ rowを並べ替えるoperationは、carrier相対の全座標も同時にremap�
 
 ## predefined Index
 
-座標が参照する要素型をsource上へ残すため、`Buffer<T>`を補完するpredefined transparent aliasとして`Index<T>`を導入する案がある。
+座標が参照する要素型をsource上へ残すため、`Buffer<T>`を補完するpredefined transparent aliasとして`Index<T>`を導入した。
 意味上の擬似定義は次のとおりであり、source fileへ宣言を置く必要はない。`Index`はほかのpredefined typeと同じく
 top-levelで再宣言できない。
 
@@ -71,7 +74,7 @@ editorはchecked canonical typeから`USize`だけを表示するのではなく
 `Index<TreeNode>`を保持する。型aliasのhoverは右辺を一段だけ表示し、phantom argumentから`TreeNode`の展開へ進まない。
 表示量と再訪は既存のbounded expansionに従う。
 
-この案を実装する場合は、少なくとも次を確認する。
+実装は少なくとも次を確認する。
 
 - phantom argumentだけを通る自己参照を受理し、同じaliasのproduct、sum、function、`Buffer`位置を通るcycleは拒否する。
 - `Index<A>`と`Index<B>`を`USize`として比較、演算、Bufferへ格納でき、既存のBuffer program、runtime representation、ownershipを変更しない。

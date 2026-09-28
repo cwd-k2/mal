@@ -1,9 +1,9 @@
 # Engram lifecycle loweringの共通基盤
 
-Status: Exploratory
+Status: Partially accepted; backend-local lifecycle boundary implemented
 
-この文書は、現在`Symbol`、`Buffer`、function closureとmanaged aggregateごとに実装している値の保持と破棄を、
-Engram一般のlifecycle loweringとして共通化する案を管理する。source-levelの型、operation、ownership syntaxは追加しない。
+この文書は、`Symbol`、`Buffer`、function closureとmanaged aggregateの値の保持と破棄を、Engram一般のlifecycle loweringとして
+共通化する方針と後続候補を管理する。backend-localな共通化は採択済みであり、source-levelの型、operation、ownership syntaxは追加しない。
 現在のauthorityは[EngramとExtern](../spec/engrams.md)、responsibilityの意味は
 [D055](../history/decisions/active/D055.md)、実装policyは
 [managed valueのownership](../implementation/ownership.md)を正とする。
@@ -150,6 +150,13 @@ LLVM cross-boundary testは生成moduleをClangでcompile、link、executeし、
 - Engramの回収方式をreference countingとして仕様化しない。
 
 ## 実装で確認する事項
+
+LLVM backendでは、型別retain/release、slotのload・initialize・vacate、managed placeのreplaceを`body/value`の共通helperへ集約済みである。
+pattern destination、parameter handoff、frame resume、Buffer `put`、Symbol move、dead-slot cleanupはこの境界を利用し、
+`execution/ownership`が引き続きresponsibility policyを所有する。独立したlifecycle plan、runtime descriptor、共通owner header、
+source operationは導入していない。
+
+残る検証と拡張候補は次のとおりである。
 
 - 共通emitter APIが通常値、Buffer callback、environment destructorの型再帰を実際に一箇所へ閉じるか。
 - operation-specific helperだけでcarrier stateの誤りを検出できるか、追加のbackend-local validationが必要か。
