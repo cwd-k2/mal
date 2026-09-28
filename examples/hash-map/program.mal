@@ -1,0 +1,48 @@
+require "./hash-map.mal";
+
+equal<Symbol> :: (Symbol, Symbol) -> Bool := (left, right) -> left == right;
+
+_hashSymbolFrom :: (Symbol, USize, UInt64) -> UInt64 := (value, index, state) ->
+    if (index == #value)
+        then state
+        else _hashSymbolFrom(value, index + 1usize, state * 31u64 + (value # index).u64);
+
+hash<Symbol> :: Symbol -> UInt64 := (value) -> _hashSymbolFrom(value, 0usize, 0u64);
+
+main :: Unit -> Int32 := () -> {
+    words :: HashMap<Symbol, Int32> := hashMap(4usize);
+    first := words.hashMapPut("a", 10i32);
+    collision := words.hashMapPut("e", 20i32);
+    anotherCollision := words.hashMapPut("i", 30i32);
+    overwrite := words.hashMapPut("e", 22i32);
+
+    aFound := words.hashMapGet("a")[() -> false, (value) -> value == 10i32];
+    eUpdated := words.hashMapGet("e")[() -> false, (value) -> value == 22i32];
+    iFound := words.hashMapGet("i")[() -> false, (value) -> value == 30i32];
+    missing := words.hashMapGet("missing")[() -> true, (_) -> false];
+
+    full :: HashMap<Symbol, Int32> := hashMap(2usize);
+    full.hashMapPut("a", 1i32);
+    full.hashMapPut("e", 2i32);
+    rejected := !full.hashMapPut("i", 3i32);
+
+    empty :: HashMap<Symbol, Int32> := hashMap(0usize);
+    emptyRejected := !empty.hashMapPut("a", 1i32);
+    emptyMissing := empty.hashMapGet("a")[() -> true, (_) -> false];
+
+    if (
+        first
+        && collision
+        && anotherCollision
+        && overwrite
+        && aFound
+        && eUpdated
+        && iFound
+        && missing
+        && rejected
+        && emptyRejected
+        && emptyMissing
+    )
+    then 0
+    else 1;
+};

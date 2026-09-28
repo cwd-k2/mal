@@ -33,6 +33,7 @@ nominal proof.
 | `buffer-handles` | Cell and View handles over a Buffer, with a runtime read-only flag |
 | `generic-loop` | iteration derived from a continue-or-break sum result |
 | `operation-family` | exact type-indexed function and value implementations |
+| `hash-map` | fixed-capacity linear probing driven by exact hash and equality families |
 | `tail-recursion` | bounded-stack recursive control |
 | `print-and-closure` | ordered external effects and captured values |
 | `opaque-aggregate` | opaque handles inside product and sum ABI values |

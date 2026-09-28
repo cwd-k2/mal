@@ -176,6 +176,8 @@ hashMapGet<K, V> :: (HashMap<K, V>, K) -> [Unit, V] :=
 ここで`containsBy`と`_hashMapProbe`はequality functionを受け取る通常のhelperとする。checkerは`arrayContains<T>`から
 `equal<T>`、`hashMapGet<K, V>`から`hash<K>`と`equal<K>`を導く。`hashMapGet<Symbol, Int32>`をspecializeするprogramに
 `hash<Symbol>`と`equal<Symbol>`のexact implementationがあれば、collection本体を型ごとに書き直さずに済む。
+[HashMap example](../../examples/hash-map/README.md)は、空slotをsumで表す固定capacityのlinear probingとしてこの境界を実行し、
+衝突、上書き、missing lookup、満杯、capacity 0を検査する。
 
 一方、collection自体を別のgeneric operationへ渡す実装は再利用できない。例えば初期profileで
 `equal<Buffer<Int32>>`を定義できても、`Buffer<UInt8>`や`Buffer<Symbol>`には別のexact implementationが必要になる。
