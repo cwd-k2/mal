@@ -119,17 +119,7 @@ impl FunctionEmitter<'_> {
                 if slot.ty != *ty {
                     return None;
                 }
-                let value_type = self.types.value(ty)?;
-                let register = self.register();
-                emit_instruction! {
-                    self;
-                    let #{ register.clone() } = load {
-                        ty: #{ value_type.llvm },
-                        pointer: #{ format!("%mal_slot_{}", slot.index) },
-                        alignment: #{ value_type.alignment },
-                        metadata: [],
-                    };
-                };
+                let register = self.load_slot(&slot)?;
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: register,

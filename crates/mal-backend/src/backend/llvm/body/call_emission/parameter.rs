@@ -78,16 +78,6 @@ impl FunctionEmitter<'_> {
         if slot.ty != value.ty {
             return None;
         }
-        let value_type = self.types.value(&slot.ty)?;
-        emit_instruction! {
-            self;
-            store {
-                value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                pointer: #{ format!("%mal_slot_{}", slot.index) },
-                alignment: #{ value_type.alignment },
-                metadata: [],
-            };
-        };
-        Some(())
+        self.initialize_slot(&slot, value)
     }
 }

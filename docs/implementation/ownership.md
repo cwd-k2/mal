@@ -40,6 +40,8 @@ borrowとして返さない。`put`は新しい値をretainしてから旧要素
 managed local slotはzero状態で初期化する。owner successorと終了点は
 [`D055`](../history/decisions/active/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
 LLVM backendはこれをretain、source carrierのzero、releaseとtyped storeへ変換し、last-useやcall modeを再推論しない。
+LLVMの`body/value`はslotのload、initialize、vacate、managed placeのreplaceと、値の型別retain/releaseを共通helperとして所有する。pattern、parameter handoff、
+frame resume、dead-slot cleanup、managed valueを移すoptimizationはこの境界を使い、slotのdirect storeやzeroingを個別に実装しない。
 memory primitiveとBuffer primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
 lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。snapshot conversionやC host copyはresultとoperandの
 ownerを共有しない。

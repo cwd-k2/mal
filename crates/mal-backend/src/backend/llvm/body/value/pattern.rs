@@ -16,16 +16,7 @@ impl FunctionEmitter<'_> {
                 if !crate::execution::ownership::is_managed(ty) && value.ty == *ty =>
             {
                 let slot = self.slots.get(id)?.clone();
-                let value_type = self.types.value(ty)?;
-                emit_instruction! {
-                    self;
-                    store {
-                        value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                        pointer: #{ format!("%mal_slot_{}", slot.index) },
-                        alignment: #{ value_type.alignment },
-                        metadata: [],
-                    };
-                };
+                self.initialize_slot(&slot, value)?;
             }
             Pattern::Product { elements, ty, .. } if value.ty == *ty => {
                 let Type::Product(element_types) = ty else {
@@ -120,16 +111,7 @@ impl FunctionEmitter<'_> {
                 }
                 self.retain_if_borrowed(&mut value)?;
                 let slot = self.slots.get(id)?.clone();
-                let value_type = self.types.value(ty)?;
-                emit_instruction! {
-                    self;
-                    store {
-                        value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                        pointer: #{ format!("%mal_slot_{}", slot.index) },
-                        alignment: #{ value_type.alignment },
-                        metadata: [],
-                    };
-                };
+                self.initialize_slot(&slot, &value)?;
             }
             Pattern::Binding { id, ty }
                 if crate::execution::ownership::is_managed(ty)
@@ -144,16 +126,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let slot = self.slots.get(id)?.clone();
-                let value_type = self.types.value(ty)?;
-                emit_instruction! {
-                    self;
-                    store {
-                        value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                        pointer: #{ format!("%mal_slot_{}", slot.index) },
-                        alignment: #{ value_type.alignment },
-                        metadata: [],
-                    };
-                };
+                self.initialize_slot(&slot, value)?;
             }
             Pattern::Binding { id, ty }
                 if self.types.value(ty).is_some()
@@ -167,16 +140,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let slot = self.slots.get(id)?.clone();
-                let value_type = self.types.value(ty)?;
-                emit_instruction! {
-                    self;
-                    store {
-                        value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                        pointer: #{ format!("%mal_slot_{}", slot.index) },
-                        alignment: #{ value_type.alignment },
-                        metadata: [],
-                    };
-                };
+                self.initialize_slot(&slot, value)?;
             }
             Pattern::Product { elements, ty, .. } => {
                 let value = value?;

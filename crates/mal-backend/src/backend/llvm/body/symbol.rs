@@ -153,22 +153,12 @@ impl FunctionEmitter<'_> {
         let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
             return None;
         };
-        let slot = self.slots.get(&id)?;
+        let slot = self.slots.get(&id)?.clone();
         if slot.ty != Type::Symbol {
             return None;
         }
-        let slot_index = slot.index;
         let value = self.atom(atom)?;
-        let value_type = self.types.value(&Type::Symbol)?;
-        emit_instruction! {
-            self;
-            store {
-                value: typed(#{ value_type.llvm }, "zeroinitializer"),
-                pointer: #{ format!("%mal_slot_{slot_index}") },
-                alignment: #{ value_type.alignment },
-                metadata: [],
-            };
-        };
+        self.vacate_slot(&slot)?;
         Some(EmittedValue {
             owned: true,
             ..value

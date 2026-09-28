@@ -37,17 +37,7 @@ impl FunctionEmitter<'_> {
         effect: UseEffect,
     ) -> Option<PreparedValue> {
         let slot = self.slots.get(&id)?.clone();
-        let value_type = self.types.value(&slot.ty)?;
-        let register = self.register();
-        emit_instruction! {
-            self;
-            let #{ register.clone() } = load {
-                ty: #{ value_type.llvm },
-                pointer: #{ format!("%mal_slot_{}", slot.index) },
-                alignment: #{ value_type.alignment },
-                metadata: [],
-            };
-        };
+        let register = self.load_slot(&slot)?;
         let mut value = EmittedValue {
             ty: slot.ty.clone(),
             representation: register,
@@ -137,15 +127,7 @@ impl FunctionEmitter<'_> {
         self.block(format!("mal_capture_take_{label}"));
         let pointer = self.capture_pointer(index, &atom.ty)?;
         let value_type = self.types.value(&atom.ty)?;
-        emit_instruction! {
-            self;
-            store {
-                value: typed(#{ value_type.llvm }, "zeroinitializer"),
-                pointer: #{ pointer },
-                alignment: #{ value_type.alignment },
-                metadata: [],
-            };
-        };
+        self.vacate_place(&atom.ty, &pointer, value_type.alignment)?;
         emit_terminator! {
             self;
             branch {
@@ -173,16 +155,7 @@ impl FunctionEmitter<'_> {
         prepared: &PreparedValue,
     ) -> Option<()> {
         for slot in &prepared.consumed_slots {
-            let value_type = self.types.value(&slot.ty)?;
-            emit_instruction! {
-                self;
-                store {
-                    value: typed(#{ value_type.llvm }, "zeroinitializer"),
-                    pointer: #{ format!("%mal_slot_{}", slot.index) },
-                    alignment: #{ value_type.alignment },
-                    metadata: [],
-                };
-            };
+            self.vacate_slot(slot)?;
         }
         Some(())
     }

@@ -294,15 +294,14 @@ impl FunctionEmitter<'_> {
                 };
             };
             let slot = self.slots.get(&field.id)?.clone();
-            emit_instruction! {
-                self;
-                store {
-                    value: typed(#{ layout.value_type.llvm.clone() }, #{ value }),
-                    pointer: #{ format!("%mal_slot_{}", slot.index) },
-                    alignment: #{ layout.value_type.alignment },
-                    metadata: [],
-                };
-            };
+            self.initialize_slot(
+                &slot,
+                &super::super::EmittedValue {
+                    ty: field.ty.clone(),
+                    representation: value,
+                    owned: crate::execution::ownership::is_managed(&field.ty),
+                },
+            )?;
         }
         if self.common_region.is_some() {
             let environment = if let Some(offset) = layout.environment {

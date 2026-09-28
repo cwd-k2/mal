@@ -24,7 +24,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/control_storage`, `body/control_top` | region-local storage view and top access, synchronized at native Mal call boundaries |
 | `body/frame` | frame layout, resume dispatch, owner transfer, and bounded native-recursion workers |
 | `body/aggregate` | product and sum construction, case dispatch, and payload extraction |
-| `body/value` | retain, transfer, and release of managed values, pattern destinations, and dead-slot cleanup |
+| `body/value` | typed share/drop recursion, slot load/initialize/vacate transitions, pattern destinations, and dead-slot cleanup |
 | `body/memory` | dispatch for `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer snapshot conversion |
 | `body/memory/buffer` | Buffer construction, access, range operations, host-memory transfer, and managed-element callback emission |
 | `body/scalar` | integer and floating-point widths, literals, and instruction selection |

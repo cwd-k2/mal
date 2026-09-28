@@ -293,15 +293,7 @@ impl<'a> FunctionEmitter<'a> {
                 };
             };
             if crate::execution::ownership::is_managed(&slot.ty) {
-                emit_instruction! {
-                    self;
-                    store {
-                        value: typed(#{ value_type.llvm }, "zeroinitializer"),
-                        pointer: #{ format!("%mal_slot_{}", slot.index) },
-                        alignment: #{ value_type.alignment },
-                        metadata: [],
-                    };
-                };
+                self.vacate_slot(&slot)?;
             }
         }
         if self.common_region.is_some() {

@@ -362,29 +362,7 @@ impl FunctionEmitter<'_> {
         value: &EmittedValue,
         alignment: usize,
     ) -> Option<()> {
-        let value_type = self.types.value(&value.ty)?;
-        self.retain_value(&value.ty, &value.representation)?;
-        let previous = self.register();
-        emit_instruction! {
-            self;
-            let #{ previous.clone() } = load {
-                ty: #{ value_type.llvm.clone() },
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: [],
-            };
-        };
-        self.release_value(&value.ty, &previous)?;
-        emit_instruction! {
-            self;
-            store {
-                value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: [],
-            };
-        };
-        Some(())
+        self.replace_managed_place(pointer, value, alignment)
     }
 
     fn buffer_element_pointer(
