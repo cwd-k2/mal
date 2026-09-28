@@ -6,7 +6,9 @@ use mal_syntax::source::{SourceFile, SourceGraph};
 /// The result of analyzing a program: the resolved program keeps source identities for editors, and the checked program is
 /// what lowering consumes.
 pub struct Analysis {
+    /// Identity-annotated source structure retained for navigation and editor queries.
     pub resolved: crate::resolve::ast::Program,
+    /// Canonically typed program consumed by specialization and lowering.
     pub checked: crate::check::ast::Program,
 }
 

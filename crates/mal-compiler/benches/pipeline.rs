@@ -1,3 +1,5 @@
+//! Frontend and backend pipeline benchmark over one deterministic synthetic program.
+
 use std::fmt::Write;
 use std::hint::black_box;
 use std::time::{Duration, Instant};

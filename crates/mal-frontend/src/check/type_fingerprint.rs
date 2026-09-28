@@ -7,6 +7,10 @@ use std::hash::{Hash, Hasher};
 use super::ast::{SharedTypeId, Type};
 
 #[derive(Default)]
+/// Cache of structural type hashes used to form collision-checked grouping buckets.
+///
+/// A fingerprint is never proof of type equality; callers must compare the canonical types after
+/// selecting a bucket.
 pub struct TypeFingerprints {
     cache: HashMap<SharedTypeId, u64>,
 }

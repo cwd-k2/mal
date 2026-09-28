@@ -68,7 +68,8 @@ cargo test --workspace --locked
 ```
 
 development shellは検証scriptを実行するNushellと`rust-analyzer`も含む。editor上のRust diagnosticは同じCargo workspaceとtoolchainを使い、
-完了判定では上記の全targetに対するClippyをwarning-freeにする。
+完了判定では上記の全targetに対するClippyをwarning-freeにする。workspace lintの`missing_docs`は公開Rust APIのtype、variant、field、
+functionがcaller-facing contractを持つことを検査する。private helperや自明なsyntaxを一律に文書化する規則ではない。
 
 Tree-sitter grammarを変更した場合はrepository rootで次を実行する。
 

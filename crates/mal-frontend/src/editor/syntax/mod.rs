@@ -1,3 +1,5 @@
+//! Token-only editor index that remains available when parsing or checking fails.
+
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::lexer::{Token, TokenKind, lex};
 use mal_syntax::source::{SourceFile, Span};
@@ -9,13 +11,18 @@ mod declaration;
 use declaration::function_declarations;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// An identifier conservatively classified without semantic analysis.
 pub struct SyntaxToken {
+    /// The exact identifier range.
     pub span: Span,
+    /// Its syntax-derived presentation role.
     pub kind: SymbolKind,
+    /// Whether surrounding tokens unambiguously make this a declaration.
     pub declaration: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// One complete leading `require` declaration recognized from tokens alone.
 pub struct SyntaxRequirement {
     declaration_span: Span,
     path_span: Span,
@@ -23,6 +30,7 @@ pub struct SyntaxRequirement {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Syntax information available for an incomplete or semantically invalid document.
 pub struct SyntaxDocument {
     tokens: Vec<SyntaxToken>,
     functions: Vec<String>,

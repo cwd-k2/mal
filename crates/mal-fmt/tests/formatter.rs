@@ -1,3 +1,5 @@
+//! Integration tests for canonical source layout and comment preservation.
+
 use mal_syntax::source::{FileId, SourceFile};
 
 fn source(text: &str) -> SourceFile {

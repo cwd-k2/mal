@@ -1,3 +1,5 @@
+//! Public-boundary tests for semantic editor indexes and navigation contracts.
+
 use mal_frontend::editor::{OccurrenceRole, SymbolKind};
 use mal_syntax::source::{FileId, SourceFile, SourceGraph, SourceRequirement, Span};
 

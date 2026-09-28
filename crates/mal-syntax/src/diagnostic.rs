@@ -5,7 +5,9 @@ use std::fmt::Write;
 use crate::source::{SourceProvider, Span};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The diagnostic class presented to users and tools.
 pub enum Severity {
+    /// A condition that prevents admission or artifact generation.
     Error,
 }
 
@@ -18,16 +20,24 @@ impl Severity {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// The source range that owns a diagnostic and its local explanation.
 pub struct Label {
+    /// The labeled source range.
     pub span: Span,
+    /// Why this range is relevant to the diagnostic.
     pub message: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// A structured compiler diagnostic with at most one primary source label.
 pub struct Diagnostic {
+    /// The diagnostic class.
     pub severity: Severity,
+    /// The source-independent summary.
     pub message: String,
+    /// The source range that owns the error, when one is available.
     pub primary: Option<Label>,
+    /// Additional source-independent context in presentation order.
     pub notes: Vec<String>,
 }
 

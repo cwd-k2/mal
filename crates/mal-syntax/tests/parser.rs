@@ -1,3 +1,5 @@
+//! Public-boundary tests for accepted syntax trees and parser-owned rejection.
+
 use mal_syntax::ast::{
     BinaryOperator, BodyItem, Expression, Pattern, TopItem, TypeExpression, UnaryOperator,
 };

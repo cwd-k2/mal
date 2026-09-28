@@ -58,25 +58,36 @@ impl Span {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// A one-based human-readable source location.
 pub struct Location {
+    /// The one-based line number.
     pub line: usize,
+    /// The one-based Unicode-scalar column.
     pub column: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A zero-based UTF-16 position as required by LSP.
 pub struct Utf16Position {
+    /// The zero-based line number.
     pub line: usize,
+    /// The zero-based UTF-16 code-unit offset within the line.
     pub character: usize,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// One source line without its line terminator.
 pub struct SourceLine<'a> {
+    /// The one-based line number.
     pub number: usize,
+    /// The line's UTF-8 byte offset in the complete source.
     pub start: usize,
+    /// The line text excluding CR and LF bytes.
     pub text: &'a str,
 }
 
 #[derive(Debug)]
+/// One admitted UTF-8 source and its precomputed line index.
 pub struct SourceFile {
     id: FileId,
     path: PathBuf,
@@ -97,8 +108,11 @@ pub struct SourceGraph {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// A resolved mal-source requirement edge.
 pub struct SourceRequirement {
+    /// The required file's graph identity.
     pub target: FileId,
+    /// The requirement path span in the requiring file.
     pub span: Span,
 }
 
@@ -321,9 +335,20 @@ impl SourceFile {
 }
 
 #[derive(Debug)]
+/// Failure to read or decode a source file.
 pub enum SourceLoadError {
-    Io { path: PathBuf, source: io::Error },
-    InvalidUtf8 { path: PathBuf },
+    /// The operating system rejected the file read.
+    Io {
+        /// The path that could not be read.
+        path: PathBuf,
+        /// The underlying I/O error.
+        source: io::Error,
+    },
+    /// The file contents were not valid UTF-8.
+    InvalidUtf8 {
+        /// The path containing invalid bytes.
+        path: PathBuf,
+    },
 }
 
 impl fmt::Display for SourceLoadError {

@@ -1,3 +1,5 @@
+//! Public-boundary tests for type checking, specialization, and diagnostics.
+
 use mal_frontend::check;
 use mal_frontend::check::ast::{ExpressionKind, TopItem, Type};
 use mal_frontend::resolve;

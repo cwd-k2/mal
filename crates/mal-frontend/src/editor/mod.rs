@@ -14,53 +14,84 @@ pub use documentation::declaration_documentation;
 pub use syntax::{SyntaxDocument, SyntaxRequirement, SyntaxToken};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A resolved identity in either the type or value namespace.
 pub enum SymbolId {
+    /// A type declaration or reference.
     Type(resolved::TypeId),
+    /// A value declaration or reference.
     Value(resolved::ValueId),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The presentation role of a name in editor features.
 pub enum SymbolKind {
+    /// A type, alias, parameter, or external type.
     Type,
+    /// A non-callable value.
     Value,
+    /// A callable value or operation.
     Function,
+    /// A function or continuation parameter.
     Parameter,
     /// A name introduced by a direct result block; applying it leaves that block.
     ResultBinder,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Whether a source occurrence introduces or uses an identity.
 pub enum OccurrenceRole {
+    /// The source occurrence that introduces the identity.
     Declaration,
+    /// A use resolved to an existing declaration.
     Reference,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// One identity-bearing source occurrence used by navigation and hover.
 pub struct Occurrence {
+    /// The resolved symbol identity.
     pub id: SymbolId,
+    /// The source spelling at this occurrence.
     pub name: String,
+    /// The exact identifier range.
     pub span: Span,
+    /// The editor presentation role.
     pub kind: SymbolKind,
+    /// Whether this occurrence introduces or uses the identity.
     pub role: OccurrenceRole,
+    /// A compact type or signature string for hover and completion.
     pub detail: Option<String>,
+    /// User-facing declaration documentation, when available.
     pub documentation: Option<String>,
+    /// The defining identifier range, absent for predefined symbols.
     pub declaration_span: Option<Span>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// A declaration-shaped entry for document symbols or completion.
 pub struct Symbol {
+    /// The resolved symbol identity.
     pub id: SymbolId,
+    /// The inserted or displayed name.
     pub name: String,
+    /// The editor presentation role.
     pub kind: SymbolKind,
+    /// A compact type or signature string.
     pub detail: Option<String>,
+    /// User-facing declaration documentation, when available.
     pub documentation: Option<String>,
+    /// The source declaration range, absent for predefined symbols.
     pub span: Option<Span>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// The narrowest typed region selected for a hover query.
 pub struct Hover<'a> {
+    /// The source range to highlight.
     pub span: Span,
+    /// The formatted canonical or declared type.
     pub ty: &'a str,
+    /// Identity information when the region is a named occurrence.
     pub occurrence: Option<&'a Occurrence>,
 }
 
@@ -68,11 +99,14 @@ pub struct Hover<'a> {
 /// when the unit never returns normally without naming a binder, as after an empty elimination.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Exit {
+    /// The source unit whose end should receive the exit annotation.
     pub span: Span,
+    /// Result binder names that may receive control; empty means no normal return.
     pub targets: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
+/// Program-wide semantic index with queries optionally restricted to one document.
 pub struct SemanticDocument {
     file: Option<FileId>,
     occurrences: Vec<Occurrence>,

@@ -1,3 +1,5 @@
+//! End-to-end JSON-RPC tests over the language server's stdio transport.
+
 use std::io::{BufRead, Cursor, Read, Write};
 use std::process::{Command, Stdio};
 

@@ -1,3 +1,5 @@
+//! Public-boundary tests for name resolution, capture inference, and source graphs.
+
 use mal_frontend::resolve;
 use mal_frontend::resolve::ast::{
     self as resolved, FALSE_VALUE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE,

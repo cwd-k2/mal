@@ -1,3 +1,5 @@
+//! Cross-boundary tests for compiler-driver artifacts, toolchain invocation, and execution.
+
 use std::ffi::OsStr;
 use std::io::Write;
 use std::path::Path;

@@ -1,3 +1,5 @@
+//! Canonical-format and idempotence checks over repository example sources.
+
 use std::path::{Path, PathBuf};
 
 use mal_syntax::source::{FileId, SourceFile};

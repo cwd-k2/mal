@@ -1,3 +1,5 @@
+//! Resource-limit and malformed-input regression tests for the compiler command boundary.
+
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::{FileId, SourceFile};
 

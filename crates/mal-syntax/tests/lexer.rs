@@ -1,3 +1,5 @@
+//! Public-boundary tests for tokenization, decoded literals, and lexical rejection.
+
 use mal_syntax::lexer::{
     DecimalFloatLiteral, FloatSuffix, IntegerLiteral, IntegerSuffix, Radix, TokenKind, lex,
 };

@@ -21,8 +21,10 @@ pub struct PredefinedValue {
 // features. IDs must remain unique and dense; source identities begin after the greatest one.
 macro_rules! predefined_types {
     ($( $constant:ident = $id:literal => ($name:literal, $detail:literal, $documentation:literal) ),+ $(,)?) => {
-        $(pub const $constant: TypeId = TypeId($id);)+
+        $(#[doc = concat!("Reserved identity for predefined type `", $name, "`. ", $documentation)]
+        pub const $constant: TypeId = TypeId($id);)+
 
+        /// Predefined types in reserved identity order.
         pub const TYPES: &[PredefinedType] = &[
             $(PredefinedType {
                 name: $name,
@@ -58,8 +60,10 @@ predefined_types!(
 // and editor documentation cannot acquire different identities for the same predefined value.
 macro_rules! predefined_values {
     ($( $constant:ident = $id:literal => ($name:literal, $detail:expr, $documentation:literal, $callable:literal) ),+ $(,)?) => {
-        $(pub const $constant: ValueId = ValueId($id);)+
+        $(#[doc = concat!("Reserved identity for predefined value `", $name, "`. ", $documentation)]
+        pub const $constant: ValueId = ValueId($id);)+
 
+        /// Predefined values in reserved identity order.
         pub const VALUES: &[PredefinedValue] = &[
             $(PredefinedValue {
                 name: $name,

@@ -1,3 +1,5 @@
+//! Integration tests for formatter command arguments, output, and file replacement.
+
 use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
