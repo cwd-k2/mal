@@ -53,9 +53,11 @@ impl Checker {
         let checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
                 kind: if self.generic_signatures.contains_key(&reference.id) {
-                    return Err(Diagnostic::error("generic value requires type arguments")
-                        .with_primary(reference.name.span, "supply the declared type arguments")
-                        .into());
+                    return self.check_inferred_generic_reference(
+                        reference,
+                        expression.span,
+                        expected,
+                    );
                 } else {
                     ExpressionKind::Reference(reference.clone())
                 },
@@ -66,82 +68,16 @@ impl Checker {
                 reference,
                 arguments,
             } => {
-                let Some(signature) = self.generic_signatures.get(&reference.id).cloned() else {
+                if !self.generic_signatures.contains_key(&reference.id) {
                     return Err(Diagnostic::error("value does not accept type arguments")
                         .with_primary(reference.name.span, "remove these type arguments")
-                        .into());
-                };
-                if arguments.len() != signature.parameters.len() {
-                    return Err(Diagnostic::error("generic value argument arity mismatch")
-                        .with_primary(
-                            reference.name.span,
-                            format!(
-                                "expected {} arguments but found {}",
-                                signature.parameters.len(),
-                                arguments.len()
-                            ),
-                        )
                         .into());
                 }
                 let arguments = arguments
                     .iter()
                     .map(|argument| self.expand_type(argument))
                     .collect::<Result<Vec<_>, _>>()?;
-                if self
-                    .active_generic
-                    .as_ref()
-                    .is_some_and(|(id, _)| *id == reference.id)
-                {
-                    let (_, parameters) = self.active_generic.as_ref().unwrap();
-                    let same_key = arguments.iter().zip(parameters).all(|(argument, parameter)| {
-                        matches!(argument, Type::Parameter { id, .. } if id == parameter)
-                    });
-                    if !same_key {
-                        return Err(Diagnostic::error("polymorphic recursion is not supported")
-                            .with_primary(
-                                reference.name.span,
-                                "self recursion must preserve the type argument list",
-                            )
-                            .into());
-                    }
-                }
-                for required in &signature.requirements {
-                    let index = signature
-                        .parameters
-                        .iter()
-                        .position(|parameter| parameter.id == *required)
-                        .expect("requirements refer to declared parameters");
-                    if !super::types::satisfies_storable_requirement(
-                        &arguments[index],
-                        &self.active_requirements,
-                    ) {
-                        return Err(Diagnostic::error(
-                            "generic application lacks a Storable requirement",
-                        )
-                        .with_primary(
-                            reference.name.span,
-                            format!(
-                                "type argument `{}` is not known to be storable",
-                                type_name(&arguments[index])
-                            ),
-                        )
-                        .into());
-                    }
-                }
-                let substitutions = signature
-                    .parameters
-                    .iter()
-                    .map(|parameter| parameter.id)
-                    .zip(arguments.iter().cloned())
-                    .collect();
-                Expression {
-                    kind: ExpressionKind::GenericReference {
-                        reference: reference.clone(),
-                        arguments,
-                    },
-                    ty: super::types::substitute_type(&signature.ty, &substitutions),
-                    span: expression.span,
-                }
+                self.check_generic_reference(reference, arguments, expression.span)?
             }
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?

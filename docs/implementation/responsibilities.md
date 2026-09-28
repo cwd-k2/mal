@@ -56,7 +56,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
 | `formatter` | lossless lexerとparserの結果から、commentとliteral spellingを保持したcanonical source textを構成 |
 | `resolve` | name identity、scope、lexical captureの推論 |
-| `types` / `check` | canonical typeとtyped AST、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
+| `types` / `check` | canonical typeとtyped AST、generic referenceの局所的な型argument推論、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `call_pattern` | closure-converted programを書き換える唯一の最適化。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、複製したbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |

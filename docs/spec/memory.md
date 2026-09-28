@@ -112,6 +112,7 @@ Buffer<A>.copy(Index<A>, Buffer<A>, Index<A>, USize) -> Unit
 
 `make<A>(capacity)`はcount 0のBufferを返す。capacityは初期allocationの要求であり、論理countではない。後続の`new`はcapacityを
 超えてgrowthできる。`new`は末尾へ追加し、その安定した0-based indexを返す。`get`と`put`は現在のindexを読み書きする。
+期待resultが`Buffer<A>`なら`make(capacity)`から`A`を推論できる。期待型がなければ明示形を使う。
 receiver-firstでない`new(buffer, value)`、`get(buffer, index)`、`put(buffer, index, value)`も同じpredefined operationである。
 
 `buffer.fill(offset, length, value)`は半開区間`[offset, offset + length)`の全要素へ`value`を代入する。
@@ -153,6 +154,7 @@ Buffer<A>.into(Address, USize, USize)      -> Unit
 
 `from<A>(address, offset, length)`はhost storageの半開区間`[offset, offset + length)`をsource順にcopyし、countが`length`の
 新しいBufferを返す。`buffer.into(address, offset, length)`はBufferの同じ半開区間をhost storageの先頭へcopyする。
+期待resultが`Buffer<A>`なら`from(address, offset, length)`から`A`を推論できる。
 `into`はBufferを変更またはconsumeしない。receiver-firstでない形は`into(buffer, address, offset, length)`である。
 
 copyにはcanonical representationを使う。numeric scalar、Address、ByteSize、USizeの幅とalignmentはtarget ABI、

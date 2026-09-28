@@ -164,7 +164,7 @@ impl Checker {
         callee: &Node<resolved::Expression>,
         arguments: &[Node<resolved::Expression>],
         span: Span,
-        _expected: Option<&Type>,
+        expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         if let resolved::Expression::GenericReference {
             reference,
@@ -176,6 +176,19 @@ impl Checker {
             )
         {
             return self.check_memory_intrinsic(reference, type_arguments, arguments, span);
+        }
+        if let resolved::Expression::Reference(reference) = &callee.kind
+            && matches!(
+                reference.id,
+                crate::resolve::MAKE_VALUE | crate::resolve::FROM_VALUE
+            )
+        {
+            return self.check_inferred_memory_intrinsic(reference, arguments, span, expected);
+        }
+        if let resolved::Expression::Reference(reference) = &callee.kind
+            && self.generic_signatures.contains_key(&reference.id)
+        {
+            return self.check_inferred_generic_call(reference, arguments, span, expected);
         }
         if let resolved::Expression::Reference(reference) = &callee.kind
             && matches!(
@@ -280,7 +293,7 @@ impl Checker {
         }
     }
 
-    fn check_untyped_argument(
+    pub(in crate::check) fn check_untyped_argument(
         &mut self,
         arguments: &[Node<resolved::Expression>],
         span: Span,

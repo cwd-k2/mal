@@ -370,7 +370,7 @@ fn rejects_invalid_generic_value_use_before_specialization() {
     for (source, message) in [
         (
             "identity<A> :: A -> A := (value) -> value; value := identity;",
-            "generic value requires type arguments",
+            "generic type arguments cannot be inferred",
         ),
         (
             "identity<A> :: A -> A := (value) -> value; value := identity<Int32, UInt8>;",
@@ -383,6 +383,46 @@ fn rejects_invalid_generic_value_use_before_specialization() {
         (
             "double<A> :: A -> A := (value) -> value + value;",
             "numeric operator requires numeric operands",
+        ),
+    ] {
+        assert_eq!(check_error(source).message, message, "source: {source}");
+    }
+}
+
+#[test]
+fn infers_generic_arguments_from_operands_results_and_function_contexts() {
+    check_ok(
+        "identity<A> :: A -> A := (value) -> value;\n\
+         apply :: (Int32 -> Int32, Int32) -> Int32 := (function, value) -> function(value);\n\
+         map<A, B> :: (A, A -> B) -> B := (value, function) -> function(value);\n\
+         fromResult :: Unit -> UInt8 := () -> identity(7);\n\
+         fromValue :: Unit -> Int32 := () -> apply(identity, 42);\n\
+         fromLambda :: Unit -> UInt64 := () -> map(1i32, (value) -> value.u64);\n\
+         main :: Unit -> Int32 := () -> identity(42);",
+    );
+}
+
+#[test]
+fn inferred_and_explicit_references_share_a_specialization_key() {
+    let program = check_ok(
+        "identity<A> :: A -> A := (value) -> value;\n\
+         main :: Unit -> Int32 := () -> identity(20) + identity<Int32>(22);",
+    );
+    let specialized = check::specialize(program).expect("specialize shared application");
+
+    assert_eq!(specialized.program().items.len(), 2);
+}
+
+#[test]
+fn rejects_missing_and_conflicting_generic_inference() {
+    for (source, message) in [
+        (
+            "hidden<A> :: Unit -> Unit := () -> (); main :: Unit -> Unit := () -> hidden();",
+            "generic type arguments cannot be inferred",
+        ),
+        (
+            "same<A> :: (A, A) -> A := (left, _) -> left; main :: Unit -> Int32 := () -> same(1i32, 2u8);",
+            "conflicting generic type inference",
         ),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");

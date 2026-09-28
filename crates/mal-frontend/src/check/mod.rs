@@ -13,6 +13,7 @@ mod control;
 mod entry;
 mod expression;
 mod float;
+mod inference;
 mod initializer;
 mod integer;
 mod interface;
@@ -87,6 +88,7 @@ impl From<Diagnostic> for CheckFailure {
 
 type CheckResult<T> = Result<T, CheckFailure>;
 
+#[derive(Clone)]
 struct Checker {
     aliases: HashMap<TypeId, Node<resolved::TypeExpression>>,
     generic_aliases: HashMap<TypeId, GenericAliasDefinition>,

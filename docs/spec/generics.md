@@ -7,18 +7,26 @@ Status: Accepted v0.6
 
 ## Declarationとapplication
 
-type aliasとtop-level value bindingは明示的な型parameterを持てる。型argumentはすべて明示する。
+type aliasとtop-level value bindingは明示的な型parameterを持てる。type applicationでは型argumentを明示するか、
+value referenceの周辺型から推論させる。
 
 ```mal
 Result<E, A> :: [E, A];
 identity<A> :: A -> A := (value) -> value;
 
-same :: Int32 -> Int32 := (value) -> identity<Int32>(value);
+same :: Int32 -> Int32 := (value) -> identity(value);
 ```
 
-型argumentの推論はない。`Buffer<A>`のpredefined operation（`new`、`get`、`put`、`fill`、`copy`、`into`、`#`）は
-generic bindingではなく、`Buffer<A>`のreceiverまたはargumentから`A`を決めるcompiler定義のoperationなので型argumentを書かない。
-`make<A>`と`from<A>`は`A`がresultにしか現れないため明示する。[AddressとBuffer](memory.md#buffer)に各operationの型を定める。
+generic value referenceの型argumentは、declarationのparameter型とoperand、result型と周辺の期待型をalias展開後に構造的に
+unifyして決める。期待関数型から単独のreferenceも推論できる。lambda argumentはparameter側が他のconstraintから確定した場合だけ
+bodyを検査し、そのresultをconstraintに加える。周辺型が未確定なnumeric literalは他のconstraintを先に適用し、なお未確定なら
+通常のliteral defaultを使う。矛盾するconstraintと、解決後も未確定なargumentはerrorであり、その箇所では型argumentを明示する。
+
+推論対象はcall siteごとの型argumentだけである。generic本体のopaqueな型parameterはrigidであり、concrete typeへ具体化しない。
+implementation候補やspecialization済みinstanceを推論の情報源にしない。`Buffer<A>`のpredefined operation（`new`、`get`、`put`、
+`fill`、`copy`、`into`、`#`）はgeneric bindingではなく、receiverまたはargumentから`A`を決める。`make`と`from`は期待される
+`Buffer<A>` resultから`A`を推論でき、期待型がなければ`make<A>`、`from<A>`と明示する。
+[AddressとBuffer](memory.md#buffer)に各operationの型を定める。
 
 型parameterは通常のsource typeを表す。user-defined kind、bound、constraintはない。generic aliasはtransparentであり、型argumentを
 代入して展開したcanonical typeと同じ型になる。alias右辺のtype expressionに直接現れないparameterはphantomであり、
@@ -77,7 +85,7 @@ lifetime、valid representationを証明しない。
 ## Specialization
 
 name resolutionとtype checkingは型parameter、型application、opaque type variable、requirement、generic binding identityを所有する。
-type checking後、compilerはentry pointから到達するexplicit concrete applicationを起点にspecialization graphを構成する。
+type checking後、compilerはentry pointから到達する、明示または推論済みのconcrete applicationを起点にspecialization graphを構成する。
 
 specialization keyはgeneric binding identityとalias展開後のcanonical concrete type argument列であり、同じkeyはfileを跨いで共有する。
 各nodeはgeneric typed bodyへ型argumentを代入して単相typed coreを一度生成し、到達するgeneric applicationをgraphへ加える。

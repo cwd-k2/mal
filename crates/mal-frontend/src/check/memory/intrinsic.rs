@@ -15,6 +15,38 @@ impl Checker {
         span: Span,
     ) -> CheckResult<Expression> {
         let element = self.memory_element_type(reference, type_arguments)?;
+        self.check_memory_intrinsic_with_element(reference, element, arguments, span)
+    }
+
+    pub(crate) fn check_inferred_memory_intrinsic(
+        &mut self,
+        reference: &resolved::ValueReference,
+        arguments: &[Node<resolved::Expression>],
+        span: Span,
+        expected: Option<&Type>,
+    ) -> CheckResult<Expression> {
+        let Some(Type::Buffer(element)) = expected else {
+            return Err(
+                Diagnostic::error("memory intrinsic type argument cannot be inferred")
+                    .with_primary(
+                        reference.name.span,
+                        "write an explicit type argument or provide an expected Buffer type",
+                    )
+                    .into(),
+            );
+        };
+        let element = element.as_ref().clone();
+        self.validate_memory_element(reference, &element, reference.name.span)?;
+        self.check_memory_intrinsic_with_element(reference, element, arguments, span)
+    }
+
+    fn check_memory_intrinsic_with_element(
+        &mut self,
+        reference: &resolved::ValueReference,
+        element: Type,
+        arguments: &[Node<resolved::Expression>],
+        span: Span,
+    ) -> CheckResult<Expression> {
         let (primitive, parameter) = match reference.id {
             crate::resolve::MAKE_VALUE => (MemoryPrimitive::BufferMake, Type::USize),
             crate::resolve::FROM_VALUE => (
@@ -50,24 +82,34 @@ impl Checker {
             );
         };
         let element = self.expand_type(argument)?;
+        self.validate_memory_element(reference, &element, argument.span)?;
+        Ok(element)
+    }
+
+    fn validate_memory_element(
+        &self,
+        reference: &resolved::ValueReference,
+        element: &Type,
+        span: Span,
+    ) -> CheckResult<()> {
         if reference.id == crate::resolve::MAKE_VALUE {
             if !super::super::types::satisfies_storable_requirement(
-                &element,
+                element,
                 &self.active_requirements,
             ) {
                 return Err(Diagnostic::error("make requires a storable element type")
                     .with_primary(
-                        argument.span,
+                        span,
                         format!(
                             "`{}` is not known to be an immutable value that a Buffer can hold",
-                            super::super::types::type_name(&element)
+                            super::super::types::type_name(element)
                         ),
                     )
                     .into());
             }
         } else {
-            super::ensure_copyable_element(&element, argument.span)?;
+            super::ensure_copyable_element(element, span)?;
         }
-        Ok(element)
+        Ok(())
     }
 }

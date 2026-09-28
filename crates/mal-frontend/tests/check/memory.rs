@@ -4,7 +4,7 @@ use super::*;
 fn checks_managed_buffer_construction_aliasing_and_access() {
     check_ok(
         "create :: Unit -> Buffer<Int32> := () -> {
-           values := make<Int32>(4usize);
+           values :: Buffer<Int32> := make(4usize);
            alias := values;
            index := values.new(10i32);
            alias.put(index, alias.get(index) + 1i32);
@@ -21,7 +21,7 @@ fn checks_managed_buffer_construction_aliasing_and_access() {
 fn checks_c_host_copy_primitives_and_symbol_snapshots() {
     check_ok(
         "snapshot :: (Address, USize) -> Symbol := (address, count) -> {
-           bytes := from<UInt8>(address, 0usize, count);
+           bytes :: Buffer<UInt8> := from(address, 0usize, count);
            bytes.into(address, 0usize, count);
            *bytes;
          };
@@ -32,6 +32,7 @@ fn checks_c_host_copy_primitives_and_symbol_snapshots() {
 #[test]
 fn rejects_invalid_buffer_operations_without_preserving_retired_syntax() {
     for text in [
+        "bad := make(0usize);",
         "bad := make<Symbol>(0usize);",
         "bad := make<Int32>(1i32);",
         "bad :: Buffer<Int32> -> Unit := (values) -> values.put(0usize, 1u32);",
