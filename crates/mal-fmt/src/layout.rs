@@ -1,4 +1,4 @@
-use mal_syntax::ast::{Program, TopItem};
+use mal_syntax::ast::{Expression, Lambda, Node, Program, TopItem};
 use mal_syntax::lexer::{Lexed, LexemeKind, TokenKind};
 use mal_syntax::source::SourceFile;
 
@@ -128,6 +128,7 @@ pub(super) fn top_level_breaks(
     source: &SourceFile,
     lexed: &Lexed,
     program: &Program,
+    blocks: &BlockLayout,
 ) -> Vec<usize> {
     let mut breaks = Vec::new();
     if let (Some(requirement), Some(item)) = (program.requirements.last(), program.items.first()) {
@@ -160,8 +161,8 @@ pub(super) fn top_level_breaks(
         }
         let between = &source.text()[previous.span.end()..next.span.start()];
         if has_blank_line(between)
-            || is_function_binding(&previous.kind)
-            || is_function_binding(&next.kind)
+            || is_multiline_function_binding(source, lexed, blocks, previous)
+            || is_multiline_function_binding(source, lexed, blocks, next)
         {
             let previous_line = source
                 .location(previous.span.end())
@@ -187,8 +188,13 @@ pub(super) fn top_level_breaks(
     breaks
 }
 
-fn is_function_binding(item: &TopItem) -> bool {
-    let expression = match item {
+fn is_multiline_function_binding(
+    source: &SourceFile,
+    lexed: &Lexed,
+    blocks: &BlockLayout,
+    item: &Node<TopItem>,
+) -> bool {
+    let expression = match &item.kind {
         TopItem::Binding(binding) => &binding.value.kind,
         TopItem::GenericBinding {
             value: Some(value), ..
@@ -199,7 +205,45 @@ fn is_function_binding(item: &TopItem) -> bool {
     while let mal_syntax::ast::Expression::Parenthesized(inner) = expression {
         expression = &inner.kind;
     }
-    matches!(expression, mal_syntax::ast::Expression::Lambda(_))
+    let Expression::Lambda(lambda) = expression else {
+        return false;
+    };
+    !is_single_line_function_binding(source, lexed, blocks, item, lambda)
+}
+
+fn is_single_line_function_binding(
+    source: &SourceFile,
+    lexed: &Lexed,
+    blocks: &BlockLayout,
+    item: &Node<TopItem>,
+    lambda: &Lambda,
+) -> bool {
+    let same_source_line = source
+        .location(item.span.start())
+        .zip(source.location(item.span.end()))
+        .is_some_and(|(start, end)| start.line == end.line);
+    if !same_source_line || starts_multiline_control(&lambda.body.result.kind) {
+        return false;
+    }
+
+    let first = lexed
+        .tokens
+        .partition_point(|token| token.span.start() < item.span.start());
+    lexed.tokens[first..]
+        .iter()
+        .enumerate()
+        .take_while(|(_, token)| token.span.end() <= item.span.end())
+        .all(|(offset, token)| {
+            !matches!(token.kind, TokenKind::LeftBrace) || blocks.is_compact(first + offset)
+        })
+}
+
+fn starts_multiline_control(expression: &Expression) -> bool {
+    let mut expression = expression;
+    while let Expression::Parenthesized(inner) = expression {
+        expression = &inner.kind;
+    }
+    matches!(expression, Expression::If { .. } | Expression::When { .. })
 }
 
 fn has_blank_line(text: &str) -> bool {

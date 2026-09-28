@@ -134,9 +134,7 @@ fn keeps_generic_delimiters_attached_without_changing_comparisons_or_shifts() {
         formatted,
         concat!(
             "Pair<A, B> :: (A, B);\n",
-            "\n",
             "identity<A> :: A -> A := (value) -> value;\n",
-            "\n",
             "value := identity<Pair<Int32>>(input);\n",
             "compare := left < right;\n",
             "shift := left >> right;\n",
@@ -197,7 +195,7 @@ fn formats_unary_and_binary_symbol_operators() {
 }
 
 #[test]
-fn groups_declarations_and_separates_top_level_bindings() {
+fn keeps_single_line_function_bindings_in_the_surrounding_group() {
     let formatted = format(
         "Pair::(Int32,Int32);extern Handle;extern use::Handle->Unit;\n\
          // first binding\nfirst:=() -> {1;};// result\n\
@@ -210,10 +208,8 @@ fn groups_declarations_and_separates_top_level_bindings() {
             "Pair :: (Int32, Int32);\n",
             "extern Handle;\n",
             "extern use :: Handle -> Unit;\n",
-            "\n",
             "// first binding\n",
             "first := () -> { 1 }; // result\n",
-            "\n",
             "// second binding\n",
             "second := () -> { 2 };\n",
         )

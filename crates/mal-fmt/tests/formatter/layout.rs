@@ -320,6 +320,41 @@ fn preserves_explicit_top_level_groups_without_splitting_data_bindings() {
 }
 
 #[test]
+fn does_not_separate_simple_single_line_functions() {
+    let formatted = format("f::A->B:=(a)->b;wrapped::A->B:=(a)->{b};value:=f(input);");
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "f :: A -> B := (a) -> b;\n",
+            "wrapped :: A -> B := (a) -> { b };\n",
+            "value := f(input);\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn separates_function_bindings_that_expand_to_multiple_lines() {
+    let formatted = format("before:=1;f::A->B:=(a)->{trace(a);a};after:=2;");
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "before := 1;\n",
+            "\n",
+            "f :: A -> B := (a) -> {\n",
+            "    trace(a);\n",
+            "    a;\n",
+            "};\n",
+            "\n",
+            "after := 2;\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn preserves_explicit_type_and_extern_declaration_breaks() {
     let formatted = format("Pair\n::(Int32,Int32);\nextern combine\n::(Int32,Int32)\n->Int32;");
 

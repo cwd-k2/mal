@@ -33,7 +33,8 @@ command grammarのusage errorが`2`である。
   一行のまま整形する。sourceで改行した場合と、blockが複数行に展開される場合はvalueの後で改行する。
   改行した場合は各continuationをvalueの行より一段深くindentし、閉じ`]`をvalueの行と同じindentへ戻す。block直下の文でも
   bindingなどのRHSでも同じである。各lambda bodyのblockは通常のlambdaと同じ規則で整形する。
-- sourceで空行に分けたtop-level groupは1空行を保つ。lambdaを直接initializerに持つfunction bindingは
+- sourceで空行に分けたtop-level groupは1空行を保つ。lambdaを直接initializerに持つfunction bindingのうち、
+  sourceで一行に書かれformatterが展開しないものは連続するbindingと同じgroupに置く。それ以外のfunction bindingは
   前後のitemと1空行で分け、連続するそれ以外のbindingへformatterだけを理由とする空行を追加しない。
 - `::`、`:=`、`->`、binary operator、delimiterで区切られた要素の前後にsource改行があれば、構文上
   曖昧にならない位置ではcontinuation改行として保つ。`:=`の前後で改行したinitializerはbinding終端まで

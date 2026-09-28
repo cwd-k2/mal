@@ -32,7 +32,6 @@ _rootValue :: ParserFrame := 9u8;
 _rootDone :: ParserFrame := 10u8;
 
 _parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
-
 _parseSuccess :: JsonStatistics -> ParseResult := (stats) -> [failure, success] => success(stats);
 
 _includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) -> {

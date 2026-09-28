@@ -6,7 +6,6 @@ _standardError :: Int32 := 2i32;
 _inputOutputError :: UInt32 := 5u32;
 
 _statusSuccess :: Unit -> SyscallStatus := () -> [success, failure] => success();
-
 _statusFailure :: UInt32 -> SyscallStatus := (error) -> [success, failure] => failure(error);
 
 // Partial writes advance both the address and remaining extent; zero progress becomes an error rather
@@ -51,5 +50,4 @@ writeDescriptor :: (Int32, Symbol) -> SyscallStatus := (descriptor, value) -> [r
 };
 
 writeStdout :: Symbol -> SyscallStatus := (value) -> writeDescriptor(_standardOutput, value);
-
 writeStderr :: Symbol -> SyscallStatus := (value) -> writeDescriptor(_standardError, value);

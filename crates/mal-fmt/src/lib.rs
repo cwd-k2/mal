@@ -61,6 +61,7 @@ impl<'a> Formatter<'a> {
     fn new(source: &'a SourceFile, lexed: &'a Lexed, program: &Program) -> Self {
         let blocks = BlockLayout::new(source, lexed);
         let controls = ControlLayout::new(source, lexed, program, &blocks);
+        let top_level_breaks = top_level_breaks(source, lexed, program, &blocks);
         Self {
             source,
             lexed,
@@ -83,7 +84,7 @@ impl<'a> Formatter<'a> {
             expression_continuations: Vec::new(),
             controls,
             blocks,
-            top_level_breaks: top_level_breaks(source, lexed, program),
+            top_level_breaks,
             next_top_level_break: 0,
             generic_delimiters: generic::delimiters(lexed, program),
         }

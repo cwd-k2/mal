@@ -13,9 +13,7 @@ _isWhitespace :: UInt8 -> Bool := (byte) ->
     byte == ' ' || byte == '\n' || byte == '\r' || byte == '\t';
 
 _isDigit :: UInt8 -> Bool := (byte) -> byte >= '0' && byte <= '9';
-
 startsNumber :: UInt8 -> Bool := (byte) -> byte == '-' || byte._isDigit();
-
 _isNonzeroDigit :: UInt8 -> Bool := (byte) -> byte >= '1' && byte <= '9';
 
 _isHexDigit :: UInt8 -> Bool := (byte) ->

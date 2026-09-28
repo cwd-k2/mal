@@ -6,11 +6,8 @@ CompileStepResult :: [Symbol, CompileState];
 CompileResult :: [Symbol, Symbol];
 
 _stepFailure :: Symbol -> CompileStepResult := (message) -> [failure, success] => failure(message);
-
 _stepSuccess :: CompileState -> CompileStepResult := (state) -> [failure, success] => success(state);
-
 _compileFailure :: Symbol -> CompileResult := (message) -> [failure, success] => failure(message);
-
 _compileSuccess :: Symbol -> CompileResult := (output) -> [failure, success] => success(output);
 
 _digit :: UInt64 -> Symbol := (value) -> [return] => {

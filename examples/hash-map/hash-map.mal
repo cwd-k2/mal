@@ -6,7 +6,6 @@ HashMap<K, V> :: Buffer<HashEntry<K, V>>;
 HashLookup<V> :: [Unit, V];
 
 const<A, B> :: A -> B -> A := (value) -> (_) -> value;
-
 identity<A> :: A -> A := (value) -> value;
 
 _emptyEntry<K, V> :: Unit -> HashEntry<K, V> := () ->
