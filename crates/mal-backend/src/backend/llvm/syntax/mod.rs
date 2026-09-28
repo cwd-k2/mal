@@ -1,3 +1,5 @@
+//! Restricted typed LLVM syntax model; rendering is its only conversion to text.
+
 mod constant;
 mod function;
 mod instruction;

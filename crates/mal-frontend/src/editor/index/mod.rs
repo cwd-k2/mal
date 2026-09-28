@@ -1,3 +1,5 @@
+//! Construction of declaration, occurrence, type, exit, symbol, and completion indexes.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::check::ast as checked;

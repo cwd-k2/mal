@@ -1,3 +1,5 @@
+//! Name identity, lexical scope, result authority, and capture inference.
+
 use std::collections::HashMap;
 
 use mal_syntax::diagnostic::Diagnostic;

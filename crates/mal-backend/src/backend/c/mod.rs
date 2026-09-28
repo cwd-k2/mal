@@ -1,3 +1,5 @@
+//! Public C interface generation from checked host metadata.
+
 use crate::core::ast::ProgramInterface;
 use mal_syntax::diagnostic::Diagnostic;
 
@@ -8,10 +10,14 @@ mod types;
 
 use self::types::{HostTypes, TypeRegistry};
 
+/// Default filename of the program-specific public header.
 pub const GENERATED_HEADER_NAME: &str = "program.mal.h";
+/// Filename of the program-independent runtime and host support header.
 pub const COMMON_HEADER_NAME: &str = "mal.h";
+/// Checked-in common header, used to verify that its generator remains synchronized.
 pub const COMMON_HEADER: &str = include_str!("../../../include/mal.h");
 
+/// Renders the common header from the typed C construction model.
 pub fn common_header() -> String {
     header::emit_common()
 }
@@ -71,6 +77,7 @@ impl RawHostTypes {
     }
 }
 
+/// Returns whether `header_name` can be emitted verbatim as a quoted C include path.
 pub fn is_valid_header_name(header_name: &str) -> bool {
     syntax::Directive::is_valid_quoted_include(header_name)
 }

@@ -1,3 +1,5 @@
+//! Parsed structure annotated with stable name identities, captures, and result authority.
+
 use mal_syntax::ast::{BinaryOperator, Name, Node, UnaryOperator};
 use mal_syntax::lexer::{DecimalFloatLiteral, IntegerLiteral};
 use mal_syntax::source::Span;

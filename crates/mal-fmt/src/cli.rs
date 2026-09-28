@@ -1,8 +1,11 @@
+//! `mal-fmt` argument grammar and process-independent command outcome.
+
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
 use crate::file;
 
+/// Canonical help text printed by `--help`.
 pub const HELP: &str = "mal-fmt — formatter for mal v0.6
 
 Usage:
@@ -17,13 +20,18 @@ Options:
 ";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Stable outcome classes used by the formatter binary.
 pub enum ExitStatus {
+    /// Formatting or the requested write completed successfully.
     Success,
+    /// Source admission or filesystem access failed.
     FormatError,
+    /// The arguments do not name a supported invocation.
     UsageError,
 }
 
 impl ExitStatus {
+    /// Returns the stable process status used by the binary entry point.
     pub const fn code(self) -> u8 {
         match self {
             Self::Success => 0,
@@ -33,10 +41,14 @@ impl ExitStatus {
     }
 }
 
+/// Process-independent CLI output; `main` is the only code that writes it to stdio.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Outcome {
+    /// The process status class.
     pub status: ExitStatus,
+    /// Bytes intended for standard output.
     pub stdout: String,
+    /// Bytes intended for standard error.
     pub stderr: String,
 }
 
@@ -62,6 +74,7 @@ impl Outcome {
     }
 }
 
+/// Returns the formatter and language version line used by `--version`.
 pub fn version_line() -> String {
     format!(
         "mal-fmt {} (language v{})",
@@ -70,6 +83,7 @@ pub fn version_line() -> String {
     )
 }
 
+/// Parses arguments and formats one file without reading process-global arguments or writing stdio.
 pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
     let arguments: Vec<_> = arguments.into_iter().collect();
     let is =

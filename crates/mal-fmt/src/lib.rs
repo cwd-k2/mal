@@ -1,5 +1,10 @@
 #![forbid(unsafe_code)]
 
+//! Canonical source formatting for mal.
+//!
+//! Formatting uses the lossless lexer and admitted AST together: tokens preserve comments and literal spelling while
+//! the AST supplies structural layout. The result is idempotent and is never produced for malformed source.
+
 use mal_syntax::ast::Program;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::lexer::{Lexed, LexemeKind, TokenKind};

@@ -1,3 +1,5 @@
+//! Composition of common, file-specific, umbrella, and host-stub C translation units.
+
 use crate::core::ast::ProgramInterface;
 
 use super::{

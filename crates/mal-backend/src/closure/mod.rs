@@ -1,3 +1,5 @@
+//! Lambda lifting and explicit closure construction from ANF.
+
 use std::collections::HashMap;
 
 use crate::anf::ast as anf;
@@ -9,6 +11,7 @@ use self::ast::{
     Program, Reference, TopLevelBinding, TopLevelPattern,
 };
 
+/// Lifts every lexical lambda once and replaces capture references with explicit environment fields.
 pub(crate) fn convert(program: &anf::Program) -> Program {
     Converter::new().convert_program(program)
 }

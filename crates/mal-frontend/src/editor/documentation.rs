@@ -1,6 +1,7 @@
 use mal_syntax::lexer::{LexemeKind, lex_lossless};
 use mal_syntax::source::{SourceFile, Span};
 
+/// Returns the contiguous standalone `//` lines immediately above a declaration, with comment markers removed.
 pub fn declaration_documentation(source: &SourceFile, declaration: Span) -> Option<String> {
     if declaration.file() != source.id() {
         return None;

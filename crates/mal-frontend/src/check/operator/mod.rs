@@ -1,3 +1,5 @@
+//! Operator-family admission and result typing over already resolved operands.
+
 use crate::resolve::ast as resolved;
 use mal_syntax::ast::{BinaryOperator, Node, UnaryOperator};
 use mal_syntax::diagnostic::Diagnostic;

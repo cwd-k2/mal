@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+//! Process entry point that connects the pure CLI outcome to stdio and an exit code.
+
 use std::io::{self, Write};
 use std::process::ExitCode;
 

@@ -1,3 +1,5 @@
+//! Expected-type-directed checking of expression forms and completion behavior.
+
 use crate::resolve::ast as resolved;
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;

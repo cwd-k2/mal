@@ -1,3 +1,5 @@
+//! Content-Length framed JSON-RPC transport over blocking byte streams.
+
 use std::io::{self, BufRead, Write};
 
 use serde_json::Value;

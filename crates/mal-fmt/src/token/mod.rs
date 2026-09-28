@@ -1,3 +1,5 @@
+//! Stateful token spacing and source-break preservation for the canonical formatter.
+
 use mal_syntax::lexer::TokenKind;
 
 use super::Formatter;

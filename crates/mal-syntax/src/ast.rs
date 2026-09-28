@@ -1,3 +1,5 @@
+//! Source-oriented syntax tree that preserves spans and literal structure for later admission stages.
+
 use crate::lexer::{DecimalFloatLiteral, IntegerLiteral};
 use crate::source::Span;
 

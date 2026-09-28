@@ -1,3 +1,5 @@
+//! Filesystem loading of one requirement graph with canonical file identities and optional in-memory overlays.
+
 use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 

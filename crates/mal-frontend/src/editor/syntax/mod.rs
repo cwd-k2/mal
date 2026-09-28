@@ -36,6 +36,8 @@ pub(super) fn analyze(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
         .iter()
         .enumerate()
         .filter_map(|(index, token)| {
+            // This index must survive parse and type errors. Classify only token patterns that cannot require name or
+            // type resolution, accepting that the semantic index will provide the precise answer when available.
             let kind = match token.kind {
                 TokenKind::TypeIdentifier => SymbolKind::Type,
                 TokenKind::ValueIdentifier if function_declarations.contains(&index) => {
@@ -77,28 +79,34 @@ pub(super) fn analyze(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
 }
 
 impl SyntaxDocument {
+    /// Returns identifier tokens conservatively classified for syntax highlighting.
     pub fn tokens(&self) -> &[SyntaxToken] {
         &self.tokens
     }
 
+    /// Returns sorted, deduplicated top-level function candidates available during incomplete editing.
     pub fn functions(&self) -> &[String] {
         &self.functions
     }
 
+    /// Returns the complete leading `require` declarations recognized without parsing the rest of the file.
     pub fn requirements(&self) -> &[SyntaxRequirement] {
         &self.requirements
     }
 }
 
 impl SyntaxRequirement {
+    /// Returns the span replaced by a complete requirement edit.
     pub const fn declaration_span(&self) -> Span {
         self.declaration_span
     }
 
+    /// Returns the span inside the quoted path.
     pub const fn path_span(&self) -> Span {
         self.path_span
     }
 
+    /// Returns the decoded path bytes.
     pub fn path(&self) -> &[u8] {
         &self.path
     }

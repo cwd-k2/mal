@@ -1,3 +1,5 @@
+//! Shared marshalling plan and generated C bridge between public host carriers and internal LLVM values.
+
 mod plan;
 
 use std::collections::HashMap;

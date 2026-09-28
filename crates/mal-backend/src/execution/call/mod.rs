@@ -1,3 +1,5 @@
+//! Call-mode selection from application targets, recursive regions, and admitted optimization decisions.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{self as closure, AtomKind, FunctionId, Reference};

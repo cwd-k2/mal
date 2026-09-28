@@ -1,3 +1,5 @@
+//! Target-specific emission decisions that preserve the admitted execution plan.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::FunctionId;

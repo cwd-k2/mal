@@ -1,3 +1,5 @@
+//! Recursive-descent syntax admission with Pratt parsing for expressions.
+
 use std::mem::discriminant;
 
 use crate::ast::{

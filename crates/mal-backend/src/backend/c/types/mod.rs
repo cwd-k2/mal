@@ -1,3 +1,5 @@
+//! Structural registry and target-aware C mapping of host-visible types.
+
 use crate::backend::c::syntax::{
     Directive, MacroInvocation, TranslationUnit, TypeName, c_aggregate, c_aggregate_fields,
     c_declaration, c_directive, c_expr, c_macro_invocation, c_type,

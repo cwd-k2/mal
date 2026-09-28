@@ -1,10 +1,15 @@
+//! Relative `require` path validation, resolution, and editor completion candidates.
+
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// One filesystem entry that may complete a `require` path fragment.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RequirementPathCandidate {
+    /// Filename relative to the directory represented by the fragment; directories include a trailing slash.
     pub name: String,
+    /// Whether selecting the candidate should continue path completion inside it.
     pub is_directory: bool,
 }
 
@@ -15,6 +20,7 @@ pub fn resolve_requirement_path(source_path: &Path, requirement: &str) -> Option
     Some(fs::canonicalize(&path).unwrap_or(path))
 }
 
+/// Joins a nonempty relative requirement to the source directory without requiring the target to exist.
 pub fn relative_requirement_path(source_path: &Path, requirement: &str) -> Option<PathBuf> {
     let requirement = Path::new(requirement);
     if requirement.as_os_str().is_empty() || requirement.is_absolute() {

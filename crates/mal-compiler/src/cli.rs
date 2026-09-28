@@ -1,9 +1,12 @@
+//! `malc` argument grammar, use-case selection, and process-independent command outcome.
+
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
 use crate::driver::{OptimizationMode, ToolchainOptions};
 use crate::version_line;
 
+/// Canonical help text printed by an empty invocation and `--help`.
 pub const HELP: &str = "malc — compiler for mal v0.6
 
 Usage:
@@ -30,24 +33,33 @@ Global options:
   -V, --version  Print version
 ";
 
+/// Stable outcome classes used by the compiler binary.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ExitStatus {
+    /// The requested use case completed successfully.
     Success = 0,
+    /// Source admission, artifact generation, filesystem access, or the toolchain failed.
     CompileError = 1,
+    /// The arguments do not name a supported invocation.
     UsageError = 2,
 }
 
 impl ExitStatus {
+    /// Returns the stable process status used by the binary entry point.
     pub const fn code(self) -> u8 {
         self as u8
     }
 }
 
+/// Process-independent CLI output; `main` is the only code that writes it to stdio.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Outcome {
+    /// The process status class.
     pub status: ExitStatus,
+    /// Bytes intended for standard output.
     pub stdout: String,
+    /// Bytes intended for standard error.
     pub stderr: String,
 }
 
@@ -81,6 +93,7 @@ impl Outcome {
     }
 }
 
+/// Parses arguments and runs one compiler use case without reading process-global arguments or writing stdio.
 pub fn execute(arguments: impl IntoIterator<Item = OsString>) -> Outcome {
     let arguments: Vec<_> = arguments.into_iter().collect();
     match arguments.as_slice() {

@@ -1,3 +1,5 @@
+//! Typed suspension frames, resume pairing, and safe reuse of retired frame capacity.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::control::ast::{self as control, LiveValue, StateId, Terminator};

@@ -1,7 +1,7 @@
 # core
 
 Desugars a specialized checked program into the core language: explicit evaluation order, lexical joins, and no surface control forms.
-`anf`, `closure`, and `control` continue the lowering; each has a single stage and keeps the previous stage's identities.
+[`anf`](../anf/), [`closure`](../closure/), and [`control`](../control/) continue the lowering and document their own representations.
 
 | Module | Responsibility |
 |---|---|
@@ -19,13 +19,3 @@ Desugars a specialized checked program into the core language: explicit evaluati
 | `completion/result_block` | maps direct result binders to join targets and connects block body and continuation |
 | `completion/value` | operator values that contain control paths, rebuilt as core primitives and `Bool` elimination |
 | `completion/presence` | classifies checked subtrees that need lexical continuations |
-
-Later stages in this crate:
-
-| Stage | Responsibility |
-|---|---|
-| `anf` | blocks of atoms and operations, keeping logical operands of memory and `Buffer` primitives and lambda-local join identities |
-| `closure` | capture schemas of ordinary functions, entry function identity, and join bodies within a function |
-| `control` | states, join targets, terminators, and live values of resume frames, without calls and without duplicating function environment schemas; each function and initializer records the states it reaches, which later stages read instead of walking the graph |
-| `control/forwarding` | normalizes identity and terminal `Unit` continuations to tail calls |
-| `control/liveness` | backward liveness of local values and closure environments, and use counts of control bindings |

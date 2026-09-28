@@ -24,14 +24,20 @@ const C_COMPILER_REQUIRED_OPTIONS: &[&str] = &[
 
 /// Toolchain choices shared by the commands that run Clang.
 pub struct ToolchainOptions<'a> {
+    /// Directory in which generated inputs are retained, or `None` for an owned temporary directory.
     pub artifact_directory: Option<&'a Path>,
+    /// Additional arguments appended without changing compiler-required semantic options.
     pub clang_arguments: &'a [OsString],
+    /// Generated-program and Clang optimization profile.
     pub optimization: OptimizationMode,
 }
 
+/// Optimization profile selected at the public build boundary.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OptimizationMode {
+    /// Disables optional compiler techniques, LTO, and Clang optimization for differential checks.
     Baseline,
+    /// Enables the adopted compiler techniques and production Clang optimization.
     Production,
 }
 

@@ -1,3 +1,5 @@
+//! Frontend entry points that compose parsing, resolution, checking, and editor-ready outcomes.
+
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::{SourceFile, SourceGraph};
 

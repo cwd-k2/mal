@@ -1,3 +1,5 @@
+//! Optional execution techniques represented as validated decisions rather than rewritten semantics.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{self as closure, AtomId, FunctionId};

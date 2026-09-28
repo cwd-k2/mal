@@ -1,3 +1,5 @@
+//! Explicit control-state construction from closure-converted blocks and lexical joins.
+
 use crate::closure::ast::{self as closure, Atom, AtomKind, Pattern, Reference};
 
 pub(crate) mod ast;
@@ -12,6 +14,7 @@ use self::graph::reachable_states;
 pub(crate) use self::liveness::binding_use_counts;
 use self::liveness::local_values;
 
+/// Builds the explicit state graph and computes liveness only after forwarding continuations have been normalized.
 pub(crate) fn lower(program: &closure::Program) -> Program {
     Lowerer::new().lower_program(program)
 }
@@ -44,6 +47,7 @@ impl Lowerer {
                 let locals = local_values(&binding.value, None, &[]);
                 let start = self.states.len();
                 let entry = self.lower_block(&binding.value, Destination::Return);
+                // Forwarding changes call terminators and therefore the successor graph that liveness must inspect.
                 forwarding::normalize_calls(&mut self.states, start);
                 self.resolve_liveness(start, &locals);
                 TopLevelBinding {
@@ -69,6 +73,7 @@ impl Lowerer {
                     self.joins.push(entry);
                 }
                 let entry = self.lower_block(&function.body, Destination::Return);
+                // Keep this before liveness for the same reason as top-level initializers above.
                 forwarding::normalize_calls(&mut self.states, start);
                 self.resolve_liveness(start, &locals);
                 Function {

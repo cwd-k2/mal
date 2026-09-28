@@ -1,3 +1,5 @@
+//! Type admission and checked expression construction.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::resolve::ast::{self as resolved, FALSE_VALUE, TRUE_VALUE, TypeId, ValueId};
@@ -23,6 +25,7 @@ mod specialize;
 pub mod type_fingerprint;
 mod types;
 
+/// Renders a bounded diagnostic name for an admitted type without exposing its internal sharing.
 pub fn type_name(ty: &ast::Type) -> String {
     types::type_name(ty)
 }
@@ -31,6 +34,7 @@ use self::ast::{AbruptExpression, Completion, Program, TopItem, Type};
 use self::interface::ExternalSignature;
 use self::types::GenericAliasDefinition;
 
+/// Applies every type and completion rule to a resolved program while retaining generic declarations.
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
     Checker::new()
         .check_program(program)
@@ -50,6 +54,7 @@ pub fn specialize(program: Program) -> Result<ast::MonomorphicProgram, Diagnosti
     specialize::specialize(program)
 }
 
+/// Admits an already nongeneric checked program to the same downstream boundary as specialization.
 pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Diagnostic> {
     if let Some(item) = program
         .items
@@ -62,6 +67,7 @@ pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Di
     Ok(ast::MonomorphicProgram::new(program))
 }
 
+/// Returns the first lambda identity unused by the checked program for downstream identity allocation.
 pub fn next_lambda_identity(program: &Program) -> u32 {
     specialization_identity::next_identities(program)
         .expect("an admitted monomorphic program has remaining identity space")

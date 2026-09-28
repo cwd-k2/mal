@@ -1,3 +1,5 @@
+//! LSP request dispatch and lifecycle of open documents, analysis, and published diagnostics.
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 

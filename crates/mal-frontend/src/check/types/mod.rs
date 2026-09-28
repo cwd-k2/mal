@@ -1,3 +1,5 @@
+//! Canonical type construction, alias expansion, cycle rejection, and bounded diagnostic display.
+
 use crate::resolve::ast::{
     self as resolved, ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE,
     FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,

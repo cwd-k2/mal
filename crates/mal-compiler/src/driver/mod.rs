@@ -1,3 +1,5 @@
+//! Filesystem and toolchain boundary for compiler use cases.
+
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;

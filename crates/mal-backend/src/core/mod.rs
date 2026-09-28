@@ -1,3 +1,5 @@
+//! Desugaring from specialized checked expressions to the core language and lexical joins.
+
 use mal_frontend::check::ast as checked;
 use mal_frontend::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
 use mal_syntax::ast::{BinaryOperator, UnaryOperator};
@@ -25,6 +27,7 @@ use self::ast::{
     TopLevelBinding, UnaryPrimitive, ValueId,
 };
 
+/// Desugars an admitted monomorphic program without rechecking names, types, or generic reachability.
 pub(crate) fn lower(program: &checked::MonomorphicProgram) -> Program {
     Lowerer::new().lower_program(program.program())
 }

@@ -1,21 +1,27 @@
+//! Admitted UTF-8 source, stable file identity, byte spans, and user/editor position conversion.
+
 use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+/// Stable index of one file within a [`SourceGraph`].
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct FileId(u32);
 
 impl FileId {
+    /// Constructs an identity; graph construction later verifies that it matches the file position.
     pub const fn new(index: u32) -> Self {
         Self(index)
     }
 
+    /// Returns the graph index represented by this identity.
     pub const fn index(self) -> u32 {
         self.0
     }
 }
 
+/// Half-open UTF-8 byte range within one source file.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Span {
     file: FileId,
@@ -24,23 +30,28 @@ pub struct Span {
 }
 
 impl Span {
+    /// Constructs a half-open span and rejects an end before its start.
     pub fn new(file: FileId, start: usize, end: usize) -> Self {
         assert!(start <= end, "a span must not end before it starts");
         Self { file, start, end }
     }
 
+    /// Returns the file containing the span.
     pub const fn file(self) -> FileId {
         self.file
     }
 
+    /// Returns the inclusive UTF-8 byte start.
     pub const fn start(self) -> usize {
         self.start
     }
 
+    /// Returns the exclusive UTF-8 byte end.
     pub const fn end(self) -> usize {
         self.end
     }
 
+    /// Returns whether start and end identify the same byte boundary.
     pub const fn is_empty(self) -> bool {
         self.start == self.end
     }
@@ -112,23 +123,28 @@ impl SourceGraph {
         }
     }
 
+    /// Returns the entry source selected by the caller.
     pub const fn root(&self) -> FileId {
         self.root
     }
 
+    /// Borrows the entry source; construction guarantees that it exists.
     pub fn root_source(&self) -> &SourceFile {
         self.source(self.root)
             .expect("a source graph always contains its root")
     }
 
+    /// Returns files in stable identity and admission order.
     pub fn files(&self) -> &[SourceFile] {
         &self.files
     }
 
+    /// Looks up a file by its graph identity.
     pub fn source(&self, id: FileId) -> Option<&SourceFile> {
         self.files.get(id.index() as usize)
     }
 
+    /// Returns direct mal source requirements in source order, or an empty slice for an unknown identity.
     pub fn requirements(&self, id: FileId) -> &[SourceRequirement] {
         self.requirements
             .get(id.index() as usize)
@@ -136,12 +152,15 @@ impl SourceGraph {
             .unwrap_or_default()
     }
 
+    /// Returns deduplicated C build inputs reached while loading the requirement graph.
     pub fn c_sources(&self) -> &[PathBuf] {
         &self.c_sources
     }
 }
 
+/// Source lookup needed to render diagnostics without coupling them to graph storage.
 pub trait SourceProvider {
+    /// Looks up the source with `id`.
     fn source(&self, id: FileId) -> Option<&SourceFile>;
 }
 
@@ -164,6 +183,7 @@ impl SourceProvider for Vec<SourceFile> {
 }
 
 impl SourceFile {
+    /// Admits already decoded UTF-8 text and precomputes line starts for repeated position queries.
     pub fn new(id: FileId, path: impl Into<PathBuf>, text: String) -> Self {
         let mut line_starts = vec![0];
         let bytes = text.as_bytes();
@@ -171,6 +191,7 @@ impl SourceFile {
         while index < bytes.len() {
             match bytes[index] {
                 b'\r' if bytes.get(index + 1) == Some(&b'\n') => {
+                    // Treat CRLF as one terminator so no position can address the byte between the pair as a line.
                     index += 2;
                     line_starts.push(index);
                 }
@@ -189,6 +210,7 @@ impl SourceFile {
         }
     }
 
+    /// Reads one file and rejects bytes that are not UTF-8.
     pub fn load(id: FileId, path: impl AsRef<Path>) -> Result<Self, SourceLoadError> {
         let path = path.as_ref();
         let bytes = fs::read(path).map_err(|source| SourceLoadError::Io {
@@ -201,18 +223,22 @@ impl SourceFile {
         Ok(Self::new(id, path, text))
     }
 
+    /// Returns this source's graph identity.
     pub const fn id(&self) -> FileId {
         self.id
     }
 
+    /// Returns the path used for diagnostics and relative requirements.
     pub fn path(&self) -> &Path {
         &self.path
     }
 
+    /// Returns the admitted UTF-8 source text unchanged.
     pub fn text(&self) -> &str {
         &self.text
     }
 
+    /// Converts a UTF-8 boundary to a one-based line and Unicode-scalar column.
     pub fn location(&self, byte_offset: usize) -> Option<Location> {
         if byte_offset > self.text.len() || !self.text.is_char_boundary(byte_offset) {
             return None;
@@ -229,6 +255,7 @@ impl SourceFile {
         })
     }
 
+    /// Converts a UTF-8 boundary to the zero-based UTF-16 position required by LSP.
     pub fn utf16_position(&self, byte_offset: usize) -> Option<Utf16Position> {
         if byte_offset > self.text.len() || !self.text.is_char_boundary(byte_offset) {
             return None;
@@ -248,6 +275,7 @@ impl SourceFile {
         })
     }
 
+    /// Converts an LSP UTF-16 position to a UTF-8 boundary, rejecting positions inside a surrogate pair.
     pub fn byte_offset_utf16(&self, position: Utf16Position) -> Option<usize> {
         let line = self.line(position.line.checked_add(1)?)?;
         let mut utf16_offset = 0;
@@ -263,6 +291,7 @@ impl SourceFile {
         (utf16_offset == position.character).then_some(line.start + line.text.len())
     }
 
+    /// Returns one line without its CR/LF terminator.
     pub fn line(&self, one_based_line: usize) -> Option<SourceLine<'_>> {
         let line_index = one_based_line.checked_sub(1)?;
         let start = *self.line_starts.get(line_index)?;
@@ -282,6 +311,7 @@ impl SourceFile {
         })
     }
 
+    /// Returns whether the span belongs to this file and both endpoints are valid UTF-8 boundaries.
     pub fn contains(&self, span: Span) -> bool {
         span.file == self.id
             && span.end <= self.text.len()

@@ -1,3 +1,5 @@
+//! Target-layout-independent call, frame, recursion, optimization, and ownership plans.
+
 use crate::closure::ast::{self as closure_ast, FunctionId};
 
 mod application;
@@ -44,7 +46,10 @@ pub(crate) struct Program {
     pub(crate) self_tail_parameters: SelfTailParameterPlan,
 }
 
+/// Derives execution plans in dependency order and validates each plan against the semantic authority it consumed.
 pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> Program {
+    // Call-pattern specialization is the only technique that rewrites the program, so every graph and plan must see
+    // either the original program or the completed rewrite, never a mixture of both.
     let lowered = if enabled.contains(Technique::CallPattern) {
         crate::call_pattern::specialize(lowered)
     } else {
@@ -95,6 +100,8 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
                 enabled
             )
     );
+    // Ownership needs the finalized call, region, and recursion plans because each changes which activation retains
+    // responsibility across a transition. Self-tail parameter lending then consumes that ownership authority.
     let ownership = OwnershipPlan::new(OwnershipInputs::new(
         &control,
         &applications,

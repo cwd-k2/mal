@@ -1,3 +1,5 @@
+//! Managed responsibility, borrow, handoff, use, and drop planning over finalized control transitions.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;

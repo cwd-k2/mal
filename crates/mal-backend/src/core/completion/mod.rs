@@ -1,3 +1,5 @@
+//! Completion-aware lowering of body sequences and control paths to lexical joins.
+
 use mal_frontend::check::ast as checked;
 use mal_syntax::ast::BinaryOperator;
 

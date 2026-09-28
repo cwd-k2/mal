@@ -1,3 +1,5 @@
+//! Composition of one logical LLVM module and the declarations required by emitted calls.
+
 use super::body;
 use super::syntax::{FunctionDeclaration, Module};
 use super::{Target, TargetLayout};

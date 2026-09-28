@@ -1,3 +1,5 @@
+//! Function-body lowering from the execution plan to typed LLVM instructions and terminators.
+
 use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;

@@ -1,3 +1,5 @@
+//! Memoized structural fingerprints used only as grouping keys, never as type equality authority.
+
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -19,6 +21,9 @@ impl TypeFingerprints {
         hasher.finish()
     }
 
+    /// Returns separate structural grouping keys for a function parameter and result.
+    ///
+    /// Callers still compare admitted types for equality after grouping; hash equality is not type equality.
     pub fn signature(&mut self, parameter: &Type, result: &Type) -> (u64, u64) {
         (self.ty(parameter), self.ty(result))
     }

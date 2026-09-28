@@ -143,10 +143,10 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 大きいstageは、stage間の新しい表現を増やさず、stage内部のpolicyでmoduleに分ける。moduleごとの責務は各directoryの
 `README.md`とcodeを正とし、この文書にはmoduleの一覧を置かない。
 
-- `mal-syntax`: [`parser`](../../crates/mal-syntax/src/parser/README.md)
+- `mal-syntax`: [`lexer`](../../crates/mal-syntax/src/lexer/README.md)、[`parser`](../../crates/mal-syntax/src/parser/README.md)
 - `mal-fmt`: [crate README](../../crates/mal-fmt/README.md)
 - `mal-frontend`: [`resolve`](../../crates/mal-frontend/src/resolve/README.md)、[`check`](../../crates/mal-frontend/src/check/README.md)、[`editor`](../../crates/mal-frontend/src/editor/README.md)
-- `mal-backend`: [`core`から`control`まで](../../crates/mal-backend/src/core/README.md)、[`call_pattern`](../../crates/mal-backend/src/call_pattern/README.md)、[`flow`](../../crates/mal-backend/src/flow/README.md)、[`execution`](../../crates/mal-backend/src/execution/README.md)、[`backend/llvm`](../../crates/mal-backend/src/backend/llvm/README.md)、[`backend/c`](../../crates/mal-backend/src/backend/c/README.md)、[`runtime/c11`](../../crates/mal-backend/runtime/c11/README.md)
+- `mal-backend`: [`core`](../../crates/mal-backend/src/core/README.md)、[`anf`](../../crates/mal-backend/src/anf/README.md)、[`closure`](../../crates/mal-backend/src/closure/README.md)、[`control`](../../crates/mal-backend/src/control/README.md)、[`call_pattern`](../../crates/mal-backend/src/call_pattern/README.md)、[`flow`](../../crates/mal-backend/src/flow/README.md)、[`execution`](../../crates/mal-backend/src/execution/README.md)、[`backend`](../../crates/mal-backend/src/backend/README.md)、[`backend/llvm`](../../crates/mal-backend/src/backend/llvm/README.md)、[`backend/c`](../../crates/mal-backend/src/backend/c/README.md)、[`runtime/c11`](../../crates/mal-backend/runtime/c11/README.md)
 - `mal-compiler`: [`driver`](../../crates/mal-compiler/src/driver/README.md)
 - `mal-lsp`: [crate README](../../crates/mal-lsp/README.md)
 
@@ -165,6 +165,11 @@ generated programのoptimizationは既存stageの責務を越えて新しい意�
 子moduleを持つmoduleは同名directoryの`mod.rs`をrootとし、ownerと子のsourceを同じdirectory treeへ置く。
 子を持たないmoduleは親directory直下の単一`.rs` fileに置く。integration testのcrate rootなどtoolingが配置を
 規定するfileはその規則を優先する。
+
+crateと主要moduleのrootには`//!`で責務、入力と出力、非責務を簡潔に記録する。子moduleの対応関係は所有directoryの
+`README.md`を正とし、module documentationへ一覧を複製しない。crate境界へ公開するfunctionとtypeには`///`でcaller-facingな
+contract、failure、保持するinvariantを記録する。private functionとinline commentは、名前と型から分からない順序依存、例外、
+一見不要な処理を残す理由だけを記録し、処理を逐語的に説明しない。
 
 行数を満たすための番号付きfileや恣意的な断片は作らない。generated file、lock file、mechanical fixture、
 一箇所でcontractをreviewする必要があるcanonical schemaはこの目安の対象外とする。

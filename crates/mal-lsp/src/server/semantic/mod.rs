@@ -1,3 +1,5 @@
+//! Conversion of frontend semantic indexes to LSP hover, navigation, completion, token, and edit results.
+
 use std::collections::HashMap;
 
 use mal_frontend::editor::{OccurrenceRole, SemanticDocument, SymbolKind};

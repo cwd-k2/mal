@@ -1,3 +1,5 @@
+//! Lexical admission and the optional lossless trivia stream used by the formatter.
+
 use crate::diagnostic::Diagnostic;
 use crate::source::{SourceFile, Span};
 

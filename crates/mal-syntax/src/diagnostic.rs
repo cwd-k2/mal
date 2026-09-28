@@ -1,3 +1,5 @@
+//! Structured diagnostics and source-aware rendering shared by compiler stages.
+
 use std::fmt::Write;
 
 use crate::source::{SourceProvider, Span};
@@ -30,6 +32,7 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
+    /// Starts an error without attaching a source location.
     pub fn error(message: impl Into<String>) -> Self {
         Self {
             severity: Severity::Error,
@@ -39,6 +42,7 @@ impl Diagnostic {
         }
     }
 
+    /// Attaches the source range that owns the error and its local explanation.
     pub fn with_primary(mut self, span: Span, message: impl Into<String>) -> Self {
         self.primary = Some(Label {
             span,
@@ -47,6 +51,7 @@ impl Diagnostic {
         self
     }
 
+    /// Appends context that does not own another source range.
     pub fn with_note(mut self, note: impl Into<String>) -> Self {
         self.notes.push(note.into());
         self

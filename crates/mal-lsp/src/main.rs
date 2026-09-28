@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+//! Stdio language server that adapts mal frontend and formatter results to LSP JSON-RPC.
+
 mod protocol;
 mod server;
 

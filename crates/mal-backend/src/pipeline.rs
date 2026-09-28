@@ -1,3 +1,5 @@
+//! In-memory composition of frontend lowering and backend artifact generation.
+
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::{FileId, SourceFile, SourceGraph};
 use std::path::{Component, Path, PathBuf};
@@ -68,6 +70,7 @@ fn header_dependencies(graph: &SourceGraph, file: FileId) -> Result<Vec<String>,
         .collect()
 }
 
+/// Computes a lexical relative path for generated headers without consulting the filesystem where they do not yet exist.
 fn relative_path(from: &Path, to: &Path) -> PathBuf {
     let from = from.components().collect::<Vec<_>>();
     let to = to.components().collect::<Vec<_>>();
@@ -92,6 +95,8 @@ fn build_header_files(
     graph: &SourceGraph,
     interface: &crate::core::ast::ProgramInterface,
 ) -> Vec<FileId> {
+    // The umbrella header always exposes the root. Beyond it, include only files that declare reachable externs and
+    // their direct source dependencies; exporting the entire requirement graph would leak unrelated file surfaces.
     let mut selected = vec![false; graph.files().len()];
     let mut expanded = vec![false; graph.files().len()];
     selected[graph.root().index() as usize] = true;
@@ -134,6 +139,7 @@ fn lower_graph_interface(
     Ok(crate::core::lower_interface(&checked))
 }
 
+/// Runs the only path that requires an entry point and therefore specialization before backend lowering.
 fn lower_graph_execution(
     graph: &SourceGraph,
     optimizations: crate::execution::OptimizationSet,
@@ -151,7 +157,9 @@ fn lower_graph_execution(
 /// Optimization selection for generated programs. `Baseline` enables no optional technique.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Optimization {
+    /// Uses no optional execution or LLVM emission techniques.
     Baseline,
+    /// Uses every adopted execution and LLVM emission technique.
     Production,
 }
 
@@ -185,9 +193,11 @@ pub fn generate(
     .map_err(GenerateError::Backend)
 }
 
+/// Failure from either source-aware lowering or target-specific artifact generation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GenerateError {
     /// The program was rejected while lowering; render it against the source graph.
     Diagnostic(Diagnostic),
+    /// Target admission or LLVM artifact construction failed.
     Backend(BackendError),
 }

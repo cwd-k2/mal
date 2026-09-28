@@ -8,6 +8,7 @@ pub enum Radix {
 }
 
 impl Radix {
+    /// Returns the numeric base used to accumulate an integer literal's digits.
     pub const fn value(self) -> u32 {
         match self {
             Self::Binary => 2,

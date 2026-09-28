@@ -1,3 +1,5 @@
+//! Syntax and semantic indexes shaped for editor queries.
+
 use crate::resolve::ast as resolved;
 use mal_syntax::diagnostic::Diagnostic;
 use std::collections::HashSet;
@@ -91,10 +93,12 @@ pub fn analyze_syntax(source: &SourceFile) -> Result<SyntaxDocument, Diagnostic>
     syntax::analyze(source)
 }
 
+/// Builds a whole-program semantic index, including occurrences from every source file.
 pub fn from_analysis(analysis: &crate::analysis::Analysis) -> SemanticDocument {
     index::build(&analysis.resolved, &analysis.checked, None, None)
 }
 
+/// Builds an index whose document-local queries are restricted to `file` while definitions remain program-wide.
 pub fn from_analysis_for_file(
     analysis: &crate::analysis::Analysis,
     file: FileId,
@@ -124,10 +128,12 @@ pub fn from_graph_analysis(
 }
 
 impl SemanticDocument {
+    /// Returns every declaration and reference retained for cross-file navigation.
     pub fn occurrences(&self) -> &[Occurrence] {
         &self.occurrences
     }
 
+    /// Iterates only occurrences belonging to the document selected when this index was built.
     pub fn document_occurrences(&self) -> impl Iterator<Item = &Occurrence> {
         self.occurrences
             .iter()
@@ -142,6 +148,7 @@ impl SemanticDocument {
         self.exits.iter().filter(|exit| self.in_document(exit.span))
     }
 
+    /// Returns the narrowest named occurrence containing the byte offset.
     pub fn occurrence_at(&self, byte_offset: usize) -> Option<&Occurrence> {
         self.occurrences
             .iter()
@@ -151,6 +158,7 @@ impl SemanticDocument {
             .min_by_key(|occurrence| occurrence.span.end() - occurrence.span.start())
     }
 
+    /// Returns the narrowest named or typed region containing the byte offset, preferring names with declarations.
     pub fn hover_at(&self, byte_offset: usize) -> Option<Hover<'_>> {
         if let Some(occurrence) = self.occurrence_at(byte_offset)
             && let Some(ty) = occurrence.detail.as_deref()
@@ -172,12 +180,14 @@ impl SemanticDocument {
             })
     }
 
+    /// Finds the unique declaration occurrence for a resolved identity.
     pub fn definition(&self, id: SymbolId) -> Option<&Occurrence> {
         self.occurrences.iter().find(|occurrence| {
             occurrence.id == id && occurrence.role == OccurrenceRole::Declaration
         })
     }
 
+    /// Collects program-wide occurrences of an identity, optionally including its declaration.
     pub fn references(&self, id: SymbolId, include_declaration: bool) -> Vec<&Occurrence> {
         self.occurrences
             .iter()
@@ -188,6 +198,7 @@ impl SemanticDocument {
             .collect()
     }
 
+    /// Returns every span safe to rename when the offset resolves to an identity with a source declaration.
     pub fn rename_spans(&self, byte_offset: usize) -> Option<Vec<Span>> {
         let occurrence = self.occurrence_at(byte_offset)?;
         self.definition(occurrence.id)?;
@@ -199,10 +210,12 @@ impl SemanticDocument {
         )
     }
 
+    /// Returns declarations owned by the selected document in source order.
     pub fn document_symbols(&self) -> &[Symbol] {
         &self.document_symbols
     }
 
+    /// Returns values visible from the selected document, including direct requirements and predefined names.
     pub fn completions(&self) -> &[Symbol] {
         &self.completions
     }

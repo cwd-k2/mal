@@ -1,3 +1,5 @@
+//! Core-to-ANF lowering with explicit left-to-right evaluation and fresh intermediate identities.
+
 use crate::core::ast as core;
 
 pub(crate) mod ast;
@@ -7,6 +9,7 @@ use self::ast::{
     Program, TopLevelBinding, TopLevelPattern, ValueId,
 };
 
+/// Linearizes nested core expressions while preserving the language's evaluation order and existing identities.
 pub(crate) fn lower(program: &core::Program) -> Program {
     Lowerer::new().lower_program(program)
 }
@@ -131,6 +134,8 @@ impl Lowerer {
                 self.operation_block(expression, Operation::Lambda(lambda))
             }
             core::ExpressionKind::Call { callee, argument } => {
+                // Mal evaluates an argument before its callee. Append in semantic order even though source syntax and
+                // the final operation store the callee first.
                 let (mut builder, argument) = self.lower_operand(argument);
                 let callee = builder.append(self, callee);
                 builder.finish(self, expression, Operation::Call { callee, argument })

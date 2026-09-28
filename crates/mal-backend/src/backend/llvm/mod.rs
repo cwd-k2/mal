@@ -1,3 +1,5 @@
+//! Target admission and coordinated generation of the LLVM module, C shim, header, and runtime set.
+
 use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
 use super::c::syntax::{c_declaration, c_directive};
@@ -14,14 +16,20 @@ mod target;
 pub(crate) use optimization::OptimizationSet;
 pub(crate) use target::{TargetLayout, parse as target_layout};
 
+/// Target identity and LLVM data layout obtained from the same pinned Clang invocation used to compile artifacts.
 pub struct Target<'a> {
+    /// LLVM target triple.
     pub triple: &'a str,
+    /// LLVM data-layout string whose pointer and index widths govern admission and emission.
     pub data_layout: &'a str,
 }
 
+/// Failure to admit the target or to generate artifacts from an admitted execution plan.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Error {
+    /// A target-dependent source limit was exceeded; render the diagnostic against its source graph.
     Diagnostic(mal_syntax::diagnostic::Diagnostic),
+    /// The data-layout string omits or uses an unsupported default pointer layout.
     InvalidTargetDataLayout,
     /// An internal invariant failed while emitting the named part of the program; a compiler defect, not a source error.
     InconsistentExecutionPlan(String),

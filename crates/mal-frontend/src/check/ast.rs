@@ -1,3 +1,5 @@
+//! Typed program representation emitted only after language-rule admission.
+
 use crate::resolve::ast::{
     ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
@@ -127,6 +129,9 @@ impl PartialEq for Type {
 impl Eq for Type {}
 
 impl Type {
+    /// Walks data-bearing subtypes in preorder, visiting shared aggregate nodes only once.
+    ///
+    /// Function parameter and result types are intentionally not data subtypes of the function value.
     pub fn data_subtypes(&self) -> DataSubtypes<'_> {
         DataSubtypes {
             pending: vec![self],
@@ -134,6 +139,7 @@ impl Type {
         }
     }
 
+    /// Returns the allocation identity used to memoize structurally shared aggregate and function nodes.
     pub fn shared_id(&self) -> Option<SharedTypeId> {
         shared_id(self)
     }
@@ -216,6 +222,7 @@ impl MonomorphicProgram {
         Self(program)
     }
 
+    /// Borrows the checked program after its lack of open generic bindings has been established.
     pub fn program(&self) -> &Program {
         &self.0
     }
@@ -301,6 +308,7 @@ pub struct AbruptExpression {
 }
 
 impl AbruptExpression {
+    /// Prepends values that must be evaluated before this abrupt completion transfers control.
     pub fn preceded_by(mut self, mut values: Vec<Expression>) -> Self {
         values.append(&mut self.preceding);
         self.preceding = values;

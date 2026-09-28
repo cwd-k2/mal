@@ -1,3 +1,5 @@
+//! Reachability-driven monomorphization with shared instances and globally fresh binder identities.
+
 use std::collections::{HashMap, HashSet};
 
 use crate::resolve::ast::{LambdaId, ValueBinding, ValueId, ValueReference};
