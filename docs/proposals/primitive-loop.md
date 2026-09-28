@@ -33,6 +33,10 @@ loop<A, B> :: (A, A -> [A, B]) -> B;
 `step`のeffectとtrapは通常のfunction applicationと同じであり、選ばれなかったsum continuationを評価しない。variant 0を
 返し続けるinvocationは停止しない。`loop`はtermination、fairness、iteration上限を追加で保証しない。
 
+`step`は通常のfunction valueなので、外側のresult binderをcaptureできない。反復途中のearly resultはvariant 1の`B`として返し、
+`loop(initial, step)[return]`、または`B`がsumなら`loop(initial, step)[missing, found]`のようにinvocationのcontinuationから
+同じlambda invocationに属する外側binderへtransferする。この境界のためにdynamic continuationやbinder captureを追加しない。
+
 generic binding自体はruntime valueではないという既存規則を保つ。explicit type argumentを与えた`loop<A, B>`は、他の
 specialized generic functionと同様に参照、alias、capture、引数渡しできる。function equalityはないため、builtin code
 identityとsource functionの物理表現差は観測できない。
@@ -96,6 +100,7 @@ focused testは少なくとも次を固定する。
 - `loop<A, B>`をalias、closure capture、higher-order argument経由でapplicationする。
 - 同じ`(A, B)` specializationを異なる複数のstep targetから使う。
 - nested `loop`と、callbackから通常のMal functionを呼ぶ経路を実行する。
+- stepから外側result binderをcaptureするsourceを拒否し、loop resultのcontinuationとして同じbinderへtransferできることを確認する。
 - baselineと各optimizationの単独有効化およびproductionで同じobservable behaviorを得る。
 - large iterationでnative stackとcontrol frame数がiteration countに比例しない。
 

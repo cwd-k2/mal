@@ -3,7 +3,8 @@
 Status: Partially accepted; generic implementation patternとhigher-kinded profileはExploratory
 
 型引数推論とclosed canonical typeだけをkeyにするexact operation familyは採択済みである。現在の言語規則は
-[parametric polymorphism](../spec/generics.md)と[operation family](../spec/operation-families.md)を正とする。この文書は採択理由と、
+[parametric polymorphism](../spec/generics.md)と[operation family](../spec/operation-families.md)、採択理由は
+[D081](../history/decisions/active/D081.md)を正とする。この文書は背景と、
 未採択のgeneric implementation pattern、higher-kinded constructor、lawful interface候補を管理する。
 
 ## 目的と設計境界
@@ -74,6 +75,7 @@ generic bindingとoperation familyは同じ局所constraint solverを使う。so
 - declarationのresult型とapplication全体の期待型
 - parameter型が確定したlambdaのbody result
 - direct result blockのresult binderへ渡したpayload
+- 直和continuationのpayload型と、既知なら除去結果型
 - 周辺型が未確定なnumeric literal
 
 推論はapplicationではなくgeneric value referenceを起点に行う。したがって即時applicationのoperandだけでなく、family valueを
@@ -285,11 +287,14 @@ associated type、operation群とlawを一つのlawful instanceとして束ね�
 
 ## Compiler boundary
 
-parserは未分類のdeclaration header、resolverはfamilyとimplementationのidentity、checkerは推論済みgeneric referenceと型付きoperation
-requirementを所有する。checkerはfamily signatureとimplementation annotationの一致、keyの重複とpatternのoverlapをprogram全体で検査し、
-concreteとsymbolicの両方のoperation goalをchecked ASTへ残す。specializerはgeneric bindingの型parameterを置換し、到達したgoalが
-concreteになった時点でimplementation tableを検索する。解決したreferenceは通常のbinding identityへ置き換える。ANF以降はoperation family、
-operation requirement、inference variable、implementation patternを受け取らない。
+採択済みexact profileでは、parserは未分類のdeclaration header、resolverはfamilyとexact implementationのidentity、checkerは
+推論済みgeneric referenceと型付きoperation requirementを所有する。checkerはfamily signatureとimplementation annotationの一致、
+exact keyの重複をprogram全体で検査し、concreteとsymbolicの両方のoperation goalをchecked ASTへ残す。specializerはgeneric bindingの
+型parameterを置換し、到達したgoalがconcreteになった時点でexact implementation tableを検索する。解決したreferenceは通常の
+binding identityへ置き換える。ANF以降はoperation family、operation requirement、inference variableを受け取らない。
+
+generic implementation patternを採択する場合に限り、resolverがpattern binder、checkerがpattern overlapと縮小条件、specializerが
+pattern matchを追加で所有する。未採択のpatternを現在のchecked ASTや後段へ先行して追加しない。
 
 operation解決はspecialization中のcompile-time選択であり、operand、family value、applicationの既存評価順を変えない。implementationの
 function body、extern effect、trapは、解決後の通常bindingを同じsource位置で参照した場合と同じ時点に発生する。
@@ -304,7 +309,7 @@ resultにもoperandにもelement型が現れないcallは従来どおり明示�
 
 ## 導入状況と後続の検証境界
 
-局所inference variableとstructural unification、lambda resultとdirect result block payloadのconstraint、exact familyの
+局所inference variableとstructural unification、lambda result、direct result block payload、直和continuationの期待関数型constraint、exact familyの
 parse・resolve・check、operation requirementの収集と伝播、specialization時のexact lookup、value familyは実装済みである。
 推論形と明示形のspecialization key共有、canonical keyの重複、missing implementation、operation referenceがbackendへ残らないことを
 focused testと既存backendを通る実行caseで検査する。

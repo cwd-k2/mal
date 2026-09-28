@@ -40,7 +40,7 @@
 | execution backendを変更する | [実行backendの責務境界](implementation/execution-backend.md) | [生成物例](implementation/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | generated C / LLVMの構築を変更する | [C / LLVM構文構築](implementation/backend-syntax-construction.md) | [内部DSL reference](implementation/backend-syntax-reference.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md) |
 | `Address`、`Buffer`、C host copyを使う | [AddressとBuffer](spec/memory.md) | [C host ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
-| table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、素案の[index構造](proposals/indexed-buffer-structures.md)と[更新例](proposals/indexed-buffer-tree-examples.md) |
+| table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md)と[更新案](proposals/indexed-buffer-tree-examples.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `loop`を検討する | [first-class primitive `loop`の導入計画](proposals/primitive-loop.md) | [反復とdomain step](design/value-interpretation-and-control.md#反復controlとdomain-stepを分ける)、[application control lowering](implementation/application-control-lowering.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
@@ -63,7 +63,7 @@
 | `design/` | 現在の設計policyと、複数の規範領域を横断する判断軸 |
 | `implementation/` | `malc`の現在の責務、構成、実行backend |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |
-| `proposals/` | 未採択の設計素案と、判断前に解決する論点。現在のruleではない |
+| `proposals/` | 未採択の設計素案と、部分採択後に残る拡張候補。採択済み部分のruleは`spec/`、理由は`history/`を正とする |
 | `research/` | 外部仕様・先行事例から得た根拠 |
 | `history/` | 過去の設計判断、退役事項、条件付き測定記録 |
 

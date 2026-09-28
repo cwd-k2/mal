@@ -2,7 +2,7 @@
 
 Status: Exploratory
 
-この文書は[indexで結ぶBuffer構造](indexed-buffer-structures.md)に対する更新方針を示す。完全なAVL実装を
+この文書は[indexで結ぶBuffer構造](../design/indexed-buffer-structures.md)に対する更新方針を示す。完全なAVL実装を
 surface syntaxの固定例として保存せず、現在のBuffer semanticsから必要な設計判断だけを記録する。
 
 ## その場の更新

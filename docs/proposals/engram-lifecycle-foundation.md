@@ -6,7 +6,8 @@ Status: Partially accepted; backend-local lifecycle boundary implemented
 共通化する方針と後続候補を管理する。backend-localな共通化は採択済みであり、source-levelの型、operation、ownership syntaxは追加しない。
 現在のauthorityは[EngramとExtern](../spec/engrams.md)、responsibilityの意味は
 [D055](../history/decisions/active/D055.md)、実装policyは
-[managed valueのownership](../implementation/ownership.md)を正とする。
+[managed valueのownership](../implementation/ownership.md)、backend-local境界の採択理由は
+[D080](../history/decisions/active/D080.md)を正とする。
 
 ## 問題
 
@@ -99,17 +100,6 @@ Buffer element callbackとenvironment destructorのC signatureも統合しない
 drop時の処理は子Engramとmal-owned storageの回収に限り、I/OやExtern resourceの`close`のような観測可能な作用を持たせない。
 回収時点を観測可能にするとreference countingがsource semanticsになり、Engram仕様が許す別の回収方式を失うためである。
 
-## 導入順
-
-1. 現在のmanaged type分類、LLVMのretain/release、Buffer callback、environment destructorの対応をfocused testで固定する。
-2. 既存の`retain_value`と`release_value`を型別の`share`と`drop`のauthorityとして明確化し、それを迂回する経路を除く。
-3. slot初期化、上書き、Consume、Dropを`initialize`、`replace`、`vacate`の共通helperへ接続する。
-4. 同じ型別loweringを使う既存のmanaged Buffer callbackで、`get`、`put`、`fill`、`copy`、破棄のresponsibilityを検証する。
-5. 同じ型別loweringを使う既存のclosure environment destructorを保ち、control frame payloadのdirectな保持と破棄を調べる。
-6. 重複が実際に残る場合だけ、owner headerまたはcallback ABIの統合を別途評価する。
-
-各段階は生成物を実行できる状態で完了させる。将来のEngramだけを想定した空module、runtime registry、dynamic descriptorは作らない。
-
 ## Symbolを基準にしたextension境界
 
 `Symbol`は新しいEngram leafに必要な構築、immutable value semantics、owner projection、share、drop、static/null ownerの例をすべて持つ。
@@ -155,6 +145,9 @@ LLVM backendでは、型別retain/release、slotのload・initialize・vacate、
 pattern destination、parameter handoff、frame resume、Buffer `put`、Symbol move、dead-slot cleanupはこの境界を利用し、
 `execution/ownership`が引き続きresponsibility policyを所有する。独立したlifecycle plan、runtime descriptor、共通owner header、
 source operationは導入していない。
+
+後続変更も各段階で生成物を実行できる状態を保ち、重複が実在する場合だけ境界を広げる。将来のEngramだけを想定した空module、
+runtime registry、dynamic descriptorは作らない。
 
 残る検証と拡張候補は次のとおりである。
 
