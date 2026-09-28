@@ -1,5 +1,7 @@
+// This domain names carrier-relative coordinates locally; Buffer itself uses USize.
+NodeCoordinate :: USize;
 // NodeRow fields: value, kind (0 = leaf, 1 = branch), left coordinate, right coordinate.
-NodeRow :: (Int32, UInt8, USize, USize);
+NodeRow :: (Int32, UInt8, NodeCoordinate, NodeCoordinate);
 // NodeRows is the physical row carrier; branch rows interpret two coordinates as child edges.
 NodeRows :: Buffer<NodeRow>;
 
@@ -18,7 +20,7 @@ buildTreeRows :: Unit -> NodeRows := () -> {
 
 // Both child totals are consumed after their calls return, making this structural rather than tail
 // recursion over the row carrier.
-sumTreeAt :: (NodeRows, USize) -> Int32 := (rows, coordinate) -> {
+sumTreeAt :: (NodeRows, NodeCoordinate) -> Int32 := (rows, coordinate) -> {
     (value, kind, left, right) := rows.get(coordinate);
     if (kind == 0u8)
     then value

@@ -169,7 +169,7 @@ fn receiver_first_callees_support_function_editor_features() {
 }
 
 #[test]
-fn indexes_buffer_intrinsics_and_indexed_types_as_predefined_symbols() {
+fn indexes_buffer_intrinsics_and_types_as_predefined_symbols() {
     let text = "build :: Unit -> Buffer<Int32> := () -> make<Int32>(1usize);\n\
                 admit :: Address -> Buffer<Int32> := (address) -> from<Int32>(address, 0usize, 1usize);\n\
                 publish :: (Buffer<Int32>, Address) -> Unit := (values, address) -> values.into(address, 0usize, #values);\n";
@@ -187,7 +187,7 @@ fn indexes_buffer_intrinsics_and_indexed_types_as_predefined_symbols() {
         assert!(document.hover_at(offset).is_some());
     }
     for name in [
-        "Buffer", "Index", "from", "into", "make", "new", "get", "put", "fill", "copy",
+        "Buffer", "from", "into", "make", "new", "get", "put", "fill", "copy",
     ] {
         assert!(
             document

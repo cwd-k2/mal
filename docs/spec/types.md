@@ -13,7 +13,6 @@ T ::=
   | ByteSize | USize
   | Symbol
   | Address
-  | Index<T>
   | Buffer<T>
   | (T, T, ...)
   | []
@@ -47,9 +46,6 @@ mutable byte sequenceは`Buffer<UInt8>`で表す。`Symbol`との明示的なsna
 
 `Address`はhost-managed resourceへのopaque capabilityであり、mal codeはreferentを直接観測しない。`Buffer<T>`は
 mal-ownedなmutable有限sequenceへの共有参照である。型形成、operation、C host copy境界は[AddressとBuffer](memory.md)に定める。
-
-`Index<T>`は`USize`のpredefined transparent aliasであり、`T`は表現に寄与しない。Buffer要素型と座標の意図を
-source上に残すが、異なるBufferや要素型のindexを型として区別しない。完全な規則は[Buffer](memory.md#buffer)に定める。
 
 ## Unit
 

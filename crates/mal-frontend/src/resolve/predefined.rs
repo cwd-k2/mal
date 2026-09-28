@@ -54,7 +54,6 @@ predefined_types!(
     U_SIZE_TYPE = 14 => ("USize", "USize", "A target-width unsigned integer used for element counts, indices, capacities, and element offsets."),
     ADDRESS_TYPE = 15 => ("Address", "Address", "An opaque capability for host-managed storage. Only the C host copy primitives and extern contracts interpret its referent."),
     BUFFER_TYPE = 16 => ("Buffer", "Buffer<T>", "A mutable mal-owned sequence. Copies share the same buffer, and storage is reclaimed after its references disappear."),
-    INDEX_TYPE = 17 => ("Index", "Index<T> :: USize", "A transparent element coordinate whose type argument documents the referenced Buffer element type."),
 );
 
 // Keep the constant and metadata table in one declaration so name lookup, callable classification,
@@ -80,14 +79,14 @@ macro_rules! predefined_values {
 predefined_values!(
     FALSE_VALUE = 0 => ("false", Some("Bool"), "The Boolean value for a false condition.", false),
     TRUE_VALUE = 1 => ("true", Some("Bool"), "The Boolean value for a true condition.", false),
-    NEW_VALUE = 2 => ("new", Some("(Buffer<T>, T) -> Index<T>"), "Appends a value to a `Buffer<T>` and returns its stable element index.", true),
-    GET_VALUE = 3 => ("get", Some("(Buffer<T>, Index<T>) -> T"), "Reads an element from a `Buffer<T>`. The index must be within its current count.", true),
-    PUT_VALUE = 4 => ("put", Some("(Buffer<T>, Index<T>, T) -> Unit"), "Replaces an element in a `Buffer<T>`. The index must be within its current count.", true),
+    NEW_VALUE = 2 => ("new", Some("(Buffer<T>, T) -> USize"), "Appends a value to a `Buffer<T>` and returns its stable element index.", true),
+    GET_VALUE = 3 => ("get", Some("(Buffer<T>, USize) -> T"), "Reads an element from a `Buffer<T>`. The index must be within its current count.", true),
+    PUT_VALUE = 4 => ("put", Some("(Buffer<T>, USize, T) -> Unit"), "Replaces an element in a `Buffer<T>`. The index must be within its current count.", true),
     MAKE_VALUE = 5 => ("make", Some("USize -> Buffer<T>"), "Creates an empty `Buffer<T>` with the requested initial capacity.", true),
     FROM_VALUE = 6 => ("from", Some("(Address, USize, USize) -> Buffer<T>"), "Copies an exact element range from initialized C-host storage into a new `Buffer<T>`.", true),
     INTO_VALUE = 7 => ("into", Some("(Buffer<T>, Address, USize, USize) -> Unit"), "Copies a Buffer range into C-host storage without consuming or mutating the Buffer.", true),
-    FILL_VALUE = 8 => ("fill", Some("(Buffer<T>, Index<T>, USize, T) -> Unit"), "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
-    COPY_VALUE = 9 => ("copy", Some("(Buffer<T>, Index<T>, Buffer<T>, Index<T>, USize) -> Unit"), "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
+    FILL_VALUE = 8 => ("fill", Some("(Buffer<T>, USize, USize, T) -> Unit"), "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
+    COPY_VALUE = 9 => ("copy", Some("(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit"), "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
 );
 
 pub(crate) fn first_source_type_id() -> u32 {

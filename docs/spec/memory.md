@@ -94,21 +94,18 @@ offset、allocation sizeをtargetのobject sizeで表現できない型はartifa
 `free`、retain、releaseは存在しない。
 
 ```text
-Index<A> :: USize
-
 make<A>(USize)                     -> Buffer<A>
 #Buffer<A>                         -> USize
-Buffer<A>.new(A)                   -> Index<A>
-Buffer<A>.get(Index<A>)            -> A
-Buffer<A>.put(Index<A>, A)         -> Unit
-Buffer<A>.fill(Index<A>, USize, A) -> Unit
-Buffer<A>.copy(Index<A>, Buffer<A>, Index<A>, USize) -> Unit
+Buffer<A>.new(A)                   -> USize
+Buffer<A>.get(USize)               -> A
+Buffer<A>.put(USize, A)            -> Unit
+Buffer<A>.fill(USize, USize, A)    -> Unit
+Buffer<A>.copy(USize, Buffer<A>, USize, USize) -> Unit
 ```
 
-`Index<A>`はpredefined transparent aliasであり、canonical typeは`USize`である。`A`はphantom parameterなので、
-`Index<A>`の形成は`A`の表現を要求しない。`Index<A>`、`Index<B>`、`USize`は相互に同じ型として比較、演算、
-代入できる。`A`はsource上で座標が参照する要素型を記録するためだけに使い、範囲、carrier identity、domain invariantを
-証明しない。count、capacity、lengthとC host storage上のoffsetは引き続き`USize`で表す。
+要素index、count、capacity、length、C host storage上のoffsetは`USize`で表す。domainで座標の役割を名前に残す場合は、
+利用者がそのdomainの宣言としてtransparent aliasを定義できる。aliasはnominal identityを作らず、範囲、carrier identity、
+domain invariantを証明しない。
 
 `make<A>(capacity)`はcount 0のBufferを返す。capacityは初期allocationの要求であり、論理countではない。後続の`new`はcapacityを
 超えてgrowthできる。`new`は末尾へ追加し、その安定した0-based indexを返す。`get`と`put`は現在のindexを読み書きする。

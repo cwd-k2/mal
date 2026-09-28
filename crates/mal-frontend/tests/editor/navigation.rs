@@ -214,7 +214,7 @@ fn reports_the_type_of_a_buffer_method() {
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let hover = document.hover_at(offset).expect("buffer get hover");
 
-    assert_eq!(hover.ty, "(Buffer<T>, Index<T>) -> T");
+    assert_eq!(hover.ty, "(Buffer<T>, USize) -> T");
     assert_eq!(hover.occurrence.unwrap().name, "get");
     assert!(
         hover
@@ -227,12 +227,12 @@ fn reports_the_type_of_a_buffer_method() {
 }
 
 #[test]
-fn phantom_index_arguments_keep_type_navigation_and_source_hover() {
-    let text = "Node :: (Int32, Index<Node>);\nread :: (Buffer<Node>, Index<Node>) -> Node := (buffer, index) -> buffer.get(index);";
+fn phantom_alias_arguments_keep_type_navigation_and_source_hover() {
+    let text = "Coordinate<T> :: USize;\nNode :: (Int32, Coordinate<Node>);\nread :: (Buffer<Node>, Coordinate<Node>) -> Node := (buffer, index) -> buffer.get(index);";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
     let declaration = text.find("Node").unwrap();
     let recursive_reference = text.find("Node>").unwrap();
-    let index_reference = text.find("Index<Node>").unwrap();
+    let coordinate_reference = text.find("Coordinate<Node>").unwrap();
 
     let node = document
         .occurrence_at(recursive_reference)
@@ -246,13 +246,10 @@ fn phantom_index_arguments_keep_type_navigation_and_source_hover() {
         declaration
     );
     assert_eq!(document.rename_spans(recursive_reference).unwrap().len(), 5);
-    assert_eq!(
-        document.hover_at(index_reference).unwrap().ty,
-        "Index<T> :: USize"
-    );
+    assert_eq!(document.hover_at(coordinate_reference).unwrap().ty, "USize");
     assert_eq!(
         document.hover_at(recursive_reference).unwrap().ty,
-        "(Int32, Index<Node>)"
+        "(Int32, Coordinate<Node>)"
     );
 }
 

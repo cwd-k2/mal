@@ -10,10 +10,13 @@ surface syntaxの固定例として保存せず、現在のBuffer semanticsか�
 appendで既存rowのindexは変わらない。先にchildを追加し、その後parent rowを`put`で置換できる。
 
 ```mal
-appendLeaf :: (Tree, Int32) -> USize := (tree, value) ->
+NodeCoordinate :: USize;
+
+appendLeaf :: (Tree, Int32) -> NodeCoordinate := (tree, value) ->
     tree.new((value, 0u8, 0usize, 0usize));
 
-setChildren :: (Tree, USize, USize, USize) -> Unit := (tree, parent, left, right) -> {
+setChildren :: (Tree, NodeCoordinate, NodeCoordinate, NodeCoordinate) -> Unit :=
+    (tree, parent, left, right) -> {
     (value, _, _, _) := tree.get(parent);
     tree.put(parent, (value, 1u8, left, right));
 };

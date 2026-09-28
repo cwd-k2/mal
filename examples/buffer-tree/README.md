@@ -8,6 +8,8 @@ coordinates while traversing the logical tree.
 Within each row, `value` is payload, `kind` selects the row interpretation, and the left and right
 coordinates are relation indicators only when `kind` denotes a branch. Physical row order makes the
 coordinates cheap to store; adjacency in that order does not itself mean parenthood.
+The example defines the transparent `NodeCoordinate :: USize` alias locally because that meaning
+belongs to this tree domain rather than to the standard `Buffer` API.
 
 `buildTreeRows` uses `make<NodeRow>` to construct the rows through an ordinary `Buffer<NodeRow>`. It
 appends parent slots before their child coordinates are known, then fills the relation with `put`.

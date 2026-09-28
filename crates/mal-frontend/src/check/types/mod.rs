@@ -2,8 +2,8 @@
 
 use crate::resolve::ast::{
     self as resolved, ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE,
-    FLOAT64_TYPE, INDEX_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId,
-    U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, TypeId, U_SIZE_TYPE,
+    UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
 };
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
@@ -125,9 +125,7 @@ impl Checker {
                         constructor,
                         arguments,
                     } => {
-                        let expected = if constructor.id == BUFFER_TYPE
-                            || constructor.id == INDEX_TYPE
-                        {
+                        let expected = if constructor.id == BUFFER_TYPE {
                             1
                         } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
                             definition.parameters.len()
@@ -148,10 +146,7 @@ impl Checker {
                                     ),
                                 ));
                         }
-                        if constructor.id == INDEX_TYPE {
-                            self.validate_phantom_type(&arguments[0])?;
-                            values.push(Type::USize);
-                        } else if constructor.id == BUFFER_TYPE {
+                        if constructor.id == BUFFER_TYPE {
                             pending.push(Expansion::Buffer(constructor.name.span));
                             pending.extend(arguments.into_iter().rev().map(|argument| {
                                 Expansion::Expression(argument, substitutions.clone())
@@ -226,10 +221,7 @@ impl Checker {
                         });
                     } else if let Some(expanded) = self.expanded_aliases.get(&id) {
                         values.push(expanded.clone());
-                    } else if id == BUFFER_TYPE
-                        || id == INDEX_TYPE
-                        || self.generic_aliases.contains_key(&id)
-                    {
+                    } else if id == BUFFER_TYPE || self.generic_aliases.contains_key(&id) {
                         return Err(Diagnostic::error("generic type requires arguments")
                             .with_primary(use_span, "supply the declared type arguments"));
                     } else {
@@ -312,7 +304,6 @@ impl Checker {
             match &expression.kind {
                 resolved::TypeExpression::Named(reference) => {
                     if reference.id == BUFFER_TYPE
-                        || reference.id == INDEX_TYPE
                         || self.generic_aliases.contains_key(&reference.id)
                     {
                         return Err(Diagnostic::error("generic type requires arguments")
@@ -326,8 +317,7 @@ impl Checker {
                     constructor,
                     arguments,
                 } => {
-                    let expected = if constructor.id == BUFFER_TYPE || constructor.id == INDEX_TYPE
-                    {
+                    let expected = if constructor.id == BUFFER_TYPE {
                         1
                     } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
                         definition.parameters.len()

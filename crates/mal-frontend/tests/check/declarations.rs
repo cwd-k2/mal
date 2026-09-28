@@ -118,10 +118,11 @@ fn expands_generic_aliases_with_canonical_concrete_arguments() {
 #[test]
 fn erases_phantom_alias_arguments_without_forming_recursive_value_types() {
     let program = check_ok(
-        "Node :: (Int32, Index<Node>);\n\
+        "Coordinate<A> :: USize;\n\
+         Node :: (Int32, Coordinate<Node>);\n\
          Tree :: Buffer<Node>;\n\
          root :: Node := (1i32, 0usize);\n\
-         next :: Index<Node> -> Index<Node> := (index) -> index + 1usize;",
+         next :: Coordinate<Node> -> Coordinate<Node> := (index) -> index + 1usize;",
     );
 
     let TopItem::TypeAlias { ty, .. } = &program.items[0].kind else {
@@ -165,10 +166,14 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
             "generic type argument arity mismatch",
         ),
         ("value :: Buffer := 0;", "generic type requires arguments"),
-        ("value :: Index := 0;", "generic type requires arguments"),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");
     }
+}
+
+#[test]
+fn allows_source_aliases_named_index() {
+    check_ok("Index<A> :: USize; value :: Index<Int32> := 0usize;");
 }
 
 #[test]
