@@ -36,6 +36,8 @@ mal sourceはUTF-8であり、raw source characterはUTF-8 bytesとしてliteral
 #value
 value # index
 left + right
+value / index
+value % index
 ```
 
 `#value`はbyte lengthを`USize`で返す。`value # index`は`index < #value`をpreconditionとし、`USize`の
@@ -45,6 +47,22 @@ left + right
 新しい`Symbol`を返す。空`Symbol`は単位元である。precondition違反時の実行結果は保証しない。必要なstorage sizeを
 targetで表現できない場合、またはstorageを確保できない場合はtrapする。実装は観測可能な結果を変えない限り
 storageを共有または再利用してよい。
+
+`value / index`と`value % index`は`index <= #value`をpreconditionとするbyte位置での分割である。`value / index`は
+先頭`index` bytes、`value % index`は0-based offset `index`以降のbytesを持つ`Symbol`を返す。したがって、有効な
+operandに対して次が成り立つ。
+
+```mal
+(value / index) + (value % index) == value
+#(value / index) == index
+#(value % index) == #value - index
+```
+
+`value / 0usize`と`value % #value`は空、`value % 0usize`と`value / #value`は元と同じbyte値になる。
+precondition違反時の実行結果は保証しない。結果は元の`Symbol`から独立したimmutableな値として振る舞い、実装は
+その範囲のstorageを共有してよい。[operator precedence](grammar.md#operator-precedence)の左結合により、`value / end % start`は
+`start <= end <= #value`のときrange `[start, end)`、`value % start / length`は
+`start <= #value`かつ`length <= #value - start`のときrange `[start, start + length)`を返す。
 
 `==`と`!=`はbyte-wise equalityとし、orderingは定義しない。これらのoperationはfirst-class functionではない。
 

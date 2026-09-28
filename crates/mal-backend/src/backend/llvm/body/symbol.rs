@@ -1,4 +1,4 @@
-use crate::backend::llvm::syntax::llvm_global;
+use crate::backend::llvm::syntax::{BinaryOperator, llvm_global};
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use mal_frontend::check::ast::Type;
 
@@ -125,6 +125,73 @@ impl FunctionEmitter<'_> {
                     typed((ptr), #{ right_owner }),
                     typed((ptr), #{ right_data }),
                     typed(#{ self.types.index_llvm_type() }, #{ right_length }),
+                ],
+            };
+        };
+        let result = self.register();
+        emit_instruction! {
+            self;
+            let #{ result.clone() } = load {
+                ty: #{ result_type.llvm },
+                pointer: #{ result_storage },
+                alignment: #{ result_type.alignment },
+                metadata: [],
+            };
+        };
+        Some(EmittedValue {
+            ty: Type::Symbol,
+            representation: result,
+            owned: true,
+        })
+    }
+
+    pub(super) fn emit_symbol_partition(
+        &mut self,
+        symbol: &Atom,
+        index: &Atom,
+        operator: crate::core::ast::BinaryPrimitive,
+    ) -> Option<EmittedValue> {
+        let symbol = self.atom(symbol)?;
+        let index = self.atom(index)?;
+        if symbol.ty != Type::Symbol || index.ty != Type::USize {
+            return None;
+        }
+        let ByteViewFields { owner, data, count } = self.byte_view_fields(&symbol)?;
+        let (offset, length) = match operator {
+            crate::core::ast::BinaryPrimitive::Divide => ("0".into(), index.representation),
+            crate::core::ast::BinaryPrimitive::Remainder => {
+                let length = self.register();
+                emit_instruction! {
+                    self;
+                    let #{ length.clone() } = binary {
+                        operator: #{ BinaryOperator::Sub },
+                        ty: #{ self.types.index_llvm_type() },
+                        left: #{ count },
+                        right: #{ index.representation.clone() },
+                    };
+                };
+                (index.representation, length)
+            }
+            _ => return None,
+        };
+        let result_type = self.types.value(&Type::Symbol)?;
+        if !self.needs_symbol_result_slot {
+            return None;
+        }
+        let result_storage = "%mal_symbol_result";
+        emit_instruction! {
+            self;
+            call {
+                tail: false,
+                result_type: (void),
+                callee: direct("mal_runtime_symbol_slice"),
+                arguments: [
+                    typed((ptr), "%mal_context"),
+                    typed((ptr), #{ result_storage }),
+                    typed((ptr), #{ owner }),
+                    typed((ptr), #{ data }),
+                    typed(#{ self.types.index_llvm_type() }, #{ offset }),
+                    typed(#{ self.types.index_llvm_type() }, #{ length }),
                 ],
             };
         };

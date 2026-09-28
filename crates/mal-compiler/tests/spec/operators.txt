@@ -68,6 +68,8 @@ f :: UInt8 -> UInt8 := (a) -> -a;
 f :: Int32 -> Int32 := (a) -> !a;
 ### symbol_ordering_rejected | err:
 f :: (Symbol, Symbol) -> Bool := (a, b) -> a <= b;
+### symbol_partition_index_type_rejected | err:
+f :: Symbol -> Symbol := (value) -> value / 1u8;
 ### unit_operators_rejected | err:
 f :: (Unit, Unit) -> Bool := (a, b) -> a == b;
 ### toplevel_comparison_rejected | err:invalid top-level

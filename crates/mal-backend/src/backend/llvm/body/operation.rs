@@ -193,6 +193,17 @@ impl FunctionEmitter<'_> {
                     self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
                     return self.emit_symbol_concatenate(left, right, symbol_concat);
                 }
+                if matches!(
+                    operator,
+                    crate::core::ast::BinaryPrimitive::Divide
+                        | crate::core::ast::BinaryPrimitive::Remainder
+                ) && left.ty == Type::Symbol
+                    && right.ty == Type::USize
+                {
+                    self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
+                    self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
+                    return self.emit_symbol_partition(left, right, *operator);
+                }
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
                 let left = self.atom(left)?;

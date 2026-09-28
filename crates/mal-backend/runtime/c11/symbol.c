@@ -15,6 +15,30 @@ uint8_t mal_runtime_symbol_at(const void *data, size_t index) {
     return ((const unsigned char *)data)[index];
 }
 
+void mal_runtime_symbol_slice(
+    MalContext *context,
+    MalBytesView *result,
+    const void *owner,
+    const void *data,
+    size_t offset,
+    size_t length
+) {
+    if (length == 0) {
+        mal_symbol_set(result, NULL, NULL, 0);
+        return;
+    }
+    const unsigned char *slice_data = data;
+    if (offset != 0) {
+        slice_data += offset;
+    }
+    mal_symbol_set(
+        result,
+        mal_bytes_retain(context, (MalBytes *)owner),
+        slice_data,
+        length
+    );
+}
+
 static MalBytes *mal_symbol_copy(
     MalContext *context,
     const void *left_data,

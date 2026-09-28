@@ -34,14 +34,16 @@ impl Checker {
                         || is_float(ty)
                 })
                 .cloned(),
-            BinaryOperator::Multiply | BinaryOperator::Divide => expected
-                .filter(|ty| {
-                    (is_integer(ty) || is_float(ty))
-                        && (operator.kind != BinaryOperator::Multiply || **ty != Type::ByteSize)
-                })
+            BinaryOperator::Multiply => expected
+                .filter(|ty| (is_integer(ty) || is_float(ty)) && **ty != Type::ByteSize)
                 .cloned(),
-            BinaryOperator::Remainder
-            | BinaryOperator::ShiftLeft
+            BinaryOperator::Divide => expected
+                .filter(|ty| **ty == Type::Symbol || is_integer(ty) || is_float(ty))
+                .cloned(),
+            BinaryOperator::Remainder => expected
+                .filter(|ty| **ty == Type::Symbol || is_integer(ty))
+                .cloned(),
+            BinaryOperator::ShiftLeft
             | BinaryOperator::ShiftRight
             | BinaryOperator::BitwiseAnd
             | BinaryOperator::BitwiseXor
@@ -192,6 +194,16 @@ impl Checker {
         ) {
             return self.check_additive(operator, left, right, span, expected);
         }
+        if matches!(
+            operator.kind,
+            BinaryOperator::Divide | BinaryOperator::Remainder
+        ) && !is_contextual_integer(left)
+            && !is_contextual_float(left)
+        {
+            let left_expected = self.binary_left_expected(operator, expected);
+            let left = self.check_before(left, left_expected.as_ref(), right.span)?;
+            return self.check_binary_after_left(operator, left, right, span);
+        }
         let expected_integer = expected.filter(|expected| is_integer(expected));
         let expected_numeric =
             expected.filter(|expected| is_integer(expected) || is_float(expected));
@@ -316,6 +328,18 @@ impl Checker {
             }
             BinaryOperator::Add if left.ty == Type::Symbol => {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
+                return Ok(Expression {
+                    kind: ExpressionKind::Binary {
+                        operator: operator.clone(),
+                        left: Box::new(left),
+                        right: Box::new(right),
+                    },
+                    ty: Type::Symbol,
+                    span,
+                });
+            }
+            BinaryOperator::Divide | BinaryOperator::Remainder if left.ty == Type::Symbol => {
+                let (left, right) = self.check_after(left, right, Some(&Type::USize))?;
                 return Ok(Expression {
                     kind: ExpressionKind::Binary {
                         operator: operator.clone(),

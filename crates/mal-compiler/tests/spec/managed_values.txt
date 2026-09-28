@@ -28,6 +28,9 @@ main :: Unit -> Int32 := () -> [return] => {
 };
 ### join_of_a_symbol_from_concatenation | run:4
 main :: Unit -> Int32 := () -> { s := if (true) then "ab" + "cd" else "x"; (#s).i32 };
+### symbol_range_outlives_dynamic_source | run:0
+middle :: Unit -> Symbol := () -> { value := "ab" + "cdef"; value % 2usize / 3usize };
+main :: Unit -> Int32 := () -> { result := middle(); if (result == "cde") then 0 else 1 };
 ### join_of_a_product_holding_a_buffer | run:4
 len :: (Buffer<UInt8>, Int32) -> Int32 := ((b, n)) -> (#b).i32 + n - n;
 main :: Unit -> Int32 := () -> { p := if (true) then (*"abcd", 1i32) else (*"xy", 2i32); len(p) };

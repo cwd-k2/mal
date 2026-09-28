@@ -22,6 +22,12 @@ different :: Unit -> Bool := () -> { "a" != "b"; };
 literal :: Unit -> USize := () -> { #"hoge" + ("hoge" # 1usize).usize; };
 concatenate :: (Symbol, Symbol) -> Symbol := (left, right) -> {
   left + right;
+};
+prefix :: (Symbol, USize) -> Symbol := (value, index) -> {
+  value / index;
+};
+range :: (Symbol, USize, USize) -> Symbol := (value, start, length) -> {
+  value % start / length;
 };"#,
     );
     let ExpressionKind::Lambda(length) = &top_binding(&program, 0).value.kind else {
@@ -51,10 +57,12 @@ concatenate :: (Symbol, Symbol) -> Symbol := (left, right) -> {
         panic!("expected function type");
     };
     assert_eq!(result.as_ref(), &Type::USize);
-    let Type::Function { result, .. } = &top_binding(&program, 5).value.ty else {
-        panic!("expected function type");
-    };
-    assert_eq!(result.as_ref(), &Type::Symbol);
+    for index in 5..=7 {
+        let Type::Function { result, .. } = &top_binding(&program, index).value.ty else {
+            panic!("expected function type");
+        };
+        assert_eq!(result.as_ref(), &Type::Symbol);
+    }
 }
 
 #[test]
@@ -65,6 +73,9 @@ fn rejects_invalid_symbol_operations() {
         r#"bad := #1;"#,
         r#"bad := "a" # 0u8;"#,
         r#"bad := 1 # 0usize;"#,
+        r#"bad :: Symbol -> Symbol := (value) -> value / 1u8;"#,
+        r#"bad :: Symbol -> Symbol := (value) -> value % 1bytes;"#,
+        r#"bad :: USize -> Symbol := (index) -> 1usize / index;"#,
     ] {
         let error = check_error(text);
         assert!(error.primary.is_some(), "input: {text}");

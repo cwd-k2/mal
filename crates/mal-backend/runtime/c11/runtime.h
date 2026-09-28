@@ -66,6 +66,16 @@ void *mal_runtime_bytes_retain(MalContext *context, const void *owner);
 void mal_runtime_bytes_release(const void *owner);
 /* Symbol operations. The index must be below the length; that precondition is not checked. */
 uint8_t mal_runtime_symbol_at(const void *data, size_t index);
+/* Constructs a Symbol view over `[offset, offset + length)`, using the canonical empty view when length is zero. The
+ * range must be within the operand; that precondition is not checked. */
+void mal_runtime_symbol_slice(
+    MalContext *context,
+    MalBytesView *result,
+    const void *owner,
+    const void *data,
+    size_t offset,
+    size_t length
+);
 /* Concatenation borrows both operands. The result view owns fresh storage, or shares the other operand's owner when one
  * side is empty. The consuming variants take over one operand's reference and may extend its storage in place when
  * nothing else shares it, so the caller must not use the consumed owner afterwards. */

@@ -41,6 +41,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [C host copy](../spec/memory.md#c-host-copy-boundary) | offset、length、zero-count、Unit、Address element、operand一回評価 | host storageからBufferへcopyしhost storageへ戻す |
 | [Symbol conversion](../spec/memory.md#symbol-conversion) | snapshot independence、変換元activation終了後のresult lifetime | mutation前後のSymbol/Buffer比較 |
+| [Symbol operator](../spec/symbols.md#operator) | length、byte access、concatenation、`/`と`%`の端点・分割則・左結合range、型の拒否 | range viewを連結・比較するcompiled artifactとmanaged lifetime |
 | [HostMappable](../spec/extern.md#host-mappable-type) | generic alias完全展開、Symbol/Buffer rejection、nested product/sum | Addressと長さだけを使うgenerated headerとC adapterをcompile/link/execute |
 
 ## ABI

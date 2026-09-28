@@ -95,6 +95,47 @@ fn includes_byte_runtime_when_only_the_process_entry_shim_uses_it() {
 }
 
 #[test]
+fn emits_symbol_partition_as_shared_range_views() {
+    let source = SourceFile::new(
+        FileId::new(106),
+        "llvm-symbol-partition.mal",
+        "main :: Unit -> Int32 := () -> { value := \"abcdef\"; prefix := value / 3usize; suffix := value % 3usize; if (prefix + suffix == value) then 0i32 else 1i32; };".into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check Symbol partition fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let execution = crate::execution::lower(
+        crate::closure::convert(&crate::anf::lower(&core)),
+        crate::execution::OptimizationSet::none(),
+    );
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::none(),
+    )
+    .expect("Symbol partition is supported");
+
+    assert_eq!(
+        artifacts
+            .module
+            .matches("call void @mal_runtime_symbol_slice")
+            .count(),
+        2
+    );
+    assert!(artifacts.module.contains("sub i64"));
+    assert!(
+        artifacts
+            .runtime
+            .iter()
+            .any(|source| source.name == "symbol.c")
+    );
+}
+
+#[test]
 fn selects_the_entry_function_from_checked_identity() {
     let source = SourceFile::new(
         FileId::new(94),

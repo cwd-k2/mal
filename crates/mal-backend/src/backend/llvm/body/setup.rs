@@ -116,14 +116,8 @@ impl<'a> FunctionEmitter<'a> {
                 .bindings
                 .iter()
                 .any(|binding| {
-                    matches!(
-                        &binding.operation,
-                        Operation::PrimitiveBinary {
-                            operator: crate::core::ast::BinaryPrimitive::Add,
-                            left,
-                            right,
-                        } if left.ty == Type::Symbol && right.ty == Type::Symbol
-                    )
+                    binding.pattern.ty() == &Type::Symbol
+                        && matches!(&binding.operation, Operation::PrimitiveBinary { .. })
                 })
         });
         let buffer_value_storage =

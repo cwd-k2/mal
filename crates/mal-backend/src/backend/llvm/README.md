@@ -19,7 +19,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/setup` | identity and frame-tag indexing, function emitter admission, prologue, and output order |
 | `body/terminator` | control terminators as branches, calls, returns, and case dispatch |
 | `body/operation`, `body/bridge` | control operations, dispatched to the modules below, and external operation calls through the C bridge |
-| `body/symbol` | Symbol literals, length, byte access, and concatenation |
+| `body/symbol` | Symbol literals, length, byte access, range views, and concatenation |
 | `body/call_emission` | value, environment, and parameter-responsibility handoff at call boundaries |
 | `body/control_storage`, `body/control_top` | region-local storage view and top access, synchronized at native Mal call boundaries |
 | `body/frame` | frame layout, resume dispatch, owner transfer, and bounded native-recursion workers |

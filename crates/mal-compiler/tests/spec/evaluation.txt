@@ -62,6 +62,14 @@ main :: Unit -> Int32 := () -> ("abc" # 1usize).i32;
 main :: Unit -> Int32 := () -> (#("ab" + "cde")).i32;
 ### symbol_concat_empty_identity | run:1
 main :: Unit -> Int32 := () -> if ("" + "x" == "x" && "x" + "" == "x") then 1 else 0;
+### symbol_partition_law | run:1
+main :: Unit -> Int32 := () -> { value := "abcdef"; index := 2usize; if (value / index + value % index == value) then 1 else 0; };
+### symbol_partition_endpoints | run:1
+main :: Unit -> Int32 := () -> { value := "abc"; if (value / 0usize == "" && value % 0usize == value && value / #value == value && value % #value == "") then 1 else 0; };
+### symbol_start_length_range | run:1
+main :: Unit -> Int32 := () -> if ("abcdef" % 1usize / 3usize == "bcd") then 1 else 0;
+### symbol_start_end_range | run:1
+main :: Unit -> Int32 := () -> if ("abcdef" / 5usize % 2usize == "cde") then 1 else 0;
 ### symbol_eq_bytes | run:1
 main :: Unit -> Int32 := () -> if ("ab" + "c" == "abc") then 1 else 0;
 ### symbol_snapshot_from_buffer | run:1

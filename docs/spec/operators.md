@@ -80,7 +80,7 @@ integer:  ~ & | ^ << >>
 USize:    + - * / %  == != < <= > >=
 ByteSize: + -        == != < <= > >=
 Bool:     ! && || == !=
-Symbol:   Symbol + Symbol, == !=
+Symbol:   Symbol + Symbol, Symbol / USize, Symbol % USize, == !=
 ```
 
 単項`-`は整数とfloatに使え、unsigned整数ではwrapする。`USize`と`ByteSize`はtarget幅のunsigned整数として整数と同じwrapと
@@ -88,7 +88,7 @@ divisorのpreconditionに従い、単項演算、bit演算、shiftを持たな�
 
 数値比較は predefined `Bool` を返す。異なる数値型を暗黙変換しない。
 
-`Symbol + Symbol`はbyte sequenceを連結して`Symbol`を返す。完全な規則は
+`Symbol + Symbol`はbyte sequenceを連結し、`Symbol / USize`と`Symbol % USize`はbyte位置で分割した範囲を返す。完全な規則は
 [Symbol](symbols.md#operator)に定める。
 
 Bool operatorはcore primitiveではなくcontinuation applicationへdesugarする。特に`&&`と`||`は左operandを一度だけ
@@ -143,4 +143,3 @@ integer型からbit widthが`n`のinteger型への変換では、source値を数
 詳細な理由は[D013](../history/decisions/active/D013.md)に記録する。
 
 product、一般の sum、function、opaque type に `==` は自動導出されない。`Bool` と構造的に同じ `[Unit, Unit]` は、上記の Bool equality の対象になる。
-

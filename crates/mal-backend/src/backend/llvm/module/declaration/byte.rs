@@ -149,6 +149,19 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
         "mal_runtime_symbol_at",
         [llvm_type!(ptr), index.clone()],
     );
+    add_declaration(
+        module,
+        llvm_type!(void),
+        "mal_runtime_symbol_slice",
+        [
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            index.clone(),
+            index.clone(),
+        ],
+    );
     for name in [
         "mal_runtime_symbol_concatenate",
         "mal_runtime_symbol_concatenate_consuming_left",

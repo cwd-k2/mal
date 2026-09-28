@@ -25,7 +25,7 @@ Status: Historical records
 | predefined名 | [D077](active/D077.md) |
 | source file requirement | [D032](active/D032.md) |
 | generics、Buffer、operation family | [D052](active/D052.md)、[D075](active/D075.md)、[D081](active/D081.md) |
-| EngramとExternのauthority | [D028](active/D028.md)、[D029](active/D029.md)、[D031](active/D031.md)、[D033](active/D033.md)、[D035](active/D035.md)、[D040](active/D040.md)、[D052](active/D052.md)、[D053](active/D053.md)、[D054](active/D054.md)、[D074](active/D074.md) |
+| EngramとExternのauthority | [D028](active/D028.md)、[D029](active/D029.md)、[D031](active/D031.md)、[D033](active/D033.md)、[D035](active/D035.md)、[D040](active/D040.md)、[D052](active/D052.md)、[D053](active/D053.md)、[D054](active/D054.md)、[D074](active/D074.md)、[D082](active/D082.md) |
 | 実行環境 | [D030](active/D030.md)、[D041](active/D041.md)、[D070](active/D070.md)、[D071](active/D071.md)、[D076](active/D076.md) |
 
 ## Superseded decisions
