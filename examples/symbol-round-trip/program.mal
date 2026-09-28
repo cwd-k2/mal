@@ -15,12 +15,15 @@ main :: Unit -> Int32 := () -> {
     // Admit the initialized host prefix before the transfer buffer is reused for output.
     bytes := from<UInt8>(address, 0usize, length);
     value := *bytes;
+    prefix := value / 3usize;
+    middle := value % 3usize / 3usize;
+    tail := value % 6usize;
     valid := #value == 8usize
-        && bytes.get(3usize) == 227u8
-        && bytes.get(6usize) == 0u8
-        && bytes.get(7usize) == 255u8
-        && value == "malあ\0\xff";
-    outgoing := *(value + "!");
+        && prefix == "mal"
+        && middle == "あ"
+        && tail == "\0\xff"
+        && prefix + middle + tail == value;
+    outgoing := *(prefix + middle + tail + "!");
     outgoing.into(address, 0usize, #outgoing);
     send(address, #outgoing);
     if (valid)
