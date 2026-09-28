@@ -3,7 +3,7 @@
 Status: Historical measurement record
 
 この文書はreference compiler自身とsemantic editor queryの性能測定方法、baseline、採否判断を所有する。
-生成programのruntime評価は[generated C performance](generated-c.md)、通常の検証は
+生成programのruntime評価は[backend performance](backend/)、通常の検証は
 [test policy](../../development/testing.md)を正とする。
 
 ## 測定方法
@@ -44,7 +44,7 @@ analysisとindexを破棄する。diagnosticだけを必要とするchangeでは
 保持しない。これはincremental compilationではなく、同一versionのimmutable resultの再利用である。
 
 parse後の各frontend stageに支配的かつ不要な処理は観測されなかった。generated C側は
-[generated C performance記録](generated-c.md)の再検討条件を満たす新しいhotspotがないため変更しない。
+[generated C performance記録](backend/generated-c.md)の再検討条件を満たす新しいhotspotがないため変更しない。
 
 ## 2026-09-05に確認した入力深度
 
@@ -105,7 +105,7 @@ memoizeした。4,096本のalias chainの先にproductとextern functionを置�
 同じ形の共有productは表示だけでなく実値のfield数も指数的に増えるため、型検査へ64 nested level、65,536 storage componentの
 表現上限を置いた。17段の二重productと、平坦な65本のaliasが構成する深いproductをbackend生成前にdiagnosticとして拒否し、
 共有sumは64段でも受理する回帰テストで、物理的な重複とDAG走査上の重複を区別した。判断は
-[D046](../decisions/D046.md)に記録する。
+[D046](../decisions/active/D046.md)に記録する。
 
 ## 2026-09-13 decimal float coefficient
 
@@ -151,7 +151,7 @@ item列を逆順のloopでcore `let`列へ構築した。4,096個のstatementの
 続いて後続をlambda-local join arenaへ一度だけ置き、正常出口をjoin identityへのtransferにした。body itemとcontrolを含むproduct要素は
 末尾から反復的に畳み、joinはcore、ANF、closureでは平坦なvectorとして所有し、control stageで既存のinput付きstateへ変換する。
 4,096個の`when`列をcoreからcontrolまで、1,024個をLLVM emissionまで処理する回帰テストを置いた。branchごとの後続clone、
-synthetic closure allocation、sourceに比例するhost stackのいずれも必要としない。判断は[D047](../decisions/D047.md)に記録する。
+synthetic closure allocation、sourceに比例するhost stackのいずれも必要としない。判断は[D047](../decisions/active/D047.md)に記録する。
 
 ## 2026-09-25 execution planの規模に対する二乗
 

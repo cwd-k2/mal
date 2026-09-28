@@ -1,7 +1,7 @@
 # execution
 
-The backend-independent execution plan derived from the closure-converted and control-lowered program.
-Backends read the plan; they do not re-derive call targets, regions, frame contents, or owner
+The target-layout-independent execution plan derived from the closure-converted and control-lowered program.
+The LLVM emitter reads the plan; it does not re-derive call targets, regions, frame contents, or owner
 responsibilities. The derivation order and its rules are documented in
 `docs/implementation/application-control-lowering.md` and `docs/implementation/ownership.md`.
 

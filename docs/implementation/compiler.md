@@ -162,4 +162,4 @@ productは実値にも二つのstorageが必要なので二回数え、同じsub
 だけを数える。超過は型検査がsource span付きdiagnosticとして拒否する。
 
 これらはmalの意味論ではなく`malc`のresource limitであり、実行時のtrap条件ではない。採択理由は
-[D045](../history/decisions/D045.md)と[D046](../history/decisions/D046.md)に記録する。
+[D045](../history/decisions/active/D045.md)と[D046](../history/decisions/active/D046.md)に記録する。

@@ -178,7 +178,7 @@ applicationされるためfunction値を作らず、囲むinvocationに属する
 scopeは`body`に限る。`body`は`Value(T)`または`Abrupt`でよく、外側の[result binder](control.md#direct-result-block)を
 参照して適用できる。`body`の中に書いたlambdaは通常のnested lambdaである。位置`i`にresult binder名`k`を直接置いたものは、
 第`i`項のpayloadを`k`へ適用するcontinuationと同じで、`k`のparameter型は第`i`項の型と一致しなければならない。
-変数へ束縛したfunctionや`f(x)`のような他の式は従来どおりfunction値として評価して適用する。
+変数へ束縛したfunctionや`f(x)`のような他の式はfunction値として評価して適用する。
 その場でapplicationされるlambda literalが中断を持たない理由は
 [lambdaの中断とredex](../design/value-interpretation-and-control.md#lambdaの中断とredex)に置く。
 

@@ -2,7 +2,7 @@
 
 Status: Current implementation design
 
-この文書はclosure-converted ANFからbackend-independentなapplication control planを導出する規則を管理する。source semanticsは
+この文書はclosure-converted ANFからtarget layoutに依存しないapplication control planを導出する規則を管理する。source semanticsは
 [実行意味論](../spec/execution.md)、compiler内の責務は[compilerの責務境界](responsibilities.md)、LLVMでの具体化は
 [実行backendの責務境界](execution-backend.md)を正とする。
 
@@ -89,7 +89,7 @@ startのalignmentはtarget上の全runtime value alignmentの最大値と4-byte 
 frame sizeをこの値へ丸める。そのため
 初期topと各frame末尾が同じalignment invariantを保ち、退役frameのstartは後続frameの全fieldに有効なbaseとなる。
 
-自分自身だけを再帰的に呼ぶfunction（`execution/native_recursion`が`Technique::NativeRecursion`のもとで決める）は、native版とframe版を出力する。managedなparameterのcall siteは、ownership planの受け渡し（`Share`または`Consume`）で得た値をnative版へ渡し、calleeの入口が自分の参照を取るので、戻った後にcaller側の参照をreleaseする。native版は再帰呼び出しをnative callで入れ子にし、入口で`llvm.stacksave`が返すlogical stack pointerを起動時のlimitと比較して、予算を使い切ったactivationをframe版（`<name>_frames`）へ渡す。stack pointerの観測はframe pointerの確立を要求しない。native版のactivationはcontrol arenaに触れないため、最適化器には通常の再帰関数に見える。予算は起動時にprocess entryから一定量（64 KiB）と定めるので、native stack使用量は再帰の深さに比例しない。frame版は従来どおりframeを積み、native版へ戻らない。
+自分自身だけを再帰的に呼ぶfunction（`execution/native_recursion`が`Technique::NativeRecursion`のもとで決める）は、native版とframe版を出力する。managed parameterはownership planが定めた`Borrow`、`Share`、`Consume`、`Drop`だけに従って両版へ渡し、backendは入口やreturn後に独自のreference操作を補わない。native版は再帰呼び出しをnative callで入れ子にし、入口で`llvm.stacksave`が返すlogical stack pointerを起動時のlimitと比較して、予算を使い切ったactivationをframe版（`<name>_frames`）へ渡す。stack pointerの観測はframe pointerの確立を要求しない。native版のactivationはcontrol arenaに触れないため、最適化器には通常の再帰関数に見える。予算は起動時にprocess entryから一定量（64 KiB）と定めるので、native stack使用量は再帰の深さに比例しない。frame版は明示的なframeを積み、native版へ戻らない。
 
 copy可能なparameter leafの一部だけが全self edgeで変化する場合、関数本来のABIを持つwrapperがruntime pointer、environment、元のparameterをinvocation contextへ置き、`<name>_native` workerはcontext pointerと変化するleafだけを受け取る。不変なmanaged leafも、上記のpersistent lenderが全実行を包含する場合はcontextからborrowできる。workerは入口で元のparameterを復元するためbodyのparameter semanticsを変えず、frame版への切替時にも完全なparameterを一度渡す。frame版に入った後の不変fieldは既存のframe pass-through decisionに従い、各frameへ保存しない。
 

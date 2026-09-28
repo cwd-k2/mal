@@ -67,7 +67,7 @@ top-level valueのRHSは、literal、product/sum、numeric conversion、external
 比較、除算、shift、Bool operator、float operator、Symbol operator、`if`は認めない。他のtop-level valueへの参照とfunction applicationも認めない。
 direct blockとdirect result blockもtop-level initializerには認めない。
 `false`と`true`はclosedなpredefined constantとして参照できる。top-level lambda は外側に local scope を持たないが、その内側にある
-nested lambda は外側lambdaのlocalをlexically captureできる。詳細と理由は[D018](../history/decisions/D018.md)に記録する。
+nested lambda は外側lambdaのlocalをlexically captureできる。詳細と理由は[D018](../history/decisions/active/D018.md)に記録する。
 
 ## entry point
 
@@ -96,4 +96,4 @@ argumentはmal-ownedな値であり、`main`のreturnまでという有効期間
 [C host copy](memory.md#c-host-copy-boundary)でhost storageへ書く。
 
 `Unit -> Int32`と`Buffer<Symbol> -> Int32`以外の`main`型はcompile-time errorである。設計理由は
-[D030](../history/decisions/D030.md)と[D076](../history/decisions/D076.md)に記録する。
+[D030](../history/decisions/active/D030.md)と[D076](../history/decisions/active/D076.md)に記録する。

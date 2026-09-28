@@ -3,8 +3,8 @@
 Status: Current policy
 
 この文書はLLVM backendとchecked-in C runtimeの最適化を採用するgateを定める。言語semanticsは[`spec/`](../spec/)、control表現は
-[application control lowering](../implementation/application-control-lowering.md)、検証commandは[test policy](testing.md)を正とする。過去のgenerated Cに
-対する測定と判断は[performance history](../history/performance/generated-c.md)に保存する。
+[application control lowering](../implementation/application-control-lowering.md)、検証commandは[test policy](testing.md)を正とする。
+backend世代ごとの測定と判断は[performance history](../history/performance/backend/)に保存する。
 
 ## 優先順位
 

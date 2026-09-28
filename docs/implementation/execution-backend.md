@@ -3,7 +3,7 @@
 Status: Current implementation design
 
 この文書は`malc`が記述programを実行物へ変換するときのLLVM IR、C runtime、public C interfaceの
-責務境界を定める。採択理由は[D041](../history/decisions/D041.md)、現在実装のmodule配置は
+責務境界を定める。採択理由は[D041](../history/decisions/active/D041.md)、現在実装のmodule配置は
 [compilerの責務境界](responsibilities.md)、control変換は
 [application control lowering](application-control-lowering.md)、外部根拠は
 [LLVM backend調査](../research/llvm-backend.md)を正とする。

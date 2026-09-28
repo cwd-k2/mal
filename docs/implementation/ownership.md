@@ -28,17 +28,17 @@ growth後はactive dataを再取得する。
 canonical layoutを持つ要素はそのlayoutで、`Symbol`を含む要素はruntime valueのlayoutでBuffer storageに置く。後者のBufferは
 `make`の時点で、その要素型のretainとreleaseを行うprogram固有のcallbackをruntimeへ渡す。runtimeはBufferが書く要素ごとに
 一つのreferenceを取り、要素が上書きされるかBufferが破棄されるときに手放す。`new`、`fill`、`copy`はcallbackを呼ぶ
-専用のruntime関数へ出力し、canonical要素のBufferは従来の関数を使う。callbackを持つ領域とその判定はmanaged要素の
+専用のruntime関数へ出力し、canonical要素のBufferはcallbackを持たない関数を使う。callbackを持つ領域とその判定はmanaged要素の
 Bufferだけが負い、canonical要素のBufferの大きさ、確保、`new`の命令数は変わらない。`copy`はsourceのreferenceを全て取ってから
 destinationのreferenceを手放すので、範囲が重なっても要素は先に解放されない。
 `get`は取り出した値をretainしたownedなresultとして返す。Bufferは共有mutableであり、後続の`put`が要素を手放し得るため、
-borrowとして返さない。`put`は新しい値をretainしてから旧要素をreleaseする。Buffer operandはこれまでどおり全てBorrowであり、
+borrowとして返さない。`put`は新しい値をretainしてから旧要素をreleaseする。Buffer operandはすべて`Borrow`であり、
 格納する値のretainはBuffer operationが行う。
 
 ## slotとoperation
 
 managed local slotはzero状態で初期化する。owner successorと終了点は
-[`D055`](../history/decisions/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
+[`D055`](../history/decisions/active/D055.md)に従い`execution::ownership`が`Borrow`、`Share`、`Consume`、`Drop`として決める。
 LLVM backendはこれをretain、source carrierのzero、releaseとtyped storeへ変換し、last-useやcall modeを再推論しない。
 memory primitiveとBuffer primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
 lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。snapshot conversionやC host copyはresultとoperandの
@@ -52,7 +52,7 @@ aliasとして保存する。aliasのlivenessはlenderをliveに保ち、frame�
 aliasが生きたproduct、sum、closure environment、returnなどのowner successorへescapeするときだけ`Share`する。owner successorを
 持たずdiscardされる純粋なproductとsumは、`Atom`とlocal `Jump`によるadministrative handoffを越えて構成要素をborrowする。
 closure生成はenvironment allocationと独立lifetimeを持つため、このpure aggregate規則の対象にしない。詳細は
-[`D057`](../history/decisions/D057.md)を正とする。
+[`D057`](../history/decisions/active/D057.md)を正とする。
 joinの入力は、そこへjumpするすべての値がそれ自身もborrowである場合にだけborrowできる。ownerが一つでもあれば、そのownerは
 predecessorとともに終了するため、入力がownerとなり各jumpがresponsibilityを`Consume`で渡す。borrowのlenderを空集合として
 入力をborrowにしてはならない。
@@ -83,7 +83,7 @@ recursive controlがfresh managed valueを作る、managed resultを返す、man
 dispatchへ同じargumentを渡す場合は外側のauthorityだけで全pathを包含できない。そのregionのparameterはnative ABI
 entryで`Share`し、owned handoffで`Consume`または`Drop`する。borrowed parameterからclosure capture、return、その他の独立ownerへ
 escapeするuseも`Share`する。edge dropは通常livenessを再計算せずborrow provenanceで閉じたlivenessを使い、aliasが最後に使われる
-edgeでlender responsibilityを終了する。詳細は[`D058`](../history/decisions/D058.md)を正とする。
+edgeでlender responsibilityを終了する。詳細は[`D058`](../history/decisions/active/D058.md)を正とする。
 
 全direct self-tail edgeが同じmanaged parameter leafを転送する場合、そのleafはinvocation中のpersistent lenderになる。native版を持つ
 non-tail self recursionでも、全self edgeがすべてのmanaged parameter leafを転送するなら、同期的な外側のcallerがnative版とframe版の
@@ -97,7 +97,7 @@ capture-free closureの構築はenvironment ownerを作らないため、このb
 conventionよりpersistent lenderの証明を優先し、lambda-liftでclosure environmentからparameter fieldへ移ったmanaged captureにも
 入口から終了まで同じborrowを保つ。frame、dispatch、別target、fresh ownerのいずれかがあれば通常のowned handoffを使う。
 
-callee が managed parameter を保持する（return する、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。従来はcalleeが入口で参照を取り、callerが呼び出し後にreleaseしていたため、callerが不要な値では`retain`と`release`の対が生じた。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetは従来のborrowed conventionのままで、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。
+calleeがmanaged parameterを保持する（returnする、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetはborrowed conventionを使い、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。
 
 LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。
 
@@ -107,7 +107,7 @@ capturing closureの生成時にtarget固有のenvironment storageをruntimeか�
 environment headerはreference countとtarget固有destructorを持つ。最後のclosure shareをreleaseするとdestructorがmanaged captureを再帰的に
 releaseし、environment storageを解放する。
 
-environmentのreference countは、生きているenvironmentが少なくとも一つのreferenceを持ち、各referenceがaddressableなslotを占めるため、`SIZE_MAX`へ届かない。runtimeはこの二つの事実をoptimizerへ伝え、retainの桁あふれtrapを置かない。桁あふれは[D035](../history/decisions/D035.md)のとおり言語ruleではなくreference implementationのfatal failureであり、trapを外すことでretainと後続のreleaseの対をLLVMが打ち消せる。
+environmentのreference countは、生きているenvironmentが少なくとも一つのreferenceを持ち、各referenceがaddressableなslotを占めるため、`SIZE_MAX`へ届かない。runtimeはこの二つの事実をoptimizerへ伝え、retainの桁あふれtrapを置かない。桁あふれは[D035](../history/decisions/active/D035.md)のとおり言語ruleではなく`malc`のfatal resource failureであり、trapを外すことでretainと後続のreleaseの対をLLVMが打ち消せる。
 
 capture-free closureはnull environmentを使う。self closureは実行中のactive environmentをborrowし、escapeする保存先でretainする。
 
@@ -125,12 +125,13 @@ root result以外のlocal、active environment、control storageを解放する�
 
 ## host boundary
 
-extern parameterはcall中だけborrowされる。hostが保持する場合はpublic helperのcontractに従ってcopyする。managed resultはinternal
-pointer/out-pointer bridgeがMal ownerへ変換する。`Symbol` resultはruntime ownership pointerとして受け入れ、aggregateとsumはactive fieldだけを
-再帰的に変換する。invalid Boolまたはsum tagはpayloadを読む前にtrapする。
+extern parameterはcall中だけborrowされる。`Symbol`、`Buffer`、functionと、それらを含むaggregateはHostMappableでないため、
+managed ownerはpublic C boundaryを通らない。C bridgeはHostMappableなscalar、product、sum、external opaque valueをpublic carrierとの間で変換し、
+invalidなBool、sum tag、Addressをpayloadまたはreferentの利用前にtrapする。可変長bytesは`Address`と長さで借り、malへ保持する場合は
+`from<UInt8>`で独立したBufferへcopyする。
 
-C shimが渡すargument pointer列とargument bytesはborrowed external storageであり、`main`のreturnまでだけ有効である。
-`from<UInt8>`がcopyを完了した時点でruntime-owned Bufferとなる。`Symbol`への変換は別のownerへsnapshotする。
+process shimは`argv + 1`の各C stringを独立した`Symbol`へcopyし、それらを所有する`Buffer<Symbol>`をrootへ渡す。root parameterは
+通常のmal-owned valueとして扱え、`main`のreturn後にshimが自身のargument shareを解放する。
 
 ## 検証
 

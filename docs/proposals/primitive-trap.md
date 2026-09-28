@@ -16,7 +16,7 @@ mal sourceだけでは、programが到達してはならない状態を表明で
 
 `(Address, USize) -> []`のようなexternをhostが実装すれば、同じ効果を表現できる。空直和`[]`を返すexternは宣言でき、
 `fail()[]`のようにempty eliminationで受けるとその後は到達不能になる。ただしこの方法にはhost C sourceが必要であり、hostを持たない
-programでは使えない。
+program固有のhost C sourceを用意しなければ使えない。
 
 `[]`を返すexternの正常完了は表現できない。C host ABIは`[]`のterminal return helperを公開せず、bodyが従える規則は
 `mal_call_trap`で終了するか、戻らないことだけである。公開されないcarrier型でtagを偽造してreturnするのはcontract違反である。

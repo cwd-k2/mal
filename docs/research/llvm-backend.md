@@ -59,8 +59,8 @@ opaque typeとし、address spaceごとのrepresentation sizeとindex sizeを分
 限らず、non-integral pointerやboundsとpermissionを持つcapability pointerもmodelに含む。IRはその内部componentを
 productとして公開せず、`getelementptr`、`load`、`store`などのpointer operationで扱う。
 
-malの`Address`もnumeric addressではなく、targetが表現するopaque data-pointer capabilityである。LLVM backendはdefault address
-spaceの`ptr`、C host ABIは`void *`へ写すが、それらは別々のbackendとembeddingの表現である。sourceはpointerの内部表現を観測せず、
+malの`Address`もnumeric addressではなく、targetが表現するopaque data-pointer capabilityである。LLVM module内ではdefault address
+spaceの`ptr`、C host interfaceでは`void *`へ写すが、両者はinternal execution representationとpublic host carrierである。sourceはpointerの内部表現を観測せず、
 storage accessはhost contractとC host copy primitiveを通じて行う。canonical representationに含まれる`Address`もintegerとして
 観測せず、pointer valueとして保存、復元する。採択済みのsource operationとlayout authorityは
 [external memory specification](../spec/memory.md)を正とする。
@@ -73,4 +73,4 @@ optimization barrierにすることを意味しない。
 
 LTOの有無でobservable semantics、public ABI、resource failure、stack boundが変わってはならない。native object間のbridgeでも
 正しさを保つことを前提にLTOを独立して測定し、public buildへ採用した結果は
-[LLVM backend performance](../history/performance/llvm-backend.md)に記録する。
+[LLVM backend performance](../history/performance/backend/llvm.md)に記録する。

@@ -60,7 +60,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `call_pattern` | closure-converted programを書き換える唯一の最適化。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、複製したbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
-| `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをbackend非依存の実行計画として構成 |
+| `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをtarget layoutに依存しない実行計画として構成 |
 | `backend/c` | file別`ProgramInterface`からpublic C file header、build用umbrella header、host stubへの変換 |
 | `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、canonical storage、runtime slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
@@ -152,7 +152,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のowner successorは
 `execution/ownership`、そのtyped LLVM operationは`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは
-`runtime/c11/symbol.c`、HostMappableなhost valueとterminal returnは`backend/c/header`が所有する。着手順と計測gateは
+`runtime/c11/symbol.c`、public carrierとterminal return helperは`backend/c/header`、LLVM internal valueとのmarshallingは
+`backend/llvm/host_bridge`が所有する。着手順と計測gateは
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure

@@ -76,7 +76,7 @@ bounded iteration stackを変えてはならない。採用条件と測定方法
 
 1. 仕様案で型、評価順、first-class利用、nontermination、ownership境界を固定する。
 2. resolver、checker、editorへgeneric predefined value identityとdocumentationを追加する。
-3. specialization後のbuiltin identityと、outlined baseline bodyを表すbackend非依存planを追加する。
+3. specialization後のbuiltin identityと、outlined baseline bodyを表すtarget layout非依存planを追加する。
 4. LLVM backendへcallback call、sum branch、loop-carried state handoffを実装する。
 5. baselineだけでconformance caseと既存exampleを実行する。
 6. direct target、step devirtualization、fusion、scalarization、ownershipの順にoptimization decisionを追加する。

@@ -83,7 +83,7 @@ extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
 extern makeCallback :: Unit -> (Int32 -> Int32);
 ```
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持は対象外である。決定理由は[D016](../history/decisions/D016.md)に記録する。
+この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持は対象外である。決定理由は[D016](../history/decisions/active/D016.md)に記録する。
 
 ## source-level semantics
 
@@ -105,7 +105,8 @@ printValue :: Int32 -> Unit := (x) -> {
 
 ## host contract
 
-型の宣言だけでは ABI、ownership、lifetime、failure を定義できない。各 backend または embedding は少なくとも次を別途定義しなければならない。
+型の宣言だけではABI、ownership、lifetime、failureを定義できない。malの実行環境では
+[C host ABI](c-host-abi.md)とprogram固有のoperation contractが少なくとも次を定義する。
 
 - symbol の名前解決と calling convention
 - scalar、product、sumの表現
@@ -118,14 +119,14 @@ printValue :: Int32 -> Unit := (x) -> {
 ## boundary transport
 
 admission、observation、capability transferと各leafのlifetime authorityは
-[Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、backend固有の
-carrier、borrow、terminal returnは[C host ABI](c-host-abi.md)が定める。
+[Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、C carrier、borrow、
+terminal returnは[C host ABI](c-host-abi.md)が定める。
 
 unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのUSizeを返す。
 mal側は返されたcountを`from<UInt8>`のlengthとしてBufferへcopyし、必要ならSymbol snapshotへ変換する。
 
 opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
-決定理由は[D015](../history/decisions/D015.md)に記録する。
+決定理由は[D015](../history/decisions/active/D015.md)に記録する。
 
 host operationがresult capabilityを正常returnする前にtrapするか、capabilityを含まないfailure resultを返す場合、
 そのoperationだけが取得し、callerにもresultにも属さない一時resourceはadapterが解放する。正常resultへ含めた
@@ -146,7 +147,7 @@ runtime contextを一時的に借りてadmissionを依頼できても、Engram�
 C header parserやC type systemはmalに導入しない。
 
 C ABIのhost valueとterminal return規約は[C host ABI](c-host-abi.md#host-operation)だけが定める。決定理由は
-[D040](../history/decisions/D040.md)に記録する。
+[D040](../history/decisions/active/D040.md)に記録する。
 
 `malc`はprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
 symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは

@@ -1,7 +1,8 @@
 # C11 runtime
 
-Program-independent mechanisms linked into every program produced by `malc`. Program-specific behavior, such as frame
-layout, resume targets, and owner transfer order, belongs to the generated LLVM module.
+Program-independent mechanisms selected and linked as needed into programs produced by `malc`. `core.c` and `control.c`
+are always included; byte, Buffer, and Symbol sources are included when the generated artifacts reference that runtime.
+Program-specific behavior, such as frame layout, resume targets, and owner transfer order, belongs to the generated LLVM module.
 
 | File | Responsibility |
 |---|---|

@@ -79,7 +79,7 @@ memory primitiveは未検査のstorage mechanismとして定められる。live 
 有効性をoperationのpreconditionに置く場合は、同じ層のoperationで一貫してcallerまたはhost contractへ委ね、違反時の特定の結果を保証しない。
 preconditionを満たしたoperationに必要なmal-owned storageのallocation failureなど、callerが事前に成立させられないfailureは
 言語またはbackendの明示した規則で扱う。実装がmemory corruptionを防ぐために追加の検査を行ってtrapしても、その防御を
-implementation detailとして扱う。採択理由は[D008](../history/decisions/D008.md)を正とする。
+implementation detailとして扱う。採択理由は[D008](../history/decisions/active/D008.md)を正とする。
 
 external function valueの参照と受け渡しはmal-controlledなEngramの操作であり、それだけでは境界を越えない。
 そのfunction valueのapplicationがhost operationを実行するときに限り、parameterとresultの各leafへadmission、observation、
@@ -98,7 +98,7 @@ mechanismである。次の場合にだけ言語機能の候補とする。
 観測不能なstorageの回収方式だけを変える場合は、source semanticsを増やさずimplementationで扱う。external resourceの
 破棄が必要な場合は、暗黙のfinalizerより明示的なhost contractを基本とする。`malc`のEngram回収は
 [managed ownership](../implementation/ownership.md)のresponsibility規約に閉じ、Extern resourceのpolicyへ拡張しない。採択理由は
-[D033](../history/decisions/D033.md)と[D055](../history/decisions/D055.md)を正とする。
+[D033](../history/decisions/active/D033.md)と[D055](../history/decisions/active/D055.md)を正とする。
 
 ## 新しい境界機能への問い
 
@@ -113,4 +113,4 @@ mechanismである。次の場合にだけ言語機能の候補とする。
 7. 固定mechanismを再利用せず、新しい独立contractを増やす理由があるか。
 
 この問いに短く答えられない機能は、surfaceだけを追加せず境界modelから再検討する。採択に至った経緯は
-[D031](../history/decisions/D031.md)に記録する。
+[D031](../history/decisions/active/D031.md)に記録する。

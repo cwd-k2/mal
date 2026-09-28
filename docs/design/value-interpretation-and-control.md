@@ -126,7 +126,7 @@ binderは`k`を継承する文脈すべてで見える。binderは囲むblockの
 
 成功側の残り`rest`をcontinuationの本体へ入れる入れ子は手書きのCPSにあたり、`rest`を外へ出す平坦な形は直接形とabortである。
 失敗側が`Abrupt`（現在のevaluation contextを捨てる）であるため、`E[s[(n) -> n, () -> k(u)]] = s[(n) -> E[n], () -> k(u)]`が
-成り立つ。二つの形は同じlexical join（[D047](../history/decisions/D047.md)）を作り、`rest`はどちらでも一度だけ生成される。
+成り立つ。二つの形は同じlexical join（[D047](../history/decisions/active/D047.md)）を作り、`rest`はどちらでも一度だけ生成される。
 
 現在この原則が適用されるのは、`:=`とblock、`if`と`when`、[直和除去のcontinuation](../spec/expressions.md#直和の除去)である。
 単一continuationの`x[(n) -> body]`とcallee位置のlambda literalは、同じredexだが未適用であり、
