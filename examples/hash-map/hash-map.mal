@@ -2,7 +2,7 @@ equal<K> :: (K, K) -> Bool;
 hash<K> :: K -> UInt64;
 
 HashEntry<K, V> :: [Unit, (K, V)];
-HashMap<K, V> :: Buffer<HashEntry<K, V>>;
+opaque HashMap<K, V> :: Buffer<HashEntry<K, V>>;
 HashLookup<V> :: [Unit, V];
 
 const<A, B> :: A -> B -> A := (value) -> (_) -> value;

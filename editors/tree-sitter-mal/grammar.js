@@ -43,6 +43,7 @@ module.exports = grammar({
 
     top_level_item: $ => choice(
       $.type_alias,
+      $.opaque_type_declaration,
       $.extern_type_declaration,
       $.extern_value_declaration,
       $.generic_binding,
@@ -54,6 +55,15 @@ module.exports = grammar({
       optional($.type_parameters),
       '::',
       field('value', $._type),
+      ';',
+    ),
+
+    opaque_type_declaration: $ => seq(
+      'opaque',
+      field('name', $.type_identifier),
+      optional($.type_parameters),
+      '::',
+      field('representation', $._type),
       ';',
     ),
 
@@ -73,7 +83,7 @@ module.exports = grammar({
 
     generic_binding: $ => seq(
       field('name', $.value_identifier),
-      $.type_parameters,
+      $.type_arguments,
       '::',
       field('type', $._type),
       optional(seq(

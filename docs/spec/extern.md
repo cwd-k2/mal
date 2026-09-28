@@ -52,7 +52,7 @@ HostMappable(Unit | Bool | numeric scalar | Address | ByteSize | USize) = true
 HostMappable(external opaque type) = true
 HostMappable((A...)) = all HostMappable(A)
 HostMappable([A...]) = all HostMappable(A)
-HostMappable(Symbol | function | Buffer<A>) = false
+HostMappable(Symbol | function | Buffer<A> | file-local opaque type) = false
 ```
 
 aliasはconcreteなtype argumentを代入して完全に展開した後に判定する。generic bindingとspecializationをpublic C symbolやheaderへ

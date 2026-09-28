@@ -5,8 +5,9 @@ query selected by the sole process argument. `count` counts JSON values, excludi
 `depth` reports the maximum container/value nesting depth. Both results are rendered as JSON by the
 mal program and written to standard output.
 
-The source files follow the data path: `bytes.mal` owns the shared byte cursor, `scanner.mal` owns
-JSON token recognition, and `parser.mal` owns container state and complete-document admission.
+The source files follow the data path: `bytes.mal` owns the opaque shared byte cursor, `scanner.mal`
+owns JSON token recognition, and `parser.mal` hides its frame stack and machine state behind opaque
+types while owning complete-document admission.
 
 The parser accepts objects, arrays, strings with JSON escapes, numbers, booleans, null, and JSON
 whitespace. It defunctionalizes the recursive-descent control flow into one `_parse` dispatcher and

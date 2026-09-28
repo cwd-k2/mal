@@ -7,7 +7,7 @@ use crate::resolve::ast::{LambdaId, ValueId};
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::super::ast::*;
-use super::super::types::substitute_type;
+use super::super::types::{runtime_type, substitute_type};
 use super::Specializer;
 use super::substitution::pattern;
 
@@ -21,7 +21,7 @@ impl Specializer {
         if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
             return self.binary_expression(expression, substitutions, self_instance);
         }
-        expression.ty = substitute_type(&expression.ty, substitutions);
+        expression.ty = runtime_type(&substitute_type(&expression.ty, substitutions));
         match &mut expression.kind {
             ExpressionKind::GenericReference {
                 reference,
@@ -77,7 +77,8 @@ impl Specializer {
                     }
                 }
                 for binder in result_binders {
-                    binder.parameter_type = substitute_type(&binder.parameter_type, substitutions);
+                    binder.parameter_type =
+                        runtime_type(&substitute_type(&binder.parameter_type, substitutions));
                 }
                 self.block(body, substitutions, self_instance)?;
             }
@@ -93,8 +94,10 @@ impl Specializer {
                         )
                     })?;
                 }
-                lambda.parameter_type = substitute_type(&lambda.parameter_type, substitutions);
-                lambda.result_type = substitute_type(&lambda.result_type, substitutions);
+                lambda.parameter_type =
+                    runtime_type(&substitute_type(&lambda.parameter_type, substitutions));
+                lambda.result_type =
+                    runtime_type(&substitute_type(&lambda.result_type, substitutions));
                 if self_instance.is_some() {
                     for capture in &mut lambda.captures {
                         if let Some(renamed) = self.renamed_reference(capture.source.id) {
@@ -110,7 +113,7 @@ impl Specializer {
                     pattern(parameter, substitutions);
                 }
                 for capture in &mut lambda.captures {
-                    capture.ty = substitute_type(&capture.ty, substitutions);
+                    capture.ty = runtime_type(&substitute_type(&capture.ty, substitutions));
                 }
                 if let Some((generic, specialized)) = self_instance {
                     if lambda.self_binding == Some(generic) {
@@ -175,7 +178,7 @@ impl Specializer {
     ) -> Result<(), Diagnostic> {
         let mut pending = vec![expression];
         while let Some(expression) = pending.pop() {
-            expression.ty = substitute_type(&expression.ty, substitutions);
+            expression.ty = runtime_type(&substitute_type(&expression.ty, substitutions));
             if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
                 let ExpressionKind::Binary { left, right, .. } = &mut expression.kind else {
                     unreachable!()

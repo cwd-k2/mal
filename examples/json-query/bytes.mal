@@ -1,5 +1,7 @@
 // Bytes is a logical cursor that shares one managed Buffer identity.
-Bytes :: (Buffer<UInt8>, USize);
+opaque Bytes :: (Buffer<UInt8>, USize);
+
+allBytes :: Buffer<UInt8> -> Bytes := (buffer) -> (buffer, 0usize);
 
 byteCount :: Bytes -> USize := ((buffer, offset)) -> #buffer - offset;
 

@@ -46,6 +46,31 @@ impl Index {
                 }
                 self.collect_resolved_type(value);
             }
+            resolved::TopItem::OpaqueType {
+                binding,
+                parameters,
+                representation,
+            } => {
+                let id = SymbolId::Type(binding.id);
+                self.type_details
+                    .insert(binding.id, binding.name.text.clone());
+                self.top_level.push(id);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
+                for parameter in parameters {
+                    self.add_raw(
+                        SymbolId::Type(parameter.id),
+                        &parameter.name,
+                        OccurrenceRole::Declaration,
+                        None,
+                    );
+                }
+                self.collect_resolved_type(representation);
+            }
             resolved::TopItem::ExternalType { binding } => {
                 let id = SymbolId::Type(binding.id);
                 self.top_level.push(id);
@@ -127,6 +152,7 @@ impl Index {
             }
             resolved::TopItem::OperationImplementation {
                 family,
+                parameters,
                 arguments,
                 annotation,
                 value,
@@ -137,6 +163,14 @@ impl Index {
                     OccurrenceRole::Reference,
                     None,
                 );
+                for parameter in parameters {
+                    self.add_raw(
+                        SymbolId::Type(parameter.id),
+                        &parameter.name,
+                        OccurrenceRole::Declaration,
+                        None,
+                    );
+                }
                 for argument in arguments {
                     self.collect_resolved_type(argument);
                 }

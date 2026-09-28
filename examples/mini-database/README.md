@@ -9,7 +9,9 @@ bytes and values to 40 bytes. Commands on standard input are `put KEY VALUE`, `g
 and `quit`; both LF and CRLF lines are accepted.
 
 The byte Buffer alone is not a database. `validateDatabase` interprets header and record coordinates,
-checks field bounds and active-record metadata, and only then admits the image to query operations.
+checks field bounds and active-record metadata, and `admitDatabase` then constructs an opaque
+`Database` for query operations. The input module likewise exposes an opaque `Reader` rather than
+its host transfer and cursor fields.
 Those operations own the key/value interpretation; neither `Buffer<UInt8>` nor the physical byte
 offsets establish it by themselves.
 

@@ -31,7 +31,8 @@ Storable((A...))       if all Storable(A)
 Storable([A...])       if the sum has at least two variants and all Storable(A)
 ```
 
-function、external opaque type、`Buffer<A>`、empty sumはstorableでない。transparent aliasは展開後に判定する。
+function、external opaque type、`Buffer<A>`、empty sumはstorableでない。transparent aliasは展開後に判定し、file-local opaque typeは
+hidden representationから判定する。
 `Buffer<A>`は`Storable(A)`の場合だけwell-formedである。
 
 storableな要素は`Buffer`とfunctionを含まないので、Buffer storageから別のBufferやclosureへのedgeは生じず、要素の
@@ -52,7 +53,9 @@ Representable((A...))       if all Representable(A)
 Representable([A...])       if the sum has at least two variants and all Representable(A)
 ```
 
-`Symbol`、function、external opaque type、`Buffer<A>`、empty sumはrepresentableでない。transparent aliasは展開後に判定する。
+`Symbol`、function、external opaque type、`Buffer<A>`、empty sumはrepresentableでない。transparent aliasは展開後に判定し、
+file-local opaque typeはhidden representationから判定する。これはcanonical memory copyの可否であり、opaque type自体を
+`HostMappable`にはしない。
 
 RepresentableはC host copy boundaryでcanonical representationを持つことを表し、`from<A>`、`buffer.into`、canonical memory
 helperの要素はRepresentableに限る。Address referentが実際にそのrepresentationを持つことや、access可能であることは証明しない。

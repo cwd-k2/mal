@@ -19,6 +19,7 @@ T ::=
   | [T, T, ...]
   | T -> T
   | ExternalType
+  | OpaqueType<T, ...>
   | TypeAlias
   | TypeParameter
 ```
@@ -26,7 +27,8 @@ T ::=
 `Float32`と`Float64`は、それぞれIEEE 754-2019のbinary32とbinary64である。normal、subnormal、正負のzero、正負のinfinity、NaNを含む。詳細な演算規則は[実行意味論](execution.md#浮動小数点)に定める。
 
 `Int`、`Long`、`Size`のようにhost C spellingへ依存する整数型はない。`ByteSize`と`USize`の幅はtargetのpointer index幅から
-決まり、用途の異なる別の型である。subtyping、implicit numeric conversion、nominal user typeはない。
+決まり、用途の異なる別の型である。subtypingとimplicit numeric conversionはない。source-defined opaque typeだけが
+declaration identityを持つuser typeである。
 
 `Byte` と `Char` という型はない。単一 byte は `UInt8` で表す。mal は Unicode character を primitive value として定義しない。
 
@@ -155,6 +157,36 @@ identity<A> :: A -> A := (value) -> value;
 [parametric polymorphism](generics.md)に定める。
 
 sum result binderのarityとparameter型は、期待result型のaliasを展開した直和型から決まる。alias自体にruntime identityは残らない。
+
+## file-local opaque type
+
+`opaque` declarationはdeclarationごとのcanonical type identityと、zero-costなhidden representationを導入する。
+
+```mal
+opaque Option<A> :: [Unit, A];
+opaque PairBox<A, B> :: (A, B);
+```
+
+同じrepresentationを持つ二つのopaque type、opaque typeとそのrepresentationは、それぞれ異なるsource typeである。
+型argumentもidentityの一部であり、transparent aliasのようにrepresentationへ展開して型等価にはしない。recursive
+representationと、型argument数の不一致はdeclarationの使用有無にかかわらず拒否する。
+
+宣言元source fileのtype checkingだけは、opaque typeとrepresentationを双方向にviewできる。このviewには専用の`pack`、`open`、
+coercion syntaxを使わず、既存のproduct構築とpattern、sumのresult binderとelimination、function applicationなどをそのまま使う。
+まずopaque identityのまま型を比較し、通常の構造と一致しないときだけ宣言元fileのrepresentation viewを使う。同じrepresentationを
+持つ別々のopaque type同士を、このviewで変換することはできない。
+
+publicなopaque名は通常のpublic typeと同様に直接`require`したfileへ導入されるが、representation viewのauthorityは導入されない。
+representationにprivate typeを含めてもよい。別fileはopaque値をsignature、型argument、productやsumの要素、値の受け渡しに使えるが、
+hidden representationによる構築、分解、operation適用はできない。
+
+layout、lifecycle、`Storable`と`Representable`などの型形成条件はhidden representationから再帰的に導く。opaque wrapperによって
+representationの制約を迂回できない。一方、file-local opaque typeはC host surfaceの`HostMappable`ではなく、外部との変換には
+明示的なmal operationを置く。
+
+generic specialization keyと[operation family](operation-families.md)のkeyにはopaque declaration identityと型argumentを残す。
+representation viewによってkeyを変えない。specialization完了後はopaque boundaryをrepresentationへ消去し、coreとbackendへ
+新しいruntime wrapper、tag、metadataを渡さない。
 
 ## 関数型
 

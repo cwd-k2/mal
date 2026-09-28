@@ -137,6 +137,22 @@ fn parses_generic_aliases_bindings_and_nested_indexed_types() {
 }
 
 #[test]
+fn parses_file_local_opaque_types() {
+    let program = parse_ok("opaque Pair<A> :: (A, A);");
+    let TopItem::OpaqueType {
+        name,
+        parameters,
+        representation,
+    } = &program.items[0].kind
+    else {
+        panic!("expected an opaque type");
+    };
+    assert_eq!(name.text, "Pair");
+    assert_eq!(parameters.len(), 1);
+    assert!(matches!(representation.kind, TypeExpression::Product(_)));
+}
+
+#[test]
 fn preserves_unclassified_operation_family_headers() {
     let program = parse_ok(
         "equal<A> :: (A, A) -> Bool;\n\

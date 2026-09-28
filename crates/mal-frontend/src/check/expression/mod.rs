@@ -50,7 +50,7 @@ impl Checker {
         expression: &Node<resolved::Expression>,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        let checked = match &expression.kind {
+        let mut checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
                 kind: if self.generic_signatures.contains_key(&reference.id) {
                     return self.check_inferred_generic_reference(
@@ -197,6 +197,9 @@ impl Checker {
         };
         if let Some(expected) = expected {
             self.require_type(&checked.ty, expected, checked.span)?;
+            if checked.ty != *expected {
+                checked.ty = expected.clone();
+            }
         }
         Ok(checked)
     }
@@ -245,7 +248,7 @@ impl Checker {
         expected: &Type,
         span: mal_syntax::source::Span,
     ) -> Result<(), Diagnostic> {
-        if actual == expected {
+        if super::types::equivalent_in_file(actual, expected, span.file()) {
             Ok(())
         } else {
             Err(self.type_mismatch(expected, actual, span))

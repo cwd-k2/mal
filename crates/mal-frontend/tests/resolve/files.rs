@@ -111,6 +111,27 @@ fn resolves_family_implementations_only_through_direct_requirements() {
 }
 
 #[test]
+fn opaque_representation_authority_does_not_cross_requirements() {
+    let (graph, parsed) = make_graph(
+        &[
+            (
+                "root.mal",
+                "require \"./pair.mal\"; first :: Pair -> Int32 := ((first, _)) -> first;",
+            ),
+            (
+                "pair.mal",
+                "opaque Pair :: (Int32, Int32); makePair :: (Int32, Int32) -> Pair := (pair) -> pair;",
+            ),
+        ],
+        &[&[(1, 0)], &[]],
+    );
+
+    let resolved = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap();
+    let error = mal_frontend::check::check(&resolved).expect_err("representation is file-local");
+    assert_eq!(error.message, "product pattern requires a product value");
+}
+
+#[test]
 fn rejects_conflicting_imports_and_dependency_entry_points() {
     let (graph, parsed) = make_graph(
         &[

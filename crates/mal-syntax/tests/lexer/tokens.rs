@@ -54,7 +54,7 @@ fn lexes_the_basic_host_example() {
 fn recognizes_keywords_only_at_identifier_boundaries() {
     assert_eq!(
         kinds(
-            "require required if ifValue when whenever Bool false true then else case return extern"
+            "require required if ifValue when whenever Bool false true then else case return extern opaque opacity"
         ),
         vec![
             TokenKind::Require,
@@ -71,6 +71,8 @@ fn recognizes_keywords_only_at_identifier_boundaries() {
             TokenKind::ValueIdentifier,
             TokenKind::ValueIdentifier,
             TokenKind::Extern,
+            TokenKind::Opaque,
+            TokenKind::ValueIdentifier,
             TokenKind::Eof,
         ]
     );

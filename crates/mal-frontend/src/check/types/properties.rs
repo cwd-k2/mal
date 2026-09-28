@@ -34,6 +34,7 @@ fn first_unstorable_type(ty: &Type) -> Option<&Type> {
             continue;
         }
         match ty {
+            Type::Opaque { representation, .. } => pending.push(representation),
             Type::Product(elements) | Type::Sum(elements) if !elements.is_empty() => {
                 pending.extend(elements.iter().rev());
             }
@@ -54,6 +55,7 @@ pub(in crate::check) fn is_memory_representable(ty: &Type) -> bool {
             continue;
         }
         match ty {
+            Type::Opaque { representation, .. } => pending.push(representation),
             Type::Unit
             | Type::Int8
             | Type::Int16
@@ -86,6 +88,7 @@ pub(in crate::check) fn storable_requirements(ty: &Type) -> HashSet<TypeId> {
     let mut pending = vec![(ty, false)];
     while let Some((ty, required)) = pending.pop() {
         match ty {
+            Type::Opaque { representation, .. } => pending.push((representation, required)),
             Type::Parameter { id, .. } if required => {
                 requirements.insert(*id);
             }
@@ -124,6 +127,7 @@ fn satisfies_requirement(ty: &Type, available: &HashSet<TypeId>, symbols: bool) 
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         match ty {
+            Type::Opaque { representation, .. } => pending.push(representation),
             Type::Parameter { id, .. } => {
                 if !available.contains(id) {
                     return false;
@@ -178,6 +182,9 @@ fn representation_units(ty: &Type) -> Option<usize> {
                     continue;
                 }
                 match ty {
+                    Type::Opaque { representation, .. } => {
+                        pending.push(Representation::Type(representation));
+                    }
                     Type::Product(elements) => {
                         pending.push(Representation::Product(ty.shared_id(), elements.len()));
                         pending.extend(elements.iter().rev().map(Representation::Type));

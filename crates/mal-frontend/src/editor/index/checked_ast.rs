@@ -16,6 +16,11 @@ impl Index {
                 self.type_details
                     .insert(binding.id, binding.name.text.clone());
             }
+            checked::TopItem::OpaqueType { binding } => {
+                self.type_details
+                    .entry(binding.id)
+                    .or_insert_with(|| binding.name.text.clone());
+            }
             checked::TopItem::ExternalOperation { .. } => {}
             checked::TopItem::GenericBinding(binding) => {
                 let id = self.canonical_value(binding.binding.id);

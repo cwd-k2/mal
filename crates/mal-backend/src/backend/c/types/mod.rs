@@ -93,7 +93,7 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 c_type!(named(#{ format!("MalRepr_Closure_{}", self.index(ty)) }))
             }
-            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
+            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) | Type::Opaque { .. } => {
                 unreachable!("these types never enter the C host registry")
             }
         }
@@ -131,7 +131,7 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
+            Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) | Type::Opaque { .. } => {
                 unreachable!("these types are not host mappable")
             }
         }
@@ -162,7 +162,7 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
+                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) | Type::Opaque { .. } => {
                     unreachable!("these types never enter the C host registry")
                 }
             };
@@ -245,7 +245,7 @@ impl TypeRegistry {
                 | Type::Address
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) => {
+                Type::Symbol | Type::Parameter { .. } | Type::Buffer(_) | Type::Opaque { .. } => {
                     unreachable!("these types never enter the C host registry")
                 }
             }

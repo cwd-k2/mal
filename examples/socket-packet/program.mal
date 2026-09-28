@@ -3,7 +3,7 @@ require "./host.c";
 extern Socket;
 
 // Packet fields: 0 sequence number, 1 immutable payload bytes.
-Packet :: (UInt64, Symbol);
+opaque Packet :: (UInt64, Symbol);
 // SocketPair fields: 0 sending endpoint, 1 receiving endpoint.
 SocketPair :: (Socket, Socket);
 // SocketStatus variant 0 means complete; variant 1 carries an errno-compatible error code.

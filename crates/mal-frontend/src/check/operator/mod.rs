@@ -67,7 +67,8 @@ impl Checker {
     ) -> CheckResult<Expression> {
         if operator.kind == UnaryOperator::SymbolLength {
             let value = self.check_expression(operand, None)?;
-            if matches!(value.ty, Type::Buffer(_)) {
+            let viewed = super::types::representation_view(&value.ty, value.span.file());
+            if matches!(viewed, Type::Buffer(_)) {
                 return Ok(Expression {
                     kind: ExpressionKind::Memory {
                         primitive: MemoryPrimitive::ViewLength,

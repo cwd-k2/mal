@@ -46,6 +46,7 @@ impl Checker {
             .active_generic
             .as_ref()
             .is_some_and(|(id, _)| *id == reference.id)
+            && !self.operation_families.contains(&reference.id)
         {
             let (_, parameters) = self.active_generic.as_ref().unwrap();
             let same_key = arguments.iter().zip(parameters).all(|(argument, parameter)| {
@@ -627,9 +628,40 @@ fn unify_flexible(
         substitutions.insert(*id, left.clone());
         return Ok(());
     }
+    let both_opaque = matches!((left, right), (Type::Opaque { .. }, Type::Opaque { .. }));
+    let left_view = if both_opaque {
+        left
+    } else {
+        super::types::representation_view(left, span.file())
+    };
+    let right_view = if both_opaque {
+        right
+    } else {
+        super::types::representation_view(right, span.file())
+    };
+    if !std::ptr::eq(left, left_view) || !std::ptr::eq(right, right_view) {
+        return unify_flexible(left_view, right_view, flexible, substitutions, span);
+    }
     match (left, right) {
         (Type::Buffer(left), Type::Buffer(right)) => {
             unify_flexible(left, right, flexible, substitutions, span)
+        }
+        (
+            Type::Opaque {
+                id: left_id,
+                arguments: left,
+                ..
+            },
+            Type::Opaque {
+                id: right_id,
+                arguments: right,
+                ..
+            },
+        ) if left_id == right_id && left.len() == right.len() => {
+            for (left, right) in left.iter().zip(right.iter()) {
+                unify_flexible(left, right, flexible, substitutions, span)?;
+            }
+            Ok(())
         }
         (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
             if left.len() == right.len() =>
@@ -688,6 +720,23 @@ fn resolve_type(
         Type::Buffer(element) => {
             Type::Buffer(resolve_type(element, substitutions, visiting).into())
         }
+        Type::Opaque {
+            id,
+            name,
+            arguments,
+            representation,
+            declaration_file,
+        } => Type::Opaque {
+            id: *id,
+            name: name.clone(),
+            arguments: arguments
+                .iter()
+                .map(|argument| resolve_type(argument, substitutions, visiting))
+                .collect::<Vec<_>>()
+                .into(),
+            representation: resolve_type(representation, substitutions, visiting).into(),
+            declaration_file: *declaration_file,
+        },
         Type::Product(elements) => Type::Product(
             elements
                 .iter()
@@ -718,6 +767,9 @@ fn contains_unbound_from(
     match ty {
         Type::Parameter { id, .. } => parameters.contains(id) && !substitutions.contains_key(id),
         Type::Buffer(element) => contains_unbound_from(element, parameters, substitutions),
+        Type::Opaque { arguments, .. } => arguments
+            .iter()
+            .any(|argument| contains_unbound_from(argument, parameters, substitutions)),
         Type::Product(elements) | Type::Sum(elements) => elements
             .iter()
             .any(|element| contains_unbound_from(element, parameters, substitutions)),
@@ -737,6 +789,9 @@ fn has_unresolved(
     match ty {
         Type::Parameter { id, .. } => flexible.contains(id) && !substitutions.contains_key(id),
         Type::Buffer(element) => has_unresolved(element, flexible, substitutions),
+        Type::Opaque { arguments, .. } => arguments
+            .iter()
+            .any(|argument| has_unresolved(argument, flexible, substitutions)),
         Type::Product(elements) | Type::Sum(elements) => elements
             .iter()
             .any(|element| has_unresolved(element, flexible, substitutions)),
@@ -767,9 +822,43 @@ fn constrain(
         substitutions.insert(*id, actual.clone());
         return Ok(());
     }
+    let both_opaque = matches!(
+        (template, actual),
+        (Type::Opaque { .. }, Type::Opaque { .. })
+    );
+    let template_view = if both_opaque {
+        template
+    } else {
+        super::types::representation_view(template, span.file())
+    };
+    let actual_view = if both_opaque {
+        actual
+    } else {
+        super::types::representation_view(actual, span.file())
+    };
+    if !std::ptr::eq(template, template_view) || !std::ptr::eq(actual, actual_view) {
+        return constrain(template_view, actual_view, flexible, substitutions, span);
+    }
     match (template, actual) {
         (Type::Buffer(left), Type::Buffer(right)) => {
             constrain(left, right, flexible, substitutions, span)
+        }
+        (
+            Type::Opaque {
+                id: left_id,
+                arguments: left,
+                ..
+            },
+            Type::Opaque {
+                id: right_id,
+                arguments: right,
+                ..
+            },
+        ) if left_id == right_id && left.len() == right.len() => {
+            for (left, right) in left.iter().zip(right.iter()) {
+                constrain(left, right, flexible, substitutions, span)?;
+            }
+            Ok(())
         }
         (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
             if left.len() == right.len() =>

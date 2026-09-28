@@ -11,8 +11,9 @@ input for this example, and end-of-file on input becomes byte `255`.
 After the final read, `linux/file.mal` admits the initialized source prefix into a mal-owned
 `Buffer<UInt8>` and immediately releases the external mapping. Compilation therefore depends only on
 the admitted source value, not on mapping lifetime or release authority. Non-command bytes are
-comments. Recursive compilation of `[` assigns a unique LLVM block identity and stops at the matching
-`]`, while straight-line input is processed by tail recursion.
+comments. Compiler recursion carries an opaque `CompileState`, so its cursor, block identity, and
+generated body can only be inspected by `compiler.mal`. Recursive compilation of `[` stops at the
+matching `]`, while straight-line input is processed by tail recursion.
 
 The implementation is split by responsibility:
 

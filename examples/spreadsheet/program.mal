@@ -2,9 +2,9 @@
 // Kinds are 0 literal, 1 sum, and 2 product.
 CellRow :: (UInt8, Int64, USize, USize);
 // CellRows is the row-major physical carrier; source coordinates give formula rows their dependency edges.
-CellRows :: Buffer<CellRow>;
+opaque CellRows :: Buffer<CellRow>;
 // SheetImage fields: row count, column count, and row-major cell carrier.
-SheetImage :: (USize, USize, CellRows);
+opaque SheetImage :: (USize, USize, CellRows);
 
 buildSheet :: Unit -> SheetImage := () -> {
     cells := make<CellRow>(6usize);

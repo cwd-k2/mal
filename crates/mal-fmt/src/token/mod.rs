@@ -210,6 +210,7 @@ impl Formatter<'_> {
             }
             TokenKind::Require
             | TokenKind::Extern
+            | TokenKind::Opaque
             | TokenKind::When
             | TokenKind::Then
             | TokenKind::Else => {

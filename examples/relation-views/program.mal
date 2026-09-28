@@ -1,7 +1,7 @@
 // PairRow is a physical pair of coordinates with no relation fixed by the product type itself.
 PairRow :: (USize, USize);
 // PairRows is a finite carrier that operations may interpret as edges, intervals, or another relation.
-PairRows :: Buffer<PairRow>;
+opaque PairRows :: Buffer<PairRow>;
 
 // Carrier traversal is independent of the relation assigned to each row. The step sum keeps
 // early completion distinct from the next cursor instead of reserving a sentinel index.

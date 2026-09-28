@@ -98,7 +98,8 @@ impl Checker {
         Ok(match bindings {
             [] => unreachable!("the parser requires a non-empty result binder group"),
             [binding] => {
-                if matches!(result, Type::Sum(members) if members.is_empty()) {
+                let viewed = super::types::representation_view(result, body_span.file());
+                if matches!(viewed, Type::Sum(members) if members.is_empty()) {
                     return Err(Diagnostic::error("`[]` result has no result value")
                         .with_primary(binding.name.span, "remove the result block")
                         .into());
@@ -110,7 +111,8 @@ impl Checker {
                 }]
             }
             _ => {
-                let Type::Sum(members) = result else {
+                let viewed = super::types::representation_view(result, body_span.file());
+                let Type::Sum(members) = viewed else {
                     return Err(
                         Diagnostic::error("multiple result binders require a sum result")
                             .with_primary(

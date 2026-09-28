@@ -12,6 +12,7 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
+        let expected = expected.map(|ty| super::types::representation_view(ty, span.file()));
         let expected_elements = match expected {
             Some(Type::Product(expected_elements)) if elements.len() == expected_elements.len() => {
                 Some(expected_elements)

@@ -27,7 +27,9 @@ pub(super) fn next_identities(program: &Program) -> Option<NextIdentities> {
                 bounds.value(implementation.family.id);
                 bounds.expression(&implementation.value);
             }
-            TopItem::TypeAlias { .. } | TopItem::ExternalType { .. } => {}
+            TopItem::TypeAlias { .. }
+            | TopItem::OpaqueType { .. }
+            | TopItem::ExternalType { .. } => {}
         }
     }
     Some(NextIdentities {

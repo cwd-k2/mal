@@ -144,6 +144,21 @@ fn keeps_generic_delimiters_attached_without_changing_comparisons_or_shifts() {
 }
 
 #[test]
+fn formats_opaque_declarations_and_generic_operation_patterns() {
+    let formatted = format(
+        "opaque Pair < A >::(A,A);equal<Buffer < A >>::(Buffer<A>,Buffer<A>)->Bool:=(left,right)->#left==#right;",
+    );
+    assert_eq!(
+        formatted,
+        concat!(
+            "opaque Pair<A> :: (A, A);\n",
+            "equal<Buffer<A>> :: (Buffer<A>, Buffer<A>) -> Bool := (left, right) -> #left == #right;\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
 fn keeps_numeric_conversion_suffixes_attached() {
     assert_eq!(
         format("value::UInt64:=1i8 . u8 . u64;"),

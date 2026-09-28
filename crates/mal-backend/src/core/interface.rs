@@ -50,6 +50,7 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 span: item.span,
             }),
             checked::TopItem::GenericBinding(_)
+            | checked::TopItem::OpaqueType { .. }
             | checked::TopItem::OperationFamily(_)
             | checked::TopItem::OperationImplementation(_)
             | checked::TopItem::Binding(_) => {}

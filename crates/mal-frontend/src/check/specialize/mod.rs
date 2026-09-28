@@ -9,7 +9,7 @@ use mal_syntax::diagnostic::Diagnostic;
 use super::ast::*;
 use super::specialization_identity::next_identities;
 use super::type_fingerprint::TypeFingerprints;
-use super::types::substitute_type;
+use super::types::{runtime_type, substitute_type};
 
 mod admission;
 mod expression;
@@ -45,6 +45,21 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
                 implementations.push(*implementation);
             }
             TopItem::OperationFamily(_) => {}
+            TopItem::OpaqueType { .. } => {}
+            TopItem::TypeAlias {
+                binding,
+                ty,
+                element_aliases,
+                host_memory_access,
+            } => items.push(Node::new(
+                TopItem::TypeAlias {
+                    binding,
+                    ty: runtime_type(&ty),
+                    element_aliases,
+                    host_memory_access,
+                },
+                item.span,
+            )),
             TopItem::Binding(binding) => {
                 let index = bindings.len();
                 collect_pattern_bindings(&binding.pattern, index, &mut binding_items);
@@ -94,7 +109,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             let mut value = definition.value;
             specializer.begin_instance_identities();
             specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
-            let ty = substitute_type(&definition.ty, &substitutions);
+            let ty = runtime_type(&substitute_type(&definition.ty, &substitutions));
             specializer.specializations.push(Node::new(
                 TopItem::Binding(Box::new(Binding {
                     pattern: Pattern::Binding {
@@ -110,19 +125,21 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             continue;
         }
 
-        let (implementation, binding) = specializer.pending_operations[operation_cursor].clone();
+        let (implementation, substitutions, binding) =
+            specializer.pending_operations[operation_cursor].clone();
         operation_cursor += 1;
         let family = implementation.family.id;
         let mut value = implementation.value;
         specializer.begin_instance_identities();
-        specializer.expression(&mut value, &HashMap::new(), Some((family, binding.id)))?;
+        specializer.expression(&mut value, &substitutions, Some((family, binding.id)))?;
+        let implementation_ty = runtime_type(&substitute_type(&implementation.ty, &substitutions));
         specializer.specializations.push(Node::new(
             TopItem::Binding(Box::new(Binding {
                 pattern: Pattern::Binding {
                     binding,
-                    ty: implementation.ty.clone(),
+                    ty: implementation_ty.clone(),
                 },
-                annotation: Some(implementation.ty),
+                annotation: Some(implementation_ty),
                 value,
                 span: implementation.span,
             })),
@@ -154,7 +171,11 @@ struct Specializer {
     instance_buckets: HashMap<(ValueId, u64), Vec<usize>>,
     fingerprints: TypeFingerprints,
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
-    pending_operations: Vec<(OperationImplementation, ValueBinding)>,
+    pending_operations: Vec<(
+        OperationImplementation,
+        HashMap<crate::resolve::ast::TypeId, Type>,
+        ValueBinding,
+    )>,
     next_value: u32,
     next_lambda: u32,
     value_renames: HashMap<ValueId, ValueId>,
@@ -184,6 +205,10 @@ impl Specializer {
         let TopItem::Binding(binding) = &mut item.kind else {
             unreachable!("the binding table contains only bindings")
         };
+        substitution::pattern(&mut binding.pattern, &HashMap::new());
+        if let Some(annotation) = &mut binding.annotation {
+            *annotation = runtime_type(annotation);
+        }
         self.expression(&mut binding.value, &HashMap::new(), None)?;
         self.reachable.insert(index, item);
         Ok(())
@@ -258,18 +283,19 @@ impl Specializer {
                 name: family.name.clone(),
             });
         }
-        let implementation = self
+        let (implementation, substitutions) = self
             .implementations
             .iter()
-            .find(|implementation| {
-                implementation.family.id == family.id && implementation.arguments == arguments
+            .filter(|implementation| implementation.family.id == family.id)
+            .find_map(|implementation| {
+                match_operation_pattern(implementation, arguments)
+                    .map(|substitutions| (implementation.clone(), substitutions))
             })
-            .cloned()
             .ok_or_else(|| {
                 Diagnostic::error("missing operation implementation").with_primary(
                     family.name.span,
                     format!(
-                        "no exact implementation of `{}` exists for these type arguments",
+                        "no implementation of `{}` exists for these type arguments",
                         family.name.text
                     ),
                 )
@@ -288,10 +314,101 @@ impl Specializer {
             .or_default()
             .push(index);
         self.pending_operations
-            .push((implementation, binding.clone()));
+            .push((implementation, substitutions, binding.clone()));
         Ok(ValueReference {
             id: binding.id,
             name: family.name.clone(),
         })
+    }
+}
+
+fn match_operation_pattern(
+    implementation: &OperationImplementation,
+    arguments: &[Type],
+) -> Option<HashMap<crate::resolve::ast::TypeId, Type>> {
+    if implementation.arguments.len() != arguments.len() {
+        return None;
+    }
+    let parameters = implementation
+        .parameters
+        .iter()
+        .map(|parameter| parameter.id)
+        .collect::<HashSet<_>>();
+    let mut substitutions = HashMap::new();
+    for (pattern, argument) in implementation.arguments.iter().zip(arguments) {
+        if !match_operation_type(pattern, argument, &parameters, &mut substitutions) {
+            return None;
+        }
+    }
+    Some(substitutions)
+}
+
+fn match_operation_type(
+    pattern: &Type,
+    argument: &Type,
+    parameters: &HashSet<crate::resolve::ast::TypeId>,
+    substitutions: &mut HashMap<crate::resolve::ast::TypeId, Type>,
+) -> bool {
+    if let Type::Parameter { id, .. } = pattern
+        && parameters.contains(id)
+    {
+        return match substitutions.get(id) {
+            Some(existing) => existing == argument,
+            None => {
+                substitutions.insert(*id, argument.clone());
+                true
+            }
+        };
+    }
+    match (pattern, argument) {
+        (Type::Buffer(pattern), Type::Buffer(argument)) => {
+            match_operation_type(pattern, argument, parameters, substitutions)
+        }
+        (
+            Type::Opaque {
+                id: pattern_id,
+                arguments: pattern,
+                ..
+            },
+            Type::Opaque {
+                id: argument_id,
+                arguments: argument,
+                ..
+            },
+        ) if pattern_id == argument_id && pattern.len() == argument.len() => pattern
+            .iter()
+            .zip(argument.iter())
+            .all(|(pattern, argument)| {
+                match_operation_type(pattern, argument, parameters, substitutions)
+            }),
+        (Type::Product(pattern), Type::Product(argument))
+        | (Type::Sum(pattern), Type::Sum(argument))
+            if pattern.len() == argument.len() =>
+        {
+            pattern
+                .iter()
+                .zip(argument.iter())
+                .all(|(pattern, argument)| {
+                    match_operation_type(pattern, argument, parameters, substitutions)
+                })
+        }
+        (
+            Type::Function {
+                parameter: pattern_parameter,
+                result: pattern_result,
+            },
+            Type::Function {
+                parameter: argument_parameter,
+                result: argument_result,
+            },
+        ) => {
+            match_operation_type(
+                pattern_parameter,
+                argument_parameter,
+                parameters,
+                substitutions,
+            ) && match_operation_type(pattern_result, argument_result, parameters, substitutions)
+        }
+        _ => pattern == argument,
     }
 }

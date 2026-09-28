@@ -12,6 +12,7 @@ impl Checker {
         span: mal_syntax::source::Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
+        let expected = expected.map(|ty| super::types::representation_view(ty, span.file()));
         let (expected_parameter, expected_result) = match expected {
             Some(Type::Function { parameter, result }) => {
                 (parameter.as_ref().clone(), result.as_ref().clone())

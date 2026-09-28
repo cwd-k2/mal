@@ -91,13 +91,15 @@ name resolutionとtype checkingは型parameter、型application、opaque type va
 type checking後、compilerはentry pointから到達する、明示または推論済みのconcrete applicationを起点にspecialization graphを構成する。
 
 specialization keyはgeneric binding identityとalias展開後のcanonical concrete type argument列であり、同じkeyはfileを跨いで共有する。
+file-local opaque typeはhidden representationへ展開せず、declaration identityとcanonical type argumentをkeyに残す。
 各nodeはgeneric typed bodyへ型argumentを代入して単相typed coreを一度生成し、到達するgeneric applicationをgraphへ加える。
 本体内で型parameterをargumentに使ったapplicationも、この代入後にはconcreteなkeyになる。self recursionは同じkeyへのedgeとして閉じる。
 異なる型argumentで自分を呼ぶbindingはdeclarationで拒否する。
 
 一つのprogramで生成するspecialization nodeは65,536個までとする。次のnodeを加えると上限を超える場合、source programを型不正とは
 せず、展開元binding、type argument列、limitを示すartifact生成failureとする。型の物理表現上限とcompiler processの一般的な
-resource failureは別の規則である。ANF以降はgeneric declaration、type argument、requirement、dictionaryを受け取らない。
+resource failureは別の規則である。specializationはfile-local opaque typeをhidden representationへ消去する。ANF以降はgeneric
+declaration、type argument、opaque boundary、requirement、dictionaryを受け取らない。
 
 ## Host境界
 

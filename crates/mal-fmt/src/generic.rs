@@ -14,6 +14,14 @@ pub(super) fn delimiters(lexed: &Lexed, program: &Program) -> Vec<bool> {
                 marker.group(name.span.end(), value.span.start());
                 marker.ty(value);
             }
+            TopItem::OpaqueType {
+                name,
+                representation,
+                ..
+            } => {
+                marker.group(name.span.end(), representation.span.start());
+                marker.ty(representation);
+            }
             TopItem::ExternalOperation { ty, .. } => marker.ty(ty),
             TopItem::Binding(binding) => marker.binding(binding),
             TopItem::GenericBinding {

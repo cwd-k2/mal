@@ -68,6 +68,10 @@ impl TypeFingerprints {
                             pending.push(Fingerprint::Aggregate(None, 18, 1));
                             pending.push(Fingerprint::Type(element));
                         }
+                        Type::Opaque { id, arguments, .. } => {
+                            pending.push(Fingerprint::Opaque(*id, arguments.len()));
+                            pending.extend(arguments.iter().rev().map(Fingerprint::Type));
+                        }
                         _ => values.push(atom_fingerprint(ty)),
                     }
                 }
@@ -82,6 +86,14 @@ impl TypeFingerprints {
                     }
                     values.push(hash);
                 }
+                Fingerprint::Opaque(id, length) => {
+                    let children = values.split_off(values.len() - length);
+                    let mut hasher = DefaultHasher::new();
+                    19_u8.hash(&mut hasher);
+                    id.hash(&mut hasher);
+                    children.hash(&mut hasher);
+                    values.push(hasher.finish());
+                }
             }
         }
         values.pop().expect("one type produces one fingerprint")
@@ -91,6 +103,7 @@ impl TypeFingerprints {
 enum Fingerprint<'a> {
     Type(&'a Type),
     Aggregate(Option<SharedTypeId>, u8, usize),
+    Opaque(crate::resolve::ast::TypeId, usize),
 }
 
 fn atom_fingerprint(ty: &Type) -> u64 {
@@ -121,7 +134,11 @@ fn atom_fingerprint(ty: &Type) -> u64 {
             id.hash(&mut hasher);
             name.hash(&mut hasher);
         }
-        Type::Product(_) | Type::Sum(_) | Type::Function { .. } | Type::Buffer(_) => {
+        Type::Product(_)
+        | Type::Sum(_)
+        | Type::Function { .. }
+        | Type::Buffer(_)
+        | Type::Opaque { .. } => {
             unreachable!("aggregate fingerprints are composed from their children")
         }
     }

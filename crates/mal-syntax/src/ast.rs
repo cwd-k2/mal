@@ -67,6 +67,15 @@ pub enum TopItem {
         /// The aliased type expression.
         value: Node<TypeExpression>,
     },
+    /// A source-defined abstract type whose representation is visible only in its declaring file.
+    OpaqueType {
+        /// The declared opaque type name.
+        name: Name,
+        /// Type parameters in declaration order.
+        parameters: Vec<Name>,
+        /// The hidden representation type.
+        representation: Node<TypeExpression>,
+    },
     /// An opaque type supplied by the C host.
     ExternalType {
         /// The declared external type name.

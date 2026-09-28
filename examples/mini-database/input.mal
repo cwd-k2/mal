@@ -2,10 +2,13 @@ require "./host.mal";
 require "./bytes.mal";
 
 // Reader fields: file, host transfer storage, capacity, current managed chunk, next byte.
-Reader :: (File, Address, USize, Buffer<UInt8>, USize);
+opaque Reader :: (File, Address, USize, Buffer<UInt8>, USize);
 ByteRead :: [Reader, (Reader, UInt8)];
 LineState :: (Reader, Buffer<UInt8>);
 LineRead :: [Reader, LineState];
+
+reader :: (File, Address, USize) -> Reader := (file, memory, capacity) ->
+    (file, memory, capacity, make<UInt8>(0usize), 0usize);
 
 _readByte :: Reader -> ByteRead := (reader) -> [eof, read] => {
     (file, memory, capacity, bytes, position) := reader;

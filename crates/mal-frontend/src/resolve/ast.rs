@@ -105,6 +105,15 @@ pub enum TopItem {
         /// Its resolved definition.
         value: Node<TypeExpression>,
     },
+    /// A source-defined abstract type with file-local representation authority.
+    OpaqueType {
+        /// The opaque declaration identity.
+        binding: TypeBinding,
+        /// Generic parameter bindings in declaration order.
+        parameters: Vec<TypeBinding>,
+        /// The resolved hidden representation.
+        representation: Node<TypeExpression>,
+    },
     /// An opaque host type declaration.
     ExternalType {
         /// The external type declaration.
@@ -143,11 +152,13 @@ pub enum TopItem {
         /// The resolved family signature.
         annotation: Node<TypeExpression>,
     },
-    /// One exact implementation of an operation family.
+    /// One exact or generic implementation of an operation family.
     OperationImplementation {
         /// A reference to the previously declared family.
         family: ValueReference,
-        /// Closed exact type arguments forming the implementation key.
+        /// Pattern binders reused from the family declaration, empty for an exact key.
+        parameters: Vec<TypeBinding>,
+        /// Canonical type expressions forming the implementation key.
         arguments: Vec<Node<TypeExpression>>,
         /// The implementation annotation.
         annotation: Node<TypeExpression>,

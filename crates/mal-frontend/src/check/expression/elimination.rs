@@ -22,7 +22,8 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         let value = self.check_before(value, None, continuation_span(&continuations[0]))?;
-        let Type::Sum(members) = &value.ty else {
+        let viewed = super::super::types::representation_view(&value.ty, value.span.file());
+        let Type::Sum(members) = viewed else {
             return Err(
                 Diagnostic::error("multiple continuations require a sum value")
                     .with_primary(

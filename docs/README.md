@@ -43,9 +43,9 @@
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md)と[更新案](proposals/indexed-buffer-tree-examples.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
-| 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md)、[generic implementation pattern案](proposals/generic-operation-implementations.md) |
+| 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md) |
 | higher-kindedな型parameterを検討する | [higher-kinded constructor abstraction](proposals/higher-kinded-types.md) | [parametric polymorphism](spec/generics.md)、[operation family](spec/operation-families.md) |
-| file内だけでrepresentationを観察できる型を検討する | [file-local opaque type](proposals/file-local-opaque-types.md) | [型](spec/types.md)、[generic implementation pattern案](proposals/generic-operation-implementations.md) |
+| file内だけでrepresentationを観察できる型を使う | [file-local opaque type](spec/types.md#file-local-opaque-type) | [operation family](spec/operation-families.md) |
 | Engramの保持、破棄、storage lifecycleの内部基盤を検討する | [Engram lifecycle loweringの共通基盤](proposals/engram-lifecycle-foundation.md) | [Engram ownership](implementation/ownership.md)、[D055](history/decisions/active/D055.md)、[D083](history/decisions/active/D083.md) |
 | Pool上へopaque containerを構成する案を検討する | [Poolとopaque型によるcontainer基盤](proposals/pool/README.md) | [Pool lifecycle contract](proposals/pool/lifecycle-contract.md)、[container例](proposals/pool/container-examples.md)、[COW例](proposals/pool/array-ownership.md) |
 | lambda literalのredex扱いを単一continuationとcallee位置へ広げる案を検討する | [その場でapplicationされるlambda literalの拡張](proposals/immediate-lambda-redex.md) | [lambdaの中断とredex](design/value-interpretation-and-control.md#lambdaの中断とredex)、[直和の除去](spec/expressions.md#直和の除去)、[D072](history/decisions/active/D072.md) |

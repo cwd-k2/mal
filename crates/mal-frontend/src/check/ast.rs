@@ -4,6 +4,7 @@ use crate::resolve::ast::{
     ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
 use mal_syntax::ast::{BinaryOperator, Node, UnaryOperator};
+use mal_syntax::source::FileId;
 use mal_syntax::source::Span;
 use std::{collections::HashSet, sync::Arc};
 
@@ -55,6 +56,19 @@ pub enum Type {
         id: TypeId,
         /// Its source name for diagnostics and ABI names.
         name: String,
+    },
+    /// A source-defined abstract type with a hidden zero-cost representation.
+    Opaque {
+        /// The declaration identity used for canonical equality.
+        id: TypeId,
+        /// The source name used for diagnostics.
+        name: Arc<str>,
+        /// Canonical type arguments retained as part of the identity.
+        arguments: Arc<[Type]>,
+        /// The representation used after frontend abstraction checks.
+        representation: Arc<Type>,
+        /// The only file allowed to view the representation.
+        declaration_file: FileId,
     },
     /// An ordered product of field types.
     Product(Arc<[Type]>),
@@ -111,6 +125,20 @@ impl PartialEq for Type {
                     },
                 ) if left_id == right_id && left_name == right_name => {}
                 (Self::Buffer(left), Self::Buffer(right)) => pending.push((left, right)),
+                (
+                    Self::Opaque {
+                        id: left_id,
+                        arguments: left_arguments,
+                        ..
+                    },
+                    Self::Opaque {
+                        id: right_id,
+                        arguments: right_arguments,
+                        ..
+                    },
+                ) if left_id == right_id && left_arguments.len() == right_arguments.len() => {
+                    pending.extend(left_arguments.iter().zip(right_arguments.iter()));
+                }
                 (
                     Self::External {
                         id: left_id,
@@ -286,6 +314,11 @@ pub enum TopItem {
         /// Whether the alias was admitted for canonical host-memory access.
         host_memory_access: bool,
     },
+    /// A source-defined opaque type retained until specialization erases its boundary.
+    OpaqueType {
+        /// The declaration identity and spelling.
+        binding: TypeBinding,
+    },
     /// An opaque host-defined type.
     ExternalType {
         /// The external type declaration.
@@ -312,9 +345,9 @@ pub enum TopItem {
     },
     /// A checked generic value definition awaiting specialization.
     GenericBinding(Box<GenericBinding>),
-    /// A checked operation-family signature awaiting exact implementation selection.
+    /// A checked operation-family signature awaiting implementation selection.
     OperationFamily(Box<OperationFamily>),
-    /// A checked exact implementation awaiting reachability-driven selection.
+    /// A checked exact or generic implementation awaiting reachability-driven selection.
     OperationImplementation(Box<OperationImplementation>),
     /// A checked monomorphic value definition.
     Binding(Box<Binding>),
@@ -338,7 +371,7 @@ pub struct GenericBinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-/// A generic operation signature selected by exact canonical type arguments.
+/// A generic operation signature selected by canonical type arguments.
 pub struct OperationFamily {
     /// The family declaration.
     pub binding: ValueBinding,
@@ -351,16 +384,20 @@ pub struct OperationFamily {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-/// One closed implementation of an operation family.
+/// One exact or generic implementation of an operation family.
 pub struct OperationImplementation {
     /// The family identity and implementation-site spelling.
     pub family: ValueReference,
-    /// Closed canonical arguments forming the exact key.
+    /// Pattern parameters bound by a generic implementation key.
+    pub parameters: Vec<TypeBinding>,
+    /// Canonical type patterns forming the implementation key.
     pub arguments: Vec<Type>,
     /// The canonical instantiated family signature.
     pub ty: Type,
     /// The checked initializer.
     pub value: Expression,
+    /// Operation goals required after matching this implementation.
+    pub operations: Vec<OperationRequirement>,
     /// The complete implementation span.
     pub span: Span,
 }
@@ -543,7 +580,7 @@ pub enum ExpressionKind {
         /// Canonical type arguments in declaration order.
         arguments: Vec<Type>,
     },
-    /// A family reference awaiting exact implementation selection during specialization.
+    /// A family reference awaiting implementation selection during specialization.
     OperationReference {
         /// The referenced family declaration.
         family: ValueReference,
@@ -739,7 +776,7 @@ pub struct ExpressionBlock {
 /// One checked non-result item in a body.
 pub enum BodyItem {
     /// A value binding.
-    Binding(Binding),
+    Binding(Box<Binding>),
     /// An expression evaluated for effects or abrupt completion.
-    Expression(Expression),
+    Expression(Box<Expression>),
 }

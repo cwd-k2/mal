@@ -9,11 +9,11 @@ contract, including the distinction between `check`, `build`, and `emit`, lives 
 [`docs/development/compiler-usage.md`](../docs/development/compiler-usage.md); individual example
 README files give only the command needed for that example.
 
-An example does not treat its carrier as the domain meaning itself. Indexed examples name the
-operations and validators that interpret coordinates, tags, or byte offsets; host examples keep
-resource meaning in extern contracts; scalar examples make language rules observable through a
-narrow host operation. Transparent aliases improve vocabulary but never stand in for validation or
-nominal proof.
+An example does not treat its carrier as the domain meaning itself. Indexed examples place physical
+carriers behind file-local opaque types, then expose operations and validators that interpret
+coordinates, tags, or byte offsets. Host examples keep resource meaning in extern contracts; scalar
+examples make language rules observable through a narrow host operation. Transparent aliases remain
+for interchangeable vocabulary and public result shapes, not abstraction boundaries.
 
 | Example | Focus |
 | --- | --- |
@@ -32,8 +32,8 @@ nominal proof.
 | `resizable-buffer` | automatic Buffer growth and mutation observed through aliases |
 | `buffer-handles` | Cell and View handles over a Buffer, with a runtime read-only flag |
 | `generic-loop` | iteration derived from a continue-or-break sum result |
-| `operation-family` | exact type-indexed function and value implementations |
-| `hash-map` | fixed-capacity linear probing driven by exact hash and equality families |
+| `operation-family` | exact and structural generic type-indexed implementations |
+| `hash-map` | opaque fixed-capacity linear probing driven by hash and equality families |
 | `tail-recursion` | bounded-stack recursive control |
 | `print-and-closure` | ordered external effects and captured values |
 | `opaque-aggregate` | opaque handles inside product and sum ABI values |

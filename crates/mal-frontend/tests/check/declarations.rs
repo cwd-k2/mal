@@ -1,6 +1,90 @@
 use super::*;
 
 #[test]
+fn opaque_types_use_their_representation_only_in_the_declaring_file() {
+    let program = check_ok(
+        "opaque Pair<A> :: (A, A);\n\
+         makePair<A> :: (A, A) -> Pair<A> := (pair) -> pair;\n\
+         first<A> :: Pair<A> -> A := ((first, _)) -> first;\n\
+         main :: Unit -> Int32 := () -> first(makePair((40i32, 2i32)));",
+    );
+
+    let TopItem::OpaqueType { .. } = &program.items[0].kind else {
+        panic!("expected opaque declaration");
+    };
+    let specialized = check::specialize(program).expect("erase opaque boundaries");
+    assert!(
+        specialized
+            .program()
+            .items
+            .iter()
+            .all(|item| { !matches!(item.kind, TopItem::OpaqueType { .. }) })
+    );
+}
+
+#[test]
+fn opaque_sum_uses_existing_construction_and_elimination_syntax() {
+    let program = check_ok(
+        "opaque Option<A> :: [Unit, A];\n\
+         none<A> :: Unit -> Option<A> := () -> [none, some] => none();\n\
+         isNone<A> :: Option<A> -> Bool := (value) -> value[\n\
+             () -> true,\n\
+             (_) -> false\n\
+         ];\n\
+         main :: Unit -> Int32 := () -> {\n\
+             value :: Option<Int32> := none<Int32>();\n\
+             if (isNone(value)) then 0 else 1;\n\
+         };",
+    );
+
+    check::specialize(program).expect("erase opaque sum boundary");
+}
+
+#[test]
+fn opaque_declarations_with_the_same_representation_remain_distinct() {
+    let error = check_error(
+        "opaque Left :: Int32;\n\
+         opaque Right :: Int32;\n\
+         wrong :: Left -> Right := (value) -> value;",
+    );
+
+    assert_eq!(error.message, "type mismatch");
+}
+
+#[test]
+fn rejects_recursive_opaque_representations_even_when_unused() {
+    assert_eq!(
+        check_error("opaque Loop<A> :: (A, Loop<A>);").message,
+        "recursive opaque representation"
+    );
+}
+
+#[test]
+fn opaque_buffer_uses_memory_operations_only_in_its_declaring_file() {
+    let program = check_ok(
+        "opaque Values<A> :: Buffer<A>;\n\
+         values<A> :: USize -> Values<A> := (capacity) -> make<A>(capacity);\n\
+         append<A> :: (Values<A>, A) -> USize := (items, value) -> items.new(value);\n\
+         length<A> :: Values<A> -> USize := (items) -> #items;\n\
+         main :: Unit -> Int32 := () -> {\n\
+             items :: Values<Int32> := values<Int32>(1usize);\n\
+             items.append(42i32);\n\
+             if (items.length() == 1usize && items.get(0usize) == 42i32) then 0 else 1;\n\
+         };",
+    );
+
+    check::specialize(program).expect("erase opaque Buffer boundary");
+}
+
+#[test]
+fn source_opaque_types_do_not_cross_the_extern_boundary() {
+    assert_eq!(
+        check_error("opaque Counter :: Int32; extern inspect :: Counter -> Unit;").message,
+        "external operation `inspect` uses a type that is not host mappable"
+    );
+}
+
+#[test]
 fn checks_the_basic_host_example_end_to_end_through_typed_ast() {
     let program = check_ok(
         "extern printInt32 :: Int32 -> Unit;\n\

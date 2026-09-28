@@ -4,8 +4,8 @@ This example builds one managed `Buffer<PairRow>` carrier and interprets it thro
 logical structures. `hasDirectedEdge` reads each pair as an ordered graph edge. `coverageAt` reads the
 same pair as a half-open interval and counts the intervals containing a coordinate.
 
-`PairRows` describes only the finite physical row sequence. It does not decide whether a pair is an
-edge or an interval, and its transparent alias proves neither graph nor interval invariants. Each
+`PairRows` hides the finite physical row sequence from callers. It does not decide whether a pair is an
+edge or an interval, and its opaque boundary alone proves neither graph nor interval invariants. Each
 operation owns its interpretation and preconditions. In particular, `validIntervals` is relevant to
 the interval view but not to the edge view.
 

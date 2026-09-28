@@ -112,6 +112,16 @@ impl<'a> Parser<'a> {
                 let ty = self.parse_type()?;
                 TopItem::ExternalOperation { name, ty }
             }
+        } else if self.take(&TokenKind::Opaque).is_some() {
+            let name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
+            let parameters = self.parse_type_parameters()?;
+            self.expect(&TokenKind::DoubleColon, "`::`")?;
+            let representation = self.parse_type()?;
+            TopItem::OpaqueType {
+                name,
+                parameters,
+                representation,
+            }
         } else if self.at(&TokenKind::TypeIdentifier) {
             let name = self.parse_name(&TokenKind::TypeIdentifier, "a type name")?;
             let parameters = self.parse_type_parameters()?;

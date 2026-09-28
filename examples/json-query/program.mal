@@ -1,4 +1,5 @@
 require "./host.mal";
+require "./bytes.mal";
 require "./parser.mal";
 require "./query.mal";
 require "./render.mal";
@@ -33,7 +34,7 @@ main :: Buffer<Symbol> -> Int32 := (arguments) -> {
     }
     else {
         queryBytes := *arguments.get(0usize);
-        query := (queryBytes, 0usize).parseQuery();
+        query := queryBytes.allBytes().parseQuery();
         query[
             (message) -> {
                 writeStdout(message.renderError() + "\n");

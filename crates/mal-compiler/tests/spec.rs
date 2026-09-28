@@ -210,6 +210,11 @@ fn generics_extern_and_buffer_rules() {
 }
 
 #[test]
+fn opaque_type_and_generic_operation_rules() {
+    run_all(include_str!("spec/opaque_and_operations.txt"));
+}
+
+#[test]
 fn evaluation_semantics() {
     run_all(include_str!("spec/evaluation.txt"));
 }

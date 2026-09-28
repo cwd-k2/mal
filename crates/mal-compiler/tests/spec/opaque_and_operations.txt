@@ -1,0 +1,16 @@
+### opaque_product_erases_before_execution | run:42
+opaque Pair<A> :: (A, A);
+duplicate<A> :: A -> Pair<A> := (value) -> (value, value);
+first<A> :: Pair<A> -> A := ((value, _)) -> value;
+main :: Unit -> Int32 := () -> first(duplicate(42i32));
+### generic_operation_pattern_executes | run:42
+equal<A> :: (A, A) -> Bool;
+equal<Buffer<A>> :: (Buffer<A>, Buffer<A>) -> Bool := (left, right) -> #left == #right;
+main :: Unit -> Int32 := () -> {
+    values :: Buffer<Int32> := make<Int32>(0usize);
+    if (equal(values, values)) then 42 else 0;
+};
+### generic_operation_overlap_rejected | err:duplicate operation implementation
+equal<A> :: (A, A) -> Bool;
+equal<Buffer<A>> :: (Buffer<A>, Buffer<A>) -> Bool := (left, right) -> true;
+equal<Buffer<Int32>> :: (Buffer<Int32>, Buffer<Int32>) -> Bool := (left, right) -> true;

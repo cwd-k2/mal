@@ -1,8 +1,8 @@
 # Spreadsheet example
 
-This example represents a spreadsheet as finite dimensions and a flat Buffer of cell
-rows. A row stores a formula kind, a literal value, and two source coordinates. The type describes
-that carrier; `_evaluateAt` interprets source coordinates as dependency edges.
+This example represents a spreadsheet as an opaque image containing finite dimensions and an opaque
+flat Buffer of cell rows. A row stores a formula kind, a literal value, and two source coordinates.
+Only this file sees that carrier; `_evaluateAt` interprets source coordinates as dependency edges.
 
 The literal is payload, the formula kind selects how the row is interpreted, and the source
 coordinates are relation indicators only for sum and product rows. Row-major position supplies cell

@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use super::super::ast::{Completion, Pattern, Type};
-use super::super::types::substitute_type;
+use super::super::types::{runtime_type, substitute_type};
 
 pub(super) fn pattern(
     value: &mut Pattern,
@@ -11,10 +11,10 @@ pub(super) fn pattern(
 ) {
     match value {
         Pattern::Binding { ty, .. } | Pattern::Wildcard { ty, .. } => {
-            *ty = substitute_type(ty, substitutions)
+            *ty = runtime_type(&substitute_type(ty, substitutions))
         }
         Pattern::Product { elements, ty, .. } => {
-            *ty = substitute_type(ty, substitutions);
+            *ty = runtime_type(&substitute_type(ty, substitutions));
             for element in elements {
                 pattern(element, substitutions);
             }
@@ -27,6 +27,6 @@ pub(super) fn completion(
     substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
 ) {
     if let Completion::Value(value) = completion {
-        value.ty = substitute_type(&value.ty, substitutions);
+        value.ty = runtime_type(&substitute_type(&value.ty, substitutions));
     }
 }

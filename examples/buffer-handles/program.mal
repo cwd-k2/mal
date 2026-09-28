@@ -1,7 +1,7 @@
-// Handles are plain products over a Buffer, so lifetime authority stays in the Buffer. The Bool
-// field is a runtime write permission, because transparent aliases cannot make a distinct type.
-Cell<A> :: (Buffer<A>, USize, Bool);
-View<A> :: (Buffer<A>, USize, USize, Bool);
+// Handles hide their carrier coordinates while lifetime authority stays in the Buffer. The Bool
+// field is a runtime write permission; only this file can construct or inspect either product.
+opaque Cell<A> :: (Buffer<A>, USize, Bool);
+opaque View<A> :: (Buffer<A>, USize, USize, Bool);
 
 // A view covers the elements present now. The count of a Buffer never shrinks, so it stays valid.
 view<A> :: Buffer<A> -> View<A> := (buffer) -> (buffer, 0usize, #buffer, true);

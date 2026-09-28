@@ -32,7 +32,8 @@ impl Checker {
         value: &Node<resolved::Expression>,
     ) -> CheckResult<Expression> {
         let value = self.check_expression(value, None)?;
-        if !matches!(&value.ty, Type::Sum(members) if members.is_empty()) {
+        let viewed = super::super::types::representation_view(&value.ty, value.span.file());
+        if !matches!(viewed, Type::Sum(members) if members.is_empty()) {
             return Err(
                 Diagnostic::error("zero continuations require an `[]` value")
                     .with_primary(
@@ -231,7 +232,8 @@ impl Checker {
             }
             Err(error) => return Err(error),
         };
-        let Type::Function { parameter, result } = &callee.ty else {
+        let viewed = super::super::types::representation_view(&callee.ty, callee.span.file());
+        let Type::Function { parameter, result } = viewed else {
             return Err(Diagnostic::error("cannot call a non-function value")
                 .with_primary(
                     callee.span,

@@ -3,7 +3,7 @@
 Status: Exploratory example
 
 この文書は[Poolとopaque型によるcontainer基盤](README.md)の候補modelを、将来のmal sourceに近い擬似codeで
-具体化する。`opaque`、`Pool<State, T>`、file-localなrepresentation viewは未採択であり、現在のparserでは受理されない。
+具体化する。`opaque`とfile-localなrepresentation viewは採択済みだが、`Pool<State, T>`は未採択であり、例全体は現在のparserで受理されない。
 完全なsyntaxではなく、Poolとcontainer policyの責務を比較するための例である。
 
 ## 仮定するPool primitive
@@ -46,7 +46,7 @@ mutable arrayのidentity共有と、immutable arrayのcopy-on-writeは
 
 ## opaque型のrepresentation view
 
-例では[opaque宣言](../file-local-opaque-types.md)の宣言元fileだけがhidden representationを観察できる。専用のpack/open operationは
+例では[opaque宣言](../../spec/types.md#file-local-opaque-type)の宣言元fileだけがhidden representationを観察できる。専用のpack/open operationは
 生成せず、通常のexpression type checkingで`Buffer<T>`を`Pool<USize, T>`が期待されるoperandへ渡し、逆にPoolを
 `Buffer<T>`が期待されるresultにできる。
 

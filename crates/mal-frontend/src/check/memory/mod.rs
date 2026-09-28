@@ -33,7 +33,8 @@ impl Checker {
         span: Span,
     ) -> CheckResult<Expression> {
         let operand = self.check_expression(operand, None)?;
-        let (primitive, ty) = match (operator, &operand.ty) {
+        let viewed = super::types::representation_view(&operand.ty, operand.span.file());
+        let (primitive, ty) = match (operator, viewed) {
             (UnaryOperator::Star, Type::Buffer(element)) if **element == Type::UInt8 => {
                 (MemoryPrimitive::BufferToSymbol, Type::Symbol)
             }

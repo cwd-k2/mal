@@ -1,6 +1,6 @@
 # CSR Dijkstra example
 
-This example stores a directed weighted graph in three Buffer columns. `NodeOffsets` partitions
+This example stores a directed weighted graph in three opaque Buffer-column roles. `NodeOffsets` partitions
 edge slots into one range per source node, `NeighborNodes` maps each edge slot to a destination node,
 and `EdgeCosts` supplies payload joined by that same edge slot. None of the three carriers is a graph
 by itself. `WeightedCsr` and its operations define how their coordinates relate.
@@ -8,8 +8,8 @@ by itself. `WeightedCsr` and its operations define how their coordinates relate.
 `validWeightedCsr` is the admission boundary. It checks the offset extent and monotonicity, the shared
 edge-column length, every destination coordinate, and Dijkstra's nonnegative-cost precondition before
 traversal. `shortestDistance` additionally expects in-bounds source and target coordinates and path
-costs below the example's `infinity` sentinel. The transparent aliases make roles visible to readers
-but do not prove these invariants.
+costs below the example's `infinity` sentinel. Opaque identities prevent callers from interchanging
+or directly mutating the roles, while validation still establishes the relational invariants.
 
 Dijkstra's mutable workspace occupies one backing `Buffer<Int64>`, split into `NodeDistances` and
 `VisitedFlags`. These are payload columns joined by node coordinate; neither is a relation indicator.

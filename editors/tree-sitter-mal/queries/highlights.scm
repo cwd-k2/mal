@@ -32,7 +32,7 @@
   (postfix_suffix
     (call_suffix))))
 
-["require" "extern"] @keyword
+["require" "extern" "opaque"] @keyword
 ["if" "then" "else" "when"] @keyword.control
 
 ["::" ":=" "->" "=>"] @operator

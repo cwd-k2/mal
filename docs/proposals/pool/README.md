@@ -97,7 +97,7 @@ identity-bearing handleが存在すると、copy-on-writeがstorageを再利用�
 ## file-local opaque型
 
 Poolを安全なcontainerへ閉じ込めるには、transparent aliasとは別に
-[file-local opaque type](../file-local-opaque-types.md)が必要になる。候補syntaxを次に示す。
+[file-local opaque type](../../spec/types.md#file-local-opaque-type)を使う。syntaxを次に示す。
 
 ```mal
 opaque Buffer<T> :: _BufferRepresentation<T>;

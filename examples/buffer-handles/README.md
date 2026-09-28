@@ -1,8 +1,8 @@
 # Buffer handles example
 
-This example derives position handles from a `Buffer` without adding a language feature. `Cell<A>` is
-a `Buffer<A>` with an index and `View<A>` is a `Buffer<A>` with an offset and a length. Lifetime
-authority stays in the `Buffer`; the numbers carry none.
+This example derives file-local opaque position handles from a `Buffer`. `Cell<A>` hides a Buffer,
+an index, and write permission; `View<A>` hides a Buffer, an offset, a length, and write permission.
+Lifetime authority stays in the Buffer; the numbers carry none.
 
 A number becomes a handle only in `at`, `split`, and `uncons`. `at` and `split` check it against the
 view length and return a sum. The count of a `Buffer` never shrinks, so a handle that passed the check
@@ -10,7 +10,8 @@ stays in range. `read` and `write` then take only the `Cell`.
 
 Both handle types carry a `Bool` write permission. `freeze` clears it on a view, every handle derived
 from that view inherits it, and `write` reports whether the write happened. The permission is a
-runtime field because transparent aliases cannot give a read-only handle a distinct type.
+runtime field because freezing changes a value-level permission, while opaque identity prevents
+callers from fabricating or destructuring either handle representation.
 
 | Function | Shows |
 |---|---|

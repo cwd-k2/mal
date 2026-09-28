@@ -6,7 +6,7 @@ use crate::resolve::ast::ValueId;
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::super::ast::*;
-use super::super::types::substitute_type;
+use super::super::types::{runtime_type, substitute_type};
 use super::Specializer;
 use super::substitution::{completion, pattern};
 
@@ -74,7 +74,8 @@ impl Specializer {
                 self.expression(expression, substitutions, self_instance)
             }
             SumContinuation::Branch(branch) => {
-                branch.parameter_type = substitute_type(&branch.parameter_type, substitutions);
+                branch.parameter_type =
+                    runtime_type(&substitute_type(&branch.parameter_type, substitutions));
                 if let Some(parameter) = &mut branch.parameter {
                     if self_instance.is_some() {
                         self.rename_pattern(parameter)?;
@@ -89,8 +90,10 @@ impl Specializer {
                 {
                     transfer.target = renamed;
                 }
-                transfer.payload_type = substitute_type(&transfer.payload_type, substitutions);
-                transfer.result_type = substitute_type(&transfer.result_type, substitutions);
+                transfer.payload_type =
+                    runtime_type(&substitute_type(&transfer.payload_type, substitutions));
+                transfer.result_type =
+                    runtime_type(&substitute_type(&transfer.result_type, substitutions));
                 Ok(())
             }
         }

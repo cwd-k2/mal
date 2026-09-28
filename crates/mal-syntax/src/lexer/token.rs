@@ -103,6 +103,8 @@ pub enum TokenKind {
     Require,
     /// The `extern` keyword.
     Extern,
+    /// The `opaque` keyword.
+    Opaque,
     /// The `if` keyword.
     If,
     /// The `when` keyword.

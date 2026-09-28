@@ -113,6 +113,7 @@ impl<'a> Lexer<'a> {
         let kind = match text {
             "require" => TokenKind::Require,
             "extern" => TokenKind::Extern,
+            "opaque" => TokenKind::Opaque,
             "if" => TokenKind::If,
             "when" => TokenKind::When,
             "then" => TokenKind::Then,

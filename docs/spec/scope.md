@@ -11,6 +11,7 @@ Status: Accepted v0.6
 - fixed-width numeric、`ByteSize`、`USize`、logical、bit operation
 - language-intrinsic immutable `Symbol`
 - explicit parametric polymorphismとwhole-program specialization
+- file-local representation authorityを持つsource-defined opaque type
 - opaqueな`Address` capabilityとcanonical memory layout
 - mal-ownedで共有可変な`Buffer`
 - extern boundary
@@ -40,7 +41,7 @@ C hostの規則は[C host ABI](c-host-abi.md)、`malc`の対応環境は[`malc`�
 
 ## Named data
 
-recordやenumの代わりにtransparent alias、product、sumを使う。構築用の名前は通常のfunctionとしてbindingする。
+公開構造をそのままdata modelにする場合はtransparent alias、product、sumを使う。構築用の名前は通常のfunctionとしてbindingする。
 
 ```mal
 Point :: (Float64, Float64);
@@ -49,7 +50,8 @@ Maybe<A> :: [Unit, A];
 some<A> :: A -> Maybe<A> := (value) -> [none, some] => some(value);
 ```
 
-field name、implicit constructor、nominal identityはない。
+field nameとimplicit constructorはない。representation invariantをfile内へ閉じる場合は
+[file-local opaque type](types.md#file-local-opaque-type)を使い、通常のfunctionを公開operationにする。
 
 ## Memoryとmutable data
 

@@ -11,7 +11,7 @@ _keyCapacity :: USize := 16usize;
 _valueCapacity :: USize := 40usize;
 
 // Database keeps host transfer storage beside the managed image copied from it.
-Database :: (Address, Buffer<UInt8>);
+opaque Database :: (Address, Buffer<UInt8>);
 // PutResult distinguishes success, invalid field lengths, and exhausted record slots.
 PutResult :: [Unit, Unit, Unit];
 // LookupResult distinguishes a missing key from an owned value-byte snapshot.
@@ -62,6 +62,8 @@ initializeDatabase :: Address -> Database := (memory) -> {
     bytes.put(5usize, 64u8);
     (memory, bytes);
 };
+
+admitDatabase :: (Address, Buffer<UInt8>) -> Database := (memory, bytes) -> (memory, bytes);
 
 _validateRecords :: (Buffer<UInt8>, USize) -> Bool := (database, index) -> [return] => {
     when (index == _recordCount) {

@@ -5,7 +5,7 @@ Status: Exploratory
 この文書は、型parameterをvalue typeだけでなくtype constructorとして扱う後続profileと、それをoperation familyで利用する候補を管理する。
 現在のparametric polymorphismは型parameterをkind `Type`へ固定する。[parametric polymorphism](../spec/generics.md)と
 [operation family](../spec/operation-families.md)が現行規則であり、この文書の構文とoperationは未採択である。
-canonical type patternだけを拡張する案は[generic operation implementation](generic-operation-implementations.md)で別に扱う。
+canonical type patternだけの拡張は[operation family](../spec/operation-families.md)で採択済みである。
 
 ## 必要になる型
 

@@ -6,6 +6,7 @@ require "./support.mal";
 extern Handle;
 extern write :: (Handle, Symbol) -> Unit;
 Pair<T> :: (T, UInt8);
+opaque Box<T> :: (T, UInt8);
 Choice :: [Int32, UInt8];
 identity<T> :: T -> T := (value) -> value;
 equal<T> :: (T, T) -> Bool;
@@ -43,6 +44,17 @@ answer :: Int32 := 42i32;
           (atomic_type
             (type_identifier))))))
   (top_level_item
+    (opaque_type_declaration
+      (type_identifier)
+      (type_parameters
+        (type_identifier))
+      (atomic_type
+        (product_type
+          (atomic_type
+            (type_identifier))
+          (atomic_type
+            (type_identifier))))))
+  (top_level_item
     (type_alias
       (type_identifier)
       (atomic_type
@@ -54,8 +66,9 @@ answer :: Int32 := 42i32;
   (top_level_item
     (generic_binding
       (value_identifier)
-      (type_parameters
-        (type_identifier))
+      (type_arguments
+        (atomic_type
+          (type_identifier)))
       (atomic_type
         (type_identifier))
       (atomic_type
@@ -71,8 +84,9 @@ answer :: Int32 := 42i32;
   (top_level_item
     (generic_binding
       (value_identifier)
-      (type_parameters
-        (type_identifier))
+      (type_arguments
+        (atomic_type
+          (type_identifier)))
       (atomic_type
         (product_type
           (atomic_type
@@ -84,8 +98,9 @@ answer :: Int32 := 42i32;
   (top_level_item
     (generic_binding
       (value_identifier)
-      (type_parameters
-        (type_identifier))
+      (type_arguments
+        (atomic_type
+          (type_identifier)))
       (atomic_type
         (product_type
           (atomic_type

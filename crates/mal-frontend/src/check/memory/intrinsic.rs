@@ -25,6 +25,7 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
+        let expected = expected.map(|ty| super::super::types::representation_view(ty, span.file()));
         let Some(Type::Buffer(element)) = expected else {
             return Err(
                 Diagnostic::error("memory intrinsic type argument cannot be inferred")

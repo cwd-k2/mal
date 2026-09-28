@@ -7,6 +7,7 @@ use crate::resolve::ast::{
 };
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::FileId;
 use mal_syntax::source::Span;
 
 use super::{Checker, ast::Type};
@@ -25,6 +26,13 @@ pub(super) struct GenericAliasDefinition {
     pub(super) parameters: Vec<resolved::TypeBinding>,
     used_parameters: Vec<bool>,
     pub(super) value: Node<resolved::TypeExpression>,
+}
+
+#[derive(Clone)]
+pub(super) struct OpaqueDefinition {
+    pub(super) binding: resolved::TypeBinding,
+    pub(super) parameters: Vec<resolved::TypeBinding>,
+    pub(super) representation: Node<resolved::TypeExpression>,
 }
 
 impl Checker {
@@ -54,6 +62,32 @@ impl Checker {
         ensure_representable(&expanded, definition.value.span)
     }
 
+    pub(super) fn validate_opaque(
+        &mut self,
+        definition: &OpaqueDefinition,
+    ) -> Result<(), Diagnostic> {
+        let substitutions = std::sync::Arc::new(
+            definition
+                .parameters
+                .iter()
+                .map(|parameter| {
+                    (
+                        parameter.id,
+                        Type::Parameter {
+                            id: parameter.id,
+                            name: parameter.name.text.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let expanded = self.expand([Expansion::Expression(
+            definition.representation.clone(),
+            substitutions,
+        )])?;
+        ensure_representable(&expanded, definition.representation.span)
+    }
+
     pub(super) fn collect_aliases(&mut self, program: &resolved::Program) {
         for item in &program.items {
             match &item.kind {
@@ -71,6 +105,20 @@ impl Checker {
                             parameters: parameters.clone(),
                             used_parameters: used_parameters(parameters, value),
                             value: value.clone(),
+                        },
+                    );
+                }
+                resolved::TopItem::OpaqueType {
+                    binding,
+                    parameters,
+                    representation,
+                } => {
+                    self.opaque_types.insert(
+                        binding.id,
+                        OpaqueDefinition {
+                            binding: binding.clone(),
+                            parameters: parameters.clone(),
+                            representation: representation.clone(),
                         },
                     );
                 }
@@ -129,6 +177,8 @@ impl Checker {
                             1
                         } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
                             definition.parameters.len()
+                        } else if let Some(definition) = self.opaque_types.get(&constructor.id) {
+                            definition.parameters.len()
                         } else {
                             return Err(Diagnostic::error("type does not accept arguments")
                                 .with_primary(
@@ -151,11 +201,7 @@ impl Checker {
                             pending.extend(arguments.into_iter().rev().map(|argument| {
                                 Expansion::Expression(argument, substitutions.clone())
                             }));
-                        } else {
-                            let definition = self
-                                .generic_aliases
-                                .get(&constructor.id)
-                                .expect("generic alias was found above");
+                        } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
                             let used_parameters = definition
                                 .parameters
                                 .iter()
@@ -178,6 +224,19 @@ impl Checker {
                                 parameters: used_parameters,
                             });
                             pending.extend(used_arguments.into_iter().rev().map(|argument| {
+                                Expansion::Expression(argument, substitutions.clone())
+                            }));
+                        } else {
+                            let definition = self
+                                .opaque_types
+                                .get(&constructor.id)
+                                .expect("opaque type was found above");
+                            pending.push(Expansion::OpaqueStart {
+                                id: constructor.id,
+                                span: constructor.name.span,
+                                argument_count: definition.parameters.len(),
+                            });
+                            pending.extend(arguments.into_iter().rev().map(|argument| {
                                 Expansion::Expression(argument, substitutions.clone())
                             }));
                         }
@@ -221,6 +280,16 @@ impl Checker {
                         });
                     } else if let Some(expanded) = self.expanded_aliases.get(&id) {
                         values.push(expanded.clone());
+                    } else if let Some(definition) = self.opaque_types.get(&id) {
+                        if !definition.parameters.is_empty() {
+                            return Err(Diagnostic::error("generic type requires arguments")
+                                .with_primary(use_span, "supply the declared type arguments"));
+                        }
+                        pending.push(Expansion::OpaqueStart {
+                            id,
+                            span: use_span,
+                            argument_count: 0,
+                        });
                     } else if id == BUFFER_TYPE || self.generic_aliases.contains_key(&id) {
                         return Err(Diagnostic::error("generic type requires arguments")
                             .with_primary(use_span, "supply the declared type arguments"));
@@ -265,6 +334,51 @@ impl Checker {
                     ));
                 }
                 Expansion::FinishGenericAlias(id) => {
+                    assert!(self.expanding.remove(&id));
+                }
+                Expansion::OpaqueStart {
+                    id,
+                    span,
+                    argument_count,
+                } => {
+                    if !self.expanding.insert(id) {
+                        return Err(Diagnostic::error("recursive opaque representation")
+                            .with_primary(span, "this representation forms a type cycle"));
+                    }
+                    let arguments = take_last(&mut values, argument_count);
+                    let definition = self
+                        .opaque_types
+                        .get(&id)
+                        .expect("opaque type exists while expanding");
+                    let substitutions = std::sync::Arc::new(
+                        definition
+                            .parameters
+                            .iter()
+                            .map(|parameter| parameter.id)
+                            .zip(arguments.iter().cloned())
+                            .collect(),
+                    );
+                    pending.push(Expansion::OpaqueFinish { id, arguments });
+                    pending.push(Expansion::Expression(
+                        definition.representation.clone(),
+                        substitutions,
+                    ));
+                }
+                Expansion::OpaqueFinish { id, arguments } => {
+                    let representation = values
+                        .pop()
+                        .expect("opaque representation expansion produces a type");
+                    let definition = self
+                        .opaque_types
+                        .get(&id)
+                        .expect("opaque type exists when expansion finishes");
+                    values.push(Type::Opaque {
+                        id,
+                        name: definition.binding.name.text.clone().into(),
+                        arguments: arguments.into(),
+                        representation: representation.into(),
+                        declaration_file: definition.binding.name.span.file(),
+                    });
                     assert!(self.expanding.remove(&id));
                 }
                 Expansion::Alias(id) => {
@@ -321,6 +435,8 @@ impl Checker {
                         1
                     } else if let Some(definition) = self.generic_aliases.get(&constructor.id) {
                         definition.parameters.len()
+                    } else if let Some(definition) = self.opaque_types.get(&constructor.id) {
+                        definition.parameters.len()
                     } else {
                         return Err(Diagnostic::error("type does not accept arguments")
                             .with_primary(constructor.name.span, "remove these type arguments"));
@@ -369,6 +485,15 @@ enum Expansion {
         parameters: Vec<TypeId>,
     },
     FinishGenericAlias(TypeId),
+    OpaqueStart {
+        id: TypeId,
+        span: Span,
+        argument_count: usize,
+    },
+    OpaqueFinish {
+        id: TypeId,
+        arguments: Vec<Type>,
+    },
     Product(usize),
     Sum(usize),
     Function,
@@ -444,6 +569,23 @@ pub(super) fn substitute_type(
     match ty {
         Type::Parameter { id, .. } => substitutions.get(id).cloned().unwrap_or_else(|| ty.clone()),
         Type::Buffer(element) => Type::Buffer(substitute_type(element, substitutions).into()),
+        Type::Opaque {
+            id,
+            name,
+            arguments,
+            representation,
+            declaration_file,
+        } => Type::Opaque {
+            id: *id,
+            name: name.clone(),
+            arguments: arguments
+                .iter()
+                .map(|argument| substitute_type(argument, substitutions))
+                .collect::<Vec<_>>()
+                .into(),
+            representation: substitute_type(representation, substitutions).into(),
+            declaration_file: *declaration_file,
+        },
         Type::Product(elements) => Type::Product(
             elements
                 .iter()
@@ -466,8 +608,83 @@ pub(super) fn substitute_type(
     }
 }
 
+pub(super) fn runtime_type(ty: &Type) -> Type {
+    match ty {
+        Type::Opaque { representation, .. } => runtime_type(representation),
+        Type::Buffer(element) => Type::Buffer(runtime_type(element).into()),
+        Type::Product(elements) => {
+            Type::Product(elements.iter().map(runtime_type).collect::<Vec<_>>().into())
+        }
+        Type::Sum(members) => {
+            Type::Sum(members.iter().map(runtime_type).collect::<Vec<_>>().into())
+        }
+        Type::Function { parameter, result } => Type::Function {
+            parameter: runtime_type(parameter).into(),
+            result: runtime_type(result).into(),
+        },
+        _ => ty.clone(),
+    }
+}
+
 pub(super) fn bool_type() -> Type {
     Type::Sum(vec![Type::Unit, Type::Unit].into())
+}
+
+pub(super) fn representation_view(ty: &Type, file: FileId) -> &Type {
+    let mut current = ty;
+    while let Type::Opaque {
+        representation,
+        declaration_file,
+        ..
+    } = current
+    {
+        if *declaration_file != file {
+            break;
+        }
+        current = representation;
+    }
+    current
+}
+
+pub(super) fn equivalent_in_file(left: &Type, right: &Type, file: FileId) -> bool {
+    let mut pending = vec![(left, right)];
+    while let Some((left, right)) = pending.pop() {
+        if left == right {
+            continue;
+        }
+        if matches!((left, right), (Type::Opaque { .. }, Type::Opaque { .. })) {
+            return false;
+        }
+        let left_view = representation_view(left, file);
+        let right_view = representation_view(right, file);
+        if !std::ptr::eq(left, left_view) || !std::ptr::eq(right, right_view) {
+            pending.push((left_view, right_view));
+            continue;
+        }
+        match (left, right) {
+            (Type::Buffer(left), Type::Buffer(right)) => pending.push((left, right)),
+            (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
+                if left.len() == right.len() =>
+            {
+                pending.extend(left.iter().zip(right.iter()));
+            }
+            (
+                Type::Function {
+                    parameter: left_parameter,
+                    result: left_result,
+                },
+                Type::Function {
+                    parameter: right_parameter,
+                    result: right_result,
+                },
+            ) => {
+                pending.push((left_parameter, right_parameter));
+                pending.push((left_result, right_result));
+            }
+            _ => return false,
+        }
+    }
+    true
 }
 
 pub(super) fn function_placeholder() -> Type {

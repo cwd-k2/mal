@@ -40,6 +40,7 @@ top-level には次を置ける。
 
 ```text
 type alias
+file-local opaque type declaration
 external opaque type declaration
 external operation declaration
 value binding
@@ -47,6 +48,7 @@ value binding
 
 ```mal
 Point :: (Float64, Float64);
+opaque Counter :: Int32;
 extern printBytes :: (Address, USize) -> Unit;
 extern sqrt :: Float64 -> Float64;
 
@@ -60,7 +62,9 @@ distance :: (Point, Point) -> Float64 :=
     };
 ```
 
-type alias と extern declaration が導入する名前は unit 全体から参照できる。value binding は source order で scope に入り、[自己再帰の例外](execution.md#再帰) を除いて前方参照できない。
+type alias、opaque type、extern declarationが導入する名前はunit全体から参照できる。opaque typeのrepresentationを観察する
+authorityは宣言元fileだけにあり、名前のvisibilityとは別である。value bindingはsource orderでscopeに入り、
+[自己再帰の例外](execution.md#再帰)を除いて前方参照できない。
 
 top-level valueのRHSは、literal、product/sum、numeric conversion、external function、lambda、および
 それらからなる作用のない closed expression に制限する。演算は数値の単項`-`と、同じ整数型どうしの`+`、`-`、`*`だけを含む。

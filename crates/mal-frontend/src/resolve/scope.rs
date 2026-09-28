@@ -15,6 +15,7 @@ impl Resolver {
             match &item.kind {
                 ast::TopItem::TypeAlias { name, .. }
                 | ast::TopItem::GenericTypeAlias { name, .. }
+                | ast::TopItem::OpaqueType { name, .. }
                 | ast::TopItem::ExternalType { name } => {
                     if let Some(existing) = self.types.get(&name.text) {
                         return Err(

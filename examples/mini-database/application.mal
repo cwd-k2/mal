@@ -1,5 +1,6 @@
 require "./host.mal";
 require "./database.mal";
+require "./input.mal";
 require "./query.mal";
 
 _inputCapacity :: USize := 4096usize;
@@ -20,11 +21,11 @@ executeDatabase :: Symbol -> Int32 := (path) -> {
             when (!bytes.validateDatabase()) {
                 fail("invalid database file");
             };
-            (databaseMemory, bytes);
+            admitDatabase(databaseMemory, bytes);
         };
 
     (inputMemory, inputCapacity) := allocator.allocateBuffer(_inputCapacity);
-    reader := (input, inputMemory, inputCapacity, make<UInt8>(0usize), 0usize);
+    reader := reader(input, inputMemory, inputCapacity);
     reader.runQueries(file, database);
 
     file.closeFile();

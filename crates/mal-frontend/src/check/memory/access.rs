@@ -35,7 +35,8 @@ impl Checker {
             );
         }
         let receiver = self.check_expression(&arguments[0], None)?;
-        match (&receiver.ty, reference.id) {
+        let receiver_view = super::super::types::representation_view(&receiver.ty, span.file());
+        match (receiver_view, reference.id) {
             (Type::Buffer(element), NEW_VALUE) => {
                 let element = element.clone();
                 let (receiver, value) =

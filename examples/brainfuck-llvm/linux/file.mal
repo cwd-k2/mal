@@ -3,7 +3,7 @@ require "./syscall.mal";
 
 ReadResult :: [Buffer<UInt8>, UInt32];
 // MappingBuffer fields: 0 current mapping, 1 extent, 2 initialized byte length.
-MappingBuffer :: (Address, ByteSize, ByteSize);
+opaque MappingBuffer :: (Address, ByteSize, ByteSize);
 MappingFailure :: (MappingBuffer, UInt32);
 MappingResult :: [MappingBuffer, MappingFailure];
 

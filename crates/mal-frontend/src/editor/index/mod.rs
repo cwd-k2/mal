@@ -103,6 +103,7 @@ impl Index {
                         },
                     );
                 }
+                resolved::TopItem::OpaqueType { .. } => {}
                 resolved::TopItem::ExternalOperation { binding, ty, .. } => {
                     index.declared_value_types.insert(binding.id, ty.clone());
                 }

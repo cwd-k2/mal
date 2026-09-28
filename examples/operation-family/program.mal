@@ -1,10 +1,16 @@
 require "./operations.mal";
 
 equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;
+equal<Buffer<A>> :: (Buffer<A>, Buffer<A>) -> Bool := (left, right) -> #left == #right;
 zero<Int32> :: Int32 := 0;
 same<A> :: (A, A) -> Bool := (left, right) -> equal(left, right);
 
-main :: Unit -> Int32 := () ->
-    if (same(21i32 + 21i32, 42i32) && same(zero, 0i32))
-        then 0
-        else 1;
+main :: Unit -> Int32 := () -> {
+    left :: Buffer<Symbol> := make(0usize);
+    right :: Buffer<Symbol> := make(0usize);
+    left.new("generic");
+    right.new("operation");
+    if (same(21i32 + 21i32, 42i32) && same(zero, 0i32) && same(left, right))
+    then 0
+    else 1;
+};

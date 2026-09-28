@@ -465,7 +465,7 @@
       "required": true,
       "types": [
         {
-          "type": "type_parameters",
+          "type": "type_arguments",
           "named": true
         }
       ]
@@ -623,6 +623,46 @@
         },
         {
           "type": "symbol_literal",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "opaque_type_declaration",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type_identifier",
+            "named": true
+          }
+        ]
+      },
+      "representation": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "->",
+            "named": false
+          },
+          {
+            "type": "atomic_type",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "type_parameters",
           "named": true
         }
       ]
@@ -1019,6 +1059,10 @@
           "named": true
         },
         {
+          "type": "opaque_type_declaration",
+          "named": true
+        },
+        {
           "type": "type_alias",
           "named": true
         }
@@ -1373,6 +1417,10 @@
   {
     "type": "integer_literal",
     "named": true
+  },
+  {
+    "type": "opaque",
+    "named": false
   },
   {
     "type": "require",

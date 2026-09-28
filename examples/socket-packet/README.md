@@ -4,7 +4,7 @@ This example sends one packet through a Linux `AF_UNIX` `socketpair`. It exercis
 without requiring a listening port, external server, DNS, or network availability, so the example
 and its test remain deterministic.
 
-The mal-internal `Packet` is `(sequence, Symbol)`. The host adapter defines a wire frame containing
+The mal-internal `Packet` is file-local opaque over `(sequence, Symbol)`. The host adapter defines a wire frame containing
 an eight-byte big-endian sequence, an eight-byte big-endian payload length, and the payload bytes.
 This frame is the operation-specific socket contract, not a canonical memory representation of the
 `Packet` product.

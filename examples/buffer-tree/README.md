@@ -1,6 +1,6 @@
 # Buffer tree example
 
-This example uses `Buffer<NodeRow>` as a finite shared mutable carrier for a binary tree. The carrier
+This example hides a finite shared mutable `Buffer<NodeRow>` carrier behind opaque `NodeRows`. The carrier
 alone is not a tree: `buildTreeRows` establishes that coordinate 0 is the root and that branch fields
 form bounded, acyclic left and right relations. `sumTreeAt` interprets those carrier-relative
 coordinates while traversing the logical tree.
@@ -11,7 +11,8 @@ coordinates cheap to store; adjacency in that order does not itself mean parenth
 The example defines the transparent `NodeCoordinate :: USize` alias locally because that meaning
 belongs to this tree domain rather than to the standard `Buffer` API.
 
-`buildTreeRows` uses `make<NodeRow>` to construct the rows through an ordinary `Buffer<NodeRow>`. It
+`buildTreeRows` uses `make<NodeRow>` through the file-local representation view. Other files can use
+`NodeRows` only through the public tree operations. The builder
 appends parent slots before their child coordinates are known, then fills the relation with `put`.
 `incrementRoot` uses mutation through an alias; both names observe the updated root.
 Because it neither resizes nor reorders rows, existing coordinates keep their meaning. A compaction or

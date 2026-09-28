@@ -68,7 +68,8 @@ impl Checker {
                 span: pattern.span,
             }),
             resolved::Pattern::Product(elements) => {
-                let Type::Product(element_types) = ty else {
+                let viewed = types::representation_view(ty, pattern.span.file());
+                let Type::Product(element_types) = viewed else {
                     return Err(
                         Diagnostic::error("product pattern requires a product value")
                             .with_primary(
@@ -105,12 +106,12 @@ impl Checker {
 
     fn check_body_item(&mut self, item: &resolved::BodyItem) -> CheckResult<BodyItem> {
         match item {
-            resolved::BodyItem::Binding(binding) => Ok(BodyItem::Binding(
+            resolved::BodyItem::Binding(binding) => Ok(BodyItem::Binding(Box::new(
                 self.check_binding(&binding.kind, binding.span)?,
-            )),
-            resolved::BodyItem::Expression(expression) => Ok(BodyItem::Expression(
+            ))),
+            resolved::BodyItem::Expression(expression) => Ok(BodyItem::Expression(Box::new(
                 self.check_expression(expression, None)?,
-            )),
+            ))),
         }
     }
 

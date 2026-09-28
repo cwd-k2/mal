@@ -13,7 +13,7 @@ VALUE_IDENT ::= "_"? [a-z][A-Za-z0-9]*
 
 型名はPascalCase、値、parameter、external symbolはlowerCamelCaseである。先頭の`_`はtop-level declarationのprivate visibilityを
 表せる。単独の`_`はwildcardである。空白はASCII space、tab、CR、LF、commentは`//`からline末尾までとする。
-keywordは`require`、`extern`、`if`、`when`、`then`、`else`である。Unicode identifier、block comment、trailing commaはない。
+keywordは`require`、`extern`、`opaque`、`if`、`when`、`then`、`else`である。Unicode identifier、block comment、trailing commaはない。
 
 型identifierはdeclaration、annotation、generic parameter/argumentなどtype grammarが要求する位置だけに現れる。expressionから
 型を参照するtype-qualified primitiveとnumeric conversionはない。
@@ -42,6 +42,7 @@ program     ::= requireDecl* topItem*
 requireDecl ::= "require" symbolLiteral ";"
 
 topItem     ::= typeAlias ";"
+              | opaqueType ";"
               | externType ";"
               | externDecl ";"
               | genericValueItem ";"
@@ -51,6 +52,7 @@ typeParameters ::= "<" TYPE_IDENT ("," TYPE_IDENT)* ">"
 typeArguments  ::= "<" type ("," type)* ">"
 
 typeAlias      ::= TYPE_IDENT typeParameters? "::" type
+opaqueType     ::= "opaque" TYPE_IDENT typeParameters? "::" type
 externType     ::= "extern" TYPE_IDENT
 externDecl     ::= "extern" VALUE_IDENT "::" type
 genericValueItem ::= VALUE_IDENT typeArguments "::" type (":=" expression)?
@@ -69,7 +71,7 @@ sumType      ::= "[" "]" | "[" type "," type ("," type)* "]"
 `Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
 generic extern declarationはない。`>>` tokenはgeneric parameter/argument list内では二つのclosing `>`、expression内ではshiftである。
 `genericValueItem`のheaderはparserでは未分類のtype expression列として保持する。resolverはinitializerの有無とsource order上の
-family identityから、generic binding、operation family declaration、exact implementationへ分類する。
+family identityから、generic binding、operation family declaration、exact implementation、generic implementation patternへ分類する。
 
 ## Expression form
 

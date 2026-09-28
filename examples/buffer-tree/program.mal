@@ -3,7 +3,7 @@ NodeCoordinate :: USize;
 // NodeRow fields: value, kind (0 = leaf, 1 = branch), left coordinate, right coordinate.
 NodeRow :: (Int32, UInt8, NodeCoordinate, NodeCoordinate);
 // NodeRows is the physical row carrier; branch rows interpret two coordinates as child edges.
-NodeRows :: Buffer<NodeRow>;
+opaque NodeRows :: Buffer<NodeRow>;
 
 buildTreeRows :: Unit -> NodeRows := () -> {
     buffer := make<NodeRow>(0usize);

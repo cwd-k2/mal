@@ -102,6 +102,7 @@ impl Checker {
             Type::Product(_) => self.aggregate_aliases(source, parameter),
             Type::Sum(_)
             | Type::External { .. }
+            | Type::Opaque { .. }
             | Type::Int8
             | Type::Int16
             | Type::Int32
@@ -220,7 +221,11 @@ pub(super) fn is_host_mappable(ty: &Type) -> bool {
             | Type::USize
             | Type::External { .. } => {}
             Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
-            Type::Symbol | Type::Parameter { .. } | Type::Function { .. } | Type::Buffer(_) => {
+            Type::Symbol
+            | Type::Parameter { .. }
+            | Type::Function { .. }
+            | Type::Buffer(_)
+            | Type::Opaque { .. } => {
                 return false;
             }
         }

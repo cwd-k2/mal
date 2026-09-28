@@ -31,6 +31,23 @@ pub(in crate::check) fn type_name(ty: &Type) -> String {
                     "Buffer<"
                 }
                 Type::External { name, .. } => name,
+                Type::Opaque {
+                    name, arguments, ..
+                } => {
+                    if arguments.is_empty() {
+                        name
+                    } else {
+                        pending.push(TypeNamePart::Text(">"));
+                        for (index, argument) in arguments.iter().enumerate().rev() {
+                            pending.push(TypeNamePart::Type(argument));
+                            if index != 0 {
+                                pending.push(TypeNamePart::Text(", "));
+                            }
+                        }
+                        pending.push(TypeNamePart::Text(name));
+                        continue;
+                    }
+                }
                 Type::Product(elements) => {
                     push_aggregate_name(&mut pending, elements, ")");
                     "("

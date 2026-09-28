@@ -22,7 +22,8 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、arity mismatch、operand・期待result・higher-order位置・lambda result・直和continuation payloadからの推論、未確定と衝突、explicit application、first-classな単相value、generic extern rejection | 推論形と明示形のspecialization key共有、required fileを跨ぐgeneric application |
 | [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`、alias展開、requirement不足、既知の非storable型 | 型parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
 | [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
-| [operation family](../spec/operation-families.md) | familyとexact implementationの分類、canonical key重複、signature不一致、requirement伝播、missing implementation、value family | directly required familyへのimplementation、generic bodyから選択したimplementationが既存backendだけで実行される |
+| [operation family](../spec/operation-families.md) | familyとexact/generic implementationの分類、pattern overlap、全parameter束縛、減少、signature不一致、requirement伝播、missing implementation、opaque key | directly required familyへのimplementation、generic patternから選択したimplementationが既存backendだけで実行される |
+| [file-local opaque type](../spec/types.md#file-local-opaque-type) | declaration identity、同一fileの構築と分解、別fileのrepresentation拒否、recursive representation、HostMappable拒否 | specializationでrepresentationへ消去したproduct/sumを既存backendで実行する |
 
 ## Memory layoutとaccess
 

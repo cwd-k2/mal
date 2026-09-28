@@ -60,7 +60,8 @@ pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Di
     if let Some(item) = program.items.iter().find(|item| {
         matches!(
             item.kind,
-            TopItem::GenericBinding(_)
+            TopItem::OpaqueType { .. }
+                | TopItem::GenericBinding(_)
                 | TopItem::OperationFamily(_)
                 | TopItem::OperationImplementation(_)
         )
@@ -68,7 +69,7 @@ pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Di
         return Err(
             Diagnostic::error("program requires specialization").with_primary(
                 item.span,
-                "this generic or operation item has not been specialized",
+                "this opaque, generic, or operation item has not been specialized",
             ),
         );
     }
@@ -99,6 +100,7 @@ type CheckResult<T> = Result<T, CheckFailure>;
 struct Checker {
     aliases: HashMap<TypeId, Node<resolved::TypeExpression>>,
     generic_aliases: HashMap<TypeId, GenericAliasDefinition>,
+    opaque_types: HashMap<TypeId, types::OpaqueDefinition>,
     type_substitutions: std::sync::Arc<HashMap<TypeId, Type>>,
     active_requirements: HashSet<TypeId>,
     active_generic: Option<(ValueId, Vec<TypeId>)>,
@@ -139,6 +141,7 @@ impl Checker {
         Self {
             aliases: HashMap::new(),
             generic_aliases: HashMap::new(),
+            opaque_types: HashMap::new(),
             type_substitutions: Default::default(),
             active_requirements: HashSet::new(),
             active_generic: None,
@@ -170,6 +173,11 @@ impl Checker {
                     let definition = self.generic_aliases[&binding.id].clone();
                     self.validate_generic_alias(&definition)?;
                 }
+                resolved::TopItem::OpaqueType { binding, .. } => {
+                    let definition = self.opaque_types[&binding.id].clone();
+                    self.validate_opaque(&definition)?;
+                    self.aggregate_alias_sources.insert(binding.id, None);
+                }
                 _ => {}
             }
         }
@@ -197,13 +205,14 @@ impl Checker {
             }
             if let resolved::TopItem::OperationImplementation {
                 family,
+                parameters,
                 arguments,
                 annotation,
                 value,
             } = &item.kind
             {
                 let implementation = self.check_operation_implementation(
-                    family, arguments, annotation, value, item.span,
+                    family, parameters, arguments, annotation, value, item.span,
                 )?;
                 items.push(Node::new(
                     TopItem::OperationImplementation(Box::new(implementation)),
@@ -242,6 +251,9 @@ impl Checker {
                         element_aliases,
                     }
                 }
+                resolved::TopItem::OpaqueType { binding, .. } => TopItem::OpaqueType {
+                    binding: binding.clone(),
+                },
                 resolved::TopItem::ExternalType { binding } => TopItem::ExternalType {
                     binding: binding.clone(),
                 },
@@ -410,50 +422,125 @@ impl Checker {
     fn check_operation_implementation(
         &mut self,
         family: &resolved::ValueReference,
+        parameters: &[resolved::TypeBinding],
         arguments: &[Node<resolved::TypeExpression>],
         annotation: &Node<resolved::TypeExpression>,
         value: &Node<resolved::Expression>,
         span: Span,
     ) -> CheckResult<ast::OperationImplementation> {
-        let arguments = arguments
-            .iter()
-            .map(|argument| self.expand_type(argument))
-            .collect::<Result<Vec<_>, _>>()?;
-        if arguments.iter().any(contains_parameter) {
-            return Err(
-                Diagnostic::error("exact operation implementation requires closed types")
-                    .with_primary(family.name.span, "remove generic parameters from this key")
-                    .into(),
-            );
-        }
-        if self
-            .operation_keys
-            .iter()
-            .any(|(id, existing, _)| *id == family.id && *existing == arguments)
-        {
-            return Err(Diagnostic::error("duplicate operation implementation")
+        let substitutions = std::sync::Arc::new(
+            parameters
+                .iter()
+                .map(|parameter| {
+                    (
+                        parameter.id,
+                        Type::Parameter {
+                            id: parameter.id,
+                            name: parameter.name.text.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let previous_substitutions = std::mem::replace(&mut self.type_substitutions, substitutions);
+        let previous_generic = self.active_generic.take();
+        let previous_operations = std::mem::take(&mut self.active_operations);
+        let result = (|| {
+            let arguments = arguments
+                .iter()
+                .map(|argument| self.expand_type(argument))
+                .collect::<Result<Vec<_>, _>>()?;
+            if parameters.is_empty() && arguments.iter().any(contains_parameter) {
+                return Err(Diagnostic::error(
+                    "exact operation implementation requires closed types",
+                )
+                .with_primary(family.name.span, "remove generic parameters from this key")
+                .into());
+            }
+            if !parameters.is_empty()
+                && arguments
+                    .iter()
+                    .all(|argument| matches!(argument, Type::Parameter { .. }))
+            {
+                return Err(Diagnostic::error(
+                    "generic operation implementation requires structure",
+                )
                 .with_primary(
                     family.name.span,
-                    "this exact family key is already implemented",
+                    "a catch-all parameter key is not supported",
                 )
                 .into());
-        }
-        let expected = self
-            .check_generic_reference(family, arguments.clone(), family.name.span)?
-            .ty;
-        let declared = self.expand_type(annotation)?;
-        self.require_type(&declared, &expected, annotation.span)?;
-        let checked_value = self.check_expression(value, Some(&expected))?;
-        self.check_top_level_initializer(&checked_value)?;
-        self.operation_keys
-            .push((family.id, arguments.clone(), span));
-        Ok(ast::OperationImplementation {
-            family: family.clone(),
-            arguments,
-            ty: expected,
-            value: checked_value,
-            span,
-        })
+            }
+            if let Some(parameter) = parameters.iter().find(|parameter| {
+                !arguments
+                    .iter()
+                    .any(|argument| contains_parameter_id(argument, parameter.id))
+            }) {
+                return Err(Diagnostic::error(
+                    "generic operation pattern leaves a parameter unbound",
+                )
+                .with_primary(
+                    parameter.name.span,
+                    "use this family parameter in the implementation key",
+                )
+                .into());
+            }
+            if self.operation_keys.iter().any(|(id, existing, _)| {
+                *id == family.id && operation_patterns_overlap(existing, &arguments)
+            }) {
+                return Err(Diagnostic::error("duplicate operation implementation")
+                    .with_primary(
+                        family.name.span,
+                        "this family key overlaps an existing implementation",
+                    )
+                    .into());
+            }
+            let expected = self
+                .check_generic_reference(family, arguments.clone(), family.name.span)?
+                .ty;
+            let declared = self.expand_type(annotation)?;
+            self.require_type(&declared, &expected, annotation.span)?;
+            self.active_generic = (!parameters.is_empty()).then_some((
+                family.id,
+                parameters.iter().map(|parameter| parameter.id).collect(),
+            ));
+            let checked_value = self.check_expression(value, Some(&expected))?;
+            self.check_top_level_initializer(&checked_value)?;
+            let operations = std::mem::take(&mut self.active_operations);
+            if !parameters.is_empty() {
+                for requirement in &operations {
+                    let direct_self =
+                        requirement.family.id == family.id && requirement.arguments == arguments;
+                    if !direct_self
+                        && !operation_requirement_decreases(&arguments, &requirement.arguments)
+                    {
+                        return Err(Diagnostic::error(
+                            "generic operation requirement does not decrease",
+                        )
+                        .with_primary(
+                            requirement.family.name.span,
+                            "the required key must be a proper subterm of the implementation key",
+                        )
+                        .into());
+                    }
+                }
+            }
+            self.operation_keys
+                .push((family.id, arguments.clone(), span));
+            Ok(ast::OperationImplementation {
+                family: family.clone(),
+                parameters: parameters.to_vec(),
+                arguments,
+                ty: expected,
+                value: checked_value,
+                operations,
+                span,
+            })
+        })();
+        self.type_substitutions = previous_substitutions;
+        self.active_generic = previous_generic;
+        self.active_operations = previous_operations;
+        result
     }
 
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
@@ -487,10 +574,181 @@ fn contains_parameter(ty: &Type) -> bool {
     match ty {
         Type::Parameter { .. } => true,
         Type::Buffer(element) => contains_parameter(element),
+        Type::Opaque { arguments, .. } => arguments.iter().any(contains_parameter),
         Type::Product(elements) | Type::Sum(elements) => elements.iter().any(contains_parameter),
         Type::Function { parameter, result } => {
             contains_parameter(parameter) || contains_parameter(result)
         }
         _ => false,
     }
+}
+
+fn contains_parameter_id(ty: &Type, expected: TypeId) -> bool {
+    match ty {
+        Type::Parameter { id, .. } => *id == expected,
+        Type::Buffer(element) => contains_parameter_id(element, expected),
+        Type::Opaque { arguments, .. } => arguments
+            .iter()
+            .any(|argument| contains_parameter_id(argument, expected)),
+        Type::Product(elements) | Type::Sum(elements) => elements
+            .iter()
+            .any(|element| contains_parameter_id(element, expected)),
+        Type::Function { parameter, result } => {
+            contains_parameter_id(parameter, expected) || contains_parameter_id(result, expected)
+        }
+        _ => false,
+    }
+}
+
+fn operation_patterns_overlap(left: &[Type], right: &[Type]) -> bool {
+    if left.len() != right.len() {
+        return false;
+    }
+    let mut substitutions = HashMap::new();
+    let mut pending = left
+        .iter()
+        .cloned()
+        .zip(right.iter().cloned())
+        .collect::<Vec<_>>();
+    while let Some((left, right)) = pending.pop() {
+        let left = resolve_operation_parameter(left, &substitutions);
+        let right = resolve_operation_parameter(right, &substitutions);
+        match (&left, &right) {
+            (Type::Parameter { id: left, .. }, Type::Parameter { id: right, .. })
+                if left == right => {}
+            (Type::Parameter { id, .. }, _) => {
+                if operation_type_contains(&right, *id, &substitutions) {
+                    return false;
+                }
+                substitutions.insert(*id, right);
+            }
+            (_, Type::Parameter { id, .. }) => {
+                if operation_type_contains(&left, *id, &substitutions) {
+                    return false;
+                }
+                substitutions.insert(*id, left);
+            }
+            (Type::Buffer(left), Type::Buffer(right)) => {
+                pending.push((left.as_ref().clone(), right.as_ref().clone()));
+            }
+            (
+                Type::Opaque {
+                    id: left_id,
+                    arguments: left,
+                    ..
+                },
+                Type::Opaque {
+                    id: right_id,
+                    arguments: right,
+                    ..
+                },
+            ) if left_id == right_id && left.len() == right.len() => {
+                pending.extend(left.iter().cloned().zip(right.iter().cloned()));
+            }
+            (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
+                if left.len() == right.len() =>
+            {
+                pending.extend(left.iter().cloned().zip(right.iter().cloned()));
+            }
+            (
+                Type::Function {
+                    parameter: left_parameter,
+                    result: left_result,
+                },
+                Type::Function {
+                    parameter: right_parameter,
+                    result: right_result,
+                },
+            ) => {
+                pending.push((
+                    left_parameter.as_ref().clone(),
+                    right_parameter.as_ref().clone(),
+                ));
+                pending.push((left_result.as_ref().clone(), right_result.as_ref().clone()));
+            }
+            _ if left == right => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+fn resolve_operation_parameter(mut ty: Type, substitutions: &HashMap<TypeId, Type>) -> Type {
+    let mut seen = HashSet::new();
+    while let Type::Parameter { id, .. } = &ty {
+        if !seen.insert(*id) {
+            break;
+        }
+        let Some(replacement) = substitutions.get(id) else {
+            break;
+        };
+        ty = replacement.clone();
+    }
+    ty
+}
+
+fn operation_type_contains(
+    root: &Type,
+    expected: TypeId,
+    substitutions: &HashMap<TypeId, Type>,
+) -> bool {
+    let mut pending = vec![root];
+    let mut expanded = HashSet::new();
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Parameter { id, .. } if *id == expected => return true,
+            Type::Parameter { id, .. } if expanded.insert(*id) => {
+                if let Some(replacement) = substitutions.get(id) {
+                    pending.push(replacement);
+                }
+            }
+            Type::Buffer(element) => pending.push(element),
+            Type::Opaque { arguments, .. } => pending.extend(arguments.iter()),
+            Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
+            Type::Function { parameter, result } => {
+                pending.push(parameter);
+                pending.push(result);
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn operation_requirement_decreases(pattern: &[Type], requirement: &[Type]) -> bool {
+    requirement.iter().all(|required| {
+        pattern
+            .iter()
+            .any(|root| proper_type_subterm(root, required))
+    })
+}
+
+fn proper_type_subterm(root: &Type, required: &Type) -> bool {
+    let mut pending = Vec::new();
+    match root {
+        Type::Buffer(element) => pending.push(element.as_ref()),
+        Type::Opaque { arguments, .. } => pending.extend(arguments.iter()),
+        Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
+        Type::Function { parameter, result } => {
+            pending.push(parameter);
+            pending.push(result);
+        }
+        _ => {}
+    }
+    while let Some(candidate) = pending.pop() {
+        if candidate == required {
+            return true;
+        }
+        match candidate {
+            Type::Buffer(element) => pending.push(element),
+            Type::Opaque { arguments, .. } => pending.extend(arguments.iter()),
+            Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
+            Type::Function { parameter, result } => {
+                pending.push(parameter);
+                pending.push(result);
+            }
+            _ => {}
+        }
+    }
+    false
 }
