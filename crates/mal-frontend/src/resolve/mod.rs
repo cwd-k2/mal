@@ -1,6 +1,6 @@
 //! Name identity, lexical scope, result authority, and capture inference.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
@@ -53,6 +53,7 @@ struct LambdaFrame {
 struct Resolver {
     types: HashMap<String, TypeBinding>,
     externals: HashMap<String, ExternalBinding>,
+    operation_families: HashSet<ValueId>,
     value_scopes: Vec<HashMap<String, ValueBinding>>,
     current_lambda: Option<LambdaId>,
     lambda_frames: Vec<LambdaFrame>,
@@ -68,6 +69,7 @@ impl Resolver {
         let mut resolver = Self {
             types: HashMap::new(),
             externals: HashMap::new(),
+            operation_families: HashSet::new(),
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
             lambda_frames: Vec::new(),
@@ -100,6 +102,7 @@ impl Resolver {
     fn begin_file(&mut self, span: Span) {
         self.types.clear();
         self.externals.clear();
+        self.operation_families.clear();
         self.value_scopes.clear();
         self.value_scopes.push(HashMap::new());
         self.current_lambda = None;
@@ -156,33 +159,79 @@ impl Resolver {
             }
             mal_syntax::ast::TopItem::GenericBinding {
                 name,
-                parameters,
+                arguments,
                 annotation,
                 value,
             } => {
-                let binding = self.declare_value(name, ValueOwner::TopLevel)?;
-                let (parameter_bindings, shadowed) = self.push_type_parameters(parameters)?;
-                let resolved = (|| {
+                let existing = self.value_scopes[0].get(&name.text).cloned();
+                if value.is_none() {
+                    let parameters = generic_parameter_names(arguments)?;
+                    let binding = self.declare_value(name, ValueOwner::TopLevel)?;
+                    self.operation_families.insert(binding.id);
+                    let (parameter_bindings, shadowed) = self.push_type_parameters(&parameters)?;
+                    let annotation = self.resolve_type(annotation);
+                    self.pop_type_parameters(&parameter_bindings, shadowed);
+                    ast::TopItem::OperationFamily {
+                        binding,
+                        parameters: parameter_bindings,
+                        annotation: annotation?,
+                    }
+                } else if let Some(family) = existing
+                    && self.operation_families.contains(&family.id)
+                {
+                    let arguments = arguments
+                        .iter()
+                        .map(|argument| self.resolve_type(argument))
+                        .collect::<Result<_, _>>()?;
                     let annotation = self.resolve_type(annotation)?;
+                    let value = value.as_ref().expect("implementation has an initializer");
                     let value = if let mal_syntax::ast::Expression::Lambda(lambda) = &value.kind {
                         mal_syntax::ast::Node::new(
                             ast::Expression::Lambda(
-                                self.resolve_lambda_with_self(lambda, Some(binding.clone()))?,
+                                self.resolve_lambda_with_self(lambda, Some(family.clone()))?,
                             ),
                             value.span,
                         )
                     } else {
                         self.resolve_expression(value)?
                     };
-                    Ok((annotation, value))
-                })();
-                self.pop_type_parameters(&parameter_bindings, shadowed);
-                let (annotation, value) = resolved?;
-                ast::TopItem::GenericBinding {
-                    binding,
-                    parameters: parameter_bindings,
-                    annotation,
-                    value,
+                    ast::TopItem::OperationImplementation {
+                        family: ast::ValueReference {
+                            id: family.id,
+                            name: name.clone(),
+                        },
+                        arguments,
+                        annotation,
+                        value,
+                    }
+                } else {
+                    let parameters = generic_parameter_names(arguments)?;
+                    let binding = self.declare_value(name, ValueOwner::TopLevel)?;
+                    let (parameter_bindings, shadowed) = self.push_type_parameters(&parameters)?;
+                    let resolved = (|| {
+                        let annotation = self.resolve_type(annotation)?;
+                        let value = value.as_ref().expect("generic binding has an initializer");
+                        let value = if let mal_syntax::ast::Expression::Lambda(lambda) = &value.kind
+                        {
+                            mal_syntax::ast::Node::new(
+                                ast::Expression::Lambda(
+                                    self.resolve_lambda_with_self(lambda, Some(binding.clone()))?,
+                                ),
+                                value.span,
+                            )
+                        } else {
+                            self.resolve_expression(value)?
+                        };
+                        Ok((annotation, value))
+                    })();
+                    self.pop_type_parameters(&parameter_bindings, shadowed);
+                    let (annotation, value) = resolved?;
+                    ast::TopItem::GenericBinding {
+                        binding,
+                        parameters: parameter_bindings,
+                        annotation,
+                        value,
+                    }
                 }
             }
         };
@@ -322,4 +371,21 @@ impl Resolver {
                 .with_primary(span, "this binding has no owning lambda")
         })
     }
+}
+
+fn generic_parameter_names(
+    arguments: &[mal_syntax::ast::Node<mal_syntax::ast::TypeExpression>],
+) -> Result<Vec<mal_syntax::ast::Name>, Diagnostic> {
+    arguments
+        .iter()
+        .map(|argument| match &argument.kind {
+            mal_syntax::ast::TypeExpression::Named(name) => Ok(name.clone()),
+            _ => Err(
+                Diagnostic::error("generic declaration parameters must be names").with_primary(
+                    argument.span,
+                    "this is a type expression, not a parameter name",
+                ),
+            ),
+        })
+        .collect()
 }

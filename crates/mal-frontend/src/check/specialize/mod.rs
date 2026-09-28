@@ -32,6 +32,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             .with_primary(program_span, "the root file must declare `main`")
     })?;
     let mut definitions = HashMap::new();
+    let mut implementations = Vec::new();
     let mut bindings = Vec::new();
     let mut binding_items = HashMap::new();
     let mut items = Vec::new();
@@ -40,6 +41,10 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             TopItem::GenericBinding(definition) => {
                 definitions.insert(definition.binding.id, *definition);
             }
+            TopItem::OperationImplementation(implementation) => {
+                implementations.push(*implementation);
+            }
+            TopItem::OperationFamily(_) => {}
             TopItem::Binding(binding) => {
                 let index = bindings.len();
                 collect_pattern_bindings(&binding.pattern, index, &mut binding_items);
@@ -50,6 +55,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
     }
     let mut specializer = Specializer {
         definitions,
+        implementations,
         bindings,
         binding_items,
         selected_bindings: HashSet::new(),
@@ -59,42 +65,75 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         instance_buckets: HashMap::new(),
         fingerprints: TypeFingerprints::default(),
         pending: Vec::new(),
+        pending_operations: Vec::new(),
         next_value: identities.value,
         next_lambda: identities.lambda,
         value_renames: HashMap::new(),
         lambda_renames: HashMap::new(),
     };
     specializer.request_binding(entry.binding)?;
-    let mut cursor = 0;
-    while cursor < specializer.pending.len() {
-        let (generic, arguments, binding) = specializer.pending[cursor].clone();
-        cursor += 1;
-        let definition = specializer
-            .definitions
-            .get(&generic)
-            .cloned()
-            .expect("checked generic reference has a definition");
-        let substitutions = definition
-            .parameters
+    let mut generic_cursor = 0;
+    let mut operation_cursor = 0;
+    while generic_cursor < specializer.pending.len()
+        || operation_cursor < specializer.pending_operations.len()
+    {
+        if generic_cursor < specializer.pending.len() {
+            let (generic, arguments, binding) = specializer.pending[generic_cursor].clone();
+            generic_cursor += 1;
+            let definition = specializer
+                .definitions
+                .get(&generic)
+                .cloned()
+                .expect("checked generic reference has a definition");
+            let substitutions = definition
+                .parameters
+                .iter()
+                .map(|parameter| parameter.id)
+                .zip(arguments)
+                .collect::<HashMap<_, _>>();
+            let mut value = definition.value;
+            specializer.begin_instance_identities();
+            specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
+            let ty = substitute_type(&definition.ty, &substitutions);
+            specializer.specializations.push(Node::new(
+                TopItem::Binding(Box::new(Binding {
+                    pattern: Pattern::Binding {
+                        binding,
+                        ty: ty.clone(),
+                    },
+                    annotation: Some(ty),
+                    value,
+                    span: definition.span,
+                })),
+                definition.span,
+            ));
+            continue;
+        }
+
+        let (family, arguments, binding) = specializer.pending_operations[operation_cursor].clone();
+        operation_cursor += 1;
+        let implementation = specializer
+            .implementations
             .iter()
-            .map(|parameter| parameter.id)
-            .zip(arguments)
-            .collect::<HashMap<_, _>>();
-        let mut value = definition.value;
+            .find(|implementation| {
+                implementation.family.id == family.id && implementation.arguments == arguments
+            })
+            .cloned()
+            .expect("a queued operation has an exact implementation");
+        let mut value = implementation.value;
         specializer.begin_instance_identities();
-        specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
-        let ty = substitute_type(&definition.ty, &substitutions);
+        specializer.expression(&mut value, &HashMap::new(), Some((family.id, binding.id)))?;
         specializer.specializations.push(Node::new(
             TopItem::Binding(Box::new(Binding {
                 pattern: Pattern::Binding {
                     binding,
-                    ty: ty.clone(),
+                    ty: implementation.ty.clone(),
                 },
-                annotation: Some(ty),
+                annotation: Some(implementation.ty),
                 value,
-                span: definition.span,
+                span: implementation.span,
             })),
-            definition.span,
+            implementation.span,
         ));
     }
     for index in 0..specializer.bindings.len() {
@@ -112,6 +151,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
 
 struct Specializer {
     definitions: HashMap<ValueId, GenericBinding>,
+    implementations: Vec<OperationImplementation>,
     bindings: Vec<Option<Node<TopItem>>>,
     binding_items: HashMap<ValueId, usize>,
     selected_bindings: HashSet<usize>,
@@ -121,6 +161,7 @@ struct Specializer {
     instance_buckets: HashMap<(ValueId, u64), Vec<usize>>,
     fingerprints: TypeFingerprints,
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
+    pending_operations: Vec<(ValueReference, Vec<Type>, ValueBinding)>,
     next_value: u32,
     next_lambda: u32,
     value_renames: HashMap<ValueId, ValueId>,
@@ -202,6 +243,62 @@ impl Specializer {
         Ok(ValueReference {
             id: binding.id,
             name: reference.name.clone(),
+        })
+    }
+
+    fn request_operation(
+        &mut self,
+        family: &ValueReference,
+        arguments: &[Type],
+    ) -> Result<ValueReference, Diagnostic> {
+        let fingerprint = self.fingerprints.arguments(arguments);
+        if let Some((_, _, binding)) = self
+            .instance_buckets
+            .get(&(family.id, fingerprint))
+            .into_iter()
+            .flatten()
+            .filter_map(|&index| self.instances.get(index))
+            .find(|(id, existing, _)| *id == family.id && existing == arguments)
+        {
+            return Ok(ValueReference {
+                id: binding.id,
+                name: family.name.clone(),
+            });
+        }
+        let _implementation = self
+            .implementations
+            .iter()
+            .find(|implementation| {
+                implementation.family.id == family.id && implementation.arguments == arguments
+            })
+            .cloned()
+            .ok_or_else(|| {
+                Diagnostic::error("missing operation implementation").with_primary(
+                    family.name.span,
+                    format!(
+                        "no exact implementation of `{}` exists for these type arguments",
+                        family.name.text
+                    ),
+                )
+            })?;
+        admit_specialization(self.instances.len(), family.name.span)?;
+        let binding = ValueBinding {
+            id: self.fresh_value(family.name.span)?,
+            name: family.name.clone(),
+            owner: crate::resolve::ast::ValueOwner::TopLevel,
+        };
+        let entry = (family.id, arguments.to_vec(), binding.clone());
+        let index = self.instances.len();
+        self.instances.push(entry);
+        self.instance_buckets
+            .entry((family.id, fingerprint))
+            .or_default()
+            .push(index);
+        self.pending_operations
+            .push((family.clone(), arguments.to_vec(), binding.clone()));
+        Ok(ValueReference {
+            id: binding.id,
+            name: family.name.clone(),
         })
     }
 }

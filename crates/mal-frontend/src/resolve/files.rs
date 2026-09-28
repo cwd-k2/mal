@@ -11,6 +11,7 @@ struct Exports {
     types: Vec<TypeBinding>,
     externals: Vec<ExternalBinding>,
     values: Vec<ValueBinding>,
+    operation_families: Vec<ValueBinding>,
 }
 
 pub(super) fn resolve(
@@ -133,6 +134,9 @@ impl FileResolver<'_> {
             }
             self.resolver.value_scopes[0].insert(name.clone(), binding.clone());
         }
+        for binding in &exports.operation_families {
+            self.resolver.operation_families.insert(binding.id);
+        }
         Ok(())
     }
 }
@@ -161,6 +165,10 @@ fn collect_exports(exports: &mut Exports, item: &resolved::TopItem) {
         resolved::TopItem::Binding(binding) => collect_pattern_exports(exports, &binding.pattern),
         resolved::TopItem::GenericBinding { binding, .. } if is_public(&binding.name.text) => {
             exports.values.push(binding.clone());
+        }
+        resolved::TopItem::OperationFamily { binding, .. } if is_public(&binding.name.text) => {
+            exports.values.push(binding.clone());
+            exports.operation_families.push(binding.clone());
         }
         _ => {}
     }

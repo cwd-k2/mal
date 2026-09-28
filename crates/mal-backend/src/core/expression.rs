@@ -8,8 +8,11 @@ impl Lowerer {
                 TRUE_VALUE => return self.bool_value(true, expression.span),
                 id => ExpressionKind::Reference(ValueId::Source(id)),
             },
-            checked::ExpressionKind::GenericReference { .. } => {
-                unreachable!("specialization removes generic references before core lowering")
+            checked::ExpressionKind::GenericReference { .. }
+            | checked::ExpressionKind::OperationReference { .. } => {
+                unreachable!(
+                    "specialization removes generic and operation references before core lowering"
+                )
             }
             checked::ExpressionKind::Integer(value) => ExpressionKind::Integer(*value),
             checked::ExpressionKind::Float(bits) => ExpressionKind::Float(*bits),

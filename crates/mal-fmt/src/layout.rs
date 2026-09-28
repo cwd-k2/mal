@@ -190,7 +190,9 @@ pub(super) fn top_level_breaks(
 fn is_function_binding(item: &TopItem) -> bool {
     let expression = match item {
         TopItem::Binding(binding) => &binding.value.kind,
-        TopItem::GenericBinding { value, .. } => &value.kind,
+        TopItem::GenericBinding {
+            value: Some(value), ..
+        } => &value.kind,
         _ => return false,
     };
     let mut expression = expression;

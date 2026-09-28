@@ -52,5 +52,7 @@ mod functions;
 mod memory;
 #[path = "check/numeric.rs"]
 mod numeric;
+#[path = "check/operations.rs"]
+mod operations;
 #[path = "check/symbol.rs"]
 mod symbol;

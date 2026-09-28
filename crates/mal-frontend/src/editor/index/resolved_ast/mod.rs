@@ -100,6 +100,49 @@ impl Index {
                 self.collect_resolved_type(annotation);
                 self.collect_resolved_expression_with_expected(value, Some(annotation));
             }
+            resolved::TopItem::OperationFamily {
+                binding,
+                parameters,
+                annotation,
+            } => {
+                let id = SymbolId::Value(binding.id);
+                self.value_types
+                    .insert(binding.id, super::type_display::type_name(annotation));
+                self.top_level.push(id);
+                self.add_raw(
+                    id,
+                    &binding.name,
+                    OccurrenceRole::Declaration,
+                    Some(item.span),
+                );
+                for parameter in parameters {
+                    self.add_raw(
+                        SymbolId::Type(parameter.id),
+                        &parameter.name,
+                        OccurrenceRole::Declaration,
+                        None,
+                    );
+                }
+                self.collect_resolved_type(annotation);
+            }
+            resolved::TopItem::OperationImplementation {
+                family,
+                arguments,
+                annotation,
+                value,
+            } => {
+                self.add_raw(
+                    SymbolId::Value(family.id),
+                    &family.name,
+                    OccurrenceRole::Reference,
+                    None,
+                );
+                for argument in arguments {
+                    self.collect_resolved_type(argument);
+                }
+                self.collect_resolved_type(annotation);
+                self.collect_resolved_expression_with_expected(value, Some(annotation));
+            }
         }
     }
 

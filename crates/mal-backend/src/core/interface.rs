@@ -49,7 +49,10 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 result_alias: result_alias.clone(),
                 span: item.span,
             }),
-            checked::TopItem::GenericBinding(_) | checked::TopItem::Binding(_) => {}
+            checked::TopItem::GenericBinding(_)
+            | checked::TopItem::OperationFamily(_)
+            | checked::TopItem::OperationImplementation(_)
+            | checked::TopItem::Binding(_) => {}
         }
     }
     interface

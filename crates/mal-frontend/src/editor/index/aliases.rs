@@ -11,6 +11,9 @@ impl Index {
             resolved::TopItem::GenericBinding { value, .. } => {
                 self.collect_aliases_expression(&value.kind)
             }
+            resolved::TopItem::OperationImplementation { value, .. } => {
+                self.collect_aliases_expression(&value.kind)
+            }
             _ => {}
         }
     }

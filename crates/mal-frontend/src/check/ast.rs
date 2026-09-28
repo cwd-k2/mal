@@ -312,6 +312,10 @@ pub enum TopItem {
     },
     /// A checked generic value definition awaiting specialization.
     GenericBinding(Box<GenericBinding>),
+    /// A checked operation-family signature awaiting exact implementation selection.
+    OperationFamily(Box<OperationFamily>),
+    /// A checked exact implementation awaiting reachability-driven selection.
+    OperationImplementation(Box<OperationImplementation>),
     /// A checked monomorphic value definition.
     Binding(Box<Binding>),
 }
@@ -327,8 +331,47 @@ pub struct GenericBinding {
     pub ty: Type,
     /// The checked initializer before substitution.
     pub value: Expression,
+    /// Operation-family goals required by the generic body.
+    pub operations: Vec<OperationRequirement>,
     /// The complete definition span.
     pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// A generic operation signature selected by exact canonical type arguments.
+pub struct OperationFamily {
+    /// The family declaration.
+    pub binding: ValueBinding,
+    /// Generic type parameters in declaration order.
+    pub parameters: Vec<TypeBinding>,
+    /// The canonical generic signature.
+    pub ty: Type,
+    /// The complete declaration span.
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// One closed implementation of an operation family.
+pub struct OperationImplementation {
+    /// The family identity and implementation-site spelling.
+    pub family: ValueReference,
+    /// Closed canonical arguments forming the exact key.
+    pub arguments: Vec<Type>,
+    /// The canonical instantiated family signature.
+    pub ty: Type,
+    /// The checked initializer.
+    pub value: Expression,
+    /// The complete implementation span.
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// A typed operation-family goal retained by a generic body until specialization.
+pub struct OperationRequirement {
+    /// The required family.
+    pub family: ValueReference,
+    /// Canonical arguments, possibly containing the enclosing binding's rigid parameters.
+    pub arguments: Vec<Type>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -498,6 +541,13 @@ pub enum ExpressionKind {
         /// The referenced generic definition.
         reference: ValueReference,
         /// Canonical type arguments in declaration order.
+        arguments: Vec<Type>,
+    },
+    /// A family reference awaiting exact implementation selection during specialization.
+    OperationReference {
+        /// The referenced family declaration.
+        family: ValueReference,
+        /// Canonical family arguments in declaration order.
         arguments: Vec<Type>,
     },
     /// An integer value admitted into its checked scalar type.

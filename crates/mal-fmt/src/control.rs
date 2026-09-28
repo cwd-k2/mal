@@ -35,7 +35,9 @@ impl ControlLayout {
                     &binding.value,
                     ExpressionPosition::Root,
                 ),
-                TopItem::GenericBinding { value, .. } => {
+                TopItem::GenericBinding {
+                    value: Some(value), ..
+                } => {
                     layout.mark_expression(source, lexed, blocks, value, ExpressionPosition::Root);
                 }
                 _ => {}

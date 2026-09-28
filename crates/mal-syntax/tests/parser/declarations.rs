@@ -116,10 +116,13 @@ fn parses_generic_aliases_bindings_and_nested_indexed_types() {
     );
     assert!(matches!(value.kind, TypeExpression::Product(_)));
 
-    let TopItem::GenericBinding { parameters, .. } = &program.items[1].kind else {
+    let TopItem::GenericBinding { arguments, .. } = &program.items[1].kind else {
         panic!("expected a generic binding");
     };
-    assert_eq!(parameters[0].text, "A");
+    let TypeExpression::Named(parameter) = &arguments[0].kind else {
+        panic!("expected a parameter name");
+    };
+    assert_eq!(parameter.text, "A");
 
     let TopItem::Binding(read) = &program.items[2].kind else {
         panic!("expected a monomorphic binding");
@@ -131,6 +134,30 @@ fn parses_generic_aliases_bindings_and_nested_indexed_types() {
         panic!("expected a function type");
     };
     assert!(matches!(parameter.kind, TypeExpression::Application { .. }));
+}
+
+#[test]
+fn preserves_unclassified_operation_family_headers() {
+    let program = parse_ok(
+        "equal<A> :: (A, A) -> Bool;\n\
+         equal<Buffer<Int32>> :: (Buffer<Int32>, Buffer<Int32>) -> Bool := (left, right) -> left == right;",
+    );
+
+    let TopItem::GenericBinding { value, .. } = &program.items[0].kind else {
+        panic!("expected a generic header");
+    };
+    assert!(value.is_none());
+    let TopItem::GenericBinding {
+        arguments, value, ..
+    } = &program.items[1].kind
+    else {
+        panic!("expected an implementation header");
+    };
+    assert!(matches!(
+        arguments[0].kind,
+        TypeExpression::Application { .. }
+    ));
+    assert!(value.is_some());
 }
 
 #[test]

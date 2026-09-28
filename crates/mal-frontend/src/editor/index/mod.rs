@@ -127,6 +127,20 @@ impl Index {
                         },
                     );
                 }
+                resolved::TopItem::OperationFamily {
+                    binding,
+                    parameters,
+                    annotation,
+                } => {
+                    index.generic_value_types.insert(
+                        binding.id,
+                        GenericValueType {
+                            parameters: parameters.iter().map(|parameter| parameter.id).collect(),
+                            ty: annotation.clone(),
+                        },
+                    );
+                }
+                resolved::TopItem::OperationImplementation { .. } => {}
                 resolved::TopItem::ExternalType { .. } => {}
             }
         }

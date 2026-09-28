@@ -81,16 +81,16 @@ pub enum TopItem {
     },
     /// A monomorphic value binding.
     Binding(Binding),
-    /// A value binding explicitly parameterized by types.
+    /// A generic value header, classified during name resolution as a binding, family, or implementation.
     GenericBinding {
         /// The declared value name.
         name: Name,
-        /// Type parameters in declaration order.
-        parameters: Vec<Name>,
+        /// Header type entries in source order.
+        arguments: Vec<Node<TypeExpression>>,
         /// The required type annotation.
         annotation: Node<TypeExpression>,
-        /// The bound expression.
-        value: Node<Expression>,
+        /// The initializer, absent for an operation-family declaration.
+        value: Option<Node<Expression>>,
     },
 }
 

@@ -15,7 +15,7 @@ use super::{CheckResult, Checker, GenericSignature};
 
 impl Checker {
     pub(super) fn check_generic_reference(
-        &self,
+        &mut self,
         reference: &resolved::ValueReference,
         arguments: Vec<Type>,
         span: Span,
@@ -23,7 +23,8 @@ impl Checker {
         let signature = self
             .generic_signatures
             .get(&reference.id)
-            .expect("generic reference has a collected signature");
+            .expect("generic reference has a collected signature")
+            .clone();
         if arguments.len() != signature.parameters.len() {
             return Err(Diagnostic::error("generic value argument arity mismatch")
                 .with_primary(
@@ -83,18 +84,56 @@ impl Checker {
             .map(|parameter| parameter.id)
             .zip(arguments.iter().cloned())
             .collect();
-        Ok(Expression {
-            kind: super::ast::ExpressionKind::GenericReference {
+        let kind = if self.operation_families.contains(&reference.id) {
+            if self.active_generic.is_some()
+                && !self.active_operations.iter().any(|requirement| {
+                    requirement.family.id == reference.id && requirement.arguments == arguments
+                })
+            {
+                self.active_operations
+                    .push(super::ast::OperationRequirement {
+                        family: reference.clone(),
+                        arguments: arguments.clone(),
+                    });
+            }
+            super::ast::ExpressionKind::OperationReference {
+                family: reference.clone(),
+                arguments,
+            }
+        } else {
+            if self.active_generic.is_some() {
+                for requirement in &signature.operations {
+                    let requirement_arguments = requirement
+                        .arguments
+                        .iter()
+                        .map(|argument| super::types::substitute_type(argument, &substitutions))
+                        .collect::<Vec<_>>();
+                    if !self.active_operations.iter().any(|existing| {
+                        existing.family.id == requirement.family.id
+                            && existing.arguments == requirement_arguments
+                    }) {
+                        self.active_operations
+                            .push(super::ast::OperationRequirement {
+                                family: requirement.family.clone(),
+                                arguments: requirement_arguments,
+                            });
+                    }
+                }
+            }
+            super::ast::ExpressionKind::GenericReference {
                 reference: reference.clone(),
                 arguments,
-            },
+            }
+        };
+        Ok(Expression {
+            kind,
             ty: super::types::substitute_type(&signature.ty, &substitutions),
             span,
         })
     }
 
     pub(super) fn check_inferred_generic_reference(
-        &self,
+        &mut self,
         reference: &resolved::ValueReference,
         span: Span,
         expected: Option<&Type>,
@@ -210,12 +249,32 @@ impl Checker {
         if contextual && !allow_defaults && has_unresolved(template, flexible, substitutions) {
             return Ok(());
         }
+        if let resolved::Expression::Reference(reference) = &argument.kind
+            && let Some(signature) = self.generic_signatures.get(&reference.id)
+            && has_unresolved(template, flexible, substitutions)
+        {
+            constrain_generic_scheme(signature, template, flexible, substitutions, argument.span)?;
+        }
         let instantiated = super::types::substitute_type(template, substitutions);
         let unresolved = has_unresolved(&instantiated, flexible, substitutions);
         let checked = if let resolved::Expression::Lambda(lambda) = &argument.kind
             && let Type::Function { parameter, result } = &instantiated
             && !has_unresolved(parameter, flexible, substitutions)
         {
+            if has_unresolved(result, flexible, substitutions)
+                && let Type::Function {
+                    result: result_template,
+                    ..
+                } = template
+            {
+                self.probe_direct_result_constraints(
+                    lambda,
+                    result_template,
+                    flexible,
+                    substitutions,
+                    allow_defaults,
+                )?;
+            }
             let mut probe = self.clone();
             let expected_result =
                 (!has_unresolved(result, flexible, substitutions)).then_some(result.as_ref());
@@ -254,6 +313,148 @@ impl Checker {
         }
         Ok(())
     }
+
+    fn probe_direct_result_constraints(
+        &self,
+        lambda: &resolved::Lambda,
+        result_template: &Type,
+        flexible: &HashSet<TypeId>,
+        substitutions: &mut HashMap<TypeId, Type>,
+        allow_defaults: bool,
+    ) -> Result<(), Diagnostic> {
+        let resolved::Expression::ResultBlock {
+            result_binders,
+            body,
+        } = &lambda.body.result.kind
+        else {
+            return Ok(());
+        };
+        let substituted = super::types::substitute_type(result_template, substitutions);
+        let templates = match result_binders.as_slice() {
+            [_] => vec![substituted],
+            _ => {
+                let Type::Sum(members) = substituted else {
+                    return Ok(());
+                };
+                if members.len() != result_binders.len() {
+                    return Ok(());
+                }
+                members.to_vec()
+            }
+        };
+        let targets = result_binders
+            .iter()
+            .zip(&templates)
+            .map(|(binder, template)| (binder.id, template))
+            .collect::<HashMap<_, _>>();
+        let mut pending = Vec::new();
+        push_body_expressions(body, &mut pending);
+        while let Some(expression) = pending.pop() {
+            match &expression.kind {
+                resolved::Expression::Call { callee, arguments } => {
+                    if let resolved::Expression::Reference(reference) = &callee.kind
+                        && let Some(template) = targets.get(&reference.id)
+                    {
+                        match arguments.as_slice() {
+                            [] => constrain(
+                                template,
+                                &Type::Unit,
+                                flexible,
+                                substitutions,
+                                expression.span,
+                            )?,
+                            [argument] => self.probe_constraint(
+                                argument,
+                                template,
+                                flexible,
+                                substitutions,
+                                allow_defaults,
+                            )?,
+                            _ => {
+                                let mut probe = self.clone();
+                                if let Ok(argument) =
+                                    probe.check_untyped_argument(arguments, expression.span)
+                                {
+                                    constrain(
+                                        template,
+                                        &argument.ty,
+                                        flexible,
+                                        substitutions,
+                                        expression.span,
+                                    )?;
+                                }
+                            }
+                        }
+                    }
+                    pending.push(callee);
+                    pending.extend(arguments.iter());
+                }
+                resolved::Expression::Parenthesized(inner) => pending.push(inner),
+                resolved::Expression::Product(elements) => pending.extend(elements),
+                resolved::Expression::Block(block)
+                | resolved::Expression::ResultBlock { body: block, .. } => {
+                    push_body_expressions(block, &mut pending)
+                }
+                resolved::Expression::ContinuationApplication {
+                    value,
+                    continuations,
+                } => {
+                    pending.push(value);
+                    for continuation in continuations {
+                        match continuation {
+                            resolved::Continuation::Function(expression) => {
+                                pending.push(expression)
+                            }
+                            resolved::Continuation::Branch(branch) => {
+                                push_body_expressions(&branch.body, &mut pending)
+                            }
+                        }
+                    }
+                }
+                resolved::Expression::Conversion { value, .. }
+                | resolved::Expression::Unary { operand: value, .. } => pending.push(value),
+                resolved::Expression::If {
+                    condition,
+                    then_branch,
+                    else_branch,
+                } => {
+                    pending.push(condition);
+                    push_body_expressions(then_branch, &mut pending);
+                    push_body_expressions(else_branch, &mut pending);
+                }
+                resolved::Expression::When { condition, body } => {
+                    pending.push(condition);
+                    push_body_expressions(body, &mut pending);
+                }
+                resolved::Expression::Binary { left, right, .. } => {
+                    pending.push(left);
+                    pending.push(right);
+                }
+                resolved::Expression::Lambda(_)
+                | resolved::Expression::Reference(_)
+                | resolved::Expression::GenericReference { .. }
+                | resolved::Expression::Integer(_)
+                | resolved::Expression::Float(_)
+                | resolved::Expression::Byte(_)
+                | resolved::Expression::Symbol(_)
+                | resolved::Expression::Unit => {}
+            }
+        }
+        Ok(())
+    }
+}
+
+fn push_body_expressions<'a>(
+    body: &'a resolved::ExpressionBlock,
+    pending: &mut Vec<&'a Node<resolved::Expression>>,
+) {
+    for item in &body.items {
+        match item {
+            resolved::BodyItem::Binding(binding) => pending.push(&binding.kind.value),
+            resolved::BodyItem::Expression(expression) => pending.push(expression),
+        }
+    }
+    pending.push(&body.result);
 }
 
 fn parameter_ids(signature: &GenericSignature) -> HashSet<TypeId> {
@@ -297,8 +498,160 @@ fn inferred_arguments(
     Ok(signature
         .parameters
         .iter()
-        .map(|parameter| substitutions[&parameter.id].clone())
+        .map(|parameter| resolve_substitution(parameter.id, substitutions, &mut HashSet::new()))
         .collect())
+}
+
+fn constrain_generic_scheme(
+    signature: &GenericSignature,
+    expected: &Type,
+    outer_flexible: &HashSet<TypeId>,
+    outer_substitutions: &mut HashMap<TypeId, Type>,
+    span: Span,
+) -> Result<(), Diagnostic> {
+    let inner_flexible = parameter_ids(signature);
+    let flexible = outer_flexible
+        .union(&inner_flexible)
+        .copied()
+        .collect::<HashSet<_>>();
+    let mut substitutions = outer_substitutions.clone();
+    unify_flexible(&signature.ty, expected, &flexible, &mut substitutions, span)?;
+    for id in outer_flexible {
+        if substitutions.contains_key(id) {
+            let resolved = resolve_substitution(*id, &substitutions, &mut HashSet::new());
+            if !contains_unbound_from(&resolved, &inner_flexible, &substitutions) {
+                outer_substitutions.insert(*id, resolved);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn unify_flexible(
+    left: &Type,
+    right: &Type,
+    flexible: &HashSet<TypeId>,
+    substitutions: &mut HashMap<TypeId, Type>,
+    span: Span,
+) -> Result<(), Diagnostic> {
+    if let Type::Parameter { id, .. } = left
+        && flexible.contains(id)
+    {
+        if let Some(bound) = substitutions.get(id).cloned() {
+            return unify_flexible(&bound, right, flexible, substitutions, span);
+        }
+        substitutions.insert(*id, right.clone());
+        return Ok(());
+    }
+    if let Type::Parameter { id, .. } = right
+        && flexible.contains(id)
+    {
+        if let Some(bound) = substitutions.get(id).cloned() {
+            return unify_flexible(left, &bound, flexible, substitutions, span);
+        }
+        substitutions.insert(*id, left.clone());
+        return Ok(());
+    }
+    match (left, right) {
+        (Type::Buffer(left), Type::Buffer(right)) => {
+            unify_flexible(left, right, flexible, substitutions, span)
+        }
+        (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
+            if left.len() == right.len() =>
+        {
+            for (left, right) in left.iter().zip(right.iter()) {
+                unify_flexible(left, right, flexible, substitutions, span)?;
+            }
+            Ok(())
+        }
+        (
+            Type::Function {
+                parameter: left_parameter,
+                result: left_result,
+            },
+            Type::Function {
+                parameter: right_parameter,
+                result: right_result,
+            },
+        ) => {
+            unify_flexible(
+                left_parameter,
+                right_parameter,
+                flexible,
+                substitutions,
+                span,
+            )?;
+            unify_flexible(left_result, right_result, flexible, substitutions, span)
+        }
+        _ if left == right => Ok(()),
+        _ => Err(inference_conflict(left, right, span)),
+    }
+}
+
+fn resolve_substitution(
+    id: TypeId,
+    substitutions: &HashMap<TypeId, Type>,
+    visiting: &mut HashSet<TypeId>,
+) -> Type {
+    if !visiting.insert(id) {
+        return substitutions[&id].clone();
+    }
+    let resolved = resolve_type(&substitutions[&id], substitutions, visiting);
+    visiting.remove(&id);
+    resolved
+}
+
+fn resolve_type(
+    ty: &Type,
+    substitutions: &HashMap<TypeId, Type>,
+    visiting: &mut HashSet<TypeId>,
+) -> Type {
+    match ty {
+        Type::Parameter { id, .. } if substitutions.contains_key(id) => {
+            resolve_substitution(*id, substitutions, visiting)
+        }
+        Type::Buffer(element) => {
+            Type::Buffer(resolve_type(element, substitutions, visiting).into())
+        }
+        Type::Product(elements) => Type::Product(
+            elements
+                .iter()
+                .map(|element| resolve_type(element, substitutions, visiting))
+                .collect::<Vec<_>>()
+                .into(),
+        ),
+        Type::Sum(members) => Type::Sum(
+            members
+                .iter()
+                .map(|member| resolve_type(member, substitutions, visiting))
+                .collect::<Vec<_>>()
+                .into(),
+        ),
+        Type::Function { parameter, result } => Type::Function {
+            parameter: resolve_type(parameter, substitutions, visiting).into(),
+            result: resolve_type(result, substitutions, visiting).into(),
+        },
+        _ => ty.clone(),
+    }
+}
+
+fn contains_unbound_from(
+    ty: &Type,
+    parameters: &HashSet<TypeId>,
+    substitutions: &HashMap<TypeId, Type>,
+) -> bool {
+    match ty {
+        Type::Parameter { id, .. } => parameters.contains(id) && !substitutions.contains_key(id),
+        Type::Buffer(element) => contains_unbound_from(element, parameters, substitutions),
+        Type::Product(elements) | Type::Sum(elements) => elements
+            .iter()
+            .any(|element| contains_unbound_from(element, parameters, substitutions)),
+        Type::Function { parameter, result } => {
+            contains_unbound_from(parameter, parameters, substitutions)
+                || contains_unbound_from(result, parameters, substitutions)
+        }
+        _ => false,
+    }
 }
 
 fn has_unresolved(

@@ -20,7 +20,7 @@ with a `Value` or `Abrupt` completion for every expression.
 | `interface` | extern transport checks and extraction of host-visible metadata |
 | `initializer` | admission of closed top-level values |
 | `float` | exact rounding of decimal float literals to IEEE 754 binary formats |
-| `specialize` | selection of bindings reachable from the entry, sharing of monomorphic instances per concrete type argument, and a fresh identity for every binder in each instance so that later stages can key facts by `ValueId` program-wide |
+| `specialize` | selection of bindings reachable from the entry, exact operation-family lookup, sharing of monomorphic instances per concrete type argument, and a fresh identity for every binder in each instance so that later stages can key facts by `ValueId` program-wide |
 | `specialization_identity` | the first value and lambda identities that no checked binder uses, from which specialization and core lowering allocate |
 | `type_fingerprint` | memoized structural hashes of canonical types, the keys that specialization and the backend closure flow group types by |
 

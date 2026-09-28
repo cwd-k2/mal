@@ -1,10 +1,10 @@
 # 型引数推論と型別operation family
 
-Status: Exploratory
+Status: Partially accepted; generic implementation patternとhigher-kinded profileはExploratory
 
-この文書は、generic valueの型引数推論と、型ごとにcompile-timeでimplementationを選ぶoperation familyの導入案を管理する。
-現在の言語規則は[`spec/`](../spec/)を正とし、この提案の構文とbehaviorへprogramが依存してはならない。特に現行仕様は
-型argumentの省略、user-defined constraint、generic typeによるoperation探索を認めていない。
+型引数推論とclosed canonical typeだけをkeyにするexact operation familyは採択済みである。現在の言語規則は
+[parametric polymorphism](../spec/generics.md)と[operation family](../spec/operation-families.md)を正とする。この文書は採択理由と、
+未採択のgeneric implementation pattern、higher-kinded constructor、lawful interface候補を管理する。
 
 ## 目的と設計境界
 
@@ -300,20 +300,16 @@ operation解決だけで別の無制限な展開graphを作らない。
 `make`と`from`はuser-defined generic bindingではないため、期待される`Buffer<T>`から`T`を推論する専用intrinsic規則を持つ。
 resultにもoperandにもelement型が現れないcallは従来どおり明示型argumentを要求する。
 
-## 導入順と検証境界
+## 導入状況と後続の検証境界
 
-1. inference variable、structural unification、未確定・衝突diagnosticをgeneric applicationへ導入する。
-2. exact family declarationとimplementationをparse、resolve、checkし、family signatureだけでgeneric bodyを検査する。
-3. operation requirementの収集と伝播、specialization時のexact lookup、missing・duplicate diagnosticを実装する。
-4. 既知parameter型を持つlambda resultとdirect result block payloadをconstraintへ加える。
-5. `HashMap<K, V>`相当のfixtureで`hash<K>`と`equal<K>`の伝播を検証する。
-6. exact profileの利用例と衝突を評価してからgeneric implementation patternを追加する。
-7. `Buffer<T>`、product、sumのnon-overlap、strictly-smaller operation requirement、alias展開をfocused testで固定する。
-8. value familyのclosed initializerとlocal referenceを受理し、非function valueのapplicationとtop-level initializerからの参照を既存規則で
-   拒否するtestを加える。
+局所inference variableとstructural unification、lambda resultとdirect result block payloadのconstraint、exact familyの
+parse・resolve・check、operation requirementの収集と伝播、specialization時のexact lookup、value familyは実装済みである。
+推論形と明示形のspecialization key共有、canonical keyの重複、missing implementation、operation referenceがbackendへ残らないことを
+focused testと既存backendを通る実行caseで検査する。
 
-cross-boundary testでは、推論形と明示形が同じspecialization keyを共有し、operation referenceがbackendへ残らず、exact profileと
-generic pattern profileの代表programが同じ既存core/backendで実行されることを確認する。
+generic implementation patternを追加する場合は、exact profileの利用例と衝突を先に評価する。`Buffer<T>`、product、sumの
+non-overlap、strictly-smaller requirement、alias展開をfocused testで固定し、代表programがexact profileと同じ既存core/backendで
+実行されることを採択条件とする。
 
 ## 後続profileの未決事項
 

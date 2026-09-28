@@ -33,6 +33,13 @@ impl Specializer {
                 let reference = self.request(reference, arguments)?;
                 expression.kind = ExpressionKind::Reference(reference);
             }
+            ExpressionKind::OperationReference { family, arguments } => {
+                for argument in arguments.iter_mut() {
+                    *argument = substitute_type(argument, substitutions);
+                }
+                let reference = self.request_operation(family, arguments)?;
+                expression.kind = ExpressionKind::Reference(reference);
+            }
             ExpressionKind::Reference(reference) => {
                 if let Some((generic, specialized)) = self_instance
                     && reference.id == generic

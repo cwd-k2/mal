@@ -134,6 +134,26 @@ pub enum TopItem {
         /// The resolved initializer.
         value: Node<Expression>,
     },
+    /// A generic operation signature whose implementations are keyed by exact type arguments.
+    OperationFamily {
+        /// The family declaration shared by references and implementations.
+        binding: ValueBinding,
+        /// Generic parameter bindings in declaration order.
+        parameters: Vec<TypeBinding>,
+        /// The resolved family signature.
+        annotation: Node<TypeExpression>,
+    },
+    /// One exact implementation of an operation family.
+    OperationImplementation {
+        /// A reference to the previously declared family.
+        family: ValueReference,
+        /// Closed exact type arguments forming the implementation key.
+        arguments: Vec<Node<TypeExpression>>,
+        /// The implementation annotation.
+        annotation: Node<TypeExpression>,
+        /// The resolved implementation initializer.
+        value: Node<Expression>,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

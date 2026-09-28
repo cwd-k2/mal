@@ -64,6 +64,7 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                 checked::ExpressionKind::Lambda(_)
                 | checked::ExpressionKind::Reference(_)
                 | checked::ExpressionKind::GenericReference { .. }
+                | checked::ExpressionKind::OperationReference { .. }
                 | checked::ExpressionKind::Integer(_)
                 | checked::ExpressionKind::Float(_)
                 | checked::ExpressionKind::Symbol(_)

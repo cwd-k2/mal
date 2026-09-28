@@ -57,13 +57,20 @@ pub fn specialize(program: Program) -> Result<ast::MonomorphicProgram, Diagnosti
 
 /// Admits an already nongeneric checked program to the same downstream boundary as specialization.
 pub fn admit_monomorphic(program: Program) -> Result<ast::MonomorphicProgram, Diagnostic> {
-    if let Some(item) = program
-        .items
-        .iter()
-        .find(|item| matches!(item.kind, TopItem::GenericBinding(_)))
-    {
-        return Err(Diagnostic::error("generic program requires specialization")
-            .with_primary(item.span, "this generic binding has not been specialized"));
+    if let Some(item) = program.items.iter().find(|item| {
+        matches!(
+            item.kind,
+            TopItem::GenericBinding(_)
+                | TopItem::OperationFamily(_)
+                | TopItem::OperationImplementation(_)
+        )
+    }) {
+        return Err(
+            Diagnostic::error("program requires specialization").with_primary(
+                item.span,
+                "this generic or operation item has not been specialized",
+            ),
+        );
     }
     Ok(ast::MonomorphicProgram::new(program))
 }
@@ -101,6 +108,9 @@ struct Checker {
     expanding: HashSet<TypeId>,
     values: HashMap<ValueId, Type>,
     generic_signatures: HashMap<ValueId, GenericSignature>,
+    operation_families: HashSet<ValueId>,
+    operation_keys: Vec<(ValueId, Vec<Type>, Span)>,
+    active_operations: Vec<ast::OperationRequirement>,
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     result_targets: HashMap<ValueId, ResultTarget>,
@@ -112,6 +122,7 @@ struct GenericSignature {
     parameters: Vec<resolved::TypeBinding>,
     ty: Type,
     requirements: HashSet<TypeId>,
+    operations: Vec<ast::OperationRequirement>,
 }
 
 #[derive(Clone)]
@@ -137,6 +148,9 @@ impl Checker {
             expanding: HashSet::new(),
             values: HashMap::from([(FALSE_VALUE, bool_type.clone()), (TRUE_VALUE, bool_type)]),
             generic_signatures: HashMap::new(),
+            operation_families: HashSet::new(),
+            operation_keys: Vec::new(),
+            active_operations: Vec::new(),
             external_values: HashSet::new(),
             externals: HashMap::new(),
             result_targets: HashMap::new(),
@@ -165,6 +179,36 @@ impl Checker {
         let mut entry = None;
         for item in &program.items {
             if matches!(item.kind, resolved::TopItem::GenericTypeAlias { .. }) {
+                continue;
+            }
+            if let resolved::TopItem::OperationFamily {
+                binding,
+                parameters,
+                annotation,
+            } = &item.kind
+            {
+                let family =
+                    self.check_operation_family(binding, parameters, annotation, item.span)?;
+                items.push(Node::new(
+                    TopItem::OperationFamily(Box::new(family)),
+                    item.span,
+                ));
+                continue;
+            }
+            if let resolved::TopItem::OperationImplementation {
+                family,
+                arguments,
+                annotation,
+                value,
+            } = &item.kind
+            {
+                let implementation = self.check_operation_implementation(
+                    family, arguments, annotation, value, item.span,
+                )?;
+                items.push(Node::new(
+                    TopItem::OperationImplementation(Box::new(implementation)),
+                    item.span,
+                ));
                 continue;
             }
             if let resolved::TopItem::GenericBinding {
@@ -236,6 +280,10 @@ impl Checker {
                 resolved::TopItem::GenericTypeAlias { .. } => {
                     unreachable!("generic aliases are omitted before checked program emission")
                 }
+                resolved::TopItem::OperationFamily { .. }
+                | resolved::TopItem::OperationImplementation { .. } => {
+                    unreachable!("operation items are checked before ordinary item emission")
+                }
             };
             items.push(Node::new(kind, item.span));
         }
@@ -271,6 +319,7 @@ impl Checker {
         let previous = std::mem::replace(&mut self.type_substitutions, substitutions);
         let previous_requirements = std::mem::take(&mut self.active_requirements);
         let previous_generic = self.active_generic.take();
+        let previous_operations = std::mem::take(&mut self.active_operations);
         let result = (|| {
             let ty = self.expand_type(annotation)?;
             let requirements = types::storable_requirements(&ty);
@@ -286,22 +335,125 @@ impl Checker {
                     parameters: parameters.to_vec(),
                     ty: ty.clone(),
                     requirements,
+                    operations: Vec::new(),
                 },
             );
             let checked_value = self.check_expression(value, Some(&ty))?;
             self.check_top_level_initializer(&checked_value)?;
+            let operations = std::mem::take(&mut self.active_operations);
+            self.generic_signatures
+                .get_mut(&binding.id)
+                .expect("active generic signature is registered")
+                .operations = operations.clone();
             Ok(ast::GenericBinding {
                 binding: binding.clone(),
                 parameters: parameters.to_vec(),
                 ty,
                 value: checked_value,
+                operations,
                 span,
             })
         })();
         self.type_substitutions = previous;
         self.active_requirements = previous_requirements;
         self.active_generic = previous_generic;
+        self.active_operations = previous_operations;
         result
+    }
+
+    fn check_operation_family(
+        &mut self,
+        binding: &resolved::ValueBinding,
+        parameters: &[resolved::TypeBinding],
+        annotation: &Node<resolved::TypeExpression>,
+        span: Span,
+    ) -> CheckResult<ast::OperationFamily> {
+        let substitutions = std::sync::Arc::new(
+            parameters
+                .iter()
+                .map(|parameter| {
+                    (
+                        parameter.id,
+                        Type::Parameter {
+                            id: parameter.id,
+                            name: parameter.name.text.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let previous = std::mem::replace(&mut self.type_substitutions, substitutions);
+        let result = (|| {
+            let ty = self.expand_type(annotation)?;
+            let requirements = types::storable_requirements(&ty);
+            self.generic_signatures.insert(
+                binding.id,
+                GenericSignature {
+                    parameters: parameters.to_vec(),
+                    ty: ty.clone(),
+                    requirements,
+                    operations: Vec::new(),
+                },
+            );
+            self.operation_families.insert(binding.id);
+            Ok(ast::OperationFamily {
+                binding: binding.clone(),
+                parameters: parameters.to_vec(),
+                ty,
+                span,
+            })
+        })();
+        self.type_substitutions = previous;
+        result
+    }
+
+    fn check_operation_implementation(
+        &mut self,
+        family: &resolved::ValueReference,
+        arguments: &[Node<resolved::TypeExpression>],
+        annotation: &Node<resolved::TypeExpression>,
+        value: &Node<resolved::Expression>,
+        span: Span,
+    ) -> CheckResult<ast::OperationImplementation> {
+        let arguments = arguments
+            .iter()
+            .map(|argument| self.expand_type(argument))
+            .collect::<Result<Vec<_>, _>>()?;
+        if arguments.iter().any(contains_parameter) {
+            return Err(
+                Diagnostic::error("exact operation implementation requires closed types")
+                    .with_primary(family.name.span, "remove generic parameters from this key")
+                    .into(),
+            );
+        }
+        if self
+            .operation_keys
+            .iter()
+            .any(|(id, existing, _)| *id == family.id && *existing == arguments)
+        {
+            return Err(Diagnostic::error("duplicate operation implementation")
+                .with_primary(
+                    family.name.span,
+                    "this exact family key is already implemented",
+                )
+                .into());
+        }
+        let expected = self
+            .check_generic_reference(family, arguments.clone(), family.name.span)?
+            .ty;
+        let declared = self.expand_type(annotation)?;
+        self.require_type(&declared, &expected, annotation.span)?;
+        let checked_value = self.check_expression(value, Some(&expected))?;
+        self.check_top_level_initializer(&checked_value)?;
+        self.operation_keys
+            .push((family.id, arguments.clone(), span));
+        Ok(ast::OperationImplementation {
+            family: family.clone(),
+            arguments,
+            ty: expected,
+            value: checked_value,
+            span,
+        })
     }
 
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
@@ -328,5 +480,17 @@ impl Checker {
             Err(CheckFailure::Abrupt(abrupt)) => Ok(Completion::Abrupt(*abrupt)),
             Err(CheckFailure::Diagnostic(diagnostic)) => Err(diagnostic),
         }
+    }
+}
+
+fn contains_parameter(ty: &Type) -> bool {
+    match ty {
+        Type::Parameter { .. } => true,
+        Type::Buffer(element) => contains_parameter(element),
+        Type::Product(elements) | Type::Sum(elements) => elements.iter().any(contains_parameter),
+        Type::Function { parameter, result } => {
+            contains_parameter(parameter) || contains_parameter(result)
+        }
+        _ => false,
     }
 }

@@ -27,6 +27,17 @@ impl Index {
                 self.typed_regions.push((binding.binding.name.span, ty));
                 self.collect_checked_expression(&binding.value);
             }
+            checked::TopItem::OperationFamily(family) => {
+                let id = self.canonical_value(family.binding.id);
+                if matches!(family.ty, checked::Type::Function { .. }) {
+                    self.functions.insert(id);
+                }
+                self.value_types
+                    .insert(id, crate::check::type_name(&family.ty));
+            }
+            checked::TopItem::OperationImplementation(implementation) => {
+                self.collect_checked_expression(&implementation.value);
+            }
             checked::TopItem::Binding(binding) => self.collect_checked_binding(binding),
         }
     }
@@ -74,6 +85,11 @@ impl Index {
             ExpressionKind::GenericReference { reference, .. } => {
                 self.value_types
                     .entry(self.canonical_value(reference.id))
+                    .or_insert(ty);
+            }
+            ExpressionKind::OperationReference { family, .. } => {
+                self.value_types
+                    .entry(self.canonical_value(family.id))
                     .or_insert(ty);
             }
             ExpressionKind::Product(elements) => {

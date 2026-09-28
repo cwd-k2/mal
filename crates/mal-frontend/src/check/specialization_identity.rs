@@ -22,6 +22,11 @@ pub(super) fn next_identities(program: &Program) -> Option<NextIdentities> {
                 bounds.binding(&definition.binding);
                 bounds.expression(&definition.value);
             }
+            TopItem::OperationFamily(family) => bounds.binding(&family.binding),
+            TopItem::OperationImplementation(implementation) => {
+                bounds.value(implementation.family.id);
+                bounds.expression(&implementation.value);
+            }
             TopItem::TypeAlias { .. } | TopItem::ExternalType { .. } => {}
         }
     }
@@ -90,6 +95,7 @@ impl IdentityBounds {
         match &expression.kind {
             ExpressionKind::Reference(reference) => self.value(reference.id),
             ExpressionKind::GenericReference { reference, .. } => self.value(reference.id),
+            ExpressionKind::OperationReference { family, .. } => self.value(family.id),
             ExpressionKind::Product(values) => {
                 for value in values {
                     self.expression(value);

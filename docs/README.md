@@ -44,7 +44,7 @@
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `loop`を検討する | [first-class primitive `loop`の導入計画](proposals/primitive-loop.md) | [反復とdomain step](design/value-interpretation-and-control.md#反復controlとdomain-stepを分ける)、[application control lowering](implementation/application-control-lowering.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
-| 型引数推論と型別operationを検討する | [型引数推論と型別operation family](proposals/inferred-operation-families.md) | [parametric polymorphism](spec/generics.md)、[最小性](design/minimality.md) |
+| 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md)、[後続profile案](proposals/inferred-operation-families.md) |
 | Engramの保持、破棄、storage lifecycleの内部基盤を検討する | [Engram lifecycle loweringの共通基盤](proposals/engram-lifecycle-foundation.md) | [Engram ownership](implementation/ownership.md)、[D055](history/decisions/active/D055.md) |
 | lambda literalのredex扱いを単一continuationとcallee位置へ広げる案を検討する | [その場でapplicationされるlambda literalの拡張](proposals/immediate-lambda-redex.md) | [lambdaの中断とredex](design/value-interpretation-and-control.md#lambdaの中断とredex)、[直和の除去](spec/expressions.md#直和の除去)、[D072](history/decisions/active/D072.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/active/D051.md) |

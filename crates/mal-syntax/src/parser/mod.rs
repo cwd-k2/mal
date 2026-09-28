@@ -133,14 +133,17 @@ impl<'a> Parser<'a> {
                 .is_some_and(|token| token.kind == TokenKind::Less)
         {
             let name = self.parse_name(&TokenKind::ValueIdentifier, "a value name")?;
-            let parameters = self.parse_required_type_parameters()?;
+            let arguments = self.parse_type_arguments()?;
             self.expect(&TokenKind::DoubleColon, "`::`")?;
             let annotation = self.parse_type()?;
-            self.expect(&TokenKind::Bind, "`:=`")?;
-            let value = self.parse_expression()?;
+            let value = if self.take(&TokenKind::Bind).is_some() {
+                Some(self.parse_expression()?)
+            } else {
+                None
+            };
             TopItem::GenericBinding {
                 name,
-                parameters,
+                arguments,
                 annotation,
                 value,
             }

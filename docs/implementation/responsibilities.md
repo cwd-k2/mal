@@ -122,10 +122,10 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 
 | Boundary | Responsibility |
 |---|---|
-| lexer/parser | generic parameter/argument、postfix chain、共有tokenをsource-oriented ASTへ構成する。型やnameから構文を選ばない |
-| resolve | generic bindingと型parameterへidentityを与え、concrete type argument付きvalue referenceを対応するbindingへ結ぶ |
-| check | canonical generic type、arity、`Requirements(T)`、`Storable`、`Representable`、`HostMappable`、memory operatorの型を検査する。`from`と`buffer.into`はrepresentableな要素だけを受理する |
-| specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、checked generic identityとcanonical concrete argumentをkeyにinstanceを共有して、単相checked programをcoreへ渡す |
+| lexer/parser | generic headerのtype expression列とinitializerの有無、postfix chain、共有tokenをsource-oriented ASTへ構成する。family identityから構文を選ばない |
+| resolve | generic binding、operation family、exact implementation、型parameterへidentityを与え、source orderと直接requireされたfamily identityからgeneric headerを分類する |
+| check | canonical generic type、局所型argument推論、`Requirements(T)`、`OperationRequirement`、exact keyのprogram-wide重複、implementation signature、memory operatorの型を検査する。`from`と`buffer.into`はrepresentableな要素だけを受理する |
+| specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、generic instanceを共有する。concrete operation goalをexact implementationへ解決し、familyとrequirementを除いた単相checked programをcoreへ渡す |
 | core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |

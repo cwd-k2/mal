@@ -4,6 +4,7 @@ Status: Accepted v0.6
 
 この文書は型parameter、generic aliasとvalue binding、built-in型形成条件、specializationを定める。concrete syntaxは
 [字句と文法](grammar.md)、Bufferの型形成は[AddressとBuffer](memory.md)を正とする。
+型ごとのimplementation選択は[operation family](operation-families.md)を正とする。
 
 ## Declarationとapplication
 
@@ -44,7 +45,8 @@ type case、generic typeによるoverload resolution、generic extern declaratio
 
 generic本体はopaqueな型parameterとsignatureから導いたbuilt-in型形成条件の下で一度検査する。specialization後に本体へ新しい
 operationを許可しない。比較、算術、encodingなどを必要とするgeneric functionは通常のfunctionまたはproduct valueとして
-operationを受け取る。numeric operatorとconversionはconcrete typeだけを列挙するclosed primitive familyである。
+operationを受け取るか、[operation family](operation-families.md)のrequirementを持つ。numeric operatorとconversionはconcrete type
+だけを列挙するclosed primitive familyである。
 
 ```mal
 Equality<A> :: (A, A) -> Bool;

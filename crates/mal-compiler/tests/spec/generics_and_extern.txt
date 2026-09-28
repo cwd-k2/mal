@@ -1,9 +1,18 @@
 ### generic_identity_ok | run:5
 identity<A> :: A -> A := (v) -> v;
 main :: Unit -> Int32 := () -> identity<Int32>(5);
-### generic_missing_targs | err:
+### generic_inferred_targs | run:5
 identity<A> :: A -> A := (v) -> v;
 main :: Unit -> Int32 := () -> identity(5i32);
+### exact_operation_family | run:42
+equal<A> :: (A, A) -> Bool;
+equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;
+same<A> :: (A, A) -> Bool := (left, right) -> equal(left, right);
+main :: Unit -> Int32 := () -> if (same(7i32, 7i32)) then 42 else 0;
+### exact_operation_duplicate | err:duplicate operation implementation
+zero<A> :: A;
+zero<Int32> :: Int32 := 0;
+zero<Int32> :: Int32 := 1;
 ### generic_ops_on_param | err:
 double<A> :: A -> A := (v) -> v + v;
 ### generic_first_class_ok | ok

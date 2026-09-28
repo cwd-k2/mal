@@ -393,12 +393,23 @@ fn rejects_invalid_generic_value_use_before_specialization() {
 fn infers_generic_arguments_from_operands_results_and_function_contexts() {
     check_ok(
         "identity<A> :: A -> A := (value) -> value;\n\
-         apply :: (Int32 -> Int32, Int32) -> Int32 := (function, value) -> function(value);\n\
+         apply<A, B> :: (A -> B, A) -> B := (function, value) -> function(value);\n\
          map<A, B> :: (A, A -> B) -> B := (value, function) -> function(value);\n\
          fromResult :: Unit -> UInt8 := () -> identity(7);\n\
          fromValue :: Unit -> Int32 := () -> apply(identity, 42);\n\
          fromLambda :: Unit -> UInt64 := () -> map(1i32, (value) -> value.u64);\n\
          main :: Unit -> Int32 := () -> identity(42);",
+    );
+}
+
+#[test]
+fn infers_a_generic_lambda_result_from_direct_result_payloads() {
+    check_ok(
+        "route<A, B> :: (A, A -> [A, B]) -> [A, B] := (value, step) -> step(value);\n\
+         main :: Unit -> Int32 := () -> {\n\
+           choice := route(1u8, (value) -> [again, done] => { done(42i32) });\n\
+           choice[(again) -> 0, (done) -> done];\n\
+         };",
     );
 }
 

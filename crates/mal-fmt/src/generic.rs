@@ -18,13 +18,19 @@ pub(super) fn delimiters(lexed: &Lexed, program: &Program) -> Vec<bool> {
             TopItem::Binding(binding) => marker.binding(binding),
             TopItem::GenericBinding {
                 name,
+                arguments,
                 annotation,
                 value,
                 ..
             } => {
                 marker.group(name.span.end(), annotation.span.start());
+                for argument in arguments {
+                    marker.ty(argument);
+                }
                 marker.ty(annotation);
-                marker.expression(value);
+                if let Some(value) = value {
+                    marker.expression(value);
+                }
             }
             TopItem::ExternalType { .. } => {}
         }

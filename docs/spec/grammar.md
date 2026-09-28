@@ -44,7 +44,7 @@ requireDecl ::= "require" symbolLiteral ";"
 topItem     ::= typeAlias ";"
               | externType ";"
               | externDecl ";"
-              | genericBinding ";"
+              | genericValueItem ";"
               | binding ";"
 
 typeParameters ::= "<" TYPE_IDENT ("," TYPE_IDENT)* ">"
@@ -53,7 +53,7 @@ typeArguments  ::= "<" type ("," type)* ">"
 typeAlias      ::= TYPE_IDENT typeParameters? "::" type
 externType     ::= "extern" TYPE_IDENT
 externDecl     ::= "extern" VALUE_IDENT "::" type
-genericBinding ::= VALUE_IDENT typeParameters "::" type ":=" expression
+genericValueItem ::= VALUE_IDENT typeArguments "::" type (":=" expression)?
 binding        ::= pattern ("::" type)? ":=" expression
 
 type         ::= functionType
@@ -68,6 +68,8 @@ sumType      ::= "[" "]" | "[" type "," type ("," type)* "]"
 
 `Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
 generic extern declarationはない。`>>` tokenはgeneric parameter/argument list内では二つのclosing `>`、expression内ではshiftである。
+`genericValueItem`のheaderはparserでは未分類のtype expression列として保持する。resolverはinitializerの有無とsource order上の
+family identityから、generic binding、operation family declaration、exact implementationへ分類する。
 
 ## Expression form
 

@@ -83,6 +83,34 @@ fn does_not_reexport_imported_names() {
 }
 
 #[test]
+fn resolves_family_implementations_only_through_direct_requirements() {
+    let (graph, parsed) = make_graph(
+        &[
+            (
+                "root.mal",
+                "require \"./family.mal\";\n\
+                 equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;\n\
+                 main :: Unit -> Int32 := () -> if (equal(1i32, 1i32)) then 0 else 1;",
+            ),
+            ("family.mal", "equal<A> :: (A, A) -> Bool;"),
+        ],
+        &[&[(1, 0)], &[]],
+    );
+
+    let resolved = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap();
+    assert!(matches!(
+        resolved.items[0].kind,
+        TopItem::OperationFamily { .. }
+    ));
+    assert!(matches!(
+        resolved.items[1].kind,
+        TopItem::OperationImplementation { .. }
+    ));
+    let checked = mal_frontend::check::check(&resolved).expect("check cross-file operation");
+    mal_frontend::check::specialize(checked).expect("select cross-file implementation");
+}
+
+#[test]
 fn rejects_conflicting_imports_and_dependency_entry_points() {
     let (graph, parsed) = make_graph(
         &[
