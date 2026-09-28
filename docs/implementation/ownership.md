@@ -99,7 +99,7 @@ capture-free closureの構築はenvironment ownerを作らないため、このb
 conventionよりpersistent lenderの証明を優先し、lambda-liftでclosure environmentからparameter fieldへ移ったmanaged captureにも
 入口から終了まで同じborrowを保つ。frame、dispatch、別target、fresh ownerのいずれかがあれば通常のowned handoffを使う。
 
-calleeがmanaged parameterを保持する（returnする、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetはborrowed conventionを使い、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。
+calleeがmanaged parameterを保持する（returnする、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetはborrowed conventionを使い、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。採択理由とborrowed native ABIからのrefinementは[D083](../history/decisions/active/D083.md)に記録する。
 
 LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。
 

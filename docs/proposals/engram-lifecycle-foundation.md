@@ -5,7 +5,7 @@ Status: Partially accepted; backend-local lifecycle boundary implemented
 この文書は、`Symbol`、`Buffer`、function closureとmanaged aggregateの値の保持と破棄を、Engram一般のlifecycle loweringとして
 共通化する方針と後続候補を管理する。backend-localな共通化は採択済みであり、source-levelの型、operation、ownership syntaxは追加しない。
 現在のauthorityは[EngramとExtern](../spec/engrams.md)、responsibilityの意味は
-[D055](../history/decisions/active/D055.md)、実装policyは
+[D055](../history/decisions/active/D055.md)と[D083](../history/decisions/active/D083.md)、実装policyは
 [managed valueのownership](../implementation/ownership.md)、backend-local境界の採択理由は
 [D080](../history/decisions/active/D080.md)を正とする。
 
@@ -133,7 +133,8 @@ LLVM cross-boundary testは生成moduleをClangでcompile、link、executeし、
 
 ## 非目標
 
-- `Pool<T>`、manual `init`、manual `drop`、`free`をsource languageへ追加しない。
+- 本proposalでは`Pool<T>`、manual `init`、manual `drop`、`free`をsource languageへ追加しない。raw lifecycleを公開せず
+  safe Poolの上へopaque containerを構成する別案は[Poolとopaque型によるcontainer基盤](pool/README.md)で評価する。
 - borrow checker、linear type、unique ownership、user-defined destructorを追加しない。
 - `Buffer`の共有identity、auto-growth、`Symbol` snapshot、host copy semanticsを変更しない。
 - `Storable`制限を緩和して任意のmanaged graphやcycleを許可しない。
