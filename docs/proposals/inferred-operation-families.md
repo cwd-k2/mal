@@ -151,8 +151,10 @@ constructionやfresh identityが必要なoperationは`empty<T> :: Unit -> T`の�
 UserId :: Int64;
 ```
 
-`equal<UserId>`と`equal<Int64>`は同じkeyになる。implementationはsource graph全体から収集し、familyを参照できるlocal scopeだけでなく、
-specializationするprogram全体で一意にする。package境界が必要になるまではorphan ruleを導入しない。
+`equal<UserId>`と`equal<Int64>`は同じkeyになる。implementationはreachable source graph全体から収集し、familyを参照できる
+local scopeだけでなく、specializationするprogram全体で一意にする。同じcanonical keyのimplementationは到達するgoalがなくても
+拒否する。package境界が必要になるまではorphan ruleを導入しない。将来のpackage ruleはimplementation declarationのadmissionを
+制限できるが、program内のlookupは引き続きcanonical keyごとに一意とする。
 
 exact implementationだけでも、generic collectionはelement operationをoperation requirementとして利用できる。次はflatなcarrierの
 説明用shapeであり、hash tableの採択済みrepresentationではない。
@@ -225,7 +227,7 @@ family declarationにない型identifierは通常の型名として解決し、�
 binderとして受理しない。一つのfamily argumentを複数の独立parameterへ分解するpatternなど、このbinder数制限を越える用途は初期拡張で
 表現できない。実例が十分に集まるまでは、そのためのbinder構文を追加しない。
 
-## Higher-kinded constructor abstraction
+## 後続profile: Higher-kinded constructor abstraction
 
 generic implementation patternはhigher-kinded polymorphismではない。`equal<Buffer<T>>`は既知の`Buffer` constructorへmatchできるが、
 任意のconstructor `F`を受け取って`F<A>`を形成することはできない。したがってこの拡張まででは、constructorごとのoperationを定義する。
@@ -272,8 +274,12 @@ constructor位置の`SymbolMap`は`Type -> Type`と推論し、specialization ke
 特にmutable identityを持つ`Buffer`の`pure`と`bind`、`ap`のzipと直積の選択は一意な構造規則から決まらないため、global familyへ
 canonical policyを置くか、`bufferMap`、`zipApply`などのnamed operationへ残すかを個別に判断する。
 
-higher-kinded constructor、associated type、operation群を一つのlawful instanceとして束ねるinterfaceは、generic implementation patternの
-採否から独立した後続proposalとする。collection APIの重複と必要なlawを具体例で確認するまでは現在の提案へ含めない。
+higher-kinded constructor自体を型引数推論とexact operation familyの採否から独立した後続proposalとする。その初期profileでは
+kindをconstructorの使用位置から推論し、具体化後のtype formationを別に検査する。constructorの部分適用はunary generic
+aliasで適応し、それで不足する実例が得られるまでplaceholder構文を追加しない。
+
+associated type、operation群とlawを一つのlawful instanceとして束ねるinterfaceは、higher-kinded constructorとも独立した
+後続proposalとする。collection APIの重複と必要なlawを具体例で確認するまでは現在の提案へ含めない。
 
 ## Compiler boundary
 
@@ -309,12 +315,11 @@ resultにもoperandにもelement型が現れないcallは従来どおり明示�
 cross-boundary testでは、推論形と明示形が同じspecialization keyを共有し、operation referenceがbackendへ残らず、exact profileと
 generic pattern profileの代表programが同じ既存core/backendで実行されることを確認する。
 
-## 採択前の未決事項
+## 後続profileの未決事項
 
-- implementationをprogram全体へ公開する規則を維持するか、familyまたはexternal opaque typeのownerに制限するか。
-- bodyから推論してeditorとdiagnosticへ表示するoperation requirementが、明示annotationなしでもpublic API contractとして十分に安定するか。
 - strictly-smaller規則で不足する実例があるか、specificityやtermination proofを追加する価値があるか。
-- primitive numeric operatorをoperation familyへ統合するか、closed primitive familyとして分離したままにするか。
-- constructor位置からのkind inferenceと、specialization後のtype formation検査の分離で十分か。
-- unary generic aliasによるconstructor adaptationで、専用の部分適用構文なしに実用上足りるか。
-- higher-kinded constructorとlawful operation群が、constructor別のnamed APIよりsystem全体のcontractを小さくするか。
+- exact profileの実例によって、bodyから推論したoperation requirementを固定する明示annotationが必要となるか。
+- higher-kinded constructorまたはlawful interfaceが、constructor別のnamed APIよりsystem全体のcontractを小さくする実例が得られるか。
+
+primitive numeric operatorはclosed primitive familyとして保ち、operation familyのimplementation bodyから利用する。型引数推論と
+exact profileは、generic implementation pattern、higher-kinded constructor、lawful interfaceの未決事項に依存せず採否できる。

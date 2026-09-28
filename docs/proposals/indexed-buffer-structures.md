@@ -57,10 +57,15 @@ Buffer<T>.copy(Index<T>, Buffer<T>, Index<T>, USize) -> Unit
 capacityの役割を表すためだけに使う。`from<T>`と`buffer.into`のoffsetはBufferの座標ではなくexternal storage上の要素offsetなので、
 引き続き`USize`で表す。
 
-型parameterがalias右辺に現れないかどうかはdeclarationから決める。canonical typeを構成するときはphantom parameterに対応する
+この判定は`Index`専用の例外ではなく、すべてのgeneric aliasに対する局所規則とする。型parameterがalias右辺の
+type expressionに直接現れなければphantomとする。canonical typeを構成するときはphantom parameterに対応する
 type argumentをrepresentation dependencyとして展開しない。上の`TreeNode`はsource上では自身を参照するが、canonical typeは
 `(Int32, UInt8, USize, USize)`であり、recursive value typeや新しいruntime indirectionを導入しない。実際の表現に寄与するalias cycleは
 引き続き拒否する。
+
+別のalias applicationのtype argument位置に型parameterが現れる場合は直接使用とみなす。参照先aliasがそのargumentを
+結果表現から消去するかどうかを逆向きに伝播させない。これによりphantom判定は各declarationだけで完了し、
+aliasの追加や変更が別のaliasのcycle判定を暗黙に変えない。
 
 editorはchecked canonical typeから`USize`だけを表示するのではなく、現在のalias表示方針どおりsource spellingの
 `Index<TreeNode>`を保持する。型aliasのhoverは右辺を一段だけ表示し、phantom argumentから`TreeNode`の展開へ進まない。

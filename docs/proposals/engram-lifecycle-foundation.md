@@ -18,9 +18,10 @@ source programからretain、release、初期化状態は観測できないが�
   program固有callbackを通じてruntimeで同じ処理を行う。
 - closure environmentはtarget固有destructorを持ち、captureのreleaseとenvironment storageの解放を行う。
 
-これらは同じ型別lifecycleを実装しているが、値のresponsibility、storage上の有効な値、raw allocationのlifetimeを説明する
-共通境界がない。新しいmal-owned Engram leafを追加すると、managed分類、通常値、aggregate、Buffer要素、environment payloadへ
-個別の処理を追加し、copy、move、上書き、破棄の整合を各経路で再確認する必要がある。
+現在のLLVM backendは通常値、managed Buffer element callback、closure environment destructorから同じ
+`retain_value`と`release_value`の型再帰をすでに使う。残る重複は、値の保持と破棄よりも、storage上の有効な値、
+raw allocationのlifetime、slotやframeへのcopy、move、上書き、破棄を行うcarrier操作の境界にある。新しい
+mal-owned Engram leafを追加したときに、共通の型再帰を迂回するdirect storeやreleaseを追加せずに済む境界が必要になる。
 
 ## 提案する境界
 
@@ -101,10 +102,10 @@ drop時の処理は子Engramとmal-owned storageの回収に限り、I/OやExter
 ## 導入順
 
 1. 現在のmanaged type分類、LLVMのretain/release、Buffer callback、environment destructorの対応をfocused testで固定する。
-2. LLVM backend内に型別の`share`と`drop`を一つのauthorityとして置き、既存の通常値とaggregate loweringを移す。
+2. 既存の`retain_value`と`release_value`を型別の`share`と`drop`のauthorityとして明確化し、それを迂回する経路を除く。
 3. slot初期化、上書き、Consume、Dropを`initialize`、`replace`、`vacate`の共通helperへ接続する。
-4. managed Buffer callbackを同じ型別loweringから生成し、`get`、`put`、`fill`、`copy`、破棄のresponsibilityを検証する。
-5. closure environmentとcontrol frame payloadのdestructor生成を同じ経路へ接続する。
+4. 同じ型別loweringを使う既存のmanaged Buffer callbackで、`get`、`put`、`fill`、`copy`、破棄のresponsibilityを検証する。
+5. 同じ型別loweringを使う既存のclosure environment destructorを保ち、control frame payloadのdirectな保持と破棄を調べる。
 6. 重複が実際に残る場合だけ、owner headerまたはcallback ABIの統合を別途評価する。
 
 各段階は生成物を実行できる状態で完了させる。将来のEngramだけを想定した空module、runtime registry、dynamic descriptorは作らない。
