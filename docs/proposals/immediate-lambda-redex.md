@@ -1,6 +1,6 @@
 # その場でapplicationされるlambda literalの拡張
 
-Status: Exploratory
+Status: Exploratory; 単一continuationとcallee位置のみ未採択
 
 この文書は、[lambdaの中断とredex](../design/value-interpretation-and-control.md#lambdaの中断とredex)の原則を、まだ適用していない
 単一continuationとcallee位置のlambda literalへ広げる案と、判断前に解決する論点を管理する。現在の言語規則は[`spec/`](../spec/)を正とする。

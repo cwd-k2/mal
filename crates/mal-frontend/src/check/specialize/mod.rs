@@ -110,19 +110,12 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             continue;
         }
 
-        let (family, arguments, binding) = specializer.pending_operations[operation_cursor].clone();
+        let (implementation, binding) = specializer.pending_operations[operation_cursor].clone();
         operation_cursor += 1;
-        let implementation = specializer
-            .implementations
-            .iter()
-            .find(|implementation| {
-                implementation.family.id == family.id && implementation.arguments == arguments
-            })
-            .cloned()
-            .expect("a queued operation has an exact implementation");
+        let family = implementation.family.id;
         let mut value = implementation.value;
         specializer.begin_instance_identities();
-        specializer.expression(&mut value, &HashMap::new(), Some((family.id, binding.id)))?;
+        specializer.expression(&mut value, &HashMap::new(), Some((family, binding.id)))?;
         specializer.specializations.push(Node::new(
             TopItem::Binding(Box::new(Binding {
                 pattern: Pattern::Binding {
@@ -161,7 +154,7 @@ struct Specializer {
     instance_buckets: HashMap<(ValueId, u64), Vec<usize>>,
     fingerprints: TypeFingerprints,
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
-    pending_operations: Vec<(ValueReference, Vec<Type>, ValueBinding)>,
+    pending_operations: Vec<(OperationImplementation, ValueBinding)>,
     next_value: u32,
     next_lambda: u32,
     value_renames: HashMap<ValueId, ValueId>,
@@ -265,7 +258,7 @@ impl Specializer {
                 name: family.name.clone(),
             });
         }
-        let _implementation = self
+        let implementation = self
             .implementations
             .iter()
             .find(|implementation| {
@@ -295,7 +288,7 @@ impl Specializer {
             .or_default()
             .push(index);
         self.pending_operations
-            .push((family.clone(), arguments.to_vec(), binding.clone()));
+            .push((implementation, binding.clone()));
         Ok(ValueReference {
             id: binding.id,
             name: family.name.clone(),
