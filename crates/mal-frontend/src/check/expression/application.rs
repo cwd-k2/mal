@@ -5,7 +5,7 @@ use mal_syntax::source::Span;
 
 use super::super::ast::{AbruptExpression, AbruptExpressionKind, Expression, ExpressionKind, Type};
 use super::super::types::type_name;
-use super::super::{CheckFailure, CheckResult, Checker};
+use super::super::{CheckFailure, CheckResult, Checker, ResultTarget};
 
 impl Checker {
     pub(super) fn check_continuation_application(
@@ -60,34 +60,13 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        if let resolved::Expression::Reference(reference) = &continuation.kind
+        if let Some(reference) = referenced_value(continuation)
             && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {
             let argument = self.check_expression(value, Some(&target.parameter))?;
-            self.used_result_targets.insert(target.boundary);
-            let value = if let Some(index) = target.variant {
-                Expression {
-                    kind: ExpressionKind::SumInjection {
-                        index,
-                        value: Box::new(argument),
-                    },
-                    ty: target.result,
-                    span,
-                }
-            } else {
-                argument
-            };
-            return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
-                preceding: Vec::new(),
-                kind: AbruptExpressionKind::ResultTransfer {
-                    target: target.boundary,
-                    variant: target.variant,
-                    value: Box::new(value),
-                },
-                span,
-            })));
+            return self.result_transfer(target, argument, span);
         }
-        if !matches!(continuation.kind, resolved::Expression::Lambda(_)) {
+        if !self.continuation_needs_payload_type(continuation) {
             let checked = self.check_expression(continuation, None)?;
             let Type::Function { parameter, result } = &checked.ty else {
                 return Err(Diagnostic::error("continuation must be a function")
@@ -134,46 +113,46 @@ impl Checker {
         parameter: &Type,
         result: Option<&Type>,
     ) -> CheckResult<Expression> {
-        let checked = match &continuation.kind {
-            resolved::Expression::Lambda(lambda) => {
-                self.check_lambda_against(lambda, continuation.span, parameter.clone(), result)?
-            }
-            resolved::Expression::Parenthesized(inner) => {
-                let inner = self.check_continuation(inner, parameter, result)?;
-                Expression {
-                    ty: inner.ty.clone(),
-                    kind: ExpressionKind::Parenthesized(Box::new(inner)),
-                    span: continuation.span,
+        let checked = if let Some(result) = result {
+            let expected = Type::Function {
+                parameter: parameter.clone().into(),
+                result: result.clone().into(),
+            };
+            self.check_expression(continuation, Some(&expected))?
+        } else {
+            match &continuation.kind {
+                resolved::Expression::Lambda(lambda) => {
+                    self.check_lambda_against(lambda, continuation.span, parameter.clone(), None)?
                 }
-            }
-            resolved::Expression::Reference(reference)
-                if self.generic_signatures.contains_key(&reference.id) =>
-            {
-                self.check_inferred_generic_continuation_reference(
-                    reference,
-                    continuation.span,
-                    parameter,
-                    result,
-                )?
-            }
-            resolved::Expression::Call { callee, arguments }
-                if let resolved::Expression::Reference(reference) = &callee.kind
-                    && self.generic_signatures.contains_key(&reference.id) =>
-            {
-                self.check_inferred_generic_continuation_call(
-                    reference,
-                    arguments,
-                    continuation.span,
-                    parameter,
-                    result,
-                )?
-            }
-            _ => {
-                let expected = result.map(|result| Type::Function {
-                    parameter: parameter.clone().into(),
-                    result: result.clone().into(),
-                });
-                self.check_expression(continuation, expected.as_ref())?
+                resolved::Expression::Parenthesized(inner) => {
+                    let inner = self.check_continuation(inner, parameter, None)?;
+                    Expression {
+                        ty: inner.ty.clone(),
+                        kind: ExpressionKind::Parenthesized(Box::new(inner)),
+                        span: continuation.span,
+                    }
+                }
+                resolved::Expression::Reference(reference)
+                    if self.generic_signatures.contains_key(&reference.id) =>
+                {
+                    self.check_inferred_generic_continuation_reference(
+                        reference,
+                        continuation.span,
+                        parameter,
+                    )?
+                }
+                resolved::Expression::Call { callee, arguments }
+                    if let Some(reference) = referenced_value(callee)
+                        && self.generic_signatures.contains_key(&reference.id) =>
+                {
+                    self.check_inferred_generic_continuation_call(
+                        reference,
+                        arguments,
+                        continuation.span,
+                        parameter,
+                    )?
+                }
+                _ => self.check_expression(continuation, None)?,
             }
         };
         let Type::Function {
@@ -202,10 +181,7 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        if let resolved::Expression::GenericReference {
-            reference,
-            arguments: type_arguments,
-        } = &callee.kind
+        if let Some((reference, type_arguments)) = referenced_generic_value(callee)
             && matches!(
                 reference.id,
                 crate::resolve::MAKE_VALUE | crate::resolve::FROM_VALUE
@@ -213,7 +189,7 @@ impl Checker {
         {
             return self.check_memory_intrinsic(reference, type_arguments, arguments, span);
         }
-        if let resolved::Expression::Reference(reference) = &callee.kind
+        if let Some(reference) = referenced_value(callee)
             && matches!(
                 reference.id,
                 crate::resolve::MAKE_VALUE | crate::resolve::FROM_VALUE
@@ -221,12 +197,12 @@ impl Checker {
         {
             return self.check_inferred_memory_intrinsic(reference, arguments, span, expected);
         }
-        if let resolved::Expression::Reference(reference) = &callee.kind
+        if let Some(reference) = referenced_value(callee)
             && self.generic_signatures.contains_key(&reference.id)
         {
             return self.check_inferred_generic_call(reference, arguments, span, expected);
         }
-        if let resolved::Expression::Reference(reference) = &callee.kind
+        if let Some(reference) = referenced_value(callee)
             && matches!(
                 reference.id,
                 crate::resolve::NEW_VALUE
@@ -239,32 +215,11 @@ impl Checker {
         {
             return self.check_memory_operation(reference, arguments, span);
         }
-        if let resolved::Expression::Reference(reference) = &callee.kind
+        if let Some(reference) = referenced_value(callee)
             && let Some(target) = self.result_targets.get(&reference.id).cloned()
         {
             let argument = self.check_argument(arguments, &target.parameter, span)?;
-            self.used_result_targets.insert(target.boundary);
-            let value = if let Some(index) = target.variant {
-                Expression {
-                    kind: ExpressionKind::SumInjection {
-                        index,
-                        value: Box::new(argument),
-                    },
-                    ty: target.result,
-                    span,
-                }
-            } else {
-                argument
-            };
-            return Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
-                preceding: Vec::new(),
-                kind: AbruptExpressionKind::ResultTransfer {
-                    target: target.boundary,
-                    variant: target.variant,
-                    value: Box::new(value),
-                },
-                span,
-            })));
+            return self.result_transfer(target, argument, span);
         }
         let callee = match self.check_expression(callee, None) {
             Ok(callee) => callee,
@@ -344,6 +299,77 @@ impl Checker {
             _ => self.check_product(arguments, span, None),
         }
     }
+
+    fn result_transfer(
+        &mut self,
+        target: ResultTarget,
+        argument: Expression,
+        span: Span,
+    ) -> CheckResult<Expression> {
+        self.used_result_targets.insert(target.boundary);
+        let value = if let Some(index) = target.variant {
+            Expression {
+                kind: ExpressionKind::SumInjection {
+                    index,
+                    value: Box::new(argument),
+                },
+                ty: target.result,
+                span,
+            }
+        } else {
+            argument
+        };
+        Err(CheckFailure::Abrupt(Box::new(AbruptExpression {
+            preceding: Vec::new(),
+            kind: AbruptExpressionKind::ResultTransfer {
+                target: target.boundary,
+                variant: target.variant,
+                value: Box::new(value),
+            },
+            span,
+        })))
+    }
+
+    fn continuation_needs_payload_type(&self, continuation: &Node<resolved::Expression>) -> bool {
+        let continuation = unparenthesized(continuation);
+        match &continuation.kind {
+            resolved::Expression::Lambda(_) => true,
+            resolved::Expression::Reference(reference) => {
+                self.generic_signatures.contains_key(&reference.id)
+            }
+            resolved::Expression::Call { callee, .. } => referenced_value(callee)
+                .is_some_and(|reference| self.generic_signatures.contains_key(&reference.id)),
+            _ => false,
+        }
+    }
+}
+
+pub(super) fn referenced_value(
+    expression: &Node<resolved::Expression>,
+) -> Option<&resolved::ValueReference> {
+    match &unparenthesized(expression).kind {
+        resolved::Expression::Reference(reference) => Some(reference),
+        _ => None,
+    }
+}
+
+fn referenced_generic_value(
+    expression: &Node<resolved::Expression>,
+) -> Option<(&resolved::ValueReference, &[Node<resolved::TypeExpression>])> {
+    match &unparenthesized(expression).kind {
+        resolved::Expression::GenericReference {
+            reference,
+            arguments,
+        } => Some((reference, arguments)),
+        _ => None,
+    }
+}
+
+fn unparenthesized(mut expression: &Node<resolved::Expression>) -> &Node<resolved::Expression> {
+    while let resolved::Expression::Parenthesized(inner) = &expression.kind {
+        expression = inner;
+    }
+    expression
 }
 
 /// Continuations with fewer than two entries are never branches, so the resolver only produces functions.

@@ -13,6 +13,11 @@ use super::float::is_contextual_float;
 use super::integer::is_contextual_integer;
 use super::{CheckResult, Checker, GenericSignature};
 
+enum GenericCallExpectation<'a> {
+    Result(Option<&'a Type>),
+    ReturnedFunctionParameter(&'a Type),
+}
+
 impl Checker {
     pub(super) fn check_generic_reference(
         &mut self,
@@ -159,12 +164,11 @@ impl Checker {
         reference: &resolved::ValueReference,
         span: Span,
         parameter: &Type,
-        result: Option<&Type>,
     ) -> CheckResult<Expression> {
         let signature = self.generic_signatures[&reference.id].clone();
         let Type::Function {
             parameter: parameter_template,
-            result: result_template,
+            ..
         } = &signature.ty
         else {
             return self.check_inferred_generic_reference(reference, span, None);
@@ -178,15 +182,6 @@ impl Checker {
             &mut substitutions,
             reference.name.span,
         )?;
-        if let Some(result) = result {
-            constrain(
-                result_template,
-                result,
-                &flexible,
-                &mut substitutions,
-                reference.name.span,
-            )?;
-        }
         let arguments = inferred_arguments(&signature, &substitutions, reference.name.span)?;
         self.check_generic_reference(reference, arguments, span)
     }
@@ -199,7 +194,10 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         self.check_inferred_generic_call_with_expectations(
-            reference, arguments, span, expected, None,
+            reference,
+            arguments,
+            span,
+            GenericCallExpectation::Result(expected),
         )
     }
 
@@ -209,14 +207,12 @@ impl Checker {
         arguments: &[Node<resolved::Expression>],
         span: Span,
         parameter: &Type,
-        result: Option<&Type>,
     ) -> CheckResult<Expression> {
         self.check_inferred_generic_call_with_expectations(
             reference,
             arguments,
             span,
-            None,
-            Some((parameter, result)),
+            GenericCallExpectation::ReturnedFunctionParameter(parameter),
         )
     }
 
@@ -225,8 +221,7 @@ impl Checker {
         reference: &resolved::ValueReference,
         arguments: &[Node<resolved::Expression>],
         span: Span,
-        expected: Option<&Type>,
-        expected_continuation: Option<(&Type, Option<&Type>)>,
+        expected: GenericCallExpectation<'_>,
     ) -> CheckResult<Expression> {
         let signature = self.generic_signatures[&reference.id].clone();
         let Type::Function { parameter, result } = &signature.ty else {
@@ -236,37 +231,27 @@ impl Checker {
         };
         let flexible = parameter_ids(&signature);
         let mut substitutions = HashMap::new();
-        if let Some(expected) = expected {
-            constrain(
+        match expected {
+            GenericCallExpectation::Result(Some(expected)) => constrain(
                 result,
                 expected,
                 &flexible,
                 &mut substitutions,
                 reference.name.span,
-            )?;
-        }
-        if let Some((expected_parameter, expected_result)) = expected_continuation
-            && let Type::Function {
-                parameter,
-                result: function_result,
-            } = result.as_ref()
-        {
-            constrain(
-                parameter,
-                expected_parameter,
-                &flexible,
-                &mut substitutions,
-                reference.name.span,
-            )?;
-            if let Some(expected_result) = expected_result {
+            )?,
+            GenericCallExpectation::ReturnedFunctionParameter(expected)
+                if let Type::Function { parameter, .. } = result.as_ref() =>
+            {
                 constrain(
-                    function_result,
-                    expected_result,
+                    parameter,
+                    expected,
                     &flexible,
                     &mut substitutions,
                     reference.name.span,
                 )?;
             }
+            GenericCallExpectation::Result(None)
+            | GenericCallExpectation::ReturnedFunctionParameter(_) => {}
         }
 
         let templates = argument_templates(parameter, arguments.len());

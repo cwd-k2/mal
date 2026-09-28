@@ -190,6 +190,22 @@ fn checks_postfix_application_and_sum_continuations() {
 }
 
 #[test]
+fn infers_generic_arguments_through_parenthesized_and_postfix_callees() {
+    check_ok(
+        "identity<A> :: A -> A := (value) -> value;
+         constant<A, B> :: A -> B -> A := (value) -> (_) -> value;
+         main :: Unit -> Int32 := () -> {
+           direct := 1u8[identity];
+           parenthesized := 2u8[(identity)];
+           called := 3u8[((constant))(4u8)];
+           lambda := 5u8[((value) -> value)];
+           ordinary := ((identity))(6u8);
+           direct.i32 + parenthesized.i32 + called.i32 + lambda.i32 + ordinary.i32
+         };",
+    );
+}
+
+#[test]
 fn checks_receiver_first_calls_with_ordinary_function_bindings() {
     check_ok(
         "add :: (Int32, Int32) -> Int32 := (left, right) -> { left + right };\n\

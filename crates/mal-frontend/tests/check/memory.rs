@@ -18,6 +18,17 @@ fn checks_managed_buffer_construction_aliasing_and_access() {
 }
 
 #[test]
+fn parenthesized_memory_operation_names_keep_their_predefined_identity() {
+    check_ok(
+        "main :: Unit -> Int32 := () -> {
+           values := (make<Int32>)(1usize);
+           (put)(values, 0usize, 42i32);
+           (get)(values, 0usize)
+         };",
+    );
+}
+
+#[test]
 fn checks_c_host_copy_primitives_and_symbol_snapshots() {
     check_ok(
         "snapshot :: (Address, USize) -> Symbol := (address, count) -> {

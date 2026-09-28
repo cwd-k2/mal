@@ -215,6 +215,15 @@ fn rejects_result_binder_arity_and_value_use() {
 }
 
 #[test]
+fn applies_parenthesized_result_binders_without_turning_them_into_values() {
+    check_ok(
+        "called :: Unit -> Int32 := () -> [done] => (done)(40);
+         continued :: Unit -> Int32 := () -> [done] => 2[(done)];
+         main :: Unit -> Int32 := () -> called() + continued();",
+    );
+}
+
+#[test]
 fn preserves_completion_through_strict_and_short_circuit_contexts() {
     check_ok(
         "finish :: Bool -> Int32 := (condition) -> [return] => {\n\

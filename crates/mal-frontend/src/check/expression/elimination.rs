@@ -9,6 +9,7 @@ use super::super::ast::{
 };
 use super::super::types::type_name;
 use super::super::{CheckFailure, CheckResult, Checker};
+use super::application::referenced_value;
 
 impl Checker {
     /// Checks a sum elimination, whose continuations are function values, branches of the enclosing
@@ -152,11 +153,7 @@ impl Checker {
         payload: &Type,
         position: usize,
     ) -> CheckResult<Option<SumTransfer>> {
-        let mut current = continuation;
-        while let resolved::Expression::Parenthesized(inner) = &current.kind {
-            current = inner;
-        }
-        let resolved::Expression::Reference(reference) = &current.kind else {
+        let Some(reference) = referenced_value(continuation) else {
             return Ok(None);
         };
         let Some(target) = self.result_targets.get(&reference.id).cloned() else {
@@ -165,7 +162,7 @@ impl Checker {
         if payload != &target.parameter {
             return Err(Diagnostic::error("result binder does not accept this payload")
                 .with_primary(
-                    current.span,
+                    continuation.span,
                     format!(
                         "`{}` takes `{}`, but this continuation receives `{}`",
                         reference.name.text,
@@ -186,7 +183,7 @@ impl Checker {
             variant: target.variant,
             payload_type: payload.clone(),
             result_type: target.result,
-            span: current.span,
+            span: continuation.span,
         }))
     }
 }
