@@ -201,11 +201,16 @@ fn collect_pattern_exports(exports: &mut Exports, pattern: &ast::Node<resolved::
     }
 }
 
+/// A required file may not declare the value name `main` in any form, so the entry name always belongs to the root.
 fn reject_dependency_main(program: &ast::Program) -> Result<(), Diagnostic> {
     for item in &program.items {
-        if let ast::TopItem::Binding(binding) = &item.kind
-            && let Some(name) = pattern_name(&binding.pattern, "main")
-        {
+        let name = match &item.kind {
+            ast::TopItem::Binding(binding) => pattern_name(&binding.pattern, "main"),
+            ast::TopItem::GenericBinding { name, .. }
+            | ast::TopItem::ExternalOperation { name, .. } => (name.text == "main").then_some(name),
+            _ => None,
+        };
+        if let Some(name) = name {
             return Err(Diagnostic::error("`main` declared outside the root file")
                 .with_primary(name.span, "the entry point belongs in the root file"));
         }

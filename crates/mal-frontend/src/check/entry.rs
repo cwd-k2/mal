@@ -45,6 +45,25 @@ pub(super) fn entry_point(binding: &Binding) -> Result<Option<ast::EntryPoint>, 
     }))
 }
 
+/// Rejects a root declaration named `main` that cannot be the entry binding, instead of reporting a missing entry.
+pub(super) fn reject_declared_main(item: &crate::resolve::ast::TopItem) -> Result<(), Diagnostic> {
+    use crate::resolve::ast::TopItem;
+    let (name, label) = match item {
+        TopItem::GenericBinding { binding, .. } | TopItem::OperationFamily { binding, .. } => {
+            (&binding.name, "the entry point cannot have type parameters")
+        }
+        TopItem::ExternalOperation { binding, .. } => (
+            &binding.name,
+            "the entry point is defined in mal, not by the host",
+        ),
+        _ => return Ok(()),
+    };
+    if name.text != "main" {
+        return Ok(());
+    }
+    Err(Diagnostic::error("invalid entry point declaration").with_primary(name.span, label))
+}
+
 fn product_bound_main(pattern: &Pattern) -> Option<&crate::resolve::ast::ValueBinding> {
     let mut pending = vec![pattern];
     while let Some(pattern) = pending.pop() {

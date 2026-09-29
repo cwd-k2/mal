@@ -197,6 +197,7 @@ impl Checker {
         let mut items = Vec::with_capacity(program.items.len());
         let mut entry = None;
         for item in &program.items {
+            entry::reject_declared_main(&item.kind)?;
             if matches!(item.kind, resolved::TopItem::GenericTypeAlias { .. }) {
                 continue;
             }

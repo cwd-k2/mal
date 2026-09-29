@@ -174,6 +174,24 @@ fn rejects_conflicting_imports_and_dependency_entry_points() {
     );
     let error = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap_err();
     assert_eq!(error.message, "`main` declared outside the root file");
+
+    for dependency in [
+        "main<A> :: A -> Int32 := (_) -> 0i32;",
+        "extern main :: Unit -> Int32;",
+    ] {
+        let (graph, parsed) = make_graph(
+            &[
+                ("root.mal", "require \"./dependency.mal\";"),
+                ("dependency.mal", dependency),
+            ],
+            &[&[(1, 0)], &[] as &[(u32, usize)]],
+        );
+        let error = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap_err();
+        assert_eq!(
+            error.message, "`main` declared outside the root file",
+            "{dependency}"
+        );
+    }
 }
 
 #[test]

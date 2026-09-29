@@ -605,6 +605,18 @@ fn validates_an_explicit_entry_point_signature() {
 
     let product = check_error("(main, other) :: (Unit -> Int32, Int32) := (() -> 0i32, 1i32);");
     assert_eq!(product.message, "invalid entry point binding");
+
+    for text in [
+        "main<A> :: A -> Int32 := (_) -> 0i32;",
+        "main<A> :: A -> Int32;",
+        "extern main :: Unit -> Int32;",
+    ] {
+        assert_eq!(
+            check_error(text).message,
+            "invalid entry point declaration",
+            "input: {text}"
+        );
+    }
 }
 
 #[test]
