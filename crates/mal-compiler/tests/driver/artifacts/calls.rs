@@ -386,7 +386,7 @@ fn runs_continuations_when_value_and_answer_function_types_overlap() {
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            mapped := (10[pure], (value) -> { value * 2 })[map];\n\
-           (value) -> { value - 20 }[mapped];\n\
+           ((value) -> { value - 20 })[mapped];\n\
          };",
     );
 
@@ -426,10 +426,10 @@ fn runs_call_cc_encoded_with_capturing_closures() {
          };\n\
          main :: Unit -> Int32 := () -> {\n\
            body :: CallCcBody := (escape) -> {\n\
-             (_) -> { (value) -> { value.i64 }[42[escape]] };\n\
+             (_) -> { ((value) -> { value.i64 })[42[escape]] };\n\
            };\n\
            computation := body[callCc];\n\
-           ((value) -> { value.i64 }[computation] - 42i64).i32;\n\
+           (((value) -> { value.i64 })[computation] - 42i64).i32;\n\
          };",
     );
     directory.write(

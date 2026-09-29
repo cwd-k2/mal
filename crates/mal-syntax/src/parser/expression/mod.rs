@@ -20,7 +20,16 @@ impl Parser<'_> {
     }
 
     fn parse_expression_bp_inner(&mut self, minimum: u8) -> Result<Node<Expression>, Diagnostic> {
-        let mut left = self.parse_prefix()?;
+        let left = self.parse_prefix()?;
+        self.parse_suffixes_and_operators(left, minimum)
+    }
+
+    /// Continues an expression whose leftmost operand is already parsed with its postfix suffixes and binary operators.
+    pub(super) fn parse_suffixes_and_operators(
+        &mut self,
+        mut left: Node<Expression>,
+        minimum: u8,
+    ) -> Result<Node<Expression>, Diagnostic> {
         let mut non_associative = None;
         loop {
             if self.at(&TokenKind::LeftParen) && 23 >= minimum {

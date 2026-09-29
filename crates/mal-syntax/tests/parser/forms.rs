@@ -290,3 +290,33 @@ fn treats_return_as_an_ordinary_identifier() {
     assert!(parse(&source("value := () -> { return := 1; return; };")).is_ok());
     assert!(parse(&source("value := () -> { return 1; };")).is_err());
 }
+
+#[test]
+fn a_body_that_starts_with_a_block_continues_as_one_expression() {
+    let Expression::Lambda(lambda) = binding_value("next := (x) -> { x } + 1;") else {
+        panic!("the lambda owns the whole body");
+    };
+    assert!(lambda.body.items.is_empty());
+    let Expression::Binary { left, .. } = &lambda.body.result.kind else {
+        panic!("the body is the addition");
+    };
+    assert!(matches!(left.kind, Expression::Block(_)));
+
+    let Expression::If { then_branch, .. } = binding_value("pick := if (c) then { a }[k] else b;")
+    else {
+        panic!("expected if");
+    };
+    assert!(matches!(
+        then_branch.result.kind,
+        Expression::ContinuationApplication { .. }
+    ));
+
+    let Expression::Lambda(lambda) = binding_value("keep := (x) -> { y := x; y };") else {
+        panic!("expected lambda");
+    };
+    assert_eq!(
+        lambda.body.items.len(),
+        1,
+        "a bare block body keeps its items"
+    );
+}

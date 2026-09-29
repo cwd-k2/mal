@@ -105,6 +105,10 @@ whenExpr ::= "when" "(" expression ")" expression
 primary expressionはliteral、valueName、Unit、parenthesized expression、product、unit application、lambda、block、result block、
 `if`、`when`からなる。primaryの後へcall、receiver、continuation、conversion suffixをsource orderで0個以上適用する。
 
+lambda、result block、`if`の各branch、`when`のbodyは一つの`expression`であり、blockで始まる場合も同じである。
+`(x) -> { x } + 1`のbodyは`{ x } + 1`、`then { a }[k]`のbranchは`{ a }[k]`である。lambdaへsuffixを適用するには
+`((x) -> { x })[k]`のように括弧で囲む。設計理由は[D090](../history/decisions/active/D090.md)に記録する。
+
 prefix `#`はvalue length queryである。operandを明確に区切る場合は`#(count)`のように括弧を使える。
 
 Symbol literalとbyte literalは次の形を持つ。

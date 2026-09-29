@@ -3,7 +3,8 @@
 use std::mem::discriminant;
 
 use crate::ast::{
-    Binding, LambdaBody, Name, Node, Pattern, Program, Requirement, TopItem, TypeExpression,
+    Binding, Expression, LambdaBody, Name, Node, Pattern, Program, Requirement, TopItem,
+    TypeExpression,
 };
 use crate::diagnostic::Diagnostic;
 use crate::lexer::{Token, TokenKind, lex};
@@ -309,11 +310,25 @@ impl<'a> Parser<'a> {
         self.parse_expression_body()
     }
 
+    /// A body is one expression. A body that is exactly a block keeps that block's items; a block followed by a suffix or
+    /// operator is the leftmost operand of a larger expression, as anywhere else.
     fn parse_expression_body(&mut self) -> Result<LambdaBody, Diagnostic> {
-        if self.at(&TokenKind::LeftBrace) {
-            return self.parse_expression_block();
-        }
-        let result = self.parse_expression()?;
+        let result = if self.at(&TokenKind::LeftBrace) {
+            let block = self.parse_expression_block()?;
+            let resume = self.position;
+            let span = block.span;
+            let continued =
+                self.parse_suffixes_and_operators(Node::new(Expression::Block(block), span), 0)?;
+            if self.position == resume {
+                let Expression::Block(block) = continued.kind else {
+                    unreachable!("an operand without suffixes or operators is returned unchanged");
+                };
+                return Ok(block);
+            }
+            continued
+        } else {
+            self.parse_expression()?
+        };
         let span = result.span;
         Ok(LambdaBody {
             items: Vec::new(),
