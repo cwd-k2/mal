@@ -151,7 +151,7 @@ standard Bufferのcore operationをdownstream sourceが同じidentityのまま�
 
 したがって、`Pool`をbuilt-in Engramとして先に実装し、既存compilerが知る`Storable(State)`と`Storable(T)`だけを受理することは、一般plugin ABIより前に
 検証できる。ただしunmanaged scalarだけへ制限したPoolでは本案の重複削減を十分に確認できない。`Symbol`を含むmanaged elementを
-扱う段階までに、[Engram lifecycle proposal](../engram-lifecycle-foundation.md)が示す型別`share`と`drop`を通常値、Pool callback、
+扱う段階までに、[managed valueのownership](../../implementation/ownership.md)が定める型別`share`と`drop`を通常値、Pool callback、
 closure environment destructorから共有できる必要がある。
 
 ## Plugin境界

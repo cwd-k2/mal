@@ -546,9 +546,9 @@ fn validates_an_explicit_entry_point_signature() {
         arguments.entry.expect("checked entry point").parameter,
         mal_frontend::check::ast::EntryParameter::ProcessArguments
     );
-    // The former argument form is no longer an entry type.
-    let former = check_error("main :: Buffer<(Address, USize)> -> Int32 := (_) -> { 0i32; };");
-    assert_eq!(former.message, "invalid entry point type");
+    let address_pairs =
+        check_error("main :: Buffer<(Address, USize)> -> Int32 := (_) -> { 0i32; };");
+    assert_eq!(address_pairs.message, "invalid entry point type");
 
     let product = check_error("(main, other) :: (Unit -> Int32, Int32) := (() -> 0i32, 1i32);");
     assert_eq!(product.message, "invalid entry point binding");

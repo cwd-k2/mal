@@ -28,9 +28,8 @@ topology therefore exists in the transition relation followed by `_parse`, not i
 type or a materialized syntax tree.
 
 The host owns the stdin allocation. The program admits its initialized prefix into a mal-owned
-`Buffer<UInt8>` before releasing that allocation, so parsing no longer depends on host storage.
-It admits the selected process argument for the same reason: arguments become ordinary program
-values at the entry point. Output rendering uses mal-owned `Symbol` values, then writes them in
+`Buffer<UInt8>` before releasing that allocation; parsing uses only the resulting mal-owned storage.
+The selected process argument is likewise an ordinary program value at the entry point. Output rendering uses mal-owned `Symbol` values, then writes them in
 chunks through the fixed host buffer instead of treating its capacity as an output limit.
 
 Input is expected to be UTF-8. The example validates JSON token and structural syntax, including the

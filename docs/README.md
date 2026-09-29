@@ -47,7 +47,7 @@
 | 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md) |
 | higher-kindedな型parameterを使う | [kindとtype constructor](spec/type-constructors.md) | [parametric polymorphism](spec/generics.md)、[operation family](spec/operation-families.md) |
 | file内だけでrepresentationを観察できる型を使う | [file-local opaque type](spec/types.md#file-local-opaque-type) | [operation family](spec/operation-families.md) |
-| Engramの保持、破棄、storage lifecycleの内部基盤を検討する | [Engram lifecycle loweringの共通基盤](proposals/engram-lifecycle-foundation.md) | [Engram ownership](implementation/ownership.md)、[D055](history/decisions/active/D055.md)、[D083](history/decisions/active/D083.md) |
+| Engramの保持、破棄、storage lifecycleを変更する | [Engram ownership](implementation/ownership.md) | [lifecycle loweringの拡張境界](proposals/engram-lifecycle-foundation.md)、[D055](history/decisions/active/D055.md)、[D083](history/decisions/active/D083.md) |
 | Pool上へopaque containerを構成する案を検討する | [Poolとopaque型によるcontainer基盤](proposals/pool/README.md) | [Pool lifecycle contract](proposals/pool/lifecycle-contract.md)、[container例](proposals/pool/container-examples.md)、[COW例](proposals/pool/array-ownership.md) |
 | lambda literalのredex扱いを単一continuationとcallee位置へ広げる案を検討する | [その場でapplicationされるlambda literalの拡張](proposals/immediate-lambda-redex.md) | [lambdaの中断とredex](design/value-interpretation-and-control.md#lambdaの中断とredex)、[直和の除去](spec/expressions.md#直和の除去)、[D072](history/decisions/active/D072.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/active/D051.md) |

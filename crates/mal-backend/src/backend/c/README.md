@@ -5,7 +5,9 @@ module lives in `backend/llvm/shim`.
 
 | Module | Responsibility |
 |---|---|
-| `header`, `header/prefix` | generated header layout, include guard, common helper templates, portability macros, runtime ABI prefix |
+| `header`, `header/prefix` | file-specific header layout, include guards, portability checks, runtime ABI prefix |
+| `header/common` | program-independent C ABI declarations, scalar helpers, and built-in return validation |
+| `header/common/templates` | aggregate conversion, canonical-memory, and public sum API templates |
 | `host_signature` | host operation signatures |
 | `types::TypeRegistry` | structural identity and C type mapping for the whole host interface |
 | `types/collect` | postorder collection of host-visible representations from `ProgramInterface` |

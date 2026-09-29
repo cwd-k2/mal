@@ -1,5 +1,7 @@
 use crate::backend::c::syntax::{TranslationUnit, c_declaration, c_directive};
 
+use super::C_ABI_VERSION_LITERAL;
+
 pub(super) fn emit_prefix(
     index_bits: usize,
     _memory_access: bool,
@@ -18,7 +20,7 @@ pub(super) fn emit_prefix(
     output.blank_line();
     output.push(c_declaration! {
         static_assert(
-            (equal((id("MAL_C_ABI_VERSION")), (number("0x000900u")))),
+            (equal((id("MAL_C_ABI_VERSION")), (number(#{ C_ABI_VERSION_LITERAL })))),
             "generated header requires mal C ABI 0x000900"
         );
     });
