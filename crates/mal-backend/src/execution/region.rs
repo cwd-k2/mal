@@ -19,6 +19,8 @@ pub(crate) struct ControlRegionPlan {
 #[derive(Eq, PartialEq)]
 struct ControlRegion {
     functions: Vec<FunctionId>,
+    /// Application sites that target a function of the region, in state order.
+    sites: Vec<StateId>,
 }
 
 impl ControlRegionPlan {
@@ -61,13 +63,14 @@ impl ControlRegionPlan {
         }
         components.sort_by_key(|component| component[0]);
 
-        let regions = components
+        let mut regions = components
             .into_iter()
             .map(|component| ControlRegion {
                 functions: component
                     .into_iter()
                     .map(|index| program.functions[index].id)
                     .collect(),
+                sites: Vec::new(),
             })
             .collect::<Vec<_>>();
         let mut function_regions = HashMap::new();
@@ -98,6 +101,7 @@ impl ControlRegionPlan {
             if !targets.is_empty() {
                 site_regions.insert(site, region);
                 recursive_targets.insert(site, targets);
+                regions[region.0].sites.push(site);
             }
         }
 
@@ -115,6 +119,11 @@ impl ControlRegionPlan {
 
     pub(crate) fn functions(&self, region: ControlRegionId) -> &[FunctionId] {
         &self.regions[region.0].functions
+    }
+
+    /// The sites whose `site_region` is `region`.
+    pub(crate) fn sites(&self, region: ControlRegionId) -> &[StateId] {
+        &self.regions[region.0].sites
     }
 
     pub(crate) fn function_region(&self, function: FunctionId) -> Option<ControlRegionId> {

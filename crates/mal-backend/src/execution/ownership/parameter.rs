@@ -65,14 +65,12 @@ impl ParameterBorrows {
                 .functions(region)
                 .iter()
                 .all(|function| parameter_is_bounded(control, *function))
-                && control.states.iter().enumerate().all(|(index, _)| {
-                    let site = StateId(index);
-                    regions.site_region(site) != Some(region)
-                        || applications.targets(site).is_none_or(|targets| {
-                            targets
-                                .iter()
-                                .all(|target| regions.function_region(*target) == Some(region))
-                        })
+                && regions.sites(region).iter().all(|site| {
+                    applications.targets(*site).is_none_or(|targets| {
+                        targets
+                            .iter()
+                            .all(|target| regions.function_region(*target) == Some(region))
+                    })
                 })
             {
                 functions.extend(regions.functions(region));

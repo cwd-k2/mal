@@ -174,17 +174,14 @@ struct TargetIndex {
 
 impl TargetIndex {
     fn for_site(&mut self, site: StateId, callee: &closure::Atom) -> Vec<FunctionId> {
-        let compatible = self.compatible.for_callee(callee);
-        let Some(reached) = self.flow.callee(site) else {
-            return compatible;
-        };
-        let narrowed = compatible
-            .iter()
-            .copied()
-            .filter(|target| reached.contains(target))
-            .collect::<Vec<_>>();
+        let group = self.compatible.group(callee);
+        let narrowed = self
+            .flow
+            .callee(site)
+            .map(|reached| self.compatible.members_of(group, reached))
+            .unwrap_or_default();
         if narrowed.is_empty() {
-            compatible
+            self.compatible.targets(group).to_vec()
         } else {
             narrowed
         }

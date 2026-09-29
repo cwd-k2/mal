@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::FunctionId;
 use crate::closure::ast::Pattern;
-use crate::control::ast::{Program, StateId, Terminator};
+use crate::control::ast::{Program, Terminator};
 
 use super::optimization::{OptimizationSet, Technique};
 use super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan};
@@ -61,11 +61,11 @@ impl NativeRecursionPlan {
                 {
                     return false;
                 }
-                let sites = (0..control.states.len())
-                    .map(StateId)
-                    .filter(|site| {
-                        frames.frame(*site).is_some() && regions.site_region(*site) == Some(region)
-                    })
+                let sites = regions
+                    .sites(region)
+                    .iter()
+                    .copied()
+                    .filter(|site| frames.frame(*site).is_some())
                     .collect::<Vec<_>>();
                 !sites.is_empty()
                     && sites.iter().all(|site| {

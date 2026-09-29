@@ -5,7 +5,7 @@ use crate::control::ast::{self as control, StateId, Terminator};
 use mal_frontend::check::ast::Type;
 
 use super::ControlFrame;
-use crate::execution::{ControlCallMode, ControlCallPlan, ControlRegionPlan};
+use crate::execution::{ControlCallMode, ControlCallPlan, ControlRegionId, ControlRegionPlan};
 
 pub(super) struct Plan {
     pub(super) pairs: HashSet<(StateId, StateId)>,
@@ -30,6 +30,12 @@ impl Plan {
             .iter()
             .flat_map(|function| function.states.iter().map(|site| (*site, function.id)))
             .collect::<HashMap<_, _>>();
+        let mut machines = HashMap::<Machine, Vec<StateId>>::new();
+        for site in frames.keys() {
+            if let Some(machine) = frame_machine(*site, &state_functions, regions, calls) {
+                machines.entry(machine).or_default().push(*site);
+            }
+        }
         let mut pairs = HashSet::new();
         let mut compatible = HashSet::new();
         for index in 0..program.states.len() {
@@ -37,16 +43,25 @@ impl Plan {
             let Some(result) = continuation_result_type(program, calls, frames, exit) else {
                 continue;
             };
-            for (site, frame) in frames {
-                if !same_machine(exit, *site, &state_functions, regions, calls) {
-                    continue;
-                }
-                pairs.insert((exit, *site));
-                let Some(input) = program.states[frame.resume.0].input.as_ref() else {
-                    continue;
-                };
-                if result == input.ty() {
-                    compatible.insert((exit, *site));
+            let Some(exit_function) = state_functions.get(&exit) else {
+                continue;
+            };
+            let common = regions
+                .function_region(*exit_function)
+                .filter(|region| calls.requires_common_control(*region))
+                .map(Machine::Common);
+            for machine in [Some(Machine::Local(*exit_function)), common]
+                .into_iter()
+                .flatten()
+            {
+                for site in machines.get(&machine).into_iter().flatten() {
+                    pairs.insert((exit, *site));
+                    let Some(input) = program.states[frames[site].resume.0].input.as_ref() else {
+                        continue;
+                    };
+                    if result == input.ty() {
+                        compatible.insert((exit, *site));
+                    }
                 }
             }
         }
@@ -80,29 +95,28 @@ impl Plan {
     }
 }
 
-/// Common-control regions form one machine across function boundaries; local regions are confined
-/// to the function that owns the frame.
-fn same_machine(
-    exit: StateId,
+/// The control machine an exit must belong to in order to resume a frame.
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+enum Machine {
+    /// A common-control region forms one machine across function boundaries.
+    Common(ControlRegionId),
+    /// A local region is confined to the function that owns the frame.
+    Local(FunctionId),
+}
+
+fn frame_machine(
     frame: StateId,
     state_functions: &HashMap<StateId, FunctionId>,
     regions: &ControlRegionPlan,
     calls: &ControlCallPlan,
-) -> bool {
-    let Some(exit_function) = state_functions.get(&exit) else {
-        return false;
-    };
-    let Some(frame_function) = state_functions.get(&frame) else {
-        return false;
-    };
-    let Some(region) = regions.site_region(frame) else {
-        return false;
-    };
-    if calls.requires_common_control(region) {
-        regions.function_region(*exit_function) == Some(region)
+) -> Option<Machine> {
+    let frame_function = state_functions.get(&frame)?;
+    let region = regions.site_region(frame)?;
+    Some(if calls.requires_common_control(region) {
+        Machine::Common(region)
     } else {
-        exit_function == frame_function
-    }
+        Machine::Local(*frame_function)
+    })
 }
 
 fn continuation_result_type<'a>(

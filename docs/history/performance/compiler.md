@@ -218,3 +218,23 @@ checked programとspecialization結果、diagnosticが変更前と一致した�
 索引する。書き換えは依然として一候補ずつprogram全体の索引と書き換えを行うため`n`について二乗で残り、`n = 400`の生成時間
 約1.8 sの大半を占める。examples、probe program、Typical 90、`.scratch/loop-perf`の計575 programについて、両modeの
 LLVM module、C shim、headerが変更前とbyte単位で一致した。
+
+## 2026-09-29 execution planのregionとtarget集合
+
+`n`個の自己再帰function `r<i> :: Int64 -> Int64`を`main`が一度ずつ呼ぶsourceで、Clangを除くartifact生成時間を測った。
+callgrindでは次の三つが`malc`の時間の約四分の三を占めていた。
+
+- `execution/frame/resume`はprogramの全exit stateと全frameの組を調べていた。frameはfunction内、またはcommon-control
+  region内でしか対にならないため、frameをそのmachineごとにまとめ、exitと同じmachineのframeだけを調べる。
+- `execution/ownership/parameter`と`execution/native_recursion`はregionまたはfunctionごとに全stateを走査してそのregionの
+  siteを探していた。region planがregionごとのsiteを保持する。
+- `flow`はcall siteごとに同じ型を持つ全functionのlistを複製し、到達集合で絞っていた。型ごとのgroupを一度だけ作り、siteには
+  groupを持たせ、到達集合の側からgroupへの所属を調べる。
+
+| `n` | baseline 変更前 | baseline 変更後 | production 変更前 | production 変更後 |
+|---:|---:|---:|---:|---:|
+| 1,000 | 339 ms | 105 ms | 407 ms | 158 ms |
+| 2,000 | 1,106 ms | 223 ms | 1,363 ms | 397 ms |
+
+examples、probe program、Typical 90、`.scratch/loop-perf`の計576 programについて、両modeのLLVM module、C shim、headerが
+変更前とbyte単位で一致した。

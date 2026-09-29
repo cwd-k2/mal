@@ -5,15 +5,15 @@ use crate::closure::ast::{self as closure, Atom, AtomKind, FunctionId, Reference
 use crate::control::ast::{self as control, StateId, Terminator};
 use mal_frontend::check::ast::Type;
 
-use super::compatible::CompatibleTargets;
+use super::compatible::{CompatibleGroup, CompatibleTargets};
 use super::owner::{Owner, state_owners};
 
 pub(super) type Functions = HashSet<FunctionId>;
 
-pub(super) fn solve(
-    closure: &closure::Program,
-    control: &control::Program,
-    compatible: &mut CompatibleTargets,
+pub(super) fn solve<'a>(
+    closure: &'a closure::Program,
+    control: &'a control::Program,
+    compatible: &'a mut CompatibleTargets,
 ) -> (HashMap<StateId, Functions>, HashMap<StateId, Functions>) {
     let mut analysis = Analysis::new(closure, control, compatible);
     while std::mem::take(&mut analysis.changed) {
@@ -27,7 +27,8 @@ pub(super) struct Analysis<'a> {
     pub(super) signatures: HashMap<FunctionId, (&'a Type, &'a Type)>,
     pub(super) parameters: HashMap<FunctionId, (Option<ValueId>, &'a Type)>,
     pub(super) owners: Vec<Option<Owner>>,
-    pub(super) compatible: HashMap<StateId, Vec<FunctionId>>,
+    pub(super) compatible: HashMap<StateId, Option<CompatibleGroup>>,
+    pub(super) targets: &'a CompatibleTargets,
     pub(super) values: HashMap<ValueId, Functions>,
     pub(super) captures: HashMap<(FunctionId, usize), Functions>,
     pub(super) returns: HashMap<Owner, Functions>,
@@ -39,9 +40,9 @@ impl<'a> Analysis<'a> {
     fn new(
         closure: &'a closure::Program,
         control: &'a control::Program,
-        compatible: &mut CompatibleTargets,
+        compatible: &'a mut CompatibleTargets,
     ) -> Self {
-        let compatible = control
+        let groups = control
             .states
             .iter()
             .enumerate()
@@ -51,9 +52,10 @@ impl<'a> Analysis<'a> {
                 else {
                     return None;
                 };
-                Some((StateId(index), compatible.for_callee(callee)))
+                Some((StateId(index), compatible.group(callee)))
             })
             .collect();
+        let targets: &'a CompatibleTargets = compatible;
         Self {
             control,
             signatures: closure
@@ -77,7 +79,8 @@ impl<'a> Analysis<'a> {
                 })
                 .collect(),
             owners: state_owners(control),
-            compatible,
+            compatible: groups,
+            targets,
             values: HashMap::new(),
             captures: HashMap::new(),
             returns: HashMap::new(),
@@ -143,11 +146,11 @@ impl<'a> Analysis<'a> {
             return None;
         };
         let reaching = self.atom(owner, callee);
+        let group = self.compatible[&site];
         Some(
-            self.compatible[&site]
-                .iter()
-                .copied()
-                .filter(|function| reaching.contains(function))
+            reaching
+                .into_iter()
+                .filter(|function| self.targets.contains(group, *function))
                 .collect(),
         )
     }
