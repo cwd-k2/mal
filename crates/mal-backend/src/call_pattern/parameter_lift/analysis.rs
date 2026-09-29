@@ -4,10 +4,16 @@ use mal_frontend::check::ast::Type;
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{
-    Atom, AtomId, AtomKind, Block, FunctionId, Operation, Pattern, Program, Reference,
+    Atom, AtomId, AtomKind, FunctionId, Operation, Pattern, Program, Reference,
 };
 
 use super::Definition;
+
+mod aliases;
+mod walk;
+
+pub(super) use aliases::{aliases, origin};
+pub(super) use walk::{for_each_block, operation_atoms};
 
 pub(super) fn parameter_callbacks(
     function: &crate::closure::ast::Function,
@@ -60,73 +66,6 @@ pub(super) fn definitions(program: &Program) -> HashMap<ValueId, Definition> {
         }
     });
     definitions
-}
-
-pub(super) fn aliases(definitions: &HashMap<ValueId, Definition>) -> HashMap<ValueId, ValueId> {
-    let direct = definitions
-        .iter()
-        .filter_map(|(id, definition)| {
-            let Definition {
-                operation: Operation::Atom(atom),
-            } = definition
-            else {
-                return None;
-            };
-            Some((*id, atom.binding()?))
-        })
-        .collect::<HashMap<_, _>>();
-    alias_origins(definitions.keys().copied(), &direct)
-}
-
-fn alias_origins(
-    ids: impl IntoIterator<Item = ValueId>,
-    direct: &HashMap<ValueId, ValueId>,
-) -> HashMap<ValueId, ValueId> {
-    let mut aliases = HashMap::new();
-    let mut cycle_members = HashSet::new();
-    for id in ids {
-        if aliases.contains_key(&id) && !cycle_members.contains(&id) {
-            continue;
-        }
-        let mut current = id;
-        let mut path = Vec::new();
-        let mut seen = HashSet::new();
-        let mut cyclic = false;
-        let origin = loop {
-            if let Some(origin) = aliases.get(&current)
-                && !cycle_members.contains(&current)
-            {
-                break *origin;
-            }
-            if !seen.insert(current) {
-                cyclic = true;
-                let cycle_start = path
-                    .iter()
-                    .position(|member| *member == current)
-                    .expect("repeated alias must be on the current path");
-                cycle_members.extend(path[cycle_start..].iter().copied());
-                break current;
-            }
-            path.push(current);
-            let Some(next) = direct.get(&current) else {
-                break current;
-            };
-            current = *next;
-        };
-        if cyclic {
-            aliases.insert(id, origin);
-        } else {
-            for alias in path {
-                aliases.insert(alias, origin);
-            }
-        }
-    }
-    aliases
-}
-
-pub(super) fn origin(atom: &Atom, aliases: &HashMap<ValueId, ValueId>) -> Option<ValueId> {
-    let binding = atom.binding()?;
-    Some(aliases.get(&binding).copied().unwrap_or(binding))
 }
 
 /// Resolves a product-leaf path while walking backwards through SSA aliases and constructors.
@@ -223,37 +162,6 @@ pub(super) fn replace_type(ty: &Type, path: &[usize], replacement: &Type) -> Opt
     Some(Type::Product(elements.into()))
 }
 
-pub(super) fn for_each_block(program: &Program, visit: &mut impl FnMut(&Block)) {
-    fn walk(block: &Block, visit: &mut impl FnMut(&Block)) {
-        visit(block);
-        for binding in &block.bindings {
-            match &binding.operation {
-                Operation::Case { arms, .. } => {
-                    for arm in arms {
-                        walk(&arm.value, visit);
-                    }
-                }
-                Operation::PrimitiveBranch {
-                    otherwise, then, ..
-                } => {
-                    walk(otherwise, visit);
-                    walk(then, visit);
-                }
-                _ => {}
-            }
-        }
-    }
-    for binding in &program.bindings {
-        walk(&binding.value, visit);
-    }
-    for function in &program.functions {
-        walk(&function.body, visit);
-        for join in &function.joins {
-            walk(&join.body, visit);
-        }
-    }
-}
-
 fn for_each_atom(program: &Program, visit: &mut impl FnMut(&Atom)) {
     for_each_block(program, &mut |block| {
         visit(&block.result);
@@ -282,68 +190,4 @@ fn for_each_pattern(program: &Program, visit: &mut impl FnMut(&Pattern)) {
             }
         }
     });
-}
-
-pub(super) fn operation_atoms(operation: &Operation, visit: &mut impl FnMut(&Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::Goto { value: atom, .. }
-        | Operation::SymbolLength { value: atom }
-        | Operation::SymbolAt { argument: atom }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. }
-        | Operation::Product(captures)
-        | Operation::Memory {
-            operands: captures, ..
-        }
-        | Operation::Buffer {
-            operands: captures, ..
-        } => captures.iter().for_each(visit),
-        Operation::Call { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Operation::Case { scrutinee, .. } => visit(scrutinee),
-        Operation::PrimitiveBranch { left, right, .. }
-        | Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::alias_origins;
-    use crate::anf::ast::ValueId;
-    use std::collections::HashMap;
-
-    #[test]
-    fn resolves_long_alias_chains_once() {
-        let ids = (0..20_000).map(ValueId::Temporary).collect::<Vec<_>>();
-        let direct = ids
-            .windows(2)
-            .map(|pair| (pair[0], pair[1]))
-            .collect::<HashMap<_, _>>();
-
-        let aliases = alias_origins(ids.iter().copied(), &direct);
-
-        assert_eq!(aliases.len(), ids.len());
-        assert!(aliases.values().all(|origin| *origin == ids[19_999]));
-    }
-
-    #[test]
-    fn keeps_each_cyclic_alias_as_its_own_origin() {
-        let first = ValueId::Temporary(0);
-        let second = ValueId::Temporary(1);
-        let direct = HashMap::from([(first, second), (second, first)]);
-
-        let aliases = alias_origins([first, second], &direct);
-
-        assert_eq!(aliases[&first], first);
-        assert_eq!(aliases[&second], second);
-    }
 }
