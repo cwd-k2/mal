@@ -12,6 +12,7 @@ use super::{
 };
 
 mod authority;
+mod authority_lenders;
 mod borrow;
 mod convention;
 mod destination;

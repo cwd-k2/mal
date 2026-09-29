@@ -4,6 +4,7 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::Pattern;
 use crate::control::ast::{Operation, Program, StateId, Terminator};
 
+use super::authority_lenders::canonicalize;
 use super::liveness::{
     collect_pattern_binding_order, managed_binding_id, remove_pattern_bindings, terminator_live,
 };
@@ -42,7 +43,7 @@ pub(super) fn collect(
     collect_bounded_arguments(control, parameters, &mut discarded_results);
     trace_pure_construction(control, discarded_results, &mut authorities);
     resolve_aliases(&mut authorities, &mut deferred_aliases);
-    canonicalize_lenders(&mut authorities);
+    canonicalize(&mut authorities);
     remove_environment_aliases_used_by_tail_calls(control, environment, &mut authorities);
     remove_unbounded_aliases(control, persistent_lenders, &mut authorities);
     authorities
@@ -253,53 +254,6 @@ fn resolve_aliases(
             }
         }
     }
-}
-
-/// Replace intermediate aliases with the authorities that actually own their storage. An alias carrier need not
-/// remain live merely because a value projected from it crosses a state boundary; only its final local lenders do.
-/// A cycle without a resolvable authority is not a valid borrow proof and is discarded conservatively.
-fn canonicalize_lenders(authorities: &mut HashMap<ValueId, HashSet<ValueId>>) {
-    let collected = authorities.clone();
-    let mut resolved = HashMap::<ValueId, Option<HashSet<ValueId>>>::new();
-    for binding in collected.keys() {
-        let mut visiting = HashSet::new();
-        resolve_lenders(*binding, &collected, &mut visiting, &mut resolved);
-    }
-    authorities.clear();
-    authorities.extend(
-        resolved
-            .into_iter()
-            .filter_map(|(binding, lenders)| lenders.map(|lenders| (binding, lenders))),
-    );
-}
-
-fn resolve_lenders(
-    binding: ValueId,
-    authorities: &HashMap<ValueId, HashSet<ValueId>>,
-    visiting: &mut HashSet<ValueId>,
-    resolved: &mut HashMap<ValueId, Option<HashSet<ValueId>>>,
-) -> Option<HashSet<ValueId>> {
-    if let Some(lenders) = resolved.get(&binding) {
-        return lenders.clone();
-    }
-    let Some(sources) = authorities.get(&binding) else {
-        return Some(HashSet::from([binding]));
-    };
-    if !visiting.insert(binding) {
-        return None;
-    }
-    let mut lenders = HashSet::new();
-    for source in sources {
-        let Some(source_lenders) = resolve_lenders(*source, authorities, visiting, resolved) else {
-            visiting.remove(&binding);
-            resolved.insert(binding, None);
-            return None;
-        };
-        lenders.extend(source_lenders);
-    }
-    visiting.remove(&binding);
-    resolved.insert(binding, Some(lenders.clone()));
-    Some(lenders)
 }
 
 fn remove_unbounded_aliases(

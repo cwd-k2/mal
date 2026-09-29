@@ -70,27 +70,48 @@ impl<'a> ParameterPassThrough<'a> {
     }
 
     fn resolves_to_binding(&self, atom: &Atom, expected: ValueId) -> bool {
-        let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+        let AtomKind::Reference(Reference::Binding(mut current)) = atom.kind else {
             return false;
         };
-        id == expected
-            || self
-                .bindings
-                .get(&id)
-                .is_some_and(|operation| match operation {
-                    Operation::Atom(alias) => self.resolves_to_binding(alias, expected),
-                    _ => false,
-                })
+        let mut visited = HashSet::new();
+        loop {
+            if current == expected {
+                return true;
+            }
+            if !visited.insert(current) {
+                return false;
+            }
+            let Some(Operation::Atom(alias)) = self.bindings.get(&current) else {
+                return false;
+            };
+            let AtomKind::Reference(Reference::Binding(next)) = alias.kind else {
+                return false;
+            };
+            current = next;
+        }
     }
 
     fn product_elements(&self, atom: &Atom) -> Option<&'a [Atom]> {
-        let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+        let AtomKind::Reference(Reference::Binding(mut current)) = atom.kind else {
             return None;
         };
-        match self.bindings.get(&id)? {
-            Operation::Product(elements) => Some(elements),
-            Operation::Atom(alias) => self.product_elements(alias),
-            _ => None,
+        let mut visited = HashSet::new();
+        loop {
+            if !visited.insert(current) {
+                return None;
+            }
+            match self.bindings.get(&current)? {
+                Operation::Product(elements) => return Some(elements),
+                Operation::Atom(Atom {
+                    kind: AtomKind::Reference(Reference::Binding(next)),
+                    ..
+                }) => current = *next,
+                _ => return None,
+            }
         }
     }
 }
+
+#[cfg(test)]
+#[path = "pass_through_tests.rs"]
+mod tests;
