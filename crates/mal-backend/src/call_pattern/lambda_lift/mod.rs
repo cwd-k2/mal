@@ -387,7 +387,7 @@ fn rewrite_block(
             && let Some(shape) = lifted.get(&creator.function)
         {
             let argument_id = ids.value();
-            let mut elements = creator.captures.clone();
+            let mut elements = ids.copy_atoms(&creator.captures);
             elements.push(argument.clone());
             rewritten.push(Binding {
                 pattern: Pattern::Binding {

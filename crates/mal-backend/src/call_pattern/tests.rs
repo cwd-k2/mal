@@ -56,6 +56,22 @@ fn gives_every_copied_binder_and_atom_an_identity_of_its_own() {
 }
 
 #[test]
+fn gives_captures_copied_to_each_direct_call_their_own_identities() {
+    let program = specialize(closure_program(
+        "main :: Unit -> Int32 := () -> {
+\
+             log := make<Int32>(4usize);
+\
+             mark :: Int32 -> Int32 := (value) -> { log.new(value); value; };
+\
+             mark(1i32) + mark(2i32) + mark(3i32);
+\
+         };",
+    ));
+    assert!(ids::are_unique(&mut program.clone()));
+}
+
+#[test]
 fn separates_combinators_that_nest_through_one_shared_instance() {
     let (functions, _) = counts(
         "loop<A, B> :: (A, A -> [A, B]) -> B := (state, step) -> step(state)[(next) -> loop<A, B>(next, step), (result) -> result];\n\

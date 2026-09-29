@@ -38,6 +38,17 @@ impl Identities {
         AtomId(self.atom)
     }
 
+    /// Copies atoms to a new use site. Each copy gets its own identity, since facts are keyed by atom identity.
+    pub(super) fn copy_atoms(&mut self, atoms: &[Atom]) -> Vec<Atom> {
+        atoms
+            .iter()
+            .map(|atom| Atom {
+                id: self.atom(),
+                ..atom.clone()
+            })
+            .collect()
+    }
+
     fn observe_value(&mut self, id: ValueId) {
         if let ValueId::Temporary(number) = id {
             self.temporary = self.temporary.max(number);

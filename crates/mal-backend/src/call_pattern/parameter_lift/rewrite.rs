@@ -186,7 +186,7 @@ fn rewrite_block(
                         id,
                         ty: candidate.capture_type.clone(),
                     },
-                    operation: Operation::Product(captures.clone()),
+                    operation: Operation::Product(ids.copy_atoms(captures)),
                     span: atom.span,
                 });
                 *atom = Atom {
