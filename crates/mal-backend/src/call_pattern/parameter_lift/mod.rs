@@ -84,8 +84,8 @@ fn find_candidate(program: &Program) -> Option<Candidate> {
 
 /// Proves that replacing one callback parameter leaf with its captures is semantics-preserving.
 ///
-/// Every call of the host must supply either the parameter itself or a closure of one target and
-/// one capture shape. The callback and all such creators must have no uses outside the traced
+/// The host must be used only as the callee of its calls, and every call must supply either the parameter itself or
+/// a closure of one target and one capture shape. The callback and all such creators must have no uses outside the traced
 /// forwarding and direct-call sites, and self closures are excluded because rewriting them would
 /// change how their environment is obtained.
 fn admit_candidate(
@@ -104,6 +104,9 @@ fn admit_candidate(
     let Type::Function { .. } = index.binding_type(callback)? else {
         return None;
     };
+    if index.host_escapes(host_binding, host) {
+        return None;
+    }
 
     let mut creators = HashSet::new();
     let mut replacements = HashMap::new();

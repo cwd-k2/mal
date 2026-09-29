@@ -23,6 +23,10 @@ pub(in crate::call_pattern::parameter_lift) struct Index<'a> {
     capturing_creators: HashMap<FunctionId, HashSet<ValueId>>,
     closure_captures: HashMap<FunctionId, Vec<&'a [Atom]>>,
     self_closures: HashSet<FunctionId>,
+    /// Callee atoms of calls whose callee is a binding or a self closure.
+    callees: HashSet<AtomId>,
+    /// Self-closure atoms that are not the callee of a call.
+    self_closure_values: HashSet<FunctionId>,
 }
 
 impl<'a> Index<'a> {
@@ -40,6 +44,8 @@ impl<'a> Index<'a> {
             capturing_creators: HashMap::new(),
             closure_captures: HashMap::new(),
             self_closures: HashSet::new(),
+            callees: HashSet::new(),
+            self_closure_values: HashSet::new(),
         };
         for_each_block(program, &mut |block| {
             index.atom(&block.result);
@@ -52,6 +58,7 @@ impl<'a> Index<'a> {
                         }
                     }
                     Operation::Call { callee, argument } => {
+                        index.callees.insert(callee.id);
                         if let Some(id) = callee.binding() {
                             index.calls_by_binding.entry(id).or_default().push(argument);
                         }
@@ -103,6 +110,9 @@ impl<'a> Index<'a> {
         }
         if let AtomKind::Reference(Reference::SelfClosure(function)) = atom.kind {
             self.self_closures.insert(function);
+            if !self.callees.contains(&atom.id) {
+                self.self_closure_values.insert(function);
+            }
         }
     }
 
@@ -183,6 +193,20 @@ impl<'a> Index<'a> {
         self.closure_captures
             .get(&function)
             .map_or(&[], Vec::as_slice)
+    }
+
+    /// Whether the function bound at `binding`, or its self closure, is used anywhere but as the callee of a call.
+    /// Rewriting a host changes its parameter type, which only its direct calls are adjusted to.
+    pub(in crate::call_pattern::parameter_lift) fn host_escapes(
+        &self,
+        binding: ValueId,
+        function: FunctionId,
+    ) -> bool {
+        self.self_closure_values.contains(&function)
+            || self
+                .atoms_by_origin
+                .get(&binding)
+                .is_some_and(|atoms| atoms.iter().any(|atom| !self.callees.contains(atom)))
     }
 
     pub(in crate::call_pattern::parameter_lift) fn refers_to_self_closure(

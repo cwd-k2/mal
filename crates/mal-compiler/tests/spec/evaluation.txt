@@ -163,3 +163,27 @@ main :: Unit -> Int32 := () -> {
 run :: Unit -> Int32 := () -> [k] => put(k(1i32), 0usize, 3i32);
 ### memory_operand_after_abrupt_index | err:unreachable expression after abrupt completion
 run :: Buffer<Int32> -> Int32 := (target) -> [k] => put(target, k(1i32), 3i32);
+### lifted_host_called_through_an_alias | run:16
+host :: (Int32 -> Int32, Int32) -> Int32 := (f, x) -> f(x) + f(x);
+main :: Unit -> Int32 := () -> {
+    k := 3i32;
+    a := host((v) -> v + k, 1);
+    alias := host;
+    b := alias((v) -> v + k, 1);
+    a + b
+};
+### lifted_host_passed_as_a_value | run:12
+host :: (Int32 -> Int32, Int32) -> Int32 := (f, x) -> f(x) + f(x);
+through :: (((Int32 -> Int32, Int32) -> Int32), Int32) -> Int32 := (h, k) -> h((v) -> v + k, 1);
+main :: Unit -> Int32 := () -> {
+    k := 3i32;
+    a := host((v) -> v + k, 1);
+    a + through(host, 1)
+};
+### lifted_host_passes_its_own_closure | run:7
+apply :: (((Int32 -> Int32, Int32) -> Int32), Int32) -> Int32 := (h, k) -> h((v) -> v + k, 0);
+host :: (Int32 -> Int32, Int32) -> Int32 := (f, x) -> if (x == 0) then f(1) else apply(host, x - 1) + f(x);
+main :: Unit -> Int32 := () -> {
+    k := 3i32;
+    host((v) -> v + k, 2)
+};
