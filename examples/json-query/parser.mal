@@ -1,12 +1,13 @@
 require "./bytes.mal";
 require "./scanner.mal";
 
-JsonStatistics :: (UInt64, UInt64);
+opaque JsonStatistics :: (UInt64, UInt64);
 ParseResult :: [Symbol, JsonStatistics];
 // Frames encode the continuation selected when a nested value completes.
 ParserFrame :: UInt8;
 opaque ParserFrames :: (Buffer<ParserFrame>, USize);
 opaque ParserState :: (Bytes, ParserFrames, UInt64, JsonStatistics);
+ParseStep :: [ParserState, ParseResult];
 
 // ParserState is an explicit machine configuration, so iteration can distinguish the next
 // configuration from the final ParseResult without giving either one a sentinel representation.
@@ -30,6 +31,10 @@ _rootDone :: ParserFrame := 10u8;
 _parseFailure :: Symbol -> ParseResult := (message) -> [failure, success] => failure(message);
 _parseSuccess :: JsonStatistics -> ParseResult := (stats) -> [failure, success] => success(stats);
 
+_nextState :: ParserState -> ParseStep := (state) -> [next, done] => next(state);
+
+_failedStep :: Symbol -> ParseStep := (message) -> [next, done] => done(_parseFailure(message));
+
 _includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) -> {
     (count, maximumDepth) := stats;
     nextDepth := if (maximumDepth >= depth)
@@ -38,7 +43,10 @@ _includeValue :: (JsonStatistics, UInt64) -> JsonStatistics := (stats, depth) ->
     (count + 1u64, nextDepth);
 };
 
-// Returns the active continuation at the end of a nonempty return stack.
+valueCount :: JsonStatistics -> UInt64 := ((count, _)) -> count;
+
+maximumDepth :: JsonStatistics -> UInt64 := ((_, depth)) -> depth;
+
 _readFrame :: ParserFrames -> ParserFrame := ((frames, count)) -> frames.get(count - 1usize);
 
 _replaceFrame :: (ParserFrames, ParserFrame) -> ParserFrames := ((frames, count), frame) -> {
@@ -122,11 +130,16 @@ _parse :: ParserState -> ParseResult := (initial) ->
             when (byte != '"') {
                 break(_parseFailure("expected JSON object key"));
             };
-            (afterKey, keyError) := (source.dropBytes(1usize)).scanString();
-            when (#keyError != 0usize) {
-                break(_parseFailure(keyError));
-            };
-            continue(afterKey, frames._replaceFrame(_objectColon), frameDepth, stats);
+            step := (source.dropBytes(1usize)).scanString()[
+                _failedStep,
+                (afterKey) -> _nextState(
+                    afterKey,
+                    frames._replaceFrame(_objectColon),
+                    frameDepth,
+                    stats
+                )
+            ];
+            step[continue, break];
         };
         when (frame == _arrayFirst && byte == ']') {
             continue(source.dropBytes(1usize), frames._popFrame(), frameDepth - 1u64, stats);
@@ -147,11 +160,11 @@ _parse :: ParserState -> ParseResult := (initial) ->
             );
         };
         when (byte == '"') {
-            (afterString, stringError) := (source.dropBytes(1usize)).scanString();
-            when (#stringError != 0usize) {
-                break(_parseFailure(stringError));
-            };
-            continue(afterString, nextFrames, frameDepth, nextStats);
+            step := (source.dropBytes(1usize)).scanString()[
+                _failedStep,
+                (afterString) -> _nextState(afterString, nextFrames, frameDepth, nextStats)
+            ];
+            step[continue, break];
         };
         when (byte == 't' || byte == 'f' || byte == 'n') {
             literal := if (byte == 't')
@@ -161,26 +174,25 @@ _parse :: ParserState -> ParseResult := (initial) ->
                     then "false"
                     else "null";
                 };
-            (afterLiteral, literalError) := source.scanLiteral(literal);
-            when (#literalError != 0usize) {
-                break(_parseFailure(literalError));
-            };
-            continue(afterLiteral, nextFrames, frameDepth, nextStats);
+            step := source.scanLiteral(literal)[
+                _failedStep,
+                (afterLiteral) -> _nextState(afterLiteral, nextFrames, frameDepth, nextStats)
+            ];
+            step[continue, break];
         };
         when (startsNumber(byte)) {
-            (afterNumber, numberError) := source.scanNumber();
-            when (#numberError != 0usize) {
-                break(_parseFailure(numberError));
-            };
-            continue(afterNumber, nextFrames, frameDepth, nextStats);
+            step := source.scanNumber()[
+                _failedStep,
+                (afterNumber) -> _nextState(afterNumber, nextFrames, frameDepth, nextStats)
+            ];
+            step[continue, break];
         };
         break(_parseFailure("expected JSON value"));
     });
 
-// Parses one complete owned byte sequence and rejects trailing non-whitespace input.
-parseDocument :: Buffer<UInt8> -> ParseResult := (buffer) ->
+parseDocument :: Symbol -> ParseResult := (source) ->
     (
-        buffer.allBytes(),
+        source.allBytes(),
         (make<ParserFrame>(1usize), 0usize)._pushFrame(_rootValue),
         1u64,
         (0u64, 0u64)

@@ -1,7 +1,9 @@
 require "./bytes.mal";
 
-// ScanProgress carries the unread input and an empty success message or a non-empty error message.
-_ScanProgress :: (Bytes, Symbol);
+ScanResult :: [Symbol, Bytes];
+
+_scanFailure :: Symbol -> ScanResult := (message) -> [failure, success] => failure(message);
+_scanSuccess :: Bytes -> ScanResult := (remaining) -> [failure, success] => success(remaining);
 
 _loop<A, B> :: (A, A -> [A, B]) -> B :=
     (state, step) -> step(state)[
@@ -32,10 +34,10 @@ skipWhitespace :: Bytes -> Bytes := (source) ->
         else break(remaining);
     });
 
-scanLiteral :: (Bytes, Symbol) -> _ScanProgress := (source, expected) -> {
+scanLiteral :: (Bytes, Symbol) -> ScanResult := (source, expected) -> [failure, success] => {
     if (source.startsWith(expected))
-    then (source.dropBytes(#expected), "")
-    else (source, "invalid JSON literal");
+    then success(source.dropBytes(#expected))
+    else failure("invalid JSON literal");
 };
 
 _hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
@@ -56,17 +58,17 @@ _hasHexDigits :: (Bytes, USize) -> Bool := (source, count) ->
         });
 
 // The input starts after the opening quote. This validates escapes without decoding the string.
-scanString :: Bytes -> _ScanProgress := (source) ->
+scanString :: Bytes -> ScanResult := (source) ->
     _loop(source, (remaining) -> [continue, break] => {
         when (remaining.byteCount() == 0usize) {
-            break(remaining, "unterminated JSON string");
+            break(_scanFailure("unterminated JSON string"));
         };
         byte := remaining.byteAt(0usize);
         when (byte == '"') {
-            break(remaining.dropBytes(1usize), "");
+            break(_scanSuccess(remaining.dropBytes(1usize)));
         };
         when (byte < 0x20u8) {
-            break(remaining, "control byte in JSON string");
+            break(_scanFailure("control byte in JSON string"));
         };
         when (byte != '\\') {
             continue(remaining.dropBytes(1usize));
@@ -74,7 +76,7 @@ scanString :: Bytes -> _ScanProgress := (source) ->
 
         afterSlash := remaining.dropBytes(1usize);
         when (afterSlash.byteCount() == 0usize) {
-            break(remaining, "unterminated JSON escape");
+            break(_scanFailure("unterminated JSON escape"));
         };
         escaped := afterSlash.byteAt(0usize);
         simple := escaped == '"'
@@ -92,7 +94,7 @@ scanString :: Bytes -> _ScanProgress := (source) ->
         when (escaped == 'u' && afterU._hasHexDigits(4usize)) {
             continue(afterU.dropBytes(4usize));
         };
-        break(remaining, "invalid JSON escape");
+        break(_scanFailure("invalid JSON escape"));
     });
 
 _scanDigits :: Bytes -> Bytes := (source) ->
@@ -109,13 +111,13 @@ _scanDigits :: Bytes -> Bytes := (source) ->
 
 // JSON numbers are scanned in integer, fraction, and exponent phases so each optional suffix can
 // require at least one digit without converting the numeric value.
-scanNumber :: Bytes -> _ScanProgress := (source) -> [return] => {
+scanNumber :: Bytes -> ScanResult := (source) -> [failure, success] => {
     firstByte := source.byteAt(0usize);
     unsigned := if (firstByte == '-')
         then source.dropBytes(1usize)
         else source;
     when (unsigned.byteCount() == 0usize) {
-        return(source, "incomplete JSON number");
+        failure("incomplete JSON number");
     };
 
     first := unsigned.byteAt(0usize);
@@ -123,7 +125,7 @@ scanNumber :: Bytes -> _ScanProgress := (source) -> [return] => {
         then unsigned.dropBytes(1usize)
         else {
             when (!first._isNonzeroDigit()) {
-                return(source, "invalid JSON number");
+                failure("invalid JSON number");
             };
             (unsigned.dropBytes(1usize))._scanDigits();
         };
@@ -135,11 +137,11 @@ scanNumber :: Bytes -> _ScanProgress := (source) -> [return] => {
             then {
                 fraction := integerEnd.dropBytes(1usize);
                 when (fraction.byteCount() == 0usize) {
-                    return(source, "invalid JSON fraction");
+                    failure("invalid JSON fraction");
                 };
                 digit := fraction.byteAt(0usize);
                 when (!digit._isDigit()) {
-                    return(source, "invalid JSON fraction");
+                    failure("invalid JSON fraction");
                 };
                 (fraction.dropBytes(1usize))._scanDigits();
             }
@@ -154,23 +156,23 @@ scanNumber :: Bytes -> _ScanProgress := (source) -> [return] => {
             then {
                 exponent := afterFraction.dropBytes(1usize);
                 when (exponent.byteCount() == 0usize) {
-                    return(source, "incomplete JSON exponent");
+                    failure("incomplete JSON exponent");
                 };
                 firstExponent := exponent.byteAt(0usize);
                 digits := if (firstExponent == '+' || firstExponent == '-')
                     then exponent.dropBytes(1usize)
                     else exponent;
                 when (digits.byteCount() == 0usize) {
-                    return(source, "invalid JSON exponent");
+                    failure("invalid JSON exponent");
                 };
                 digit := digits.byteAt(0usize);
                 when (!digit._isDigit()) {
-                    return(source, "invalid JSON exponent");
+                    failure("invalid JSON exponent");
                 };
                 (digits.dropBytes(1usize))._scanDigits();
             }
             else afterFraction;
         }
         else afterFraction;
-    return(afterExponent, "");
+    success(afterExponent);
 };

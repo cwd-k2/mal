@@ -1,10 +1,14 @@
 require "./map.mal";
 
-SymbolMap :: HashMap<Symbol>;
-
-preserve<F, A> :: F<A> -> F<A> := (value) -> value;
+Pair<A> :: (A, A);
 
 equal<Symbol> :: (Symbol, Symbol) -> Bool := (left, right) -> left == right;
+
+equal<Pair<K>> :: (Pair<K>, Pair<K>) -> Bool := (left, right) -> {
+    (leftFirst, leftSecond) := left;
+    (rightFirst, rightSecond) := right;
+    equal(leftFirst, rightFirst) && equal(leftSecond, rightSecond);
+};
 
 _hashSymbolFrom :: (Symbol, USize, UInt64) -> UInt64 := (value, index, state) ->
     [return] => {
@@ -18,6 +22,11 @@ _hashSymbolFrom :: (Symbol, USize, UInt64) -> UInt64 := (value, index, state) ->
 
 hash<Symbol> :: Symbol -> UInt64 := (value) -> _hashSymbolFrom(value, 0usize, 0u64);
 
+hash<Pair<K>> :: Pair<K> -> UInt64 := (value) -> {
+    (first, second) := value;
+    hash(first) * 31u64 + hash(second);
+};
+
 main :: Unit -> Int32 := () -> [return] => {
     words :: HashMap<Symbol, Int32> := hashMap(4usize);
     first := words.hashMapPut("a", 10i32);
@@ -29,8 +38,6 @@ main :: Unit -> Int32 := () -> [return] => {
     eUpdated := words.hashMapGet("e")[const(false), (value) -> value == 22i32];
     iFound := words.hashMapGet("i")[const(false), (value) -> value == 30i32];
     missing := words.hashMapGet("missing")[const(true), const(false)];
-    sameIdentity :: SymbolMap<Int32> := preserve<SymbolMap>(words);
-    aliasFound := sameIdentity.hashMapGet("e")[const(false), (value) -> value == 22i32];
 
     full :: HashMap<Symbol, Int32> := hashMap(2usize);
     full.hashMapPut("a", 1i32);
@@ -41,6 +48,13 @@ main :: Unit -> Int32 := () -> [return] => {
     emptyRejected := !empty.hashMapPut("a", 1i32);
     emptyMissing := empty.hashMapGet("a")[const(true), const(false)];
 
+    pairs :: HashMap<Pair<Symbol>, Int32> := hashMap(4usize);
+    pairInserted := pairs.hashMapPut(("mal", "language"), 42i32);
+    pairFound := pairs.hashMapGet(("mal", "language"))[
+        const(false),
+        (value) -> value == 42i32
+    ];
+
     when (!(
         first
         && collision
@@ -50,10 +64,11 @@ main :: Unit -> Int32 := () -> [return] => {
         && eUpdated
         && iFound
         && missing
-        && aliasFound
         && rejected
         && emptyRejected
         && emptyMissing
+        && pairInserted
+        && pairFound
     )) return(1);
     return(0);
 };

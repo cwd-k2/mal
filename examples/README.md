@@ -6,18 +6,17 @@ larger programs combine earlier ideas without redefining them.
 
 | Order | Example | Question it answers |
 | ---: | --- | --- |
-| 1 | [`language-tour`](language-tour/) | How do values, closures, products, sums, results, and host calls compose? |
+| 1 | [`language-tour`](language-tour/) | How do values, control, HKT, numeric rules, and host calls compose? |
 | 2 | [`control-and-iteration`](control-and-iteration/) | How are early results and bounded-stack iteration expressed without mutable bindings? |
 | 3 | [`generic-map`](generic-map/) | How do opaque generic types and exact operation implementations form a reusable module? |
 | 4 | [`managed-bytes`](managed-bytes/) | What is shared by a `Buffer`, copied by a `Symbol`, and transferred through an `Address`? |
 | 5 | [`canonical-memory`](canonical-memory/) | How are typed values encoded in possibly unaligned external memory? |
-| 6 | [`numeric-semantics`](numeric-semantics/) | Which wrapping, conversion, and floating-point rules are exact? |
-| 7 | [`indexed-graph`](indexed-graph/) | How can opaque columns and validation give indices domain meaning? |
-| 8 | [`resource-errors`](resource-errors/) | How are recoverable host failures and manual resource contracts composed? |
-| 9 | [`json-query`](json-query/) | How does an explicit state machine parse streaming-shaped data into a small result? |
-| 10 | [`compiler-pipeline`](compiler-pipeline/) | How does a complete mal program validate input and emit another language? |
+| 6 | [`indexed-graph`](indexed-graph/) | How can opaque columns and validation give indices domain meaning? |
+| 7 | [`resource-errors`](resource-errors/) | How are recoverable host failures and manual resource contracts composed? |
+| 8 | [`json-query`](json-query/) | How does an explicit state machine parse streaming-shaped data into a small result? |
+| 9 | [`compiler-pipeline`](compiler-pipeline/) | How does a complete mal program validate input and emit another language? |
 
-The first six are focused examples. `indexed-graph` and `resource-errors` each develop one design
+The first five are focused examples. `indexed-graph` and `resource-errors` each develop one design
 boundary in depth. `json-query` and `compiler-pipeline` are capstones; read them after the focused
 examples rather than as syntax introductions.
 

@@ -34,12 +34,7 @@ fn run(name: &str) -> std::process::Output {
 
 #[test]
 fn focused_examples_build_and_run() {
-    for name in [
-        "generic-map",
-        "canonical-memory",
-        "numeric-semantics",
-        "indexed-graph",
-    ] {
+    for name in ["generic-map", "canonical-memory", "indexed-graph"] {
         let output = run(name);
         assert!(output.status.success(), "{name}: {}", output.status);
         assert!(output.stdout.is_empty(), "{name}: unexpected stdout");
@@ -76,7 +71,7 @@ fn control_example_runs_in_baseline_and_production_profiles() {
 #[test]
 fn host_observable_examples_preserve_their_contracts() {
     for (name, expected) in [
-        ("language-tour", "42\n15\n42\n-1\n-2147483648\n"),
+        ("language-tour", "42\n42\n15\n42\n-1\n-2147483648\n"),
         ("managed-bytes", "9 bytes\n"),
     ] {
         let output = run(name);

@@ -2,14 +2,9 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-typedef struct {
-    uint8_t *memory;
-} AllocationHandle;
 
 static FILE *file_handle(mal_File_t file) {
     return (FILE *)mal_File_to_bits(file);
@@ -23,48 +18,39 @@ MAL_DEFINE_allocateBuffer(call, size) {
     if (size == 0) {
         mal_call_trap(call, "invalid allocation size");
     }
-    AllocationHandle *allocation = malloc(sizeof(*allocation));
     uint8_t *memory = malloc(size);
-    if (allocation == NULL || memory == NULL) {
-        free(allocation);
-        free(memory);
+    if (memory == NULL) {
         mal_call_trap(call, "allocation failed");
     }
-    allocation->memory = memory;
-    mal_Allocation_t handle = mal_Allocation_from_bits((uintptr_t)allocation);
-    mal_ByteBuffer_t buffer = {
-        .field_0 = memory,
-        .field_1 = size,
-        .field_2 = 0,
-    };
     return mal_OwnedBuffer_return(
         call,
-        (mal_OwnedBuffer_t){ .field_0 = handle, .field_1 = buffer }
+        (mal_OwnedBuffer_t){
+            .field_0 = mal_Allocation_from_bits((uintptr_t)memory),
+            .field_1 = memory,
+            .field_2 = size,
+        }
     );
 }
 
 MAL_DEFINE_releaseBuffer(call, allocation) {
-    AllocationHandle *handle = (AllocationHandle *)mal_Allocation_to_bits(allocation);
-    free(handle->memory);
-    free(handle);
+    free((void *)mal_Allocation_to_bits(allocation));
     return mal_Unit_return(call);
 }
 
 MAL_DEFINE_openReadOnly(call, path) {
-    const uint8_t *bytes = path.field_0;
-    size_t length = path.field_1;
-    if (length == SIZE_MAX
-        || (length > 0 && memchr(bytes, '\0', length) != NULL)) {
+    if (path.field_1 == SIZE_MAX
+        || (path.field_1 > 0 && memchr(path.field_0, '\0', path.field_1) != NULL)) {
         return mal_OpenResult_return_1(call, (uint32_t)EINVAL);
     }
-    char *terminated = malloc((size_t)length + 1);
+    char *terminated = malloc(path.field_1 + 1);
     if (terminated == NULL) {
         mal_call_trap(call, "file path allocation failed");
     }
-    if (length > 0) {
-        memcpy(terminated, bytes, length);
+    if (path.field_1 > 0) {
+        memcpy(terminated, path.field_0, path.field_1);
     }
-    terminated[length] = '\0';
+    terminated[path.field_1] = '\0';
+    errno = 0;
     FILE *file = fopen(terminated, "rb");
     uint32_t error = io_error();
     free(terminated);
@@ -75,12 +61,9 @@ MAL_DEFINE_openReadOnly(call, path) {
 }
 
 MAL_DEFINE_readFile(call, value) {
-    FILE *handle = file_handle(value.field_0);
-    void *memory = value.field_1.field_0;
-    size_t capacity = value.field_1.field_1;
     errno = 0;
-    size_t length = fread(memory, 1, capacity, handle);
-    if (ferror(handle)) {
+    size_t length = fread(value.field_1, 1, value.field_2, file_handle(value.field_0));
+    if (ferror(file_handle(value.field_0))) {
         return mal_ReadResult_return_1(call, io_error());
     }
     return mal_ReadResult_return_0(call, length);
@@ -107,4 +90,3 @@ MAL_DEFINE_writeError(call, error) {
     }
     return mal_Unit_return(call);
 }
-

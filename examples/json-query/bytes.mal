@@ -1,15 +1,14 @@
-// Cursor movement retains the same immutable input carrier.
-opaque Bytes :: (Buffer<UInt8>, USize);
+// Cursor movement retains the same immutable Symbol identity.
+opaque Bytes :: (Symbol, USize);
 
-allBytes :: Buffer<UInt8> -> Bytes := (buffer) -> (buffer, 0usize);
+allBytes :: Symbol -> Bytes := (value) -> (value, 0usize);
 
-byteCount :: Bytes -> USize := ((buffer, offset)) -> #buffer - offset;
+byteCount :: Bytes -> USize := ((value, offset)) -> #value - offset;
 
-byteAt :: (Bytes, USize) -> UInt8 := ((buffer, offset), index) ->
-    buffer.get(offset + index);
+byteAt :: (Bytes, USize) -> UInt8 := ((value, offset), index) -> value # (offset + index);
 
-dropBytes :: (Bytes, USize) -> Bytes := ((buffer, offset), count) ->
-    (buffer, offset + count);
+dropBytes :: (Bytes, USize) -> Bytes := ((value, offset), count) ->
+    (value, offset + count);
 
 _startsWithAt :: (Bytes, Symbol, USize) -> Bool :=
     (source, expected, index) -> [return] => {
@@ -19,8 +18,7 @@ _startsWithAt :: (Bytes, Symbol, USize) -> Bool :=
         when (source.byteCount() == 0usize) {
             return(false);
         };
-        expectedBytes := *expected;
-        when (source.byteAt(0usize) != expectedBytes.get(index)) {
+        when (source.byteAt(0usize) != expected # index) {
             return(false);
         };
         return(source.dropBytes(1usize)._startsWithAt(expected, index + 1usize));

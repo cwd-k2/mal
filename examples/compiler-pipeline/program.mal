@@ -1,11 +1,8 @@
 require "./compiler.mal";
-require "./linux/file.mal";
-require "./linux/output.mal";
-require "./linux/syscall.mal";
+require "./host.mal";
 
-// Preserve a failed output status after the diagnostic attempt; diagnostics do not replace the
-// operation that determines the process result.
-_finishOutput :: SyscallStatus -> Int32 := (written) -> {
+// Diagnostic failure does not replace the output operation that determines the process result.
+_finishOutput :: WriteStatus -> Int32 := (written) ->
     written[
         () -> 0,
         (error) -> {
@@ -13,7 +10,6 @@ _finishOutput :: SyscallStatus -> Int32 := (written) -> {
             1;
         }
     ];
-};
 
 main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {
     when (#arguments != 1usize) {
@@ -21,21 +17,31 @@ main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {
         return(2);
     };
 
-    read := readSource(arguments.get(0usize));
-    source := read[
+    path := *arguments.get(0usize);
+    (transfer, capacity) := transferBuffer();
+    when (#path >= capacity) {
+        writeStderr("source path is too long\n");
+        return(1);
+    };
+    path.into(transfer, 0usize, #path);
+
+    source := readSource(transfer, #path)[
         (source) -> source,
         (error) -> {
             writeStderr("cannot read source, errno " + error.u64.decimal() + "\n");
             return(1);
         }
     ];
-    output := compile(source)[
+    (allocation, address, length) := source;
+    sourceBuffer := from<UInt8>(address, 0usize, length);
+    releaseSource(allocation);
+
+    output := compile(*sourceBuffer)[
         (message) -> {
             writeStderr(message);
             return(1);
         },
         (output) -> output
     ];
-    written := writeStdout(output);
-    return(_finishOutput(written));
+    return(_finishOutput(writeStdout(output)));
 };

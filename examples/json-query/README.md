@@ -10,13 +10,18 @@ and `render.mal` constructs output. Parser transitions use the continue-or-finis
 [`control-and-iteration`](../control-and-iteration/); nested structure lives in the frame relation,
 not in a recursive syntax tree.
 
+`Bytes` is a cursor over immutable `Symbol` input. Scanner failures and successes use an explicit
+sum, and the parser forwards that sum into its own state-or-result transition without an error
+sentinel. `JsonStatistics` is opaque outside the parser and is observed through named accessors.
+
 > [!NOTE]
 > The frame Buffer is a carrier for parser continuations. Its indices have stack meaning only through
 > the push, replace, and pop operations owned by `parser.mal`.
 
 The host allocation is released immediately after its initialized prefix is admitted into a
-mal-owned Buffer. Output is copied through a fixed staging area in chunks. Strings and escape syntax
-are validated, but `\u` escapes are not decoded and unpaired UTF-16 surrogates are not rejected.
+mal-owned Buffer; parsing receives an immutable Symbol snapshot. Output is copied through a fixed
+staging area in chunks. Strings and escape syntax are validated, but `\u` escapes are not decoded
+and unpaired UTF-16 surrogates are not rejected.
 
 ```nu
 nix develop --command cargo run -p mal-compiler -- build examples/json-query/program.mal --output /tmp/mal-json-query

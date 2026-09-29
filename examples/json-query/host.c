@@ -12,7 +12,7 @@ MAL_DEFINE_readStdin(call) {
     size_t length = 0;
     size_t capacity = 0;
 
-    /* The host retains this buffer until mal finishes its borrowed parse and releases the handle. */
+    /* The host retains this buffer until mal copies its initialized prefix and releases the handle. */
     for (;;) {
         if (length == capacity) {
             size_t next_capacity = capacity == 0 ? 4096 : capacity * 2;

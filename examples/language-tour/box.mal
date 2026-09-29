@@ -1,0 +1,5 @@
+opaque Box<A> :: A;
+
+wrap<A> :: A -> Box<A> := (value) -> value;
+
+unwrap<A> :: Box<A> -> A := (value) -> value;

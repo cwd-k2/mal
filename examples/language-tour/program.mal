@@ -1,8 +1,19 @@
 require "./host.c";
+require "./box.mal";
 
 extern printInt32 :: Int32 -> Unit;
+extern inspectNumeric :: (UInt64, UInt64, UInt64, Float32, Float32, Float64, Int64) -> Int32;
 
 Division :: [Unit, Int32];
+Product<A, B> :: (A, B);
+WithInt32 :: Product<Int32>;
+
+duplicate<F, A> :: F<A> -> Buffer<F<A>> := (value) -> {
+    values := make<F<A>>(2usize);
+    values.new(value);
+    values.new(value);
+    values;
+};
 
 divide :: (Int32, Int32) -> Division := (numerator, denominator) -> [invalid, valid] => {
     when (denominator == 0) {
@@ -18,14 +29,25 @@ divideOr :: (Int32, Int32, Int32) -> Int32 := (numerator, denominator, fallback)
     divide(numerator, denominator)[() -> fallback, (quotient) -> quotient];
 
 main :: Unit -> Int32 := () -> {
-    pair := (20i32, 22i32);
-    (left, right) := pair;
+    pair :: WithInt32<Int32> := (20i32, 22i32);
+    pairs := duplicate<WithInt32>(pair);
+    (left, right) := pairs.get(1usize);
+    boxes :: Buffer<Box<Int32>> := duplicate<Box>(wrap(21i32));
     addTen := makeAdder(10i32);
 
     printInt32(left + right);
+    printInt32(unwrap(boxes.get(0usize)) + unwrap(boxes.get(1usize)));
     printInt32(addTen(5i32));
     printInt32(divideOr(84i32, 2i32, 0i32));
     printInt32(divideOr(1i32, 0i32, -1i32));
     printInt32(2_147_483_647i32 + 1i32);
-    0;
+    inspectNumeric(
+        '\xff'.u64,
+        (255u8 + 1u8).u64,
+        (-1i8).u64,
+        1.000000059604644775390625f32,
+        1.40129846e-45f32,
+        -0.0f64,
+        (-42.75f64).i64
+    );
 };

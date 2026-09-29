@@ -1,5 +1,4 @@
 require "./host.c";
-require "./bytes.mal";
 
 extern InputAllocation;
 StdinBytes :: (InputAllocation, Address, USize);
@@ -7,7 +6,7 @@ OutputBuffer :: (Address, USize);
 
 // Reads standard input into storage retained until releaseInput receives its allocation authority.
 extern readStdin :: Unit -> StdinBytes;
-// Releases the storage returned by readStdin after no derived view can be used again.
+// Releases the storage returned by readStdin after its initialized prefix has been admitted.
 extern releaseInput :: InputAllocation -> Unit;
 // Returns reusable process-lifetime staging storage for standard output.
 extern outputBuffer :: Unit -> OutputBuffer;

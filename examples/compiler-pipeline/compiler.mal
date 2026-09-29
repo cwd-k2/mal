@@ -1,4 +1,5 @@
-opaque CompileState :: (USize, UInt64, Symbol);
+opaque Emitter :: Buffer<UInt8>;
+opaque CompileState :: (USize, UInt64);
 CompileStepResult :: [Symbol, CompileState];
 CompileResult :: [Symbol, Symbol];
 
@@ -7,18 +8,20 @@ _stepSuccess :: CompileState -> CompileStepResult := (state) -> [failure, succes
 _compileFailure :: Symbol -> CompileResult := (message) -> [failure, success] => failure(message);
 _compileSuccess :: Symbol -> CompileResult := (output) -> [failure, success] => success(output);
 
-_digit :: UInt64 -> Symbol := (value) -> [return] => {
-    when (value == 0u64) return("0");
-    when (value == 1u64) return("1");
-    when (value == 2u64) return("2");
-    when (value == 3u64) return("3");
-    when (value == 4u64) return("4");
-    when (value == 5u64) return("5");
-    when (value == 6u64) return("6");
-    when (value == 7u64) return("7");
-    when (value == 8u64) return("8");
-    return("9");
+_emitter :: Unit -> Emitter := () -> make<UInt8>(4096usize);
+
+_emit :: (Emitter, Symbol) -> Unit := (output, text) -> {
+    if (#text == 0usize)
+    then ()
+    else {
+        bytes := *text;
+        output.copy(#output, bytes, 0usize, #bytes);
+    };
 };
+
+_finish :: Emitter -> Symbol := (output) -> *output;
+
+_digit :: UInt64 -> Symbol := (value) -> "0123456789" % value.usize / 1usize;
 
 decimal :: UInt64 -> Symbol := (value) -> {
     if (value < 10u64)
@@ -53,52 +56,34 @@ _loopFooter :: UInt64 -> Symbol := (identity) -> {
         + "loop" + name + ".end:\n";
 };
 
-// The recursive call for an opening bracket consumes through its matching closing bracket.
-// All other transitions are tail calls, so comments and long straight-line programs use bounded
-// native stack.
-_compileUntil :: (Buffer<UInt8>, USize, UInt64, Bool, Symbol) -> CompileStepResult :=
+// Nested source ranges recurse structurally; straight-line instructions use the tail edge.
+_compileUntil :: (Symbol, USize, UInt64, Bool, Emitter) -> CompileStepResult :=
     (source, index, nextLoop, nested, output) -> [return] => {
         when (index == #source) {
             if (nested)
             then return(_stepFailure("unmatched '['\n"))
-            else return(_stepSuccess(index, nextLoop, output));
+            else return(_stepSuccess(index, nextLoop));
         };
 
-        byte := source.get(index);
+        byte := source # index;
         when (byte == ']') {
             if (nested)
-            then return(_stepSuccess(index + 1usize, nextLoop, output))
+            then return(_stepSuccess(index + 1usize, nextLoop))
             else return(_stepFailure("unmatched ']'\n"));
         };
 
         when (byte == '[') {
             identity := nextLoop;
-            body := _compileUntil(
-                source,
-                index + 1usize,
-                nextLoop + 1u64,
-                true,
-                output + identity._loopHeader()
-            );
+            output._emit(identity._loopHeader());
+            body := _compileUntil(source, index + 1usize, nextLoop + 1u64, true, output);
             state := body[(message) -> return(_stepFailure(message)), (state) -> state];
-            (afterBody, afterLoop, bodyOutput) := state;
-            return(_compileUntil(
-                source,
-                afterBody,
-                afterLoop,
-                nested,
-                bodyOutput + identity._loopFooter()
-            ));
+            (afterBody, afterLoop) := state;
+            output._emit(identity._loopFooter());
+            return(_compileUntil(source, afterBody, afterLoop, nested, output));
         };
 
-        instruction := byte._simpleInstruction();
-        return(_compileUntil(
-            source,
-            index + 1usize,
-            nextLoop,
-            nested,
-            output + instruction
-        ));
+        output._emit(byte._simpleInstruction());
+        return(_compileUntil(source, index + 1usize, nextLoop, nested, output));
     };
 
 _preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
@@ -168,9 +153,11 @@ _preamble :: Unit -> Symbol := () -> "declare i32 @getchar()\n"
     + "define i32 @main() {\n"
     + "entry:\n";
 
-compile :: Buffer<UInt8> -> CompileResult := (source) -> [return] => {
-    compiled := _compileUntil(source, 0usize, 0u64, false, _preamble());
-    state := compiled[(message) -> return(_compileFailure(message)), (state) -> state];
-    (_, _, output) := state;
-    return(_compileSuccess(output + "  ret i32 0\n}\n"));
+compile :: Symbol -> CompileResult := (source) -> [return] => {
+    output := _emitter();
+    output._emit(_preamble());
+    compiled := _compileUntil(source, 0usize, 0u64, false, output);
+    compiled[(message) -> return(_compileFailure(message)), (_) -> ()];
+    output._emit("  ret i32 0\n}\n");
+    return(_compileSuccess(output._finish()));
 };

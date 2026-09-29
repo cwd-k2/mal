@@ -4,8 +4,10 @@ This module implements a fixed-capacity hash map with open addressing. `HashMap<
 outside `map.mal`, so callers can use its constructor, lookup, and insertion operations without
 access to the slot carrier. The undeclared bodies of `hash<K>` and `equal<K>` are requirements;
 specialization selects the exact `Symbol` implementations supplied by `program.mal`.
-`SymbolMap` partially applies the map constructor, then passes that unary constructor through the
-higher-kinded `preserve<F, A>` function.
+
+The `Pair<K>` implementations are generic operation patterns. They require the same operations for
+the structurally smaller `K`, so a `HashMap<Pair<Symbol>, V>` composes from the exact `Symbol`
+implementations without runtime dictionaries or type inspection.
 
 > [!NOTE]
 > `opaque` hides representation across files; it does not make a value linear or unique. A map can

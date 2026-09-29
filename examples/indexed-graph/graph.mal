@@ -1,0 +1,147 @@
+opaque WeightedGraph :: (Buffer<USize>, Buffer<USize>, Buffer<UInt64>);
+GraphResult :: [Unit, WeightedGraph];
+DistanceResult :: [Unit, UInt64];
+
+opaque Workspace :: (Buffer<UInt64>, Buffer<Bool>);
+opaque Candidate :: (Bool, USize, UInt64);
+
+infinity :: UInt64 := -1u64;
+
+_copyBuffer<A> :: Buffer<A> -> Buffer<A> := (source) -> {
+    snapshot := make<A>(#source);
+    snapshot.copy(0usize, source, 0usize, #source);
+    snapshot;
+};
+
+_validOffsets :: (Buffer<USize>, USize, USize) -> Bool :=
+    (offsets, index, edgeCount) -> [return] => {
+        when (index == #offsets) {
+            return(true);
+        };
+        current := offsets.get(index);
+        when (current > edgeCount || (index == 0usize && current != 0usize)) {
+            return(false);
+        };
+        when (index + 1usize == #offsets) {
+            return(current == edgeCount);
+        };
+        when (current > offsets.get(index + 1usize)) {
+            return(false);
+        };
+        return(_validOffsets(offsets, index + 1usize, edgeCount));
+    };
+
+_validNeighbors :: (Buffer<USize>, USize, USize) -> Bool :=
+    (neighbors, index, nodeCount) -> [return] => {
+        when (index == #neighbors) {
+            return(true);
+        };
+        when (neighbors.get(index) >= nodeCount) {
+            return(false);
+        };
+        return(_validNeighbors(neighbors, index + 1usize, nodeCount));
+    };
+
+// The graph snapshots all columns so caller-held Buffer aliases cannot invalidate admitted data.
+weightedGraph :: (Buffer<USize>, Buffer<USize>, Buffer<UInt64>) -> GraphResult :=
+    (offsets, neighbors, costs) -> [invalid, valid] => {
+        when (#offsets < 2usize || #neighbors != #costs) {
+            invalid();
+        };
+        nodeCount := #offsets - 1usize;
+        when (!offsets._validOffsets(0usize, #neighbors)) {
+            invalid();
+        };
+        when (!neighbors._validNeighbors(0usize, nodeCount)) {
+            invalid();
+        };
+        valid(offsets._copyBuffer(), neighbors._copyBuffer(), costs._copyBuffer());
+    };
+
+_distanceAt :: (Workspace, USize) -> UInt64 := ((distances, _), node) ->
+    distances.get(node);
+
+_visitedAt :: (Workspace, USize) -> Bool := ((_, visited), node) -> visited.get(node);
+
+_setDistance :: (Workspace, USize, UInt64) -> Unit := ((distances, _), node, value) ->
+    distances.put(node, value);
+
+_setVisited :: (Workspace, USize) -> Unit := ((_, visited), node) -> visited.put(node, true);
+
+_selectClosest :: (Workspace, USize, USize, Candidate) -> Candidate :=
+    (workspace, index, nodeCount, candidate) -> [return] => {
+        when (index == nodeCount) {
+            return(candidate);
+        };
+        (found, bestNode, bestDistance) := candidate;
+        distance := workspace._distanceAt(index);
+        better := !workspace._visitedAt(index) && distance < bestDistance;
+        next := if (better)
+            then (true, index, distance)
+            else (found, bestNode, bestDistance);
+        return(workspace._selectClosest(index + 1usize, nodeCount, next));
+    };
+
+_relaxEdges :: (WeightedGraph, Workspace, UInt64, USize, USize) -> Unit :=
+    (graph, workspace, sourceDistance, edge, end) -> [return] => {
+        when (edge == end) {
+            return();
+        };
+        (_, neighbors, costs) := graph;
+        neighbor := neighbors.get(edge);
+        cost := costs.get(edge);
+        candidate := if (sourceDistance > infinity - cost)
+            then infinity
+            else sourceDistance + cost;
+        when (candidate < workspace._distanceAt(neighbor)) {
+            workspace._setDistance(neighbor, candidate);
+        };
+        return(graph._relaxEdges(workspace, sourceDistance, edge + 1usize, end));
+    };
+
+_runRounds :: (WeightedGraph, Workspace, USize) -> Unit :=
+    (graph, workspace, remaining) -> [return] => {
+        when (remaining == 0usize) {
+            return();
+        };
+        (offsets, _, _) := graph;
+        nodeCount := #offsets - 1usize;
+        (found, node, distance) := workspace._selectClosest(
+            0usize,
+            nodeCount,
+            (false, 0usize, infinity)
+        );
+        when (!found) {
+            return();
+        };
+        workspace._setVisited(node);
+        graph._relaxEdges(
+            workspace,
+            distance,
+            offsets.get(node),
+            offsets.get(node + 1usize)
+        );
+        return(graph._runRounds(workspace, remaining - 1usize));
+    };
+
+shortestDistance :: (WeightedGraph, USize, USize) -> DistanceResult :=
+    (graph, source, target) -> [missing, found] => {
+        (offsets, _, _) := graph;
+        nodeCount := #offsets - 1usize;
+        when (source >= nodeCount || target >= nodeCount) {
+            missing();
+        };
+
+        distances := make<UInt64>(nodeCount);
+        distances.fill(0usize, nodeCount, infinity);
+        visited := make<Bool>(nodeCount);
+        visited.fill(0usize, nodeCount, false);
+        workspace :: Workspace := (distances, visited);
+        workspace._setDistance(source, 0u64);
+        graph._runRounds(workspace, nodeCount);
+
+        distance := workspace._distanceAt(target);
+        if (distance == infinity)
+        then missing()
+        else found(distance);
+    };

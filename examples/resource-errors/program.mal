@@ -1,69 +1,53 @@
 require "./host.c";
 
-ByteBuffer :: (Address, USize, USize);
-WritableBytes :: (Address, USize);
-
 extern Allocation;
 extern File;
 
-IoError :: UInt32;
-OwnedBuffer :: (Allocation, ByteBuffer);
-OpenResult :: [File, IoError];
-ReadResult :: [USize, IoError];
-CloseResult :: [Unit, IoError];
-CopyResult :: [Unit, IoError];
+OwnedBuffer :: (Allocation, Address, USize);
+OpenResult :: [File, UInt32];
+ReadResult :: [USize, UInt32];
+CloseResult :: [Unit, UInt32];
+CopyResult :: [Unit, UInt32];
 
 extern allocateBuffer :: USize -> OwnedBuffer;
+// The allocation handle is single-release by contract even though mal values remain copyable.
 extern releaseBuffer :: Allocation -> Unit;
+// The host borrows the path byte range only for the duration of this call.
 extern openReadOnly :: (Address, USize) -> OpenResult;
-extern readFile :: (File, WritableBytes) -> ReadResult;
+extern readFile :: (File, Address, USize) -> ReadResult;
 extern closeFile :: File -> CloseResult;
 extern writeBytes :: (Address, USize) -> Unit;
-extern writeError :: IoError -> Unit;
+extern writeError :: UInt32 -> Unit;
 
 bufferSize :: USize := 4096usize;
 
-// A tail step owns one read result: EOF completes, bytes make observable progress, and an error exits
-// through CopyResult before copyPath performs the common close-and-release cleanup.
-copyContents :: (File, ByteBuffer) -> CopyResult := (file, buffer) -> [complete, failed] => {
-    (memory, capacity, _) := buffer;
-    length := file.readFile((memory, capacity))[(length) -> length, failed];
-    when (length == 0usize) {
-        complete();
+copyContents :: (File, Address, USize) -> CopyResult :=
+    (file, memory, capacity) -> [complete, failed] => {
+        length := readFile(file, memory, capacity)[(length) -> length, failed];
+        when (length == 0usize) {
+            complete();
+        };
+        writeBytes(memory, length);
+        copyContents(file, memory, capacity)[complete, failed];
     };
-    writeBytes(memory, length);
-    file.copyContents((memory, capacity, length))[complete, failed];
-};
 
-// A copy error is preserved over a later close error.
-finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) -> [complete, failed] => {
-    copied[() -> closed[complete, failed], failed];
-};
-
-// The host reads the path as a byte range during the open call only, so the copy is released right after it.
-openPath :: Symbol -> OpenResult := (path) -> {
-    bytes := *path;
-    length := #bytes;
-    (allocation, (memory, _, _)) := allocateBuffer(if (length == 0usize) then 1usize else length);
-    bytes.into(memory, 0usize, length);
-    opened := openReadOnly((memory, length));
-    allocation.releaseBuffer();
-    opened;
-};
+// A transfer failure remains primary if closing the file also fails.
+finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) ->
+    copied[() -> closed, (error) -> [complete, failed] => failed(error)];
 
 copyPath :: Symbol -> CopyResult := (path) -> {
-    owned := allocateBuffer(bufferSize);
-    (allocation, buffer) := owned;
-    opened := openPath(path);
-    outcome := opened[
-        (file) -> {
-            copied := file.copyContents(buffer);
-            closed := file.closeFile();
-            copied.finishCopy(closed);
-        },
+    pathBytes := *path;
+    pathLength := #pathBytes;
+    capacity := if (pathLength > bufferSize)
+        then pathLength
+        else bufferSize;
+    (allocation, memory, _) := allocateBuffer(capacity);
+    pathBytes.into(memory, 0usize, pathLength);
+    outcome := openReadOnly(memory, pathLength)[
+        (file) -> file.copyContents(memory, capacity).finishCopy(file.closeFile()),
         (error) -> [complete, failed] => failed(error)
     ];
-    allocation.releaseBuffer();
+    releaseBuffer(allocation);
     outcome;
 };
 
@@ -73,13 +57,11 @@ main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {
         return(2);
     };
 
-    result := copyPath(arguments.get(0usize));
-    status :: Int32 := result[
+    return(copyPath(arguments.get(0usize))[
         () -> 0,
         (error) -> {
             writeError(error);
             1;
         }
-    ];
-    return(status);
+    ]);
 };

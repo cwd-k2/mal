@@ -131,6 +131,22 @@ fn compiler_pipeline_example_emits_executable_llvm_ir() {
     assert!(empty_generated.status.success());
     assert!(empty_generated.stdout.ends_with(b"  ret i32 0\n}\n"));
 
+    let straight = directory.write("straight.bf", "+".repeat(5_000));
+    let straight_generated = Command::new(&compiler)
+        .arg(straight)
+        .output()
+        .expect("compile source larger than the emitter's initial capacity");
+    assert!(straight_generated.status.success());
+    let increment = b"call void @bf_increment()";
+    assert_eq!(
+        straight_generated
+            .stdout
+            .windows(increment.len())
+            .filter(|window| *window == increment)
+            .count(),
+        5_000
+    );
+
     let size_unknown = Command::new(&compiler)
         .arg("/proc/self/cmdline")
         .output()

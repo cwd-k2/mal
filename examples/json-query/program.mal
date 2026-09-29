@@ -11,14 +11,13 @@ _reportParseError :: Symbol -> Int32 := (message) -> {
 
 _runQuery :: Query -> Int32 := (query) -> {
     (input, address, length) := readStdin();
-    source := from<UInt8>(address, 0usize, length);
+    sourceBytes := from<UInt8>(address, 0usize, length);
     releaseInput(input);
+    source := *sourceBytes;
     parsed := source.parseDocument();
-    // Two continuations exhaust ParseResult. Only the selected arm is evaluated.
     parsed[
         _reportParseError,
         (stats) -> {
-            // Eliminating Query returns a renderer as a value; stats[renderer] then applies it.
             renderer := query[renderCount, renderDepth];
             writeStdout(stats[renderer] + "\n");
             0;
@@ -33,8 +32,7 @@ main :: Buffer<Symbol> -> Int32 := (arguments) -> {
         2;
     }
     else {
-        queryBytes := *arguments.get(0usize);
-        query := queryBytes.allBytes().parseQuery();
+        query := arguments.get(0usize).allBytes().parseQuery();
         query[
             (message) -> {
                 writeStdout(message.renderError() + "\n");

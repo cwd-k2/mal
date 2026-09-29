@@ -3,7 +3,6 @@ require "./bytes.mal";
 Query :: [Unit, Unit];
 QueryResult :: [Symbol, Query];
 
-// The sum result binders name Query's result edges; applying count selects variant 0.
 _countQuery :: Unit -> Query := () -> [count, depth] => count();
 _depthQuery :: Unit -> Query := () -> [count, depth] => depth();
 

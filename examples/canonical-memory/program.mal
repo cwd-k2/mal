@@ -1,35 +1,35 @@
 require "./host.c";
 
-// The address is deliberately unaligned, so the host must use generated canonical-memory helpers.
-extern unalignedStorage :: Unit -> Address;
-extern incrementSample :: Address -> Unit;
+Sample :: (Int64, UInt8);
+Storage :: (Address, USize);
 
-SampleRecord :: (Int64, UInt8);
+// The returned address is deliberately unaligned and remains valid for the process lifetime.
+extern sampleStorage :: Unit -> Storage;
+// The host must use canonical-memory helpers because neither alignment nor C struct layout applies.
+extern incrementSample :: (Address, USize) -> Unit;
 
-main :: Unit -> Int32 := () -> {
-    base := unalignedStorage();
+main :: Unit -> Int32 := () -> [return] => {
+    (address, capacity) := sampleStorage();
+    when (capacity < 2usize) {
+        return(1);
+    };
 
-    samples := make<SampleRecord>(2usize);
+    samples := make<Sample>(2usize);
     samples.new((7i64, 9u8));
     samples.new((40i64, 1u8));
-    samples.into(base, 0usize, 2usize);
+    samples.into(address, 0usize, #samples);
 
-    firstValue := samples.get(0usize);
-    displaced := samples.get(1usize);
-    samples.put(0usize, displaced);
-    samples.put(1usize, firstValue);
-    samples.into(base, 0usize, 2usize);
+    incrementSample(address, 1usize);
+    observed := from<Sample>(address, 0usize, #samples);
+    (firstNumber, firstByte) := observed.get(0usize);
+    (secondNumber, secondByte) := observed.get(1usize);
 
-    incrementSample(base);
-    result := from<SampleRecord>(base, 0usize, 2usize);
-    incremented := result.get(0usize);
-    moved := result.get(1usize);
-    (number, small) := incremented;
-    (movedNumber, movedSmall) := moved;
-    if (number == 41i64
-        && small == 2u8
-        && movedNumber == 7i64
-        && movedSmall == 9u8)
-    then 0
-    else 1;
+    if (
+        firstNumber == 7i64
+        && firstByte == 9u8
+        && secondNumber == 41i64
+        && secondByte == 2u8
+    )
+    then return(0)
+    else return(1);
 };

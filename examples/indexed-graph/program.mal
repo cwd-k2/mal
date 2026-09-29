@@ -1,189 +1,40 @@
-// NodeOffsets maps each node boundary to an edge-slot offset; adjacent offsets delimit its edges.
-opaque NodeOffsets :: Buffer<Int64>;
-// NeighborNodes maps each edge slot to its destination-node coordinate.
-opaque NeighborNodes :: Buffer<Int64>;
-// EdgeCosts stores the nonnegative weight joined to NeighborNodes by the shared edge slot.
-opaque EdgeCosts :: Buffer<Int64>;
-// WeightedCsr carries a node count and three columns whose relation is established by validation.
-opaque WeightedCsr :: (Int64, NodeOffsets, NeighborNodes, EdgeCosts);
+require "./graph.mal";
 
-// Int64BufferView addresses a logical column by a buffer and its first physical slot.
-opaque Int64BufferView :: (Buffer<Int64>, USize);
-// NodeDistances stores the current best distance at each node coordinate.
-NodeDistances :: Int64BufferView;
-// VisitedFlags stores whether each node coordinate has been finalized.
-VisitedFlags :: Int64BufferView;
-// DijkstraWorkspace joins independent distance and visited columns by node coordinate.
-opaque DijkstraWorkspace :: (NodeDistances, VisitedFlags);
+main :: Unit -> Int32 := () -> [return] => {
+    offsets := make<USize>(6usize);
+    offsets.new(0usize);
+    offsets.new(2usize);
+    offsets.new(4usize);
+    offsets.new(6usize);
+    offsets.new(7usize);
+    offsets.new(7usize);
 
-infinity :: Int64 := 2_305_843_009_213_693_951;
+    neighbors := make<USize>(7usize);
+    neighbors.new(1usize);
+    neighbors.new(2usize);
+    neighbors.new(2usize);
+    neighbors.new(3usize);
+    neighbors.new(3usize);
+    neighbors.new(4usize);
+    neighbors.new(4usize);
 
-// The sum separates another complete state from the independently typed result of an iteration.
-_loop<A, B> :: (A, A -> [A, B]) -> B :=
-    (state, step) -> step(state)[
-        (nextState) -> _loop(nextState, step),
-        (result) -> result
-    ];
+    costs := make<UInt64>(7usize);
+    costs.new(2u64);
+    costs.new(5u64);
+    costs.new(1u64);
+    costs.new(2u64);
+    costs.new(1u64);
+    costs.new(5u64);
+    costs.new(3u64);
 
-// Validation needs both a row and its coordinate because CSR offsets relate adjacent rows.
-_allIndexed<A> :: (Buffer<A>, (USize, A) -> Bool) -> Bool := (values, predicate) ->
-    _loop(0usize, (index) -> [continue, break] => {
-        when (index == #values) {
-            break(true);
-        };
-        when (!predicate(index, values.get(index))) {
-            break(false);
-        };
+    graph := weightedGraph(offsets, neighbors, costs)[() -> return(1), (graph) -> graph];
 
-        continue(index + 1usize);
-    });
+    // Mutation through the caller's old alias cannot change the admitted graph snapshot.
+    neighbors.put(0usize, 99usize);
+    invalidRejected := weightedGraph(offsets, neighbors, costs)[() -> true, (_) -> false];
+    distance := graph.shortestDistance(0usize, 4usize)[() -> return(1), (value) -> value];
 
-// The offset (the buffer's own current count) is what makes this an append rather than an
-// overwrite; fill itself carries no such meaning.
-appendRepeated :: (Buffer<Int64>, USize, Int64) -> Unit := (buffer, remaining, value) ->
-    buffer.fill(#buffer, remaining, value);
-
-at :: (Int64BufferView, Int64) -> Int64 := ((buffer, offset), index) ->
-    buffer.get(offset + index.usize);
-
-assign :: (Int64BufferView, Int64, Int64) -> Unit := ((buffer, offset), index, value) ->
-    buffer.put(offset + index.usize, value);
-
-validWeightedCsr :: WeightedCsr -> Bool := (graph) -> {
-    (nodeCount, offsets, neighbors, costs) := graph;
-    nodeCount > 0
-        && #offsets == (nodeCount + 1).usize
-        && offsets.get(0usize) == 0
-        && #neighbors == #costs
-        && offsets._allIndexed((node, current) -> {
-            last := node + 1usize == #offsets;
-            if (last)
-            then current == (#neighbors).i64
-            else {
-                next := offsets.get(node + 1usize);
-                current >= 0 && current <= next && next <= (#neighbors).i64;
-            };
-        })
-        && neighbors._allIndexed((_, neighbor) -> neighbor >= 0 && neighbor < nodeCount)
-        && costs._allIndexed((_, cost) -> cost >= 0);
-};
-
-// The changing search candidate is loop state; the workspace and node bound stay invariant across
-// the scan, and both logical workspace columns alias one managed Buffer.
-selectClosest :: (DijkstraWorkspace, Int64, Int64, Int64, Int64) -> Int64 :=
-    (workspace, node, nodeCount, closest, closestDistance) ->
-        _loop(
-            (node, closest, closestDistance),
-            (current, candidate, candidateDistance) -> [continue, break] => {
-                when (current == nodeCount) {
-                    break(candidate);
-                };
-                (distances, visited) := workspace;
-                distance := distances.at(current);
-                better := visited.at(current) == 0 && distance < candidateDistance;
-                continue(
-                    current + 1,
-                    if (better) then { current } else { candidate },
-                    if (better) then { distance } else { candidateDistance }
-                );
-            });
-
-// Edge relaxation carries the current and terminal edge coordinates as its complete range state;
-// the graph, writable workspace, and source distance stay invariant across transitions.
-relaxEdgeRange :: (WeightedCsr, DijkstraWorkspace, Int64, Int64, Int64) -> Unit :=
-    (graph, workspace, sourceDistance, edge, end) ->
-        _loop((edge, end), (current, terminal) -> [continue, break] => {
-            when (current == terminal) {
-                break();
-            };
-            (_, _, neighbors, costs) := graph;
-            (distances, _) := workspace;
-            neighbor := neighbors.get(current.usize);
-            candidate := sourceDistance + costs.get(current.usize);
-            when (candidate < distances.at(neighbor)) {
-                distances.assign(neighbor, candidate);
-            };
-            continue(current + 1, terminal);
-        });
-
-runDijkstraRounds :: (WeightedCsr, DijkstraWorkspace, Int64) -> Unit :=
-    (graph, workspace, remaining) ->
-        _loop(remaining, (remaining) -> [continue, break] => {
-            when (remaining == 0) {
-                break();
-            };
-            (nodeCount, offsets, _, _) := graph;
-            (distances, visited) := workspace;
-            closest := workspace.selectClosest(0, nodeCount, -1, infinity);
-            when (closest < 0) {
-                break();
-            };
-            visited.assign(closest, 1);
-            graph.relaxEdgeRange(
-                workspace,
-                distances.at(closest),
-                offsets.get(closest.usize),
-                offsets.get((closest + 1).usize)
-            );
-            continue(remaining - 1);
-        });
-
-shortestDistance :: (WeightedCsr, Int64, Int64) -> Int64 := (graph, source, target) -> {
-    (nodeCount, _, _, _) := graph;
-    workspace := make<Int64>((nodeCount * 2).usize);
-    workspace.appendRepeated(nodeCount.usize, infinity);
-    workspace.appendRepeated(nodeCount.usize, 0);
-    distances :: NodeDistances := (workspace, 0usize);
-    visited :: VisitedFlags := (workspace, nodeCount.usize);
-    distances.assign(source, 0);
-    graph.runDijkstraRounds((distances, visited), nodeCount);
-    workspace.get(target.usize);
-};
-
-// A neighbor coordinate at or beyond nodeCount is a well-typed Int64 in a well-shaped
-// WeightedCsr; only validWeightedCsr distinguishes it from an admissible graph.
-buildInvalidGraph :: Unit -> WeightedCsr := () -> {
-    offsets := make<Int64>(2usize);
-    offsets.new(0);
-    offsets.new(1);
-    neighbors := make<Int64>(1usize);
-    neighbors.new(1);
-    costs := make<Int64>(1usize);
-    costs.new(1);
-    (1, offsets, neighbors, costs);
-};
-
-buildGraph :: Unit -> WeightedCsr := () -> {
-    offsets := make<Int64>(6usize);
-    offsets.new(0);
-    offsets.new(2);
-    offsets.new(4);
-    offsets.new(6);
-    offsets.new(7);
-    offsets.new(7);
-    neighbors := make<Int64>(7usize);
-    neighbors.new(1);
-    neighbors.new(2);
-    neighbors.new(2);
-    neighbors.new(3);
-    neighbors.new(3);
-    neighbors.new(4);
-    neighbors.new(4);
-    costs := make<Int64>(7usize);
-    costs.new(2);
-    costs.new(5);
-    costs.new(1);
-    costs.new(2);
-    costs.new(1);
-    costs.new(5);
-    costs.new(3);
-    (5, offsets, neighbors, costs);
-};
-
-main :: Unit -> Int32 := () -> {
-    graph := buildGraph();
-    invalidRejected := !buildInvalidGraph().validWeightedCsr();
-    if (graph.validWeightedCsr() && graph.shortestDistance(0, 4) == 7 && invalidRejected)
-    then 0
-    else 1;
+    if (invalidRejected && distance == 7u64)
+    then return(0)
+    else return(1);
 };

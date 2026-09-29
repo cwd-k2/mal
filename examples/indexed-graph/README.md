@@ -1,17 +1,18 @@
 # Indexed graph
 
-This example represents a weighted directed graph as CSR columns. Opaque column roles prevent
-accidental interchange, while `validWeightedCsr` establishes offset monotonicity, joined column
-lengths, destination bounds, and nonnegative weights before traversal. Indices acquire graph meaning
-only through these operations and invariants.
+This example represents a weighted directed graph as CSR columns. `graph.mal` owns the opaque graph,
+validates offset monotonicity, joined column lengths, and destination bounds, then snapshots every
+input column. Caller-held Buffer aliases therefore cannot invalidate an admitted graph. `USize`
+coordinates and `UInt64` costs exclude negative carrier values before validation begins.
 
 > [!NOTE]
-> A Buffer index is only a number. `validWeightedCsr` and the opaque column operations are what make
-> particular numbers node coordinates, edge coordinates, and range boundaries.
+> A Buffer index is only a number. Admission and graph operations are what make particular numbers
+> node coordinates, edge coordinates, and range boundaries.
 
-Dijkstra's workspace uses one `Buffer<Int64>` viewed as distance and visited columns joined by node
-coordinate. The O(V²) selection policy keeps the example focused on indexed representation rather
-than introducing a second data structure.
+Dijkstra's distance and visited Buffers are separate payload columns joined by node coordinate. The
+O(V²) selection policy keeps the example focused on indexed representation rather than introducing
+a second data structure. `UInt64` maximum is reserved as the unreachable sentinel, so representable
+path distances are smaller; addition is checked before relaxation instead of relying on wrapping.
 
 ```nu
 nix develop --command cargo run -p mal-compiler -- build examples/indexed-graph/program.mal --output /tmp/mal-indexed-graph
