@@ -1,3 +1,4 @@
+pub(crate) use mal_frontend::check::ast::{BinaryPrimitive, UnaryPrimitive};
 use mal_frontend::check::ast::{MemoryPrimitive, SymbolPrimitive, Type};
 use mal_frontend::resolve::ast::{ExternalOperationId, LambdaId, ValueId as SourceValueId};
 use mal_syntax::source::Span;
@@ -190,32 +191,6 @@ pub(crate) enum BufferOperation {
     Put,
     Fill,
     Copy,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum UnaryPrimitive {
-    Negate,
-    BitwiseNot,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum BinaryPrimitive {
-    Multiply,
-    Divide,
-    Remainder,
-    Add,
-    Subtract,
-    ShiftLeft,
-    ShiftRight,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    Equal,
-    NotEqual,
-    BitwiseAnd,
-    BitwiseXor,
-    BitwiseOr,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

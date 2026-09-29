@@ -5,7 +5,10 @@ use mal_syntax::ast::{BinaryOperator, Node, UnaryOperator};
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
-use super::ast::{Expression, ExpressionKind, MemoryPrimitive, SymbolPrimitive, Type};
+use super::ast::{
+    BinaryOperation, BinaryPrimitive, Expression, ExpressionKind, MemoryPrimitive, ShortCircuit,
+    SymbolPrimitive, Type, UnaryOperation, UnaryPrimitive,
+};
 use super::float::{is_contextual_float, is_float};
 use super::integer::{
     integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
@@ -69,13 +72,39 @@ pub(super) fn binary_expression(
     }
     Expression {
         kind: ExpressionKind::Binary {
-            operator: operator.clone(),
+            operator: Node::new(binary_operation(operator.kind), operator.span),
             left: Box::new(left),
             right: Box::new(right),
         },
         ty,
         span,
     }
+}
+
+/// The checked operation of a binary operator whose Symbol and Bool equality forms were already separated.
+pub(super) fn binary_operation(operator: BinaryOperator) -> BinaryOperation {
+    use BinaryPrimitive as Primitive;
+    BinaryOperation::Primitive(match operator {
+        BinaryOperator::Multiply => Primitive::Multiply,
+        BinaryOperator::Divide => Primitive::Divide,
+        BinaryOperator::Remainder => Primitive::Remainder,
+        BinaryOperator::Add => Primitive::Add,
+        BinaryOperator::Subtract => Primitive::Subtract,
+        BinaryOperator::ShiftLeft => Primitive::ShiftLeft,
+        BinaryOperator::ShiftRight => Primitive::ShiftRight,
+        BinaryOperator::Less => Primitive::Less,
+        BinaryOperator::LessEqual => Primitive::LessEqual,
+        BinaryOperator::Greater => Primitive::Greater,
+        BinaryOperator::GreaterEqual => Primitive::GreaterEqual,
+        BinaryOperator::Equal => Primitive::Equal,
+        BinaryOperator::NotEqual => Primitive::NotEqual,
+        BinaryOperator::BitwiseAnd => Primitive::BitwiseAnd,
+        BinaryOperator::BitwiseXor => Primitive::BitwiseXor,
+        BinaryOperator::BitwiseOr => Primitive::BitwiseOr,
+        BinaryOperator::LogicalAnd => return BinaryOperation::ShortCircuit(ShortCircuit::And),
+        BinaryOperator::LogicalOr => return BinaryOperation::ShortCircuit(ShortCircuit::Or),
+        BinaryOperator::SymbolAt => unreachable!("indexed access is checked as a Symbol operation"),
+    })
 }
 
 pub(super) fn symbol(
@@ -204,7 +233,10 @@ impl Checker {
             let operand_type = operand.ty.clone();
             return Ok(Expression {
                 kind: ExpressionKind::Unary {
-                    operator: operator.clone(),
+                    operator: Node::new(
+                        UnaryOperation::Primitive(UnaryPrimitive::Negate),
+                        operator.span,
+                    ),
                     operand: Box::new(operand),
                 },
                 ty: operand_type,
@@ -238,7 +270,10 @@ impl Checker {
             let operand_type = operand.ty.clone();
             return Ok(Expression {
                 kind: ExpressionKind::Unary {
-                    operator: operator.clone(),
+                    operator: Node::new(
+                        UnaryOperation::Primitive(UnaryPrimitive::BitwiseNot),
+                        operator.span,
+                    ),
                     operand: Box::new(operand),
                 },
                 ty: operand_type,
@@ -249,7 +284,7 @@ impl Checker {
         let operand = self.check_expression(operand, Some(&operand_type))?;
         Ok(Expression {
             kind: ExpressionKind::Unary {
-                operator: operator.clone(),
+                operator: Node::new(UnaryOperation::LogicalNot, operator.span),
                 operand: Box::new(operand),
             },
             ty: operand_type,

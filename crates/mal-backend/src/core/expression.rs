@@ -95,21 +95,15 @@ impl Lowerer {
                     expression.span,
                 );
             }
-            checked::ExpressionKind::Unary { operator, operand } => {
-                if operator.kind == UnaryOperator::LogicalNot {
+            checked::ExpressionKind::Unary { operator, operand } => match operator.kind {
+                checked::UnaryOperation::LogicalNot => {
                     return self.lower_logical_not(operand, expression.span);
                 }
-                ExpressionKind::PrimitiveUnary {
-                    operator: match operator.kind {
-                        UnaryOperator::Negate => UnaryPrimitive::Negate,
-                        UnaryOperator::BitwiseNot => UnaryPrimitive::BitwiseNot,
-                        UnaryOperator::LogicalNot | UnaryOperator::Length | UnaryOperator::Star => {
-                            unreachable!("type checking rejects non-numeric core primitives")
-                        }
-                    },
+                checked::UnaryOperation::Primitive(primitive) => ExpressionKind::PrimitiveUnary {
+                    operator: primitive,
                     operand: Box::new(self.lower_expression(operand)),
-                }
-            }
+                },
+            },
             checked::ExpressionKind::Binary { .. } => return self.lower_binary_chain(expression),
             checked::ExpressionKind::BoolEquality { equal, left, right } => {
                 let left = self.lower_expression(left);
@@ -175,24 +169,21 @@ impl Lowerer {
 
     fn lower_binary_after_left(
         &mut self,
-        operator: BinaryOperator,
+        operator: checked::BinaryOperation,
         left: Expression,
         right: &checked::Expression,
         result_type: checked::Type,
         span: Span,
     ) -> Expression {
-        if matches!(
-            operator,
-            BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr
-        ) {
-            return self.lower_short_circuit_after_left(operator, left, right, span);
-        }
-        if operator == BinaryOperator::SymbolAt {
-            unreachable!("Symbol access is lowered before generic binary operators");
-        }
+        let primitive = match operator {
+            checked::BinaryOperation::ShortCircuit(operator) => {
+                return self.lower_short_circuit_after_left(operator, left, right, span);
+            }
+            checked::BinaryOperation::Primitive(primitive) => primitive,
+        };
         Expression {
             kind: ExpressionKind::PrimitiveBinary {
-                operator: lower_binary_primitive(operator),
+                operator: primitive,
                 left: Box::new(left),
                 right: Box::new(self.lower_expression(right)),
             },

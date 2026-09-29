@@ -1,7 +1,7 @@
 //! Completion-aware lowering of body sequences and control paths to lexical joins.
 
 use mal_frontend::check::ast as checked;
-use mal_syntax::ast::BinaryOperator;
+use mal_syntax::ast::Node;
 
 use super::Lowerer;
 use super::ast::{Binding, Expression, ExpressionKind, Pattern};
@@ -271,32 +271,34 @@ impl Lowerer {
                 self.lower_value_with(operand, result_type, &mut next)
             }
             checked::ExpressionKind::Binary {
-                operator,
+                operator:
+                    Node {
+                        kind: checked::BinaryOperation::ShortCircuit(operator),
+                        ..
+                    },
                 left,
                 right,
-            } if matches!(
-                operator.kind,
-                BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr
-            ) =>
-            {
-                self.lower_logical_with(
-                    operator.kind,
-                    left,
-                    right,
-                    result_type,
-                    continuation,
-                    value.span,
-                )
-            }
+            } => self.lower_logical_with(
+                *operator,
+                left,
+                right,
+                result_type,
+                continuation,
+                value.span,
+            ),
             checked::ExpressionKind::Binary {
-                operator,
+                operator:
+                    Node {
+                        kind: checked::BinaryOperation::Primitive(primitive),
+                        ..
+                    },
                 left,
                 right,
             } => {
                 let mut left_next = |lowerer: &mut Lowerer, left: Expression| {
                     let mut right_next = |lowerer: &mut Lowerer, right: Expression| {
                         let expression =
-                            lowerer.lower_binary_value(operator.kind, left.clone(), right, value);
+                            lowerer.lower_binary_value(*primitive, left.clone(), right, value);
                         continuation(lowerer, expression)
                     };
                     lowerer.lower_value_with(right, result_type, &mut right_next)
@@ -316,20 +318,20 @@ impl Lowerer {
             }
             checked::ExpressionKind::NumericConversion { value: operand }
             | checked::ExpressionKind::SumInjection { value: operand, .. } => {
+                let variant = match &value.kind {
+                    checked::ExpressionKind::SumInjection { index, .. } => Some(*index),
+                    _ => None,
+                };
                 let mut next = |lowerer: &mut Lowerer, operand: Expression| {
-                    let kind = match &value.kind {
-                        checked::ExpressionKind::NumericConversion { .. } => {
-                            ExpressionKind::NumericConversion {
-                                value: Box::new(operand),
-                            }
-                        }
-                        checked::ExpressionKind::SumInjection { index, .. } => {
-                            ExpressionKind::SumInjection {
-                                index: *index,
-                                value: Box::new(operand),
-                            }
-                        }
-                        _ => unreachable!(),
+                    let value_operand = Box::new(operand);
+                    let kind = match variant {
+                        Some(index) => ExpressionKind::SumInjection {
+                            index,
+                            value: value_operand,
+                        },
+                        None => ExpressionKind::NumericConversion {
+                            value: value_operand,
+                        },
                     };
                     continuation(
                         lowerer,

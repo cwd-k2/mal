@@ -1,5 +1,4 @@
 use mal_frontend::check::ast as checked;
-use mal_syntax::ast::BinaryOperator;
 use mal_syntax::source::Span;
 
 use super::Lowerer;
@@ -21,11 +20,12 @@ impl Lowerer {
             left,
             right,
         } = &condition.kind
-            && is_comparison(operator.kind)
+            && let checked::BinaryOperation::Primitive(primitive) = operator.kind
+            && primitive.is_comparison()
         {
             return Expression {
                 kind: ExpressionKind::PrimitiveBranch {
-                    operator: super::primitive::lower_binary_primitive(operator.kind),
+                    operator: primitive,
                     left: Box::new(self.lower_expression(left)),
                     right: Box::new(self.lower_expression(right)),
                     otherwise: Box::new(otherwise),
@@ -68,7 +68,7 @@ impl Lowerer {
 
     pub(super) fn lower_short_circuit_after_left(
         &mut self,
-        operator: BinaryOperator,
+        operator: checked::ShortCircuit,
         left: Expression,
         right: &checked::Expression,
         span: Span,
@@ -77,15 +77,14 @@ impl Lowerer {
         let false_value = self.bool_value(false, span);
         let true_value = self.bool_value(true, span);
         let arms = match operator {
-            BinaryOperator::LogicalAnd => vec![
+            checked::ShortCircuit::And => vec![
                 self.wildcard_arm(0, false_value, span),
                 self.wildcard_arm(1, right, span),
             ],
-            BinaryOperator::LogicalOr => vec![
+            checked::ShortCircuit::Or => vec![
                 self.wildcard_arm(0, right, span),
                 self.wildcard_arm(1, true_value, span),
             ],
-            _ => unreachable!("caller restricts short-circuit operators"),
         };
         self.case(left, arms, bool_type(), span)
     }
@@ -142,18 +141,6 @@ impl Lowerer {
             span,
         }
     }
-}
-
-fn is_comparison(operator: BinaryOperator) -> bool {
-    matches!(
-        operator,
-        BinaryOperator::Less
-            | BinaryOperator::LessEqual
-            | BinaryOperator::Greater
-            | BinaryOperator::GreaterEqual
-            | BinaryOperator::Equal
-            | BinaryOperator::NotEqual
-    )
 }
 
 pub(super) fn bool_type() -> checked::Type {

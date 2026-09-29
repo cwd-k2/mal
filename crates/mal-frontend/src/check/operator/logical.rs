@@ -30,7 +30,7 @@ impl Checker {
         match self.check_expression(right, Some(&ty)) {
             Ok(right) => Ok(Expression {
                 kind: ExpressionKind::Binary {
-                    operator: operator.clone(),
+                    operator: Node::new(super::binary_operation(operator.kind), operator.span),
                     left: Box::new(left),
                     right: Box::new(right),
                 },

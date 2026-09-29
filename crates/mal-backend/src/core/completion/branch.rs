@@ -1,5 +1,4 @@
 use mal_frontend::check::ast as checked;
-use mal_syntax::ast::BinaryOperator;
 
 use super::{Continuation, Lowerer};
 use crate::core::ast::{Expression, ExpressionKind, Pattern};
@@ -124,7 +123,7 @@ impl Lowerer {
 
     pub(super) fn lower_logical_with(
         &mut self,
-        operator: BinaryOperator,
+        operator: checked::ShortCircuit,
         left: &checked::Expression,
         right: &checked::Expression,
         result_type: &checked::Type,
@@ -145,7 +144,7 @@ impl Lowerer {
 
     fn lower_logical_body(
         &mut self,
-        operator: BinaryOperator,
+        operator: checked::ShortCircuit,
         left: &checked::Expression,
         right: &checked::Expression,
         result_type: &checked::Type,
@@ -153,10 +152,10 @@ impl Lowerer {
         span: mal_syntax::source::Span,
     ) -> Expression {
         let mut next = |lowerer: &mut Lowerer, left: Expression| {
-            let constant = lowerer.bool_value(operator == BinaryOperator::LogicalOr, span);
+            let constant = lowerer.bool_value(operator == checked::ShortCircuit::Or, span);
             let constant = continuation(lowerer, constant);
             let right = lowerer.lower_value_with(right, result_type, continuation);
-            let (zero, one) = if operator == BinaryOperator::LogicalAnd {
+            let (zero, one) = if operator == checked::ShortCircuit::And {
                 (constant, right)
             } else {
                 (right, constant)

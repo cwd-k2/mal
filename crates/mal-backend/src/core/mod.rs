@@ -2,7 +2,6 @@
 
 use mal_frontend::check::ast as checked;
 use mal_frontend::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
-use mal_syntax::ast::{BinaryOperator, UnaryOperator};
 use mal_syntax::source::Span;
 use std::collections::HashMap;
 
@@ -16,14 +15,12 @@ mod external;
 mod interface;
 mod lambda;
 mod pattern;
-mod primitive;
 
 pub(crate) use self::interface::lower_interface;
-use self::primitive::lower_binary_primitive;
 
 use self::ast::{
     Binding, Capture, CaseArm, Expression, ExpressionKind, Lambda, Parameter, Pattern, Program,
-    TopLevelBinding, UnaryPrimitive, ValueId,
+    TopLevelBinding, ValueId,
 };
 
 /// Desugars an admitted monomorphic program without rechecking names, types, or generic reachability.

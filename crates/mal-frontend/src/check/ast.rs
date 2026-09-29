@@ -3,7 +3,7 @@
 use crate::resolve::ast::{
     ExternalOperationId, LambdaId, TypeBinding, TypeId, ValueBinding, ValueId, ValueReference,
 };
-use mal_syntax::ast::{BinaryOperator, Node, UnaryOperator};
+use mal_syntax::ast::Node;
 use mal_syntax::source::FileId;
 use mal_syntax::source::Span;
 use std::{collections::HashSet, sync::Arc};
@@ -778,22 +778,110 @@ pub enum ExpressionKind {
         /// The false branch.
         else_branch: ExpressionBlock,
     },
-    /// A primitive unary operation not lowered into a dedicated form.
+    /// A unary operator selected by the checker.
     Unary {
-        /// The source operator and its span.
-        operator: Node<UnaryOperator>,
+        /// The operation and the span of its source operator.
+        operator: Node<UnaryOperation>,
         /// The checked operand.
         operand: Box<Expression>,
     },
-    /// A primitive binary operation not lowered into dedicated control.
+    /// A binary operator selected by the checker; Symbol and Bool equality operations have their own forms.
     Binary {
-        /// The source operator and its span.
-        operator: Node<BinaryOperator>,
+        /// The operation and the span of its source operator.
+        operator: Node<BinaryOperation>,
         /// The checked left operand.
         left: Box<Expression>,
         /// The checked right operand.
         right: Box<Expression>,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A checked unary operator.
+pub enum UnaryOperation {
+    /// A scalar primitive.
+    Primitive(UnaryPrimitive),
+    /// `!`, which lowering expands into a continuation application.
+    LogicalNot,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A unary operator on a numeric scalar.
+pub enum UnaryPrimitive {
+    /// Integer or float negation (`-`).
+    Negate,
+    /// Integer complement (`~`).
+    BitwiseNot,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A checked binary operator.
+pub enum BinaryOperation {
+    /// A scalar primitive evaluating both operands.
+    Primitive(BinaryPrimitive),
+    /// `&&` or `||`, which evaluates its right operand only when needed.
+    ShortCircuit(ShortCircuit),
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A binary operator on numeric scalars; comparisons produce `Bool`.
+pub enum BinaryPrimitive {
+    /// `*`.
+    Multiply,
+    /// `/`.
+    Divide,
+    /// `%`.
+    Remainder,
+    /// `+`.
+    Add,
+    /// `-`.
+    Subtract,
+    /// `<<`.
+    ShiftLeft,
+    /// `>>`.
+    ShiftRight,
+    /// `<`.
+    Less,
+    /// `<=`.
+    LessEqual,
+    /// `>`.
+    Greater,
+    /// `>=`.
+    GreaterEqual,
+    /// `==`.
+    Equal,
+    /// `!=`.
+    NotEqual,
+    /// `&`.
+    BitwiseAnd,
+    /// `^`.
+    BitwiseXor,
+    /// `|`.
+    BitwiseOr,
+}
+
+impl BinaryPrimitive {
+    /// Whether the operator compares its operands and produces `Bool`.
+    pub const fn is_comparison(self) -> bool {
+        matches!(
+            self,
+            Self::Less
+                | Self::LessEqual
+                | Self::Greater
+                | Self::GreaterEqual
+                | Self::Equal
+                | Self::NotEqual
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// A short-circuit Boolean operator.
+pub enum ShortCircuit {
+    /// `&&`.
+    And,
+    /// `||`.
+    Or,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

@@ -1,9 +1,11 @@
 use crate::resolve::ast::{FALSE_VALUE, TRUE_VALUE};
-use mal_syntax::ast::{BinaryOperator, UnaryOperator};
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::Checker;
-use super::ast::{Expression, ExpressionKind, Type};
+use super::ast::{
+    BinaryOperation, BinaryPrimitive, Expression, ExpressionKind, Type, UnaryOperation,
+    UnaryPrimitive,
+};
 use super::float::is_float;
 use super::integer::is_integer;
 
@@ -52,7 +54,7 @@ fn is_top_level_initializer(
         ExpressionKind::Unary {
             operator, operand, ..
         } => {
-            operator.kind == UnaryOperator::Negate
+            operator.kind == UnaryOperation::Primitive(UnaryPrimitive::Negate)
                 && is_constant_numeric(&operand.ty)
                 && is_top_level_initializer(operand, external_values)
         }
@@ -73,12 +75,14 @@ fn is_constant_numeric(ty: &Type) -> bool {
     is_integer(ty) || is_float(ty)
 }
 
-fn is_constant_binary(operator: BinaryOperator, left: &Type, right: &Type) -> bool {
+fn is_constant_binary(operator: BinaryOperation, left: &Type, right: &Type) -> bool {
     if left != right || !is_integer(left) {
         return false;
     }
     matches!(
         operator,
-        BinaryOperator::Multiply | BinaryOperator::Add | BinaryOperator::Subtract
+        BinaryOperation::Primitive(
+            BinaryPrimitive::Multiply | BinaryPrimitive::Add | BinaryPrimitive::Subtract
+        )
     )
 }
