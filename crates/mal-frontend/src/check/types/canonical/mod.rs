@@ -1,85 +1,12 @@
 //! Canonical substitution, runtime erasure, and file-local type equivalence.
 
-use std::collections::HashMap;
-
-use crate::resolve::ast::TypeId;
-use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::FileId;
-use mal_syntax::source::Span;
 
 use super::super::ast::Type;
-use super::term;
 
-pub(in crate::check) fn substitute_type(
-    ty: &Type,
-    substitutions: &HashMap<TypeId, Type>,
-    span: Span,
-) -> Result<Type, Diagnostic> {
-    substitute(ty, substitutions, &mut term::Normalizer::new(span))
-}
+mod substitution;
 
-fn substitute(
-    ty: &Type,
-    substitutions: &HashMap<TypeId, Type>,
-    normalizer: &mut term::Normalizer,
-) -> Result<Type, Diagnostic> {
-    Ok(match ty {
-        Type::Parameter { id, .. } => substitutions.get(id).cloned().unwrap_or_else(|| ty.clone()),
-        Type::Application {
-            constructor,
-            argument,
-            span,
-            ..
-        } => {
-            let constructor = substitute(constructor, substitutions, normalizer)?;
-            let argument = substitute(argument, substitutions, normalizer)?;
-            normalizer.apply(constructor, argument, *span)?
-        }
-        Type::Abstraction {
-            parameter_kind,
-            body,
-        } => {
-            let body = substitute(body, substitutions, normalizer)?;
-            normalizer.abstraction(parameter_kind.clone(), body)?
-        }
-        Type::Buffer(element) => {
-            Type::Buffer(substitute(element, substitutions, normalizer)?.into())
-        }
-        Type::Opaque {
-            id,
-            name,
-            arguments,
-            representation,
-            declaration_file,
-        } => Type::Opaque {
-            id: *id,
-            name: name.clone(),
-            arguments: substitute_all(arguments, substitutions, normalizer)?.into(),
-            representation: substitute(representation, substitutions, normalizer)?.into(),
-            declaration_file: *declaration_file,
-        },
-        Type::Product(elements) => {
-            Type::Product(substitute_all(elements, substitutions, normalizer)?.into())
-        }
-        Type::Sum(members) => Type::Sum(substitute_all(members, substitutions, normalizer)?.into()),
-        Type::Function { parameter, result } => Type::Function {
-            parameter: substitute(parameter, substitutions, normalizer)?.into(),
-            result: substitute(result, substitutions, normalizer)?.into(),
-        },
-        _ => ty.clone(),
-    })
-}
-
-fn substitute_all(
-    types: &[Type],
-    substitutions: &HashMap<TypeId, Type>,
-    normalizer: &mut term::Normalizer,
-) -> Result<Vec<Type>, Diagnostic> {
-    types
-        .iter()
-        .map(|ty| substitute(ty, substitutions, normalizer))
-        .collect()
-}
+pub(in crate::check) use substitution::substitute_type;
 
 pub(in crate::check) fn runtime_type(ty: &Type) -> Type {
     match ty {
