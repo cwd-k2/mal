@@ -124,7 +124,7 @@ impl Checker {
         for (index, item) in items.iter().enumerate() {
             match self.check_body_item(item) {
                 Ok(item) => checked.push(item),
-                Err(CheckFailure::Abrupt(abrupt)) => {
+                Err(CheckFailure::Abrupt(_)) => {
                     let unreachable_span = items
                         .get(index + 1)
                         .map(|item| match item {
@@ -132,15 +132,14 @@ impl Checker {
                             resolved::BodyItem::Expression(expression) => expression.span,
                         })
                         .unwrap_or(result_span);
-                    return Err(Diagnostic::error("unreachable code after abrupt completion")
-                        .with_primary(
-                            unreachable_span,
-                            format!(
-                                "this expression cannot be reached after control leaves at byte {}",
-                                abrupt.span.start()
-                            ),
-                        )
-                        .into());
+                    return Err(
+                        Diagnostic::error("unreachable code after abrupt completion")
+                            .with_primary(
+                                unreachable_span,
+                                "the previous item never completes, so this cannot be reached",
+                            )
+                            .into(),
+                    );
                 }
                 Err(error) => return Err(error),
             }

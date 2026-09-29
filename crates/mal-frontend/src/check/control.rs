@@ -161,9 +161,6 @@ impl Checker {
         let bool_type = bool_type();
         let condition = self.check_before(condition, Some(&bool_type), body.span)?;
         let body = self.check_expression_block(body, Some(&Type::Unit))?;
-        if let Completion::Value(value) = body.result.as_ref() {
-            self.require_type(&value.ty, &Type::Unit, value.span)?;
-        }
         let unit = Expression {
             kind: ExpressionKind::Unit,
             ty: Type::Unit,
