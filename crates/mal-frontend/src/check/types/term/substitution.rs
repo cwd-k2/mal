@@ -32,6 +32,9 @@ pub(super) fn bound(ty: &Type, argument: &Type, depth: usize) -> Type {
 }
 
 pub(super) fn shift(ty: &Type, depth: usize, amount: isize) -> Type {
+    if amount == 0 {
+        return ty.clone();
+    }
     match ty {
         Type::Bound { index, kind } if *index >= depth => Type::Bound {
             index: index.saturating_add_signed(amount),
@@ -96,6 +99,9 @@ pub(super) fn contains_bound(ty: &Type, index: usize) -> bool {
 }
 
 pub(super) fn kinds(ty: &Type, substitutions: &HashMap<u32, Kind>) -> Type {
+    if substitutions.is_empty() {
+        return ty.clone();
+    }
     match ty {
         Type::Parameter { id, name, kind } => Type::Parameter {
             id: *id,
