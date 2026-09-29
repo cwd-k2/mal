@@ -8,25 +8,40 @@ use mal_syntax::ast::Node;
 use super::super::ast::{Expression, OperationRequirement, Type};
 use super::super::{CheckResult, Checker};
 
-/// Checked elaborations of the direct arguments of one generic call.
+/// Checked outcomes of the direct arguments of one generic call.
 ///
 /// Every probe of an argument and the final check run under the same enclosing environment, so an argument
-/// checked once against an expectation elaborates the same way when checked against it again. An argument checked
-/// without a complete expectation to type `T` also elaborates the same way when later checked against `T`: the
-/// expectation only adds a constraint that the first elaboration already satisfies.
+/// checked once under an expectation has the same outcome, success or failure, when checked under it again. An
+/// argument that succeeded with less information, reaching type `T`, also elaborates the same way when later checked
+/// against `T`: the expectation only adds a constraint that the first elaboration already satisfies. A failure is
+/// reused only under the same expectation, because more information may let the argument check.
 pub(in crate::check) struct ArgumentMemo {
-    entries: HashMap<usize, Vec<Elaboration>>,
+    entries: HashMap<usize, Vec<Outcome>>,
 }
 
-struct Elaboration {
-    /// The complete expectation the argument was checked against, or `None` when it had less information.
-    expected: Option<Type>,
-    expression: Expression,
+/// What an argument was checked against. A lambda whose parameter is known but whose result is not is checked
+/// against that parameter, which an untyped check of the same lambda is not.
+#[derive(Clone, PartialEq)]
+pub(in crate::check) enum Expectation {
+    Untyped,
+    Parameter(Type),
+    Expected(Type),
+}
+
+impl Expectation {
+    pub(in crate::check) fn from_expected(expected: Option<&Type>) -> Self {
+        expected.map_or(Self::Untyped, |ty| Self::Expected(ty.clone()))
+    }
+}
+
+struct Outcome {
+    expectation: Expectation,
+    result: CheckResult<Expression>,
     effects: Effects,
 }
 
-/// Checker state a probe changed and that a reused elaboration must replay.
-pub(in crate::check) struct Effects {
+/// Checker state a probe changed and that a reused outcome must replay.
+struct Effects {
     operations: Vec<OperationRequirement>,
     used_result_targets: Vec<ValueId>,
 }
@@ -44,15 +59,18 @@ impl ArgumentMemo {
     fn find(
         &self,
         argument: &Node<resolved::Expression>,
-        expected: Option<&Type>,
-    ) -> Option<&Elaboration> {
+        expectation: &Expectation,
+    ) -> Option<&Outcome> {
         self.entries.get(&address(argument))?.iter().find(|entry| {
-            match (&entry.expected, expected) {
-                (Some(checked), Some(expected)) => checked == expected,
-                (None, Some(expected)) => entry.expression.ty == *expected,
-                (None, None) => true,
-                (Some(_), None) => false,
-            }
+            entry.expectation == *expectation
+                || match (&entry.expectation, expectation, &entry.result) {
+                    (
+                        Expectation::Untyped | Expectation::Parameter(_),
+                        Expectation::Expected(expected),
+                        Ok(expression),
+                    ) => expression.ty == *expected,
+                    _ => false,
+                }
         })
     }
 }
@@ -64,10 +82,11 @@ fn address(argument: &Node<resolved::Expression>) -> usize {
 impl Checker {
     /// Runs `check` without committing the requirement, result-target, and alias-expansion state it changes.
     /// Identity counters and pure caches are kept.
-    pub(in crate::check) fn transaction<T>(
-        &mut self,
-        check: impl FnOnce(&mut Self) -> T,
-    ) -> (T, Effects) {
+    pub(in crate::check) fn transaction<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> T {
+        self.recorded_transaction(check).0
+    }
+
+    fn recorded_transaction<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> (T, Effects) {
         let operations = self.active_operations.len();
         let used_result_targets = self.used_result_targets.clone();
         let expanding = self.expanding.clone();
@@ -85,45 +104,47 @@ impl Checker {
         (result, effects)
     }
 
-    /// Probes a direct argument of the current generic call against `expected`, reusing and recording its
-    /// elaboration in the call's memo.
+    /// Probes a direct argument of the current generic call under `expectation`, reusing and recording its outcome
+    /// in the call's memo.
     pub(in crate::check) fn probe_argument(
         &mut self,
         argument: &Node<resolved::Expression>,
-        expected: Option<&Type>,
+        expectation: Expectation,
         check: impl FnOnce(&mut Self) -> CheckResult<Expression>,
     ) -> CheckResult<Expression> {
         if let Some(entry) = self
             .argument_memos
             .last()
-            .and_then(|memo| memo.find(argument, expected))
+            .and_then(|memo| memo.find(argument, &expectation))
         {
-            return Ok(entry.expression.clone());
+            return entry.result.clone();
         }
-        let (result, effects) = self.transaction(check);
-        if let Ok(expression) = &result
-            && let Some(entries) = self
-                .argument_memos
-                .last_mut()
-                .and_then(|memo| memo.entries.get_mut(&address(argument)))
+        let (result, effects) = self.recorded_transaction(check);
+        if let Some(entries) = self
+            .argument_memos
+            .last_mut()
+            .and_then(|memo| memo.entries.get_mut(&address(argument)))
         {
-            entries.push(Elaboration {
-                expected: expected.cloned(),
-                expression: expression.clone(),
+            entries.push(Outcome {
+                expectation,
+                result: result.clone(),
                 effects,
             });
         }
         result
     }
 
-    /// Returns the memoized elaboration of a direct argument of the current generic call and commits its effects.
+    /// Returns the memoized outcome of a direct argument of the current generic call and commits its effects.
     pub(in crate::check) fn reuse_argument(
         &mut self,
         argument: &Node<resolved::Expression>,
         expected: Option<&Type>,
-    ) -> Option<Expression> {
-        let entry = self.argument_memos.last()?.find(argument, expected)?;
-        let expression = entry.expression.clone();
+    ) -> Option<CheckResult<Expression>> {
+        let entry = self
+            .argument_memos
+            .last()?
+            .find(argument, &Expectation::from_expected(expected))?;
+        let result = entry.result.clone();
         let operations = entry.effects.operations.clone();
         let used = entry.effects.used_result_targets.clone();
         for operation in operations {
@@ -132,6 +153,6 @@ impl Checker {
             }
         }
         self.used_result_targets.extend(used);
-        Some(expression)
+        Some(result)
     }
 }

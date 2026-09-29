@@ -84,6 +84,7 @@ pub fn next_lambda_identity(program: &Program) -> u32 {
         .lambda
 }
 
+#[derive(Clone)]
 enum CheckFailure {
     Diagnostic(Diagnostic),
     Abrupt(Box<AbruptExpression>),

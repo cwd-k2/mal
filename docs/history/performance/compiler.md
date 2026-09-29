@@ -254,3 +254,19 @@ roundごとにprogram全体を索引し直していたため、`n`について�
 footprintとして記録し、footprintが互いに素なdirect候補を同じ索引から選んで一回の走査で書き換える。nested captureを持つ候補は
 外側のcallbackを先に書き換えると判定の根拠が消えるため、従来どおり単独で書き換える。examples、probe program、Typical 90、
 `.scratch/loop-perf`の計576 programについて、両modeのLLVM module、C shim、headerが変更前とbyte単位で一致した。
+
+## 2026-09-29 失敗したgeneric argument probeの再利用
+
+`apply<A, B> :: (A -> B, A) -> B`の呼び出しを`n`段入れ子にし、内側のlambda一つだけがparameterの数を誤るsourceで、
+`malc check`を測った。generic callごとのargument memoは成功したprobeだけを記録していたため、失敗したlambda argumentは
+次のinference roundで内側のcall全体ごと検査し直され、段ごとに約3倍かかった。
+
+| `n` | 変更前 | 変更後 |
+|---:|---:|---:|
+| 12 | 87 ms | 3 ms |
+| 14 | 746 ms | 2 ms |
+| 16 | 6,552 ms | 2 ms |
+
+同じexpectationで検査したargumentは失敗も同じになるため、失敗もexpectationが完全に一致する場合に限って再利用する。
+parameterだけが決まったlambdaのprobeはparameterをexpectationに含め、expectationなしの検査と区別する。repository内の
+`.mal`とそのtoken変異30,000件の計30,576件で、checked programとdiagnosticが変更前と一致した。

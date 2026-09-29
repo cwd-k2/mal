@@ -630,3 +630,18 @@ fn nested_inferred_generic_calls_check_each_argument_once() {
     );
     check_ok(&lambdas);
 }
+
+#[test]
+fn nested_inferred_generic_calls_fail_without_rechecking_each_level() {
+    // A failed argument probe used to be re-checked on the next inference round, so each level tripled the work.
+    let depth = 20;
+    let program = format!(
+        "apply<A, B> :: (A -> B, A) -> B := (f, x) -> f(x);\nmain :: Unit -> Int32 := () -> {}apply(() -> 1i32, 1i32){};",
+        (0..depth).map(|_| "apply((x) -> ").collect::<String>(),
+        ", 1i32)".repeat(depth)
+    );
+    assert_eq!(
+        check_error(&program).message,
+        "lambda parameters do not match the expected function type"
+    );
+}

@@ -440,7 +440,7 @@ impl Checker {
                     }
                 }
                 None => {
-                    let (actual, _) =
+                    let actual =
                         self.transaction(|probe| probe.check_untyped_argument(arguments, span));
                     if let Ok(actual) = actual {
                         constrain(parameter, &actual.ty, &flexible, &mut substitutions, span)?;

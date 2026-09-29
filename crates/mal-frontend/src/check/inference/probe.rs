@@ -11,6 +11,7 @@ use super::super::ast::Type;
 use super::super::float::is_contextual_float;
 use super::super::integer::is_contextual_integer;
 use super::constraint::{constrain, constrain_generic_scheme, has_unresolved};
+use super::memo::Expectation;
 
 impl Checker {
     pub(super) fn probe_constraint(
@@ -54,8 +55,11 @@ impl Checker {
             }
             let expected_result =
                 (!has_unresolved(result, flexible, substitutions)).then_some(result.as_ref());
-            let expected = expected_result.map(|_| instantiated.clone());
-            self.probe_argument(argument, expected.as_ref(), |probe| {
+            let expectation = match expected_result {
+                Some(_) => Expectation::Expected(instantiated.clone()),
+                None => Expectation::Parameter(parameter.as_ref().clone()),
+            };
+            self.probe_argument(argument, expectation, |probe| {
                 probe.check_lambda_against(
                     lambda,
                     argument.span,
@@ -65,16 +69,17 @@ impl Checker {
             })
         } else if contextual {
             let expected = (!unresolved).then_some(&instantiated);
-            self.probe_argument(argument, expected, |probe| {
+            self.probe_argument(argument, Expectation::from_expected(expected), |probe| {
                 probe.check_expression(argument, expected)
             })
         } else {
-            match self.probe_argument(argument, None, |probe| {
+            match self.probe_argument(argument, Expectation::Untyped, |probe| {
                 probe.check_expression(argument, None)
             }) {
                 Ok(checked) => Ok(checked),
                 Err(_) if !unresolved => {
-                    self.probe_argument(argument, Some(&instantiated), |probe| {
+                    let expectation = Expectation::Expected(instantiated.clone());
+                    self.probe_argument(argument, expectation, |probe| {
                         probe.check_expression(argument, Some(&instantiated))
                     })
                 }
@@ -151,7 +156,7 @@ impl Checker {
                                 allow_defaults,
                             )?,
                             _ => {
-                                let (argument, _) = self.transaction(|probe| {
+                                let argument = self.transaction(|probe| {
                                     probe.check_untyped_argument(arguments, expression.span)
                                 });
                                 if let Ok(argument) = argument {

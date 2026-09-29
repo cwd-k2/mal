@@ -8,6 +8,6 @@ constructor arguments explicitly, while ordinary `Type` arguments may be inferre
 | `mod` | generic-reference admission, explicit prefixes, call checking, and finalized specialization keys |
 | `arguments` | argument-template selection, flexible parameter sets, and complete inferred argument lists |
 | `probe` | operand and direct lambda-result probes against partially instantiated templates |
-| `memo` | probe transactions that roll back requirement and result-target effects, and the per-call memo through which the final argument check reuses a probe elaboration |
+| `memo` | probe transactions that roll back requirement and result-target effects, and the per-call memo through which later probes and the final argument check reuse a probe outcome, failures included |
 | `constraint` | structural constraints, substitution resolution, and conflicts for ordinary type parameters |
 | `constraint/scheme` | unification between nested generic schemes without leaking inner flexible parameters |
