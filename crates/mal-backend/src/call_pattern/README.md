@@ -14,6 +14,7 @@ lowered to control, and stops at a fixed point or when the program has grown pas
 | `ids` | fresh identities and the check that every binder and atom identity is unique |
 | `lambda_lift`, `lambda_lift/operation` | capture-to-parameter rewriting for a non-recursive local closure whose aliases are used only as direct callees |
 | `parameter_lift/analysis` | callback uses, forwarding edges, and nested directly called captures admitted for propagation |
+| `parameter_lift/analysis/index` | the whole-program facts admission reads (binding types, host calls, uses by alias origin, closure creators), collected in one walk per lift |
 | `parameter_lift/analysis/aliases` | cycle-safe callback alias origins with path compression |
 | `parameter_lift/analysis/walk` | immutable traversal of closure blocks and operation atoms for parameter-lift analysis |
 | `parameter_lift/rewrite` | capture propagation through the admitted function parameter and its self-recursive forwarding edges |

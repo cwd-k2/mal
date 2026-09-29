@@ -5,21 +5,20 @@ use mal_frontend::check::ast::Type;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, AtomKind, Block, Operation, Pattern, Program, Reference};
 
-use super::super::analysis::{for_each_block, operation_atoms, origin};
+use super::super::analysis::{Index, operation_atoms, origin};
 use super::Use;
 
 pub(in crate::call_pattern::parameter_lift) fn find(
     program: &Program,
+    index: &Index<'_>,
     callback: ValueId,
-    origins: &HashMap<ValueId, ValueId>,
 ) -> Option<Use> {
     for function in &program.functions {
         for (capture, field) in function.captures.iter().enumerate() {
             if !matches!(field.ty, Type::Function { .. }) {
                 continue;
             }
-            let Some(capture_atoms) =
-                matching_creators(program, callback, origins, function.id, capture)
+            let Some(capture_atoms) = matching_creators(index, callback, function.id, capture)
             else {
                 continue;
             };
@@ -37,38 +36,24 @@ pub(in crate::call_pattern::parameter_lift) fn find(
     None
 }
 
+/// The capture atoms of every closure of `function`, when each one captures `callback` at `capture`.
 fn matching_creators(
-    program: &Program,
+    index: &Index<'_>,
     callback: ValueId,
-    origins: &HashMap<ValueId, ValueId>,
     function: crate::closure::ast::FunctionId,
     capture: usize,
 ) -> Option<HashSet<crate::closure::ast::AtomId>> {
-    let mut found = false;
-    let mut valid = true;
-    let mut atoms = HashSet::new();
-    for_each_block(program, &mut |block| {
-        for binding in &block.bindings {
-            let Operation::MakeClosure {
-                function: created,
-                captures,
-            } = &binding.operation
-            else {
-                continue;
-            };
-            if *created != function {
-                continue;
-            }
-            found = true;
-            let Some(atom) = captures.get(capture) else {
-                valid = false;
-                continue;
-            };
-            valid &= origin(atom, origins) == Some(callback);
-            atoms.insert(atom.id);
-        }
-    });
-    (found && valid).then_some(atoms)
+    let creators = index.closure_captures(function);
+    if creators.is_empty() {
+        return None;
+    }
+    creators
+        .iter()
+        .map(|captures| {
+            let atom = captures.get(capture)?;
+            (origin(atom, &index.aliases) == Some(callback)).then_some(atom.id)
+        })
+        .collect()
 }
 
 fn capture_aliases(function: &crate::closure::ast::Function, capture: usize) -> HashSet<ValueId> {

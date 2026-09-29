@@ -200,3 +200,21 @@ probeはcloneせず、operation requirement、result targetの使用、alias展�
 同じenclosing environmentで同じexpectationに対して検査したargumentは同じelaborationになり、expectationなしで型`T`になった
 argumentは`T`を期待しても同じelaborationになるためである。repository内の全`.mal`とそのtoken変異30,000件の計30,570件で、
 checked programとspecialization結果、diagnosticが変更前と一致した。
+
+## 2026-09-29 parameter liftの候補判定
+
+`h<i> :: (Int32 -> Int32, Int32) -> Int32`を`n`個宣言し、`main`がそれぞれへcaptureを持つlambdaを渡すsourceで、productionの
+`malc build`を測った。parameter liftは一回に一候補を書き換え、そのたびに全host、全callbackについて候補を判定し直していた。
+判定一回がprogram全体を7回ほど走査し、nested captureの探索はclosureを持つfunctionごとにさらに全体を走査したため、`n`について
+三乗で伸びた。
+
+| `n` | 変更前 | 変更後 |
+|---:|---:|---:|
+| 100 | 686 ms | 322 ms |
+| 200 | 3,780 ms | 669 ms |
+| 400 | 29,268 ms | 2,117 ms |
+
+判定が読む事実（binding型、hostのcall site、alias originごとのuse、closure creator、self closure参照）を書き換えごとに一回の走査で
+索引する。書き換えは依然として一候補ずつprogram全体の索引と書き換えを行うため`n`について二乗で残り、`n = 400`の生成時間
+約1.8 sの大半を占める。examples、probe program、Typical 90、`.scratch/loop-perf`の計575 programについて、両modeの
+LLVM module、C shim、headerが変更前とbyte単位で一致した。

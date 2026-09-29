@@ -1,10 +1,10 @@
 use crate::closure::ast::{Atom, Block, Operation, Program};
 
-pub(in crate::call_pattern::parameter_lift) fn for_each_block(
-    program: &Program,
-    visit: &mut impl FnMut(&Block),
+pub(in crate::call_pattern::parameter_lift) fn for_each_block<'a>(
+    program: &'a Program,
+    visit: &mut impl FnMut(&'a Block),
 ) {
-    fn walk(block: &Block, visit: &mut impl FnMut(&Block)) {
+    fn walk<'a>(block: &'a Block, visit: &mut impl FnMut(&'a Block)) {
         visit(block);
         for binding in &block.bindings {
             match &binding.operation {

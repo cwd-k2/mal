@@ -3,16 +3,16 @@ use std::collections::{HashMap, HashSet};
 use mal_frontend::check::ast::Type;
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{
-    Atom, AtomId, AtomKind, FunctionId, Operation, Pattern, Program, Reference,
-};
+use crate::closure::ast::{Atom, AtomId, Operation, Pattern, Program};
 
 use super::Definition;
 
 mod aliases;
+mod index;
 mod walk;
 
 pub(super) use aliases::{aliases, origin};
+pub(super) use index::Index;
 pub(super) use walk::{for_each_block, operation_atoms};
 
 pub(super) fn parameter_callbacks(
@@ -99,57 +99,6 @@ pub(super) fn resolve_path(
     Some((atom, trace))
 }
 
-pub(super) fn has_unapproved_uses(
-    program: &Program,
-    sought: ValueId,
-    aliases: &HashMap<ValueId, ValueId>,
-    allowed: &HashSet<AtomId>,
-) -> bool {
-    let mut rejected = false;
-    for_each_atom(program, &mut |atom| {
-        if origin(atom, aliases) == Some(sought) && !allowed.contains(&atom.id) {
-            rejected = true;
-        }
-    });
-    rejected
-}
-
-pub(super) fn all_capturing_creators(program: &Program, target: FunctionId) -> HashSet<ValueId> {
-    let mut creators = HashSet::new();
-    for_each_block(program, &mut |block| {
-        for binding in &block.bindings {
-            if let Pattern::Binding { id, .. } = binding.pattern
-                && let Operation::MakeClosure { function, captures } = &binding.operation
-                && *function == target
-                && !captures.is_empty()
-            {
-                creators.insert(id);
-            }
-        }
-    });
-    creators
-}
-
-pub(super) fn contains_self_closure(program: &Program, target: FunctionId) -> bool {
-    let mut found = false;
-    for_each_atom(program, &mut |atom| {
-        found |= atom.kind == AtomKind::Reference(Reference::SelfClosure(target));
-    });
-    found
-}
-
-pub(super) fn binding_type(program: &Program, sought: ValueId) -> Option<Type> {
-    let mut result = None;
-    for_each_pattern(program, &mut |pattern| {
-        if let Pattern::Binding { id, ty } = pattern
-            && *id == sought
-        {
-            result = Some(ty.clone());
-        }
-    });
-    result
-}
-
 pub(super) fn replace_type(ty: &Type, path: &[usize], replacement: &Type) -> Option<Type> {
     let Some((first, rest)) = path.split_first() else {
         return Some(replacement.clone());
@@ -160,34 +109,4 @@ pub(super) fn replace_type(ty: &Type, path: &[usize], replacement: &Type) -> Opt
     let mut elements = elements.to_vec();
     elements[*first] = replace_type(elements.get(*first)?, rest, replacement)?;
     Some(Type::Product(elements.into()))
-}
-
-fn for_each_atom(program: &Program, visit: &mut impl FnMut(&Atom)) {
-    for_each_block(program, &mut |block| {
-        visit(&block.result);
-        for binding in &block.bindings {
-            operation_atoms(&binding.operation, visit);
-        }
-    });
-}
-
-fn for_each_pattern(program: &Program, visit: &mut impl FnMut(&Pattern)) {
-    fn pattern(current: &Pattern, visit: &mut impl FnMut(&Pattern)) {
-        visit(current);
-        if let Pattern::Product { elements, .. } = current {
-            for element in elements {
-                pattern(element, visit);
-            }
-        }
-    }
-    for_each_block(program, &mut |block| {
-        for binding in &block.bindings {
-            pattern(&binding.pattern, visit);
-            if let Operation::Case { arms, .. } = &binding.operation {
-                for arm in arms {
-                    pattern(&arm.pattern, visit);
-                }
-            }
-        }
-    });
 }
