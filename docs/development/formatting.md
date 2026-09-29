@@ -20,17 +20,17 @@ command grammarのusage errorが`2`である。
 - indentationはASCII space 4個とし、tabは出力しない。
 - outputの改行はLFとし、file末に1つのLFを置く。
 - `::`、`:=`、`->`とbinary operatorの両側、commaの後にspaceを置く。
-- keywordと同じ行に後続tokenがある場合は、その間にspaceを置く。
+- keywordと同じ行に後続tokenがある場合は、その間にspaceを置く。`when`のconditionを閉じる`)`とbodyの間も同様に区切る。
 - application、numeric conversion、delimiterの内側にspaceを置かない。
-- sourceで一行のblockは、body item、nested block、commentを持たなければ一行に置き、result直後の`;`を
-  省く。sourceで複数行のblockは、単純なresultだけでも複数行のままにする。
+- sourceで一行のblockは、body item、nested block、comment、および改行して整形する`if`や複数continuationの
+  applicationを持たなければ一行に置き、result直後の`;`を省く。sourceで複数行のblockは、単純なresultだけでも複数行のままにする。
 - それ以外のblockはbraceと内容を別の行に置き、resultを含む各行を`;`で終える。
-- 別のexpressionが値を要求する位置に埋め込まれ、sourceでconditionと両branchを一行に置いた短い`if`は一行のまま
-  整形する。sourceで改行した`if`は改行を保ち、`then`と`else`の一方だけを同じ行に
+- 別のexpressionが値を要求する位置に埋め込まれ、sourceでconditionと両branchを一行に置き、内側に複数行へ整形する
+  blockや`if`、複数continuationのapplicationを含まない短い`if`は一行のまま整形する。sourceで改行した`if`は改行を保ち、`then`と`else`の一方だけを同じ行に
   残さない。block直下のexpressionとして行頭から始まる`if`では`then`と`else`を`if`と同じindentに置き、bindingや
   lambda bodyなどのRHSにある`if`では一段深いcontinuation indentに置く。
-- 複数continuationのapplicationは、`[`から閉じ`]`までがsourceで一行にあり、含まれるblockがすべて一行のまま置けるなら
-  一行のまま整形する。sourceで改行した場合と、blockが複数行に展開される場合はvalueの後で改行する。
+- 複数continuationのapplicationは、`[`から閉じ`]`までがsourceで一行にあり、含まれるblockがすべて一行のまま置け、
+  改行して整形する`if`や複数continuationのapplicationを含まなければ一行のまま整形する。sourceで改行した場合と、blockが複数行に展開される場合はvalueの後で改行する。
   改行した場合は各continuationをvalueの行より一段深くindentし、閉じ`]`をvalueの行と同じindentへ戻す。block直下の文でも
   bindingなどのRHSでも同じである。各lambda bodyのblockは通常のlambdaと同じ規則で整形する。
 - sourceで空行に分けたtop-level groupは1空行を保つ。lambdaを直接initializerに持つfunction bindingのうち、

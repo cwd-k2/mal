@@ -423,3 +423,60 @@ fn formats_long_left_associative_expressions_without_host_recursion() {
 
     assert_eq!(formatted.matches(" + ").count(), 4_095);
 }
+
+#[test]
+fn expands_a_one_line_block_whose_result_is_an_expanded_if() {
+    let formatted = format("main :: Unit -> Int32 := () -> { if (true) then 0 else 1 };");
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "main :: Unit -> Int32 := () -> {\n",
+            "    if (true)\n",
+            "    then 0\n",
+            "    else 1;\n",
+            "};\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn expands_a_one_line_continuation_list_containing_an_expanded_if() {
+    let formatted = format(
+        "pick :: [Unit, Int32] -> Int32 := (r) -> r[() -> 1, (v) -> if (v == 0) then 0 else 2];",
+    );
+
+    assert_eq!(
+        formatted,
+        concat!(
+            "pick :: [Unit, Int32] -> Int32 := (r) -> r[\n",
+            "    () -> 1,\n",
+            "    (v) -> if (v == 0)\n",
+            "        then 0\n",
+            "        else 2\n",
+            "];\n",
+        )
+    );
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn separates_a_one_line_function_that_the_formatter_expands() {
+    let formatted = format(concat!(
+        "first :: Unit -> [Int32, Unit] := () -> [a, b] => if (true) then a(1i32) else b();\n",
+        "second :: Unit -> Int32 := () -> 0;\n",
+    ));
+
+    assert!(formatted.contains("else b();\n\nsecond"), "{formatted}");
+    assert_eq!(format(&formatted), formatted);
+}
+
+#[test]
+fn expands_an_embedded_if_whose_branch_contains_a_multiline_block() {
+    let formatted =
+        format("main :: Unit -> Int32 := () -> f(1, if (c) then 2 else 3 < { t := 4; t; });");
+
+    assert!(formatted.contains("if (c)\n"), "{formatted}");
+    assert_eq!(format(&formatted), formatted);
+}

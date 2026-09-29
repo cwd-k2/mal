@@ -59,9 +59,19 @@ struct Formatter<'a> {
 
 impl<'a> Formatter<'a> {
     fn new(source: &'a SourceFile, lexed: &'a Lexed, program: &Program) -> Self {
-        let blocks = BlockLayout::new(source, lexed);
-        let controls = ControlLayout::new(source, lexed, program, &blocks);
-        let top_level_breaks = top_level_breaks(source, lexed, program, &blocks);
+        // Block compactness decides which `if` and continuation lists stay on one line, and an expanded one in turn
+        // expands its enclosing block or list. Both only ever grow toward expansion, so the rounds reach a fixed point.
+        let mut blocks = BlockLayout::new(source, lexed);
+        let mut expanded = Vec::new();
+        let controls = loop {
+            let controls = ControlLayout::new(source, lexed, program, &blocks, &expanded);
+            let blocks_changed = blocks.expand_containing(lexed, |index| controls.expands(index));
+            if !blocks_changed && controls.expanded() == expanded.as_slice() {
+                break controls;
+            }
+            expanded = controls.expanded().to_vec();
+        };
+        let top_level_breaks = top_level_breaks(source, lexed, program, &blocks, &controls);
         Self {
             source,
             lexed,

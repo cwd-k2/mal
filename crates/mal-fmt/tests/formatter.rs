@@ -83,6 +83,26 @@ fn separates_control_keywords_from_every_prefix_expression() {
 }
 
 #[test]
+fn separates_a_when_condition_from_every_body_start() {
+    for body in [
+        "()", "(value)", "[k]", "-value", "*value", "#value", "!value",
+    ] {
+        let formatted = format(&format!(
+            "run := (condition, value) -> [k] => {{ when(condition){body}; k(1) }};"
+        ));
+        assert!(
+            formatted.contains(&format!(
+                "when (condition) {body};
+"
+            )),
+            "missing condition boundary in:
+{formatted}"
+        );
+        assert_eq!(format(&formatted), formatted);
+    }
+}
+
+#[test]
 fn preserves_comments_and_literal_spelling() {
     let formatted =
         format("// heading\nnumber::UInt32:=0xff_ffu32;// value\ntext::Symbol:=\"a\\x62\";\n");

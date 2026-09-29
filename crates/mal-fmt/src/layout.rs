@@ -2,10 +2,21 @@ use mal_syntax::ast::{Expression, Lambda, Node, Program, TopItem};
 use mal_syntax::lexer::{Lexed, LexemeKind, TokenKind};
 use mal_syntax::source::SourceFile;
 
+use super::control::ControlLayout;
+
 pub(super) struct BlockLayout {
     pub(super) compact: Vec<bool>,
     pub(super) omit: Vec<bool>,
     pub(super) terminate: Vec<bool>,
+    blocks: Vec<Block>,
+}
+
+/// One brace pair; its first semicolon is omitted while the block stays on one line.
+#[derive(Clone, Copy)]
+struct Block {
+    left: usize,
+    right: usize,
+    first_semicolon: Option<usize>,
 }
 
 impl BlockLayout {
@@ -25,22 +36,25 @@ impl BlockLayout {
             }
         }
 
-        let mut compact = vec![false; lexed.tokens.len()];
-        let mut omit = vec![false; lexed.tokens.len()];
-        let mut terminate = vec![false; lexed.tokens.len()];
+        let mut layout = Self {
+            compact: vec![false; lexed.tokens.len()],
+            omit: vec![false; lexed.tokens.len()],
+            terminate: vec![false; lexed.tokens.len()],
+            blocks: Vec::new(),
+        };
         let comments = lexed
             .lexemes
             .iter()
             .filter(|lexeme| matches!(lexeme.kind, LexemeKind::LineComment))
             .map(|lexeme| lexeme.span)
             .collect::<Vec<_>>();
-        let mut blocks = Vec::<OpenBlock>::new();
+        let mut open = Vec::<OpenBlock>::new();
         for (index, token) in lexed.tokens.iter().enumerate() {
             if matches!(token.kind, TokenKind::LeftBrace) {
-                if let Some(parent) = blocks.last_mut() {
+                if let Some(parent) = open.last_mut() {
                     parent.has_nested = true;
                 }
-                blocks.push(OpenBlock {
+                open.push(OpenBlock {
                     left: index,
                     has_nested: false,
                     semicolons: Vec::new(),
@@ -48,7 +62,7 @@ impl BlockLayout {
                 continue;
             }
             if matches!(token.kind, TokenKind::Semicolon) {
-                if let Some(block) = blocks.last_mut() {
+                if let Some(block) = open.last_mut() {
                     block.semicolons.push(index);
                 }
                 continue;
@@ -56,7 +70,7 @@ impl BlockLayout {
             if !matches!(token.kind, TokenKind::RightBrace) {
                 continue;
             }
-            let Some(block) = blocks.pop() else {
+            let Some(block) = open.pop() else {
                 continue;
             };
             let left = block.left;
@@ -77,28 +91,50 @@ impl BlockLayout {
                 && !has_comment
                 && (block.semicolons.is_empty()
                     || block.semicolons.len() == 1 && block.semicolons.first().copied() == last);
-            compact[left] = is_compact;
-            compact[right] = is_compact;
-            if is_compact {
-                if let Some(index) = block.semicolons.first() {
-                    omit[*index] = true;
-                }
-            } else if last
-                .is_some_and(|index| !matches!(lexed.tokens[index].kind, TokenKind::Semicolon))
-            {
-                terminate[right] = true;
-            }
+            let block = Block {
+                left,
+                right,
+                first_semicolon: block.semicolons.first().copied(),
+            };
+            layout.set_compact(lexed, block, is_compact);
+            layout.blocks.push(block);
         }
-
-        Self {
-            compact,
-            omit,
-            terminate,
-        }
+        layout
     }
 
     pub(super) fn is_compact(&self, token_index: usize) -> bool {
         self.compact[token_index]
+    }
+
+    /// Expands every compact block that contains a token the formatter puts on its own line. Returns whether any
+    /// block changed, so the caller can recompute layouts that depend on block compactness.
+    pub(super) fn expand_containing(
+        &mut self,
+        lexed: &Lexed,
+        expands: impl Fn(usize) -> bool,
+    ) -> bool {
+        let mut changed = false;
+        for index in 0..self.blocks.len() {
+            let block = self.blocks[index];
+            if self.compact[block.left] && (block.left + 1..block.right).any(&expands) {
+                self.set_compact(lexed, block, false);
+                changed = true;
+            }
+        }
+        changed
+    }
+
+    fn set_compact(&mut self, lexed: &Lexed, block: Block, compact: bool) {
+        self.compact[block.left] = compact;
+        self.compact[block.right] = compact;
+        if let Some(index) = block.first_semicolon {
+            self.omit[index] = compact;
+        }
+        self.terminate[block.right] = !compact
+            && block
+                .right
+                .checked_sub(1)
+                .is_some_and(|index| !matches!(lexed.tokens[index].kind, TokenKind::Semicolon));
     }
 }
 
@@ -129,6 +165,7 @@ pub(super) fn top_level_breaks(
     lexed: &Lexed,
     program: &Program,
     blocks: &BlockLayout,
+    controls: &ControlLayout,
 ) -> Vec<usize> {
     let mut breaks = Vec::new();
     if let (Some(requirement), Some(item)) = (program.requirements.last(), program.items.first()) {
@@ -161,8 +198,8 @@ pub(super) fn top_level_breaks(
         }
         let between = &source.text()[previous.span.end()..next.span.start()];
         if has_blank_line(between)
-            || is_multiline_function_binding(source, lexed, blocks, previous)
-            || is_multiline_function_binding(source, lexed, blocks, next)
+            || is_multiline_function_binding(source, lexed, blocks, controls, previous)
+            || is_multiline_function_binding(source, lexed, blocks, controls, next)
         {
             let previous_line = source
                 .location(previous.span.end())
@@ -192,6 +229,7 @@ fn is_multiline_function_binding(
     source: &SourceFile,
     lexed: &Lexed,
     blocks: &BlockLayout,
+    controls: &ControlLayout,
     item: &Node<TopItem>,
 ) -> bool {
     let expression = match &item.kind {
@@ -208,13 +246,14 @@ fn is_multiline_function_binding(
     let Expression::Lambda(lambda) = expression else {
         return false;
     };
-    !is_single_line_function_binding(source, lexed, blocks, item, lambda)
+    !is_single_line_function_binding(source, lexed, blocks, controls, item, lambda)
 }
 
 fn is_single_line_function_binding(
     source: &SourceFile,
     lexed: &Lexed,
     blocks: &BlockLayout,
+    controls: &ControlLayout,
     item: &Node<TopItem>,
     lambda: &Lambda,
 ) -> bool {
@@ -234,7 +273,9 @@ fn is_single_line_function_binding(
         .enumerate()
         .take_while(|(_, token)| token.span.end() <= item.span.end())
         .all(|(offset, token)| {
-            !matches!(token.kind, TokenKind::LeftBrace) || blocks.is_compact(first + offset)
+            let index = first + offset;
+            (!matches!(token.kind, TokenKind::LeftBrace) || blocks.is_compact(index))
+                && !controls.expands(index)
         })
 }
 

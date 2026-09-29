@@ -10,36 +10,71 @@ pub(super) struct ControlLayout {
     completed_before: Vec<usize>,
     sum_continuations: Vec<bool>,
     sum_break_before: Vec<bool>,
+    expands: Vec<bool>,
+    condition_ends: Vec<bool>,
+}
+
+/// The read-only facts one round of control layout depends on.
+struct Inputs<'a> {
+    source: &'a SourceFile,
+    lexed: &'a Lexed,
+    blocks: &'a BlockLayout,
+    /// Tokens an earlier round laid out on a line of their own.
+    expanded: &'a [bool],
+}
+
+impl Inputs<'_> {
+    /// The source keeps `first` through `end` on one line and nothing after `first` inside it is laid out over
+    /// several lines: every block stays compact and no nested `if` or continuation list expands.
+    fn stays_on_one_line(&self, first: usize, end: usize) -> bool {
+        self.source
+            .location(self.lexed.tokens[first].span.start())
+            .zip(self.source.location(end))
+            .is_some_and(|(start, end)| start.line == end.line)
+            && self.lexed.tokens[first + 1..]
+                .iter()
+                .enumerate()
+                .take_while(|(_, token)| token.span.end() <= end)
+                .all(|(offset, token)| {
+                    let index = first + 1 + offset;
+                    (!matches!(token.kind, TokenKind::LeftBrace) || self.blocks.is_compact(index))
+                        && !self.expanded.get(index).is_some_and(|expands| *expands)
+                })
+    }
 }
 
 impl ControlLayout {
+    /// `expanded` holds the expansion marks of the previous round of the layout fixed point.
     pub(super) fn new(
         source: &SourceFile,
         lexed: &Lexed,
         program: &Program,
         blocks: &BlockLayout,
+        expanded: &[bool],
     ) -> Self {
+        let inputs = Inputs {
+            source,
+            lexed,
+            blocks,
+            expanded,
+        };
         let mut layout = Self {
             aligned: vec![false; lexed.tokens.len()],
             inline: vec![false; lexed.tokens.len()],
             completed_before: vec![0; lexed.tokens.len()],
             sum_continuations: vec![false; lexed.tokens.len()],
             sum_break_before: vec![false; lexed.tokens.len()],
+            expands: vec![false; lexed.tokens.len()],
+            condition_ends: vec![false; lexed.tokens.len()],
         };
         for item in &program.items {
             match &item.kind {
-                TopItem::Binding(binding) => layout.mark_expression(
-                    source,
-                    lexed,
-                    blocks,
-                    &binding.value,
-                    ExpressionPosition::Root,
-                ),
+                TopItem::Binding(binding) => {
+                    layout.mark_expression(&inputs, &binding.value, ExpressionPosition::Root);
+                }
                 TopItem::GenericBinding {
                     value: Some(value), ..
-                } => {
-                    layout.mark_expression(source, lexed, blocks, value, ExpressionPosition::Root);
-                }
+                } => layout.mark_expression(&inputs, value, ExpressionPosition::Root),
                 _ => {}
             }
         }
@@ -58,6 +93,22 @@ impl ControlLayout {
         self.completed_before[token_index]
     }
 
+    /// Whether the formatter breaks the line at this `if` or continuation list, so an enclosing block or list cannot
+    /// stay on one line.
+    pub(super) fn expands(&self, token_index: usize) -> bool {
+        self.expands[token_index]
+    }
+
+    /// Whether this `)` closes a `when` condition, after which the body starts like the operand of a keyword.
+    pub(super) fn ends_condition(&self, token_index: usize) -> bool {
+        self.condition_ends[token_index]
+    }
+
+    /// The expansion marks, fed to the next round of the layout fixed point.
+    pub(super) fn expanded(&self) -> &[bool] {
+        &self.expands
+    }
+
     pub(super) fn is_sum_continuation(&self, token_index: usize) -> bool {
         self.sum_continuations[token_index]
     }
@@ -68,12 +119,11 @@ impl ControlLayout {
 
     fn mark_expression(
         &mut self,
-        source: &SourceFile,
-        lexed: &Lexed,
-        blocks: &BlockLayout,
+        inputs: &Inputs<'_>,
         expression: &Node<Expression>,
         position: ExpressionPosition,
     ) {
+        let lexed = inputs.lexed;
         let mut pending = vec![(expression, position)];
         while let Some((expression, position)) = pending.pop() {
             match &expression.kind {
@@ -104,13 +154,7 @@ impl ControlLayout {
                 } => {
                     if continuations.len() >= 2
                         && let Some(bracket) = sum_bracket(lexed, expression, value)
-                        && !is_inline_sum_continuation(
-                            source,
-                            lexed,
-                            blocks,
-                            bracket,
-                            expression.span.end(),
-                        )
+                        && !inputs.stays_on_one_line(bracket, expression.span.end())
                     {
                         self.mark_sum_continuation(lexed, expression, continuations, bracket);
                     }
@@ -133,14 +177,8 @@ impl ControlLayout {
                     if let Some(index) = self.mark_control_start(lexed, expression, position, true)
                     {
                         self.inline[index] = matches!(position, ExpressionPosition::Embedded)
-                            && is_inline_if(
-                                source,
-                                lexed,
-                                blocks,
-                                expression,
-                                condition,
-                                (then_branch, else_branch),
-                            );
+                            && inputs.stays_on_one_line(index, expression.span.end());
+                        self.expands[index] = !self.inline[index];
                     }
                     push_block(&mut pending, else_branch);
                     push_block(&mut pending, then_branch);
@@ -148,6 +186,12 @@ impl ControlLayout {
                 }
                 Expression::When { condition, body } => {
                     self.mark_control_start(lexed, expression, position, false);
+                    let close = lexed
+                        .tokens
+                        .partition_point(|token| token.span.start() < condition.span.end());
+                    if let Some(end) = self.condition_ends.get_mut(close) {
+                        *end = true;
+                    }
                     push_block(&mut pending, body);
                     pending.push((condition, ExpressionPosition::Embedded));
                 }
@@ -178,6 +222,7 @@ impl ControlLayout {
         bracket: usize,
     ) {
         self.sum_continuations[bracket] = true;
+        self.expands[bracket] = true;
         for continuation in continuations {
             if let Ok(index) = lexed
                 .tokens
@@ -245,26 +290,6 @@ fn push_block<'a>(
     }));
 }
 
-fn compact_branch(
-    source: &SourceFile,
-    lexed: &Lexed,
-    blocks: &BlockLayout,
-    branch: &ExpressionBlock,
-) -> bool {
-    let token = lexed
-        .tokens
-        .binary_search_by_key(&branch.span.start(), |token| token.span.start())
-        .ok();
-    if token.is_some_and(|index| matches!(lexed.tokens[index].kind, TokenKind::LeftBrace)) {
-        return token.is_some_and(|index| blocks.is_compact(index));
-    }
-    branch.items.is_empty()
-        && source
-            .location(branch.span.start())
-            .zip(source.location(branch.span.end()))
-            .is_some_and(|(start, end)| start.line == end.line)
-}
-
 /// The token index of the `[` that opens the continuation list after `value`.
 fn sum_bracket(
     lexed: &Lexed,
@@ -279,45 +304,4 @@ fn sum_bracket(
         .take_while(|token| token.span.end() <= expression.span.end())
         .position(|token| matches!(token.kind, TokenKind::LeftBracket))
         .map(|offset| start + offset)
-}
-
-/// The source keeps the whole bracketed list on one line and none of its blocks needs to expand.
-fn is_inline_sum_continuation(
-    source: &SourceFile,
-    lexed: &Lexed,
-    blocks: &BlockLayout,
-    bracket: usize,
-    end: usize,
-) -> bool {
-    source
-        .location(lexed.tokens[bracket].span.start())
-        .zip(source.location(end))
-        .is_some_and(|(start, end)| start.line == end.line)
-        && lexed.tokens[bracket..]
-            .iter()
-            .take_while(|token| token.span.end() <= end)
-            .enumerate()
-            .all(|(offset, token)| {
-                !matches!(token.kind, TokenKind::LeftBrace) || blocks.is_compact(bracket + offset)
-            })
-}
-
-fn is_inline_if(
-    source: &SourceFile,
-    lexed: &Lexed,
-    blocks: &BlockLayout,
-    expression: &Node<Expression>,
-    condition: &Node<Expression>,
-    branches: (&ExpressionBlock, &ExpressionBlock),
-) -> bool {
-    source
-        .location(expression.span.start())
-        .zip(source.location(expression.span.end()))
-        .is_some_and(|(start, end)| start.line == end.line)
-        && source
-            .location(expression.span.start())
-            .zip(source.location(condition.span.end()))
-            .is_some_and(|(start, end)| start.line == end.line)
-        && compact_branch(source, lexed, blocks, branches.0)
-        && compact_branch(source, lexed, blocks, branches.1)
 }

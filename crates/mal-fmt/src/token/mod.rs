@@ -118,9 +118,10 @@ impl Formatter<'_> {
                 self.write_left_paren(text);
             }
             TokenKind::RightParen => {
-                self.write_right_paren(text);
+                self.write_right_paren(token_index, text);
             }
             TokenKind::LeftBracket => {
+                self.space_after_keyword();
                 self.write(text);
                 let sum_continuations = self.controls.is_sum_continuation(token_index);
                 let indent_delta = usize::from(sum_continuations);
@@ -138,11 +139,12 @@ impl Formatter<'_> {
                 self.previous = Previous::RightBracket;
             }
             TokenKind::Minus if !self.previous.ends_expression() => {
+                self.space_after_keyword();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
             TokenKind::Bang | TokenKind::Tilde => {
-                if self.previous.ends_expression() {
+                if self.previous.ends_expression() || matches!(self.previous, Previous::Keyword) {
                     self.space();
                 }
                 self.write(text);
@@ -154,10 +156,12 @@ impl Formatter<'_> {
                 self.previous = Previous::Dot;
             }
             TokenKind::Hash if !self.previous.ends_expression() => {
+                self.space_after_keyword();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
             TokenKind::Star if !self.previous.ends_expression() => {
+                self.space_after_keyword();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
@@ -248,6 +252,12 @@ impl Formatter<'_> {
                 self.previous = Previous::Word;
             }
             TokenKind::Eof => unreachable!("EOF has no lossless lexeme"),
+        }
+    }
+
+    fn space_after_keyword(&mut self) {
+        if matches!(self.previous, Previous::Keyword) {
+            self.space();
         }
     }
 

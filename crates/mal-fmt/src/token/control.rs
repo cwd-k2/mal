@@ -93,11 +93,15 @@ impl Formatter<'_> {
         self.previous = Previous::LeftParen;
     }
 
-    pub(super) fn write_right_paren(&mut self, text: &str) {
+    pub(super) fn write_right_paren(&mut self, token_index: usize, text: &str) {
         self.trim_space();
         self.write(text);
         self.parenthesis_indents.pop();
-        self.previous = Previous::RightParen;
+        self.previous = if self.controls.ends_condition(token_index) {
+            Previous::Keyword
+        } else {
+            Previous::RightParen
+        };
     }
 
     pub(super) fn write_then(&mut self, text: &str) {
