@@ -480,3 +480,19 @@ fn expands_an_embedded_if_whose_branch_contains_a_multiline_block() {
     assert!(formatted.contains("if (c)\n"), "{formatted}");
     assert_eq!(format(&formatted), formatted);
 }
+
+#[test]
+fn ends_an_arrow_continuation_with_its_list_item_or_delimiter() {
+    let formatted = format(concat!(
+        "pick :: [Int32, Int32] -> Int32 := (r) -> r[\n",
+        "    (t) -> t,\n",
+        "    (e) ->\n",
+        "e\n",
+        "];\n",
+        "after :: Unit -> Int32 := () -> { 1 };\n",
+    ));
+
+    assert!(formatted.contains("        e\n];\n"), "{formatted}");
+    assert!(formatted.contains("\nafter :: "), "{formatted}");
+    assert_eq!(format(&formatted), formatted);
+}

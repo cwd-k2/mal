@@ -57,6 +57,13 @@ impl Formatter<'_> {
         {
             self.blank_line();
         }
+        if matches!(
+            kind,
+            TokenKind::RightParen | TokenKind::RightBracket | TokenKind::RightBrace
+        ) {
+            // A continuation started inside the closing delimiter cannot outlive it.
+            self.end_expression_continuations();
+        }
         if matches!(kind, TokenKind::RightBracket)
             && let Some(layout) = self.brackets.pop()
             && layout.multiline
@@ -101,14 +108,12 @@ impl Formatter<'_> {
                     self.binding_continuations.pop();
                     self.indent = self.indent.saturating_sub(1);
                 }
-                while self.expression_continuations.last() == Some(&self.brace_depth) {
-                    self.expression_continuations.pop();
-                    self.indent = self.indent.saturating_sub(1);
-                }
+                self.end_expression_continuations();
                 self.pending_newline = true;
                 self.previous = Previous::Semicolon;
             }
             TokenKind::Comma => {
+                self.end_expression_continuations();
                 self.trim_space();
                 self.write(text);
                 self.space();
@@ -121,7 +126,6 @@ impl Formatter<'_> {
                 self.write_right_paren(token_index, text);
             }
             TokenKind::LeftBracket => {
-                self.space_after_keyword();
                 self.write(text);
                 let sum_continuations = self.controls.is_sum_continuation(token_index);
                 let indent_delta = usize::from(sum_continuations);
@@ -139,12 +143,11 @@ impl Formatter<'_> {
                 self.previous = Previous::RightBracket;
             }
             TokenKind::Minus if !self.previous.ends_expression() => {
-                self.space_after_keyword();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
             TokenKind::Bang | TokenKind::Tilde => {
-                if self.previous.ends_expression() || matches!(self.previous, Previous::Keyword) {
+                if self.previous.ends_expression() {
                     self.space();
                 }
                 self.write(text);
@@ -156,12 +159,10 @@ impl Formatter<'_> {
                 self.previous = Previous::Dot;
             }
             TokenKind::Hash if !self.previous.ends_expression() => {
-                self.space_after_keyword();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
             TokenKind::Star if !self.previous.ends_expression() => {
-                self.space_after_keyword();
                 self.write(text);
                 self.previous = Previous::Unary;
             }
@@ -252,12 +253,6 @@ impl Formatter<'_> {
                 self.previous = Previous::Word;
             }
             TokenKind::Eof => unreachable!("EOF has no lossless lexeme"),
-        }
-    }
-
-    fn space_after_keyword(&mut self) {
-        if matches!(self.previous, Previous::Keyword) {
-            self.space();
         }
     }
 

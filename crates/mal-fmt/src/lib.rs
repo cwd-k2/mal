@@ -221,9 +221,27 @@ impl<'a> Formatter<'a> {
             && matches!(self.previous, Previous::Semicolon | Previous::RightBrace)
     }
 
+    /// Open braces, parentheses, and brackets; a continuation belongs to the delimiter nesting it started in.
+    fn delimiter_depth(&self) -> usize {
+        self.brace_depth + self.parenthesis_indents.len() + self.brackets.len()
+    }
+
     fn start_expression_continuation(&mut self) {
         self.indent += 1;
-        self.expression_continuations.push(self.brace_depth);
+        self.expression_continuations.push(self.delimiter_depth());
+    }
+
+    /// Ends the continuations of the current delimiter nesting, at a separator or before its closing delimiter.
+    fn end_expression_continuations(&mut self) {
+        let depth = self.delimiter_depth();
+        while self
+            .expression_continuations
+            .last()
+            .is_some_and(|started| *started >= depth)
+        {
+            self.expression_continuations.pop();
+            self.indent = self.indent.saturating_sub(1);
+        }
     }
 }
 
