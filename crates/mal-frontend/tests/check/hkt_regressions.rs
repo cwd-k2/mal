@@ -38,6 +38,32 @@ fn rejects_amplifying_constructor_composition_before_allocating_its_normal_form(
 }
 
 #[test]
+fn reports_delayed_generic_normalization_instead_of_panicking() {
+    let parameters = (0..256)
+        .map(|index| format!("T{index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let arguments = vec!["Unit"; 256].join(", ");
+    let source = format!(
+        "Wide<{parameters}> :: T0;\n\
+         take<F> :: F<{arguments}> -> Unit := (_) -> ();\n\
+         value := take<Wide>;"
+    );
+
+    let error = check_error(&source);
+
+    assert_eq!(error.message, "type normalization is too large");
+    assert_eq!(
+        error
+            .primary
+            .expect("normalization diagnostic")
+            .span
+            .start(),
+        source.find("take<Wide>").unwrap()
+    );
+}
+
+#[test]
 fn rejects_flat_parameter_lists_before_constructing_a_deep_kind() {
     let parameters = (0..=256)
         .map(|index| format!("T{index}"))
@@ -53,6 +79,27 @@ fn rejects_flat_parameter_lists_before_constructing_a_deep_kind() {
             .message
             .contains("at most 256 type parameters")
     );
+}
+
+#[test]
+fn rejects_kind_growth_across_shallow_declarations() {
+    fn chain(last: usize) -> String {
+        let mut source = "K0<A> :: A;\n".to_owned();
+        for level in 1..=last {
+            source.push_str(&format!("K{level}<F> :: F<K{}>;\n", level - 1));
+        }
+        source
+    }
+
+    check_ok(&chain(40));
+    let source = chain(300);
+
+    let error = check_error(&source);
+
+    assert_eq!(error.message, "type kind is too large");
+    let primary = error.primary.expect("kind admission diagnostic");
+    assert!(primary.message.contains("256 nested function levels"));
+    assert!(primary.span.start() > source.find("K100<F>").unwrap());
 }
 
 #[test]

@@ -8,11 +8,11 @@ use crate::resolve::ast::{self as resolved, TypeBinding, TypeExpression, TypeId}
 
 use self::solver::{InferredKind, Solver};
 
+mod admission;
 mod expression;
 mod graph;
+mod scheme;
 mod solver;
-
-const MAX_KIND_PARAMETERS: usize = 256;
 
 #[derive(Clone, Default)]
 pub(in crate::check) struct Kinds {
@@ -73,7 +73,7 @@ impl Kinds {
             .map(|(index, declaration)| (declaration.binding.id, index))
             .collect::<HashMap<_, _>>();
         for declaration in &declarations {
-            admit_parameters(declaration.parameters.len(), declaration.binding.name.span)?;
+            admission::parameters(declaration.parameters.len(), declaration.binding.name.span)?;
         }
         let graph = declarations
             .iter()
@@ -98,7 +98,7 @@ impl Kinds {
     pub(super) fn declaration(&self, id: TypeId, next: &mut u32) -> Option<Kind> {
         self.declarations
             .get(&id)
-            .map(|kind| freshen_all(std::slice::from_ref(kind), next).remove(0))
+            .map(|kind| scheme::freshen_all(std::slice::from_ref(kind), next).remove(0))
     }
 
     pub(in crate::check) fn parameters(
@@ -107,7 +107,7 @@ impl Kinds {
         expression: &Node<TypeExpression>,
         next: &mut u32,
     ) -> Result<Vec<Kind>, Diagnostic> {
-        admit_parameters(parameters.len(), expression.span)?;
+        admission::parameters(parameters.len(), expression.span)?;
         let mut solver = Solver::default();
         let locals = parameters
             .iter()
@@ -120,8 +120,9 @@ impl Kinds {
                 .iter()
                 .map(|parameter| locals[&parameter.id].clone())
                 .collect::<Vec<_>>(),
-        );
-        Ok(freshen_all(&kinds, next))
+            expression.span,
+        )?;
+        Ok(scheme::freshen_all(&kinds, next))
     }
 
     fn infer_component(
@@ -174,41 +175,10 @@ impl Kinds {
         }
         for index in component {
             let id = declarations[*index].binding.id;
+            let span = declarations[*index].binding.name.span;
             self.declarations
-                .insert(id, solver.generalize(heads[&id].clone()));
+                .insert(id, solver.generalize(heads[&id].clone(), span)?);
         }
         Ok(())
     }
-}
-
-fn admit_parameters(count: usize, span: mal_syntax::source::Span) -> Result<(), Diagnostic> {
-    if count <= MAX_KIND_PARAMETERS {
-        return Ok(());
-    }
-    Err(Diagnostic::error("type kind is too large").with_primary(
-        span,
-        format!("malc supports at most {MAX_KIND_PARAMETERS} type parameters per declaration"),
-    ))
-}
-
-pub(super) fn freshen_all(kinds: &[Kind], next: &mut u32) -> Vec<Kind> {
-    fn visit(kind: &Kind, variables: &mut HashMap<u32, u32>, next: &mut u32) -> Kind {
-        match kind {
-            Kind::Type => Kind::Type,
-            Kind::Variable(id) => Kind::Variable(*variables.entry(*id).or_insert_with(|| {
-                let fresh = *next;
-                *next = next.checked_add(1).expect("kind identity space");
-                fresh
-            })),
-            Kind::Function { parameter, result } => Kind::function(
-                visit(parameter, variables, next),
-                visit(result, variables, next),
-            ),
-        }
-    }
-    let mut variables = HashMap::new();
-    kinds
-        .iter()
-        .map(|kind| visit(kind, &mut variables, next))
-        .collect()
 }

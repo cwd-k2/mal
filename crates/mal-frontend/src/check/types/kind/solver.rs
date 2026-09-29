@@ -5,6 +5,8 @@ use mal_syntax::source::Span;
 
 use crate::check::ast::Kind;
 
+use super::admission::Budget;
+
 #[derive(Clone, Debug)]
 pub(super) enum InferredKind {
     Type,
@@ -56,8 +58,8 @@ impl Solver {
         right: InferredKind,
         span: Span,
     ) -> Result<(), Diagnostic> {
-        let left = self.resolve(left);
-        let right = self.resolve(right);
+        let left = self.resolve_head(left);
+        let right = self.resolve_head(right);
         match (left, right) {
             (InferredKind::Type, InferredKind::Type) => Ok(()),
             (InferredKind::Variable(left), InferredKind::Variable(right)) if left == right => {
@@ -89,64 +91,84 @@ impl Solver {
         }
     }
 
-    pub(super) fn generalize(&self, kind: InferredKind) -> Kind {
-        self.generalize_all(&[kind])
+    pub(super) fn generalize(&self, kind: InferredKind, span: Span) -> Result<Kind, Diagnostic> {
+        Ok(self
+            .generalize_all(&[kind], span)?
             .pop()
-            .expect("one inferred kind produces one scheme")
+            .expect("one inferred kind produces one scheme"))
     }
 
-    pub(super) fn generalize_all(&self, kinds: &[InferredKind]) -> Vec<Kind> {
-        fn visit(solver: &Solver, kind: InferredKind, variables: &mut HashMap<u32, u32>) -> Kind {
-            match solver.resolve(kind) {
-                InferredKind::Type => Kind::Type,
+    pub(super) fn generalize_all(
+        &self,
+        kinds: &[InferredKind],
+        span: Span,
+    ) -> Result<Vec<Kind>, Diagnostic> {
+        fn visit(
+            solver: &Solver,
+            kind: &InferredKind,
+            function_depth: usize,
+            budget: &mut Budget,
+            variables: &mut HashMap<u32, u32>,
+        ) -> Result<Kind, Diagnostic> {
+            budget.enter(function_depth)?;
+            match kind {
+                InferredKind::Type => Ok(Kind::Type),
                 InferredKind::Variable(id) => {
+                    if let Some(kind) = solver.substitutions.get(id) {
+                        return visit(solver, kind, function_depth, budget, variables);
+                    }
                     let next = variables.len() as u32;
-                    Kind::Variable(*variables.entry(id).or_insert(next))
+                    Ok(Kind::Variable(*variables.entry(*id).or_insert(next)))
                 }
-                InferredKind::Function(parameter, result) => Kind::function(
-                    visit(solver, *parameter, variables),
-                    visit(solver, *result, variables),
-                ),
+                InferredKind::Function(parameter, result) => Ok(Kind::function(
+                    visit(solver, parameter, function_depth + 1, budget, variables)?,
+                    visit(solver, result, function_depth + 1, budget, variables)?,
+                )),
             }
         }
         let mut variables = HashMap::new();
+        let mut budget = Budget::new(span);
         kinds
             .iter()
-            .cloned()
-            .map(|kind| visit(self, kind, &mut variables))
+            .map(|kind| visit(self, kind, 0, &mut budget, &mut variables))
             .collect()
     }
 
-    fn resolve(&self, mut kind: InferredKind) -> InferredKind {
-        let mut path = Vec::new();
+    fn resolve_head(&self, mut kind: InferredKind) -> InferredKind {
         while let InferredKind::Variable(id) = kind {
             let Some(next) = self.substitutions.get(&id) else {
                 return InferredKind::Variable(id);
             };
-            path.push(id);
             kind = next.clone();
         }
-        match kind {
-            InferredKind::Function(parameter, result) => InferredKind::Function(
-                Box::new(self.resolve(*parameter)),
-                Box::new(self.resolve(*result)),
-            ),
-            kind => kind,
-        }
+        kind
     }
 
     fn display(&self, kind: &InferredKind) -> String {
-        match self.resolve(kind.clone()) {
+        match kind {
             InferredKind::Type => "Type".into(),
-            InferredKind::Variable(id) => format!("k{id}"),
+            InferredKind::Variable(id) => self
+                .substitutions
+                .get(id)
+                .map_or_else(|| format!("k{id}"), |kind| self.display(kind)),
             InferredKind::Function(parameter, result) => {
-                let parameter = self.resolve(*parameter);
-                let parameter = match parameter {
-                    InferredKind::Function(_, _) => format!("({})", self.display(&parameter)),
-                    _ => self.display(&parameter),
+                let parameter = match self.resolves_to_function(parameter) {
+                    true => format!("({})", self.display(parameter)),
+                    false => self.display(parameter),
                 };
-                format!("{parameter} -> {}", self.display(&result))
+                format!("{parameter} -> {}", self.display(result))
             }
+        }
+    }
+
+    fn resolves_to_function(&self, kind: &InferredKind) -> bool {
+        match kind {
+            InferredKind::Function(_, _) => true,
+            InferredKind::Variable(id) => self
+                .substitutions
+                .get(id)
+                .is_some_and(|kind| self.resolves_to_function(kind)),
+            InferredKind::Type => false,
         }
     }
 }

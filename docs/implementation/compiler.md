@@ -171,7 +171,9 @@ productは実値にも二つのstorageが必要なので二回数え、同じsub
 
 canonical type termの正規化は一transactionにつき256 nested term levelと65,536 normalization stepまで受理する。type application、
 beta reduction、de Bruijn substitution、kind substitutionは同じbudgetを共有し、超過時はnormal formを構築せず型検査のdiagnosticとして
-拒否する。一つのdeclarationがkindへ導入できるtype parameterも256個までとする。
+拒否する。推論したkind schemeは256 nested function levelと65,536 construction stepまでとし、dependencyを通じた成長もschemeを公開する前に
+検査する。推論時はkind部分木を一度ずつ走査し、深さに由来する重複解決を行わない。一つのdeclarationがkindへ導入できる
+type parameterも256個までとする。
 
 これらはmalの意味論ではなく`malc`のresource limitであり、実行時のtrap条件ではない。採択理由は
 [D045](../history/decisions/active/D045.md)、[D046](../history/decisions/active/D046.md)、
