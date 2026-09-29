@@ -11,14 +11,19 @@ pub use crate::backend::c::{
 pub use crate::backend::llvm::{Error as BackendError, Target};
 
 /// Generates the C file header of the graph root from its checked host interface. No `main` is required and value
-/// bindings are not lowered.
-pub fn emit_header(graph: &SourceGraph) -> Result<String, Diagnostic> {
-    let interface = lower_graph_interface(graph)?;
+/// bindings are not lowered. Canonical memory helpers use `target`, which must be the target the host is built for.
+pub fn emit_header(graph: &SourceGraph, target: Target<'_>) -> Result<String, GenerateError> {
+    let layout = crate::backend::llvm::target_layout(target.data_layout).ok_or(
+        GenerateError::Backend(BackendError::InvalidTargetDataLayout),
+    )?;
+    let interface = lower_graph_interface(graph).map_err(GenerateError::Diagnostic)?;
     let interface = interface.for_file(graph.root());
-    let dependencies = header_dependencies(graph, graph.root())?;
+    let dependencies =
+        header_dependencies(graph, graph.root()).map_err(GenerateError::Diagnostic)?;
     Ok(crate::backend::c::emit_file_header(
         &interface,
         &dependencies,
+        layout,
     ))
 }
 

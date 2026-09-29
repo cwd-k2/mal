@@ -30,7 +30,15 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
 /// Returns the C header for the program rooted at `source_path`, which needs no `main`.
 pub fn emit_header(source_path: &Path) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
-    mal_backend::pipeline::emit_header(&graph).map_err(|error| Error::diagnostic(error, &graph))
+    let target = toolchain::host_target()?;
+    mal_backend::pipeline::emit_header(
+        &graph,
+        mal_backend::pipeline::Target {
+            triple: &target.triple,
+            data_layout: &target.data_layout,
+        },
+    )
+    .map_err(|error| Error::backend(error, &graph))
 }
 
 /// Writes generated text to `path`, creating parent directories first.

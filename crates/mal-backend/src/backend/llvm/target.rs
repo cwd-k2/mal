@@ -9,6 +9,7 @@ pub(crate) struct TargetLayout {
 }
 
 impl TargetLayout {
+    #[cfg(test)]
     pub(crate) fn natural(pointer_size: usize, index_size: usize) -> Option<Self> {
         (pointer_size.is_power_of_two() && index_size.is_power_of_two()).then_some(Self {
             pointer_size,

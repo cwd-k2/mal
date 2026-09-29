@@ -22,12 +22,11 @@ pub fn common_header() -> String {
     header::emit_common()
 }
 
-pub(crate) fn emit_file_header(interface: &ProgramInterface, dependencies: &[String]) -> String {
-    let target = crate::backend::llvm::TargetLayout::natural(
-        std::mem::size_of::<*const ()>(),
-        std::mem::size_of::<usize>(),
-    )
-    .expect("host pointer and size widths are supported");
+pub(crate) fn emit_file_header(
+    interface: &ProgramInterface,
+    dependencies: &[String],
+    target: crate::backend::llvm::TargetLayout,
+) -> String {
     header::emit(std::slice::from_ref(interface), target, dependencies, false)
 }
 
