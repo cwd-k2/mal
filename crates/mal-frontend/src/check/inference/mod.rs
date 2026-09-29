@@ -24,6 +24,12 @@ mod probe;
 use arguments::{argument_templates, inferred_arguments, parameter_ids};
 use constraint::constrain;
 
+/// Only a family reference that still names a rigid type parameter is a requirement of the enclosing generic body;
+/// a closed reference is selected directly during specialization.
+fn is_open_requirement(arguments: &[Type]) -> bool {
+    arguments.iter().any(super::operation::contains_parameter)
+}
+
 impl Checker {
     pub(super) fn check_generic_reference(
         &mut self,
@@ -97,6 +103,7 @@ impl Checker {
         }
         let kind = if self.operation_families.contains(&reference.id) {
             if self.active_generic.is_some()
+                && is_open_requirement(&arguments)
                 && !self.active_operations.iter().any(|requirement| {
                     requirement.family.id == reference.id && requirement.arguments == arguments
                 })
@@ -125,10 +132,12 @@ impl Checker {
                             )
                         })
                         .collect::<Result<Vec<_>, _>>()?;
-                    if !self.active_operations.iter().any(|existing| {
-                        existing.family.id == requirement.family.id
-                            && existing.arguments == requirement_arguments
-                    }) {
+                    if is_open_requirement(&requirement_arguments)
+                        && !self.active_operations.iter().any(|existing| {
+                            existing.family.id == requirement.family.id
+                                && existing.arguments == requirement_arguments
+                        })
+                    {
                         self.active_operations
                             .push(super::ast::OperationRequirement {
                                 family: requirement.family.clone(),

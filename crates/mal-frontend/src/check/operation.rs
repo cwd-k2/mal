@@ -92,6 +92,7 @@ impl Checker {
         let previous_substitutions = std::mem::replace(&mut self.type_substitutions, substitutions);
         let previous_generic = self.active_generic.take();
         let previous_operations = std::mem::take(&mut self.active_operations);
+        let previous_requirements = std::mem::take(&mut self.active_requirements);
         let result = (|| {
             let mut arguments = arguments
                 .iter()
@@ -173,6 +174,8 @@ impl Checker {
                 .ty;
             let declared = self.expand_type(annotation)?;
             self.require_type(&declared, &expected, annotation.span)?;
+            // Like a generic binding, the body may assume what its signature makes well formed.
+            self.active_requirements = types::storable_requirements(&expected);
             self.active_generic = (!parameters.is_empty()).then_some((
                 family.id,
                 parameters.iter().map(|parameter| parameter.id).collect(),
@@ -212,11 +215,12 @@ impl Checker {
         self.type_substitutions = previous_substitutions;
         self.active_generic = previous_generic;
         self.active_operations = previous_operations;
+        self.active_requirements = previous_requirements;
         result
     }
 }
 
-fn contains_parameter(ty: &Type) -> bool {
+pub(super) fn contains_parameter(ty: &Type) -> bool {
     contains_parameter_id_if(ty, |_| true)
 }
 

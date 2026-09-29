@@ -159,6 +159,65 @@ fn rejects_overlapping_and_non_decreasing_generic_implementations() {
 }
 
 #[test]
+fn generic_implementations_assume_the_requirements_of_their_signature() {
+    let program = check_ok(
+        "readFirst<A> :: Buffer<A> -> A := (buffer) -> buffer.get(0usize);
+\
+         size<A> :: A -> USize;
+\
+         size<Buffer<A>> :: Buffer<A> -> USize := (buffer) -> {
+\
+             _ := readFirst(buffer);
+\
+             #buffer
+\
+         };
+\
+         main :: Unit -> Int32 := () -> {
+\
+             values :: Buffer<Int32> := make(1usize);
+\
+             _ := values.new(3i32);
+\
+             size(values).i32;
+\
+         };",
+    );
+
+    check::specialize(program).expect("specialize a Storable-dependent implementation");
+}
+
+#[test]
+fn closed_family_references_are_not_requirements_of_generic_bodies() {
+    let program = check_ok(
+        "zero<A> :: A;
+\
+         zero<Int32> :: Int32 := 0i32;
+\
+         size<A> :: A -> Int32;
+\
+         size<Buffer<A>> :: Buffer<A> -> Int32 := (buffer) -> zero<Int32> + (#buffer).i32;
+\
+         count<A> :: Buffer<A> -> Int32 := (buffer) -> zero<Int32> + size(buffer);
+\
+         main :: Unit -> Int32 := () -> count(make<Int64>(1usize));",
+    );
+    let count = program
+        .items
+        .iter()
+        .find_map(|item| match &item.kind {
+            TopItem::GenericBinding(binding) if binding.binding.name.text == "count" => {
+                Some(binding)
+            }
+            _ => None,
+        })
+        .expect("count is a generic binding");
+    assert_eq!(count.operations.len(), 1);
+
+    check::specialize(program).expect("select both closed and generic implementations");
+}
+
+#[test]
 fn generic_patterns_can_fix_parameters_and_respect_repeated_variables() {
     check_ok(
         "operation<A, B> :: Unit;\n\
