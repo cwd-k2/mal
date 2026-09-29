@@ -12,17 +12,17 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
 | [numeric conversion](../spec/operators.md#primitive-operator) | 全closed suffix、rounding、modulo、float-to-integer precondition | conversionを含むLLVM artifactのcompile/execute |
-| [types](../spec/types.md) | `Buffer`のtype argument arity、alias expansion、phantom generic alias、recursive alias、type position以外のTYPE_IDENT rejection | 利用者定義aliasのsource spellingとphantom argumentを保つeditor hover/navigation、generated diagnostic |
+| [type constructor](../spec/type-constructors.md) | kind polymorphism、partial/oversaturated application、kind mismatchとoccurs check、alias expansion、phantom generic alias、recursive alias、type position以外のTYPE_IDENT rejection | 利用者定義aliasのsource spellingとphantom argumentを保つeditor hover/navigation、generated diagnostic |
 | [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument buffer | `Buffer<Symbol>` process entryを実際のargv（空argumentと非ASCII byteを含む）で実行 |
 
 ## Generics
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、arity mismatch、operand・期待result・higher-order位置・lambda result・直和continuation payloadからの推論、未確定と衝突、explicit application、first-classな単相value、generic extern rejection | 推論形と明示形のspecialization key共有、required fileを跨ぐgeneric application |
-| [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`、alias展開、requirement不足、既知の非storable型 | 型parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
+| [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、kind/arity mismatch、constructor prefixの明示とrigid-only inference、operand・期待result・higher-order位置・lambda result・直和continuation payloadからの通常型推論、未確定と衝突、first-classな単相value、generic extern rejection | constructor termを含む推論形と明示形のspecialization key共有、required fileを跨ぐgeneric application |
+| [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`と`Buffer<F<A>>`、alias展開、requirement不足、既知の非storable型 | constructor parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
 | [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
-| [operation family](../spec/operation-families.md) | familyとexact/generic implementationの分類、pattern overlap、全parameter束縛、減少、signature不一致、requirement伝播、missing implementation、opaque key | directly required familyへのimplementation、generic patternから選択したimplementationが既存backendだけで実行される |
+| [operation family](../spec/operation-families.md) | familyとexact/generic implementationの分類、closed constructor key、constructor pattern rejection、pattern overlap、全parameter束縛、減少、signature不一致、requirement伝播、missing implementation、opaque key | directly required familyへのimplementation、constructor keyまたはgeneric patternから選択したimplementationが既存backendだけで実行される |
 | [file-local opaque type](../spec/types.md#file-local-opaque-type) | declaration identity、同一fileの構築と分解、別fileのrepresentation拒否、recursive representation、HostMappable拒否 | specializationでrepresentationへ消去したproduct/sumを既存backendで実行する |
 
 ## Memory layoutとaccess

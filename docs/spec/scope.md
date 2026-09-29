@@ -11,6 +11,7 @@ Status: Accepted v0.6
 - fixed-width numeric、`ByteSize`、`USize`、logical、bit operation
 - language-intrinsic immutable `Symbol`
 - explicit parametric polymorphismとwhole-program specialization
+- compilerがkindを推論するhigher-kinded type parameterとpartial type application
 - file-local representation authorityを持つsource-defined opaque type
 - opaqueな`Address` capabilityとcanonical memory layout
 - mal-ownedで共有可変な`Buffer`
@@ -31,7 +32,7 @@ C hostの規則は[C host ABI](c-host-abi.md)、`malc`の対応環境は[`malc`�
 - resource ownershipを強制する型、destructor、finalizer
 - record、class、method、nominal enum
 - user-defined interface、trait、constraint、operator overload
-- local generalization、first-class polymorphism、higher-kinded type、reflection、macro
+- local generalization、first-class polymorphism、higher-rank kind polymorphism、type lambda、kind annotation、reflection、macro
 - exception、async/await、effect system、first-class continuation
 - mutable arrayと標準collection
 - standard library、allocator、package manager

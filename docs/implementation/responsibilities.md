@@ -56,7 +56,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `parser` / `ast` | token列からsource-oriented ASTへのsyntax admission |
 | `formatter` | lossless lexerとparserの結果から、commentとliteral spellingを保持したcanonical source textを構成 |
 | `resolve` | name identity、scope、lexical captureの推論 |
-| `types` / `check` | canonical typeとtyped AST、generic referenceの局所的な型argument推論、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
+| `types` / `check` | principal kind inference、canonical type-level termの正規化、typed AST、rigid constructor argumentと通常型の局所的な型argument推論、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `call_pattern` | closure-converted programを書き換える唯一の最適化。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、複製したbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
@@ -124,9 +124,9 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 |---|---|
 | lexer/parser | generic headerのtype expression列とinitializerの有無、postfix chain、共有tokenをsource-oriented ASTへ構成する。family identityから構文を選ばない |
 | resolve | generic binding、operation family、exact/generic implementation、opaque declaration、型parameterへidentityを与え、source orderと直接requireされたfamily identityからgeneric headerを分類する |
-| check | canonical generic/opaque type、file-local representation view、局所型argument推論、`Requirements(T)`、`OperationRequirement`、implementation patternのoverlapと減少、signature、memory operatorの型を検査する。`from`と`buffer.into`はrepresentableな要素だけを受理する |
-| specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、generic instanceを共有する。concrete operation goalを一意なexact/generic implementationへ解決し、opaqueをrepresentationへ消去して、familyとrequirementを除いた単相checked programをcoreへ渡す |
-| core以降 | open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
+| check | principal kind scheme、canonical generic/opaque type term、file-local representation view、rigid constructor argumentと通常型の局所型argument推論、`Requirements(T)`、`OperationRequirement`、implementation patternのoverlapと減少、signature、memory operatorの型を検査する。`from`と`buffer.into`はrepresentableな要素だけを受理する |
+| specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、constructor termを含むgeneric instanceをcanonical keyで共有する。concrete operation goalを一意なexact/generic implementationへ解決し、type applicationを正規化してopaqueをrepresentationへ消去し、familyとrequirementを除いた単相checked programをcoreへ渡す |
+| core以降 | kind、type constructor、open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
 | LLVM Buffer element | 要素のstorage layoutを選び、`Symbol`を含む要素にはretainとreleaseのcallbackを生成してruntimeへ渡し、`get`と`put`のreference操作を出力する |

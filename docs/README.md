@@ -15,18 +15,19 @@
 3. [EngramとExternのauthority](design/authority.md)
 4. [言語の範囲](spec/scope.md)
 5. [型](spec/types.md)
-6. [EngramとExtern](spec/engrams.md)
-7. [parametric polymorphism](spec/generics.md)
-8. [Symbol](spec/symbols.md)
-9. [AddressとBuffer](spec/memory.md)
-10. [式と binding](spec/expressions.md)
-11. [literalとoperator](spec/operators.md)
-12. [result boundaryとcompletion](spec/control.md)
-13. [実行意味論](spec/execution.md)
-14. [`extern` 境界](spec/extern.md)
-15. [C host ABI](spec/c-host-abi.md)
-16. [プログラム構造](spec/programs.md)
-17. [字句・文法](spec/grammar.md)
+6. [kindとtype constructor](spec/type-constructors.md)
+7. [EngramとExtern](spec/engrams.md)
+8. [parametric polymorphism](spec/generics.md)
+9. [Symbol](spec/symbols.md)
+10. [AddressとBuffer](spec/memory.md)
+11. [式と binding](spec/expressions.md)
+12. [literalとoperator](spec/operators.md)
+13. [result boundaryとcompletion](spec/control.md)
+14. [実行意味論](spec/execution.md)
+15. [`extern` 境界](spec/extern.md)
+16. [C host ABI](spec/c-host-abi.md)
+17. [プログラム構造](spec/programs.md)
+18. [字句・文法](spec/grammar.md)
 
 ## 目的別の入口
 
@@ -44,7 +45,7 @@
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
 | 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md) |
-| higher-kindedな型parameterを検討する | [higher-kinded constructor abstraction](proposals/higher-kinded-types.md) | [parametric polymorphism](spec/generics.md)、[operation family](spec/operation-families.md) |
+| higher-kindedな型parameterを使う | [kindとtype constructor](spec/type-constructors.md) | [parametric polymorphism](spec/generics.md)、[operation family](spec/operation-families.md) |
 | file内だけでrepresentationを観察できる型を使う | [file-local opaque type](spec/types.md#file-local-opaque-type) | [operation family](spec/operation-families.md) |
 | Engramの保持、破棄、storage lifecycleの内部基盤を検討する | [Engram lifecycle loweringの共通基盤](proposals/engram-lifecycle-foundation.md) | [Engram ownership](implementation/ownership.md)、[D055](history/decisions/active/D055.md)、[D083](history/decisions/active/D083.md) |
 | Pool上へopaque containerを構成する案を検討する | [Poolとopaque型によるcontainer基盤](proposals/pool/README.md) | [Pool lifecycle contract](proposals/pool/lifecycle-contract.md)、[container例](proposals/pool/container-examples.md)、[COW例](proposals/pool/array-ownership.md) |

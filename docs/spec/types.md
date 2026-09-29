@@ -34,15 +34,8 @@ declaration identityを持つuser typeである。
 
 ## Symbol
 
-`Symbol`は言語組み込みのimmutableな有限byte値であり、array、buffer、encoded textではない。値はcopyableで、
-その意味とlifetimeはmalが支配する。Symbol値を複製してもbytes自体を複製する必要はなく、source-levelの個別解放操作は存在しない。
-
-Symbol literalはnumeric literalと同じく組み込み値を表すnotationであり、そのbytesはprogram imageの静的storageに置いてよい。
-host側の一時byte bufferはSymbolではなく、明示的なadmissionでmal-controlled storageへcopyされた時点でSymbolになる。
-literal、operator、storageの完全な規則は[Symbol](symbols.md)に定める。
-
-mutable byte sequenceは`Buffer<UInt8>`で表す。`Symbol`との明示的なsnapshot変換は
-[AddressとBuffer](memory.md#symbol-conversion)に定める。
+`Symbol`は言語組み込みのimmutableな有限byte値である。literal、値のlifetime、operatorは[Symbol](symbols.md)、
+`Buffer<UInt8>`とのsnapshot変換は[AddressとBuffer](memory.md#symbol-conversion)を正とする。
 
 ## AddressとBuffer
 
@@ -153,8 +146,8 @@ Pair<A> :: (A, A);
 identity<A> :: A -> A := (value) -> value;
 ```
 
-型parameterはdeclaration内でopaqueなsource typeを表し、concrete type argumentで明示的にspecializeする。完全な規則は
-[parametric polymorphism](generics.md)に定める。
+型parameterはdeclaration内でopaqueなtype-level termを表し、canonical type argumentで明示的にspecializeする。完全な規則は
+[kindとtype constructor](type-constructors.md)と[parametric polymorphism](generics.md)に定める。
 
 sum result binderのarityとparameter型は、期待result型のaliasを展開した直和型から決まる。alias自体にruntime identityは残らない。
 

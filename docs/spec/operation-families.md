@@ -27,6 +27,15 @@ equal<Buffer<A>> :: (Buffer<A>, Buffer<A>) -> Bool :=
 implementation annotationはfamily signatureへkeyを代入した型と一致しなければならない。patternはalias展開後のcanonical typeで
 比較する。file-local opaque typeはrepresentationへ展開せず、declaration identityと型argumentをpatternへ残す。
 
+family signatureはconstructor kindのparameterを持てる。implementation keyのconstructor-kind位置はclosed canonical constructor
+termだけを認め、constructor pattern variableを拒否する。kind `Type`の位置には従来のexact keyとgeneric patternを認める。
+
+```mal
+Pair<A> :: (A, A);
+first<F, A> :: F<A> -> A;
+first<Pair, Int32> :: Pair<Int32> -> Int32 := (left, _) -> left;
+```
+
 declarationとimplementationはsource orderに従う。implementationは同じfileで先に宣言されたfamily、またはそのfileが直接
 `require`したfileのpublic familyへ追加できる。implementation itemは新しいsource value名を導入しない。同名familyが存在しない
 initializer付きheaderは従来のgeneric bindingであり、header項は型parameter名でなければならない。
@@ -67,5 +76,5 @@ family resultはfunction型に限らない。value implementationも既存のclo
 期待型からargumentが決まれば通常のvalueとして渡せるが、function型でないfamily valueをapplicationできない。
 
 specialization後はfamily declaration、implementation item、operation reference、requirementをすべて除去する。core以降は
-operation family、型argument、dictionary、type descriptor、dynamic dispatchを受け取らない。higher-kinded constructor、
-user-defined kindとbound、runtime dispatchはこのprofileに含めない。
+operation family、kind、constructor term、型argument、dictionary、type descriptor、dynamic dispatchを受け取らない。
+constructor pattern variable、user-defined kindとbound、runtime dispatchはこのprofileに含めない。

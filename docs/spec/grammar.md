@@ -68,7 +68,8 @@ atomicType   ::= TYPE_IDENT typeArguments?
 sumType      ::= "[" "]" | "[" type "," type ("," type)* "]"
 ```
 
-`Buffer`はちょうど一つのtype argumentを要求する。他のbuiltin typeはtype argumentを受け取らない。
+`Buffer`はkind `Type -> Type`のtype constructorであり、argumentなしのpartial applicationと一つのargumentによる飽和を認める。
+他のbuiltin typeはtype argumentを受け取らない。user-defined typeと`Buffer`のapplication arityはkind checkingで検査する。
 generic extern declarationはない。`>>` tokenはgeneric parameter/argument list内では二つのclosing `>`、expression内ではshiftである。
 `genericValueItem`のheaderはparserでは未分類のtype expression列として保持する。resolverはinitializerの有無とsource order上の
 family identityから、generic binding、operation family declaration、exact implementation、generic implementation patternへ分類する。
