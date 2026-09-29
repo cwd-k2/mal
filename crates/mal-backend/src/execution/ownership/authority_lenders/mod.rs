@@ -101,5 +101,4 @@ impl Frame {
 }
 
 #[cfg(test)]
-#[path = "authority_lenders_tests.rs"]
 mod tests;

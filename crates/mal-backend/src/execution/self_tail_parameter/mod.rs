@@ -206,5 +206,4 @@ fn replace_binding(
 }
 
 #[cfg(test)]
-#[path = "self_tail_parameter_tests.rs"]
 mod tests;

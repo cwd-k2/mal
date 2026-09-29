@@ -113,5 +113,4 @@ impl<'a> ParameterPassThrough<'a> {
 }
 
 #[cfg(test)]
-#[path = "pass_through_tests.rs"]
 mod tests;
