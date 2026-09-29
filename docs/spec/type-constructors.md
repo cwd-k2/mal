@@ -18,6 +18,10 @@ generic transparent aliasはtype-level abstractionとして展開し、applicati
 正規化し、phantom parameterへ渡したargumentはforceしない。sourceにtype lambda、placeholder、kind annotation、type-level pattern match、
 type constructorをruntime valueとして扱う構文はない。
 
+reference compilerは型項正規化の一transactionを256 nested term levelかつ65,536 normalization stepまで、一つのdeclarationの
+type parameterを256個まで受理する。これは型同値性ではなくcompiler resource limitであり、超過は起点となったtype expressionの
+diagnosticになる。物理表現の上限は[型](types.md)を正とする。
+
 ```mal
 Apply<F, A> :: F<A>;
 Pair<A, B> :: (A, B);

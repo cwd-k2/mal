@@ -12,7 +12,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
 | [numeric conversion](../spec/operators.md#primitive-operator) | 全closed suffix、rounding、modulo、float-to-integer precondition | conversionを含むLLVM artifactのcompile/execute |
-| [type constructor](../spec/type-constructors.md) | kind polymorphism、partial/oversaturated application、kind mismatchとoccurs check、alias expansion、phantom generic alias、recursive alias、type position以外のTYPE_IDENT rejection | 利用者定義aliasのsource spellingとphantom argumentを保つeditor hover/navigation、generated diagnostic |
+| [type constructor](../spec/type-constructors.md) | kind polymorphism、partial/oversaturated application、kind mismatchとoccurs check、alias expansion、phantom generic alias、recursive alias、正規化とkind parameterのresource上限、type position以外のTYPE_IDENT rejection | 利用者定義aliasのsource spellingとphantom argumentを保つeditor hover/navigation、generated diagnostic |
 | [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument buffer | `Buffer<Symbol>` process entryを実際のargv（空argumentと非ASCII byteを含む）で実行 |
 
 ## Generics

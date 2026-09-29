@@ -12,6 +12,8 @@ mod expression;
 mod graph;
 mod solver;
 
+const MAX_KIND_PARAMETERS: usize = 256;
+
 #[derive(Clone, Default)]
 pub(in crate::check) struct Kinds {
     pub(super) declarations: HashMap<TypeId, Kind>,
@@ -70,6 +72,9 @@ impl Kinds {
             .enumerate()
             .map(|(index, declaration)| (declaration.binding.id, index))
             .collect::<HashMap<_, _>>();
+        for declaration in &declarations {
+            admit_parameters(declaration.parameters.len(), declaration.binding.name.span)?;
+        }
         let graph = declarations
             .iter()
             .map(|declaration| {
@@ -102,6 +107,7 @@ impl Kinds {
         expression: &Node<TypeExpression>,
         next: &mut u32,
     ) -> Result<Vec<Kind>, Diagnostic> {
+        admit_parameters(parameters.len(), expression.span)?;
         let mut solver = Solver::default();
         let locals = parameters
             .iter()
@@ -173,6 +179,16 @@ impl Kinds {
         }
         Ok(())
     }
+}
+
+fn admit_parameters(count: usize, span: mal_syntax::source::Span) -> Result<(), Diagnostic> {
+    if count <= MAX_KIND_PARAMETERS {
+        return Ok(());
+    }
+    Err(Diagnostic::error("type kind is too large").with_primary(
+        span,
+        format!("malc supports at most {MAX_KIND_PARAMETERS} type parameters per declaration"),
+    ))
 }
 
 pub(super) fn freshen_all(kinds: &[Kind], next: &mut u32) -> Vec<Kind> {

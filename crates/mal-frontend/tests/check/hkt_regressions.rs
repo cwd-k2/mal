@@ -16,6 +16,46 @@ fn beta_reduces_composed_constructors_after_substitution() {
 }
 
 #[test]
+fn rejects_amplifying_constructor_composition_before_allocating_its_normal_form() {
+    let source = "Pair<A> :: (A, A);\n\
+                  Twice<F, A> :: F<F<A>>;\n\
+                  T0 :: Pair;\n\
+                  T1 :: Twice<T0>;\n\
+                  T2 :: Twice<T1>;\n\
+                  T3 :: Twice<T2>;\n\
+                  T4 :: Twice<T3>;\n\
+                  T5 :: Twice<T4>;";
+
+    let error = check_error(source);
+
+    assert_eq!(error.message, "type normalization is too large");
+    let primary = error.primary.expect("normalization diagnostic");
+    assert_eq!(
+        primary.span.start(),
+        source.find("T5 :: Twice<T4>").unwrap()
+    );
+    assert!(primary.message.contains("65536 normalization steps"));
+}
+
+#[test]
+fn rejects_flat_parameter_lists_before_constructing_a_deep_kind() {
+    let parameters = (0..=256)
+        .map(|index| format!("T{index}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let error = check_error(&format!("Wide<{parameters}> :: Unit;"));
+
+    assert_eq!(error.message, "type kind is too large");
+    assert!(
+        error
+            .primary
+            .expect("kind admission diagnostic")
+            .message
+            .contains("at most 256 type parameters")
+    );
+}
+
+#[test]
 fn binds_type_parameters_beside_a_closed_constructor_key() {
     let program = check_ok(
         "Pair<A> :: (A, A);\n\

@@ -87,6 +87,12 @@ impl Checker {
     fn expand(&mut self, initial: impl IntoIterator<Item = Expansion>) -> Result<Type, Diagnostic> {
         let mut pending = initial.into_iter().collect::<Vec<_>>();
         let mut values = Vec::new();
+        let span = match pending.last().expect("expansion has a root") {
+            Expansion::Expression(expression, _) => expression.span,
+            Expansion::Reference(_, span, _) => *span,
+            _ => unreachable!("only source expansions may be roots"),
+        };
+        let mut normalizer = term::Normalizer::new(span);
         while let Some(expansion) = pending.pop() {
             match expansion {
                 Expansion::Expression(expression, substitutions) => {
@@ -250,7 +256,7 @@ impl Checker {
                             index: usize::MAX,
                             kind: parameter.as_ref().clone(),
                         };
-                        values.push(term::apply(constructor, ignored, span)?);
+                        values.push(normalizer.apply(constructor, ignored, span)?);
                         pending.push(state);
                     } else {
                         pending.push(state);
@@ -266,7 +272,7 @@ impl Checker {
                     let constructor = values
                         .pop()
                         .expect("type application has a constructor term");
-                    values.push(term::apply(constructor, argument, span)?);
+                    values.push(normalizer.apply(constructor, argument, span)?);
                 }
                 Expansion::AliasAbstraction {
                     id,
@@ -452,44 +458,4 @@ fn take_last(values: &mut Vec<Type>, length: usize) -> Vec<Type> {
             .checked_sub(length)
             .expect("composite expansion must have all children"),
     )
-}
-
-pub(super) fn used_parameters(
-    parameters: &[resolved::TypeBinding],
-    value: &Node<resolved::TypeExpression>,
-) -> Vec<bool> {
-    let positions = parameters
-        .iter()
-        .enumerate()
-        .map(|(index, parameter)| (parameter.id, index))
-        .collect::<std::collections::HashMap<_, _>>();
-    let mut used = vec![false; parameters.len()];
-    let mut pending = vec![value];
-    while let Some(expression) = pending.pop() {
-        match &expression.kind {
-            resolved::TypeExpression::Named(reference) => {
-                if let Some(index) = positions.get(&reference.id) {
-                    used[*index] = true;
-                }
-            }
-            resolved::TypeExpression::Application {
-                constructor,
-                arguments,
-            } => {
-                if let Some(index) = positions.get(&constructor.id) {
-                    used[*index] = true;
-                }
-                pending.extend(arguments);
-            }
-            resolved::TypeExpression::Product(arguments)
-            | resolved::TypeExpression::Sum(arguments) => pending.extend(arguments),
-            resolved::TypeExpression::Parenthesized(inner) => pending.push(inner),
-            resolved::TypeExpression::Function { parameter, result } => {
-                pending.push(parameter);
-                pending.push(result);
-            }
-            resolved::TypeExpression::Unit => {}
-        }
-    }
-    used
 }

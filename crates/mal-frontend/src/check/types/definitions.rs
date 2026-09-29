@@ -5,7 +5,6 @@ use mal_syntax::ast::Node;
 use crate::resolve::ast::{self as resolved};
 
 use super::super::Checker;
-use super::expand::used_parameters;
 
 #[derive(Clone)]
 pub(in crate::check) struct GenericAliasDefinition {
@@ -13,6 +12,46 @@ pub(in crate::check) struct GenericAliasDefinition {
     pub(super) parameters: Vec<resolved::TypeBinding>,
     pub(super) used_parameters: Vec<bool>,
     pub(super) value: Node<resolved::TypeExpression>,
+}
+
+fn used_parameters(
+    parameters: &[resolved::TypeBinding],
+    value: &Node<resolved::TypeExpression>,
+) -> Vec<bool> {
+    let positions = parameters
+        .iter()
+        .enumerate()
+        .map(|(index, parameter)| (parameter.id, index))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut used = vec![false; parameters.len()];
+    let mut pending = vec![value];
+    while let Some(expression) = pending.pop() {
+        match &expression.kind {
+            resolved::TypeExpression::Named(reference) => {
+                if let Some(index) = positions.get(&reference.id) {
+                    used[*index] = true;
+                }
+            }
+            resolved::TypeExpression::Application {
+                constructor,
+                arguments,
+            } => {
+                if let Some(index) = positions.get(&constructor.id) {
+                    used[*index] = true;
+                }
+                pending.extend(arguments);
+            }
+            resolved::TypeExpression::Product(arguments)
+            | resolved::TypeExpression::Sum(arguments) => pending.extend(arguments),
+            resolved::TypeExpression::Parenthesized(inner) => pending.push(inner),
+            resolved::TypeExpression::Function { parameter, result } => {
+                pending.push(parameter);
+                pending.push(result);
+            }
+            resolved::TypeExpression::Unit => {}
+        }
+    }
+    used
 }
 
 #[derive(Clone)]

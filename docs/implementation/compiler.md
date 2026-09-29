@@ -169,5 +169,10 @@ canonical typeの物理表現は64 nested levelかつ65,536 storage componentま
 productは実値にも二つのstorageが必要なので二回数え、同じsubtypeを二variantに持つsumはactive payloadを共有するため最大値
 だけを数える。超過は型検査がsource span付きdiagnosticとして拒否する。
 
+canonical type termの正規化は一transactionにつき256 nested term levelと65,536 normalization stepまで受理する。type application、
+beta reduction、de Bruijn substitution、kind substitutionは同じbudgetを共有し、超過時はnormal formを構築せず型検査のdiagnosticとして
+拒否する。一つのdeclarationがkindへ導入できるtype parameterも256個までとする。
+
 これらはmalの意味論ではなく`malc`のresource limitであり、実行時のtrap条件ではない。採択理由は
-[D045](../history/decisions/active/D045.md)と[D046](../history/decisions/active/D046.md)に記録する。
+[D045](../history/decisions/active/D045.md)、[D046](../history/decisions/active/D046.md)、
+[D087](../history/decisions/active/D087.md)に記録する。
