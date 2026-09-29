@@ -5,7 +5,7 @@ use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
 use super::super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
-use super::super::{CheckResult, Checker};
+use super::super::{CheckFailure, CheckResult, Checker};
 
 impl Checker {
     pub(crate) fn check_memory_operation(
@@ -34,93 +34,11 @@ impl Checker {
                     .into(),
             );
         }
-        let receiver = self.check_expression(&arguments[0], None)?;
+        // Every operation has at least two operands, so an abrupt receiver leaves the next one unreachable.
+        let receiver = self.check_before(&arguments[0], None, arguments[1].span)?;
         let receiver_view = super::super::types::representation_view(&receiver.ty, span.file());
-        match (receiver_view, reference.id) {
-            (Type::Buffer(element), NEW_VALUE) => {
-                let element = element.clone();
-                let (receiver, value) =
-                    self.check_after(receiver, &arguments[1], Some(element.as_ref()))?;
-                Ok(memory(
-                    MemoryPrimitive::BufferNew,
-                    vec![receiver, value],
-                    Type::USize,
-                    span,
-                ))
-            }
-            (Type::Buffer(element), GET_VALUE) => {
-                let element = element.clone();
-                let (receiver, index) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
-                Ok(memory(
-                    MemoryPrimitive::BufferGet,
-                    vec![receiver, index],
-                    (*element).clone(),
-                    span,
-                ))
-            }
-            (Type::Buffer(element), PUT_VALUE) => {
-                let element = element.clone();
-                let (receiver, index) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
-                let (index, value) =
-                    self.check_after(index, &arguments[2], Some(element.as_ref()))?;
-                Ok(memory(
-                    MemoryPrimitive::BufferPut,
-                    vec![receiver, index, value],
-                    Type::Unit,
-                    span,
-                ))
-            }
-            (Type::Buffer(element), FILL_VALUE) => {
-                let element = element.clone();
-                let (receiver, offset) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
-                let (offset, length) =
-                    self.check_after(offset, &arguments[2], Some(&Type::USize))?;
-                let (length, value) =
-                    self.check_after(length, &arguments[3], Some(element.as_ref()))?;
-                Ok(memory(
-                    MemoryPrimitive::BufferFill,
-                    vec![receiver, offset, length, value],
-                    Type::Unit,
-                    span,
-                ))
-            }
-            (Type::Buffer(element), COPY_VALUE) => {
-                let element = element.clone();
-                let source_type = Type::Buffer(element.clone());
-                let (receiver, destination_offset) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::USize))?;
-                let (destination_offset, source) =
-                    self.check_after(destination_offset, &arguments[2], Some(&source_type))?;
-                let (source, source_offset) =
-                    self.check_after(source, &arguments[3], Some(&Type::USize))?;
-                let (source_offset, length) =
-                    self.check_after(source_offset, &arguments[4], Some(&Type::USize))?;
-                Ok(memory(
-                    MemoryPrimitive::BufferCopy,
-                    vec![receiver, destination_offset, source, source_offset, length],
-                    Type::Unit,
-                    span,
-                ))
-            }
-            (Type::Buffer(element), INTO_VALUE) => {
-                super::ensure_copyable_element(element, receiver.span)?;
-                let (receiver, address) =
-                    self.check_after(receiver, &arguments[1], Some(&Type::Address))?;
-                let (address, offset) =
-                    self.check_after(address, &arguments[2], Some(&Type::USize))?;
-                let (offset, length) =
-                    self.check_after(offset, &arguments[3], Some(&Type::USize))?;
-                Ok(memory(
-                    MemoryPrimitive::BufferIntoAddress,
-                    vec![receiver, address, offset, length],
-                    Type::Unit,
-                    span,
-                ))
-            }
-            _ => Err(
+        let Type::Buffer(element) = receiver_view else {
+            return Err(
                 Diagnostic::error("memory operation is not defined for this receiver")
                     .with_primary(
                         receiver.span,
@@ -130,8 +48,71 @@ impl Checker {
                         ),
                     )
                     .into(),
+            );
+        };
+        let element = element.as_ref().clone();
+        let (primitive, operand_types, result) = match reference.id {
+            NEW_VALUE => (MemoryPrimitive::BufferNew, vec![element], Type::USize),
+            GET_VALUE => (MemoryPrimitive::BufferGet, vec![Type::USize], element),
+            PUT_VALUE => (
+                MemoryPrimitive::BufferPut,
+                vec![Type::USize, element],
+                Type::Unit,
             ),
+            FILL_VALUE => (
+                MemoryPrimitive::BufferFill,
+                vec![Type::USize, Type::USize, element],
+                Type::Unit,
+            ),
+            COPY_VALUE => (
+                MemoryPrimitive::BufferCopy,
+                vec![
+                    Type::USize,
+                    Type::Buffer(element.into()),
+                    Type::USize,
+                    Type::USize,
+                ],
+                Type::Unit,
+            ),
+            INTO_VALUE => {
+                super::ensure_copyable_element(&element, receiver.span)?;
+                (
+                    MemoryPrimitive::BufferIntoAddress,
+                    vec![Type::Address, Type::USize, Type::USize],
+                    Type::Unit,
+                )
+            }
+            _ => unreachable!("caller recognizes predefined memory operations"),
+        };
+        let operands = self.check_operands_after(receiver, &arguments[1..], &operand_types)?;
+        Ok(memory(primitive, operands, result, span))
+    }
+
+    /// Checks operands in evaluation order after an already checked first operand. Like a product, an abrupt operand
+    /// makes the next one unreachable, and a final abrupt operand keeps every value evaluated before it.
+    fn check_operands_after(
+        &mut self,
+        first: Expression,
+        operands: &[Node<resolved::Expression>],
+        expected: &[Type],
+    ) -> CheckResult<Vec<Expression>> {
+        let mut checked = Vec::with_capacity(operands.len() + 1);
+        checked.push(first);
+        for (index, (operand, expected)) in operands.iter().zip(expected).enumerate() {
+            let value = match operands.get(index + 1) {
+                Some(next) => self.check_before(operand, Some(expected), next.span)?,
+                None => match self.check_expression(operand, Some(expected)) {
+                    Err(CheckFailure::Abrupt(abrupt)) => {
+                        return Err(CheckFailure::Abrupt(Box::new(
+                            (*abrupt).preceded_by(checked),
+                        )));
+                    }
+                    result => result?,
+                },
+            };
+            checked.push(value);
         }
+        Ok(checked)
     }
 }
 

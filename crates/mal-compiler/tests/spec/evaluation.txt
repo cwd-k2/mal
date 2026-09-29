@@ -148,3 +148,18 @@ walk :: Int64 -> Int64 := (n) -> {
     if (n == 0i64) then { 0i64 } else { walk(n - 1i64) + 1i64; };
 };
 main :: Unit -> Int32 := () -> { if (walk(5_000_000i64) == 5_000_000i64) then 0 else 1; };
+### memory_operands_before_abrupt_last_operand_run | run:3
+run :: Buffer<Int32> -> Int32 := (log) -> [k] => {
+    target :: Buffer<Int32> := make(1usize);
+    _ := target.new(0i32);
+    put({ _ := log.new(1i32); target }, { _ := log.new(2i32); 0usize }, k(5i32))
+};
+main :: Unit -> Int32 := () -> {
+    log :: Buffer<Int32> := make(4usize);
+    result := run(log);
+    (#log).i32 + result - 4
+};
+### memory_operand_after_abrupt_receiver | err:unreachable expression after abrupt completion
+run :: Unit -> Int32 := () -> [k] => put(k(1i32), 0usize, 3i32);
+### memory_operand_after_abrupt_index | err:unreachable expression after abrupt completion
+run :: Buffer<Int32> -> Int32 := (target) -> [k] => put(target, k(1i32), 3i32);
