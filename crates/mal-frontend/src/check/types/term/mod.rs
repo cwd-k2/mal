@@ -73,4 +73,23 @@ pub(super) fn normalize_argument_kinds(
     Ok(())
 }
 
+pub(in crate::check) fn instantiate_kinds(
+    parameters: &[Kind],
+    arguments: &[Type],
+    ty: &Type,
+    span: Span,
+) -> Result<(Vec<Kind>, Type), Diagnostic> {
+    let mut substitutions = HashMap::new();
+    for (parameter, argument) in parameters.iter().zip(arguments) {
+        kind::unify(parameter, &argument.kind(), &mut substitutions, span)?;
+    }
+    Ok((
+        parameters
+            .iter()
+            .map(|parameter| kind::substitute(parameter, &substitutions))
+            .collect(),
+        substitution::kinds(ty, &substitutions),
+    ))
+}
+
 pub(super) use kind::name as kind_name;

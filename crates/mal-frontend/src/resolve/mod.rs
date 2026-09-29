@@ -199,14 +199,14 @@ impl Resolver {
                     && self.operation_families.contains(&family.id)
                 {
                     let family_parameters = self.operation_parameters[&family.id].clone();
-                    let generic = arguments
-                        .iter()
-                        .any(|argument| type_mentions_any(argument, &family_parameters));
-                    let parameter_names = if generic {
-                        family_parameters
-                    } else {
-                        Vec::new()
-                    };
+                    let parameter_names = family_parameters
+                        .into_iter()
+                        .filter(|parameter| {
+                            arguments
+                                .iter()
+                                .any(|argument| type_mentions(argument, &parameter.text))
+                        })
+                        .collect::<Vec<_>>();
                     let (parameter_bindings, shadowed) =
                         self.push_type_parameters(&parameter_names)?;
                     let resolved = (|| {
@@ -410,16 +410,14 @@ impl Resolver {
     }
 }
 
-fn type_mentions_any(
+fn type_mentions(
     ty: &mal_syntax::ast::Node<mal_syntax::ast::TypeExpression>,
-    names: &[mal_syntax::ast::Name],
+    expected: &str,
 ) -> bool {
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         match &ty.kind {
-            mal_syntax::ast::TypeExpression::Named(name)
-                if names.iter().any(|parameter| parameter.text == name.text) =>
-            {
+            mal_syntax::ast::TypeExpression::Named(name) if name.text == expected => {
                 return true;
             }
             mal_syntax::ast::TypeExpression::Application { arguments, .. }

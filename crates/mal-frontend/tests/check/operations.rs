@@ -159,18 +159,10 @@ fn rejects_overlapping_and_non_decreasing_generic_implementations() {
 }
 
 #[test]
-fn generic_patterns_bind_every_family_parameter_and_respect_repeated_variables() {
-    assert_eq!(
-        check_error(
-            "operation<A, B> :: Unit;\n\
-             operation<Buffer<A>, Int32> :: Unit := ();"
-        )
-        .message,
-        "generic operation pattern leaves a parameter unbound"
-    );
-
+fn generic_patterns_can_fix_parameters_and_respect_repeated_variables() {
     check_ok(
         "operation<A, B> :: Unit;\n\
+         operation<Buffer<A>, Int32> :: Unit := ();\n\
          operation<(A, A), Buffer<B>> :: Unit := ();\n\
          operation<(Int32, UInt8), Buffer<(A, B)>> :: Unit := ();",
     );

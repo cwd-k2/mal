@@ -3,17 +3,22 @@
 opaque Cell<A> :: (Buffer<A>, USize, Bool);
 opaque View<A> :: (Buffer<A>, USize, USize, Bool);
 
+length<F, A> :: F<A> -> USize;
+length<Buffer, A> :: Buffer<A> -> USize := (source) -> #source;
+
+length<View, A> :: View<A> -> USize := (source) -> {
+    (_, _, count, _) := source;
+    count;
+};
+
+isEmpty<F, A> :: F<A> -> Bool := (source) -> length<F, A>(source) == 0usize;
+
 // A view covers the elements present now. The count of a Buffer never shrinks, so it stays valid.
 view<A> :: Buffer<A> -> View<A> := (buffer) -> (buffer, 0usize, #buffer, true);
 
 freeze<A> :: View<A> -> View<A> := (source) -> {
     (buffer, offset, length, _) := source;
     (buffer, offset, length, false);
-};
-
-len<A> :: View<A> -> USize := (source) -> {
-    (_, _, length, _) := source;
-    length;
 };
 
 // The index becomes a Cell here and is not used again.
@@ -73,7 +78,7 @@ sumFrom :: (View<Int32>, Int32) -> Int32 := (source, total) ->
 
 // Divide and conquer over disjoint halves.
 sumHalves :: View<Int32> -> Int32 := (source) -> {
-    count := len(source);
+    count := length<View>(source);
     if (count == 0usize)
     then 0i32
     else if (count == 1usize)
@@ -89,6 +94,7 @@ sumHalves :: View<Int32> -> Int32 := (source) -> {
 
 main :: Unit -> Int32 := () -> {
     xs := make<Int32>(4usize);
+    wasEmpty := isEmpty<Buffer>(xs);
     xs.new(1i32);
     xs.new(2i32);
     xs.new(3i32);
@@ -101,7 +107,7 @@ main :: Unit -> Int32 := () -> {
     denied := poke(readonly, 1usize, 99i32);
 
     // A rejected write leaves the Buffer unchanged, so both traversals see [10, 2, 3, 4].
-    if (denied)
+    if (denied || !wasEmpty || isEmpty<View>(readonly))
     then 0i32 - 1i32
     else sumFrom(readonly, 0i32) + sumHalves(writable);
 };

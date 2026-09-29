@@ -20,6 +20,15 @@ pub(in crate::check) fn require_type_argument_kinds(
     term::normalize_argument_kinds(parameters, arguments, span)
 }
 
+pub(in crate::check) fn instantiate_signature_kinds(
+    parameters: &[Kind],
+    arguments: &[Type],
+    ty: &Type,
+    span: Span,
+) -> Result<(Vec<Kind>, Type), Diagnostic> {
+    term::instantiate_kinds(parameters, arguments, ty, span)
+}
+
 impl Checker {
     pub(in crate::check) fn expand_type(
         &mut self,

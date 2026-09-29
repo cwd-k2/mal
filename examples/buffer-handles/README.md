@@ -13,6 +13,11 @@ from that view inherits it, and `write` reports whether the write happened. The 
 runtime field because freezing changes a value-level permission, while opaque identity prevents
 callers from fabricating or destructuring either handle representation.
 
+The operation family `length<F, A>` has closed-constructor implementations for the predefined
+`Buffer` and file-local opaque `View`. `isEmpty<F, A>` propagates that requirement, so its call sites
+name the rigid constructor while the element type is inferred. This keeps the shared collection
+operation static without exposing either representation or passing a runtime dictionary.
+
 | Function | Shows |
 |---|---|
 | `sumFrom` | Traversal with `uncons`, without an index |

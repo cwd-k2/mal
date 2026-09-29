@@ -1,0 +1,45 @@
+// Id is kind-polymorphic: the same alias accepts both a runtime type and a type constructor.
+Id<X> :: X;
+Apply<F, A> :: F<A>;
+Compose<F, G, A> :: F<G<A>>;
+
+Pair<A> :: (A, A);
+Product<A, B> :: (A, B);
+PairThroughId :: Id<Pair>;
+WithInt32 :: Product<Int32>;
+
+// The representation is visible only in this file, while Box itself remains a constructor.
+opaque Box<A> :: A;
+
+preserve<F, A> :: F<A> -> F<A> := (value) -> value;
+
+duplicate<F, A> :: F<A> -> Buffer<F<A>> := (value) -> {
+    values := make<F<A>>(2usize);
+    values.new(value);
+    values.new(value);
+    values;
+};
+
+box<A> :: A -> Box<A> := (value) -> value;
+
+project<F, A> :: F<A> -> A;
+project<Pair, A> :: Pair<A> -> A := (value, _) -> value;
+project<Box, A> :: Box<A> -> A := (value) -> value;
+
+main :: Unit -> Int32 := () -> {
+    pair :: PairThroughId<Int32> := preserve<Pair>((20i32, 22i32));
+    boxed := box(42i32);
+    copies :: Buffer<Pair<Int32>> := duplicate<Pair>(pair);
+    composed :: Compose<Buffer, Pair, Int32> := copies;
+    partial :: Apply<WithInt32, UInt8> := (42i32, 7u8);
+    (partialLeft, partialRight) := partial;
+
+    if (
+        project<Pair>(composed.get(1usize)) == 20i32
+        && project<Box>(boxed) == 42i32
+        && partialLeft == 42i32
+        && partialRight == 7u8
+    )
+    then 0
+    else 1;
+};

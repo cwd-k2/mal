@@ -15,8 +15,9 @@ zero<A> :: A;
 ```
 
 既にfamilyとして宣言された同名headerへinitializerを置くとimplementationになる。closed canonical type argumentだけからなるheaderは
-exact implementationである。familyの型parameter名を含むheaderはgeneric implementation patternであり、binderはfamily declarationの
-型parameterを同じ名前で再利用する。新しい型parameter名は導入できず、familyの全型parameterをkey内で束縛しなければならない。
+exact implementationである。familyの型parameter名を含むheaderはgeneric implementation patternであり、key内に現れる名前だけを
+family declarationの同名型parameterからbinderとして再利用する。新しい型parameter名は導入できず、再利用したbinderはkey内で
+束縛しなければならない。残るfamily parameter位置はclosed canonical typeで固定できる。
 
 ```mal
 equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;
@@ -34,6 +35,7 @@ termだけを認め、constructor pattern variableを拒否する。kind `Type`�
 Pair<A> :: (A, A);
 first<F, A> :: F<A> -> A;
 first<Pair, Int32> :: Pair<Int32> -> Int32 := (left, _) -> left;
+first<Pair, A> :: Pair<A> -> A := (left, _) -> left;
 ```
 
 declarationとimplementationはsource orderに従う。implementationは同じfileで先に宣言されたfamily、またはそのfileが直接

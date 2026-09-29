@@ -123,6 +123,11 @@ pub(in crate::check) fn equivalent_in_file(left: &Type, right: &Type, file: File
             continue;
         }
         match (left, right) {
+            (Type::Parameter { id: left, .. }, Type::Parameter { id: right, .. })
+                if left == right =>
+            {
+                continue;
+            }
             (
                 Type::Application {
                     constructor: left_constructor,

@@ -18,7 +18,7 @@ pub(super) use canonical::{
 };
 pub(super) use definitions::{GenericAliasDefinition, OpaqueDefinition};
 pub(super) use display::type_name;
-pub(super) use expand::require_type_argument_kinds;
+pub(super) use expand::{instantiate_signature_kinds, require_type_argument_kinds};
 pub(super) use kind::Kinds;
 pub(super) use properties::{
     ensure_buffer_storable, is_memory_representable, satisfies_representable_requirement,

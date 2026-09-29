@@ -12,14 +12,14 @@ pub(super) fn bound(ty: &Type, argument: &Type, depth: usize) -> Type {
         Type::Application {
             constructor,
             argument: applied,
-            kind,
             span,
-        } => Type::Application {
-            constructor: bound(constructor, argument, depth).into(),
-            argument: bound(applied, argument, depth).into(),
-            kind: kind.clone(),
-            span: *span,
-        },
+            ..
+        } => super::apply(
+            bound(constructor, argument, depth),
+            bound(applied, argument, depth),
+            *span,
+        )
+        .expect("admitted substitution preserves application kinds"),
         Type::Abstraction {
             parameter_kind,
             body,

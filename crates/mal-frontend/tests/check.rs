@@ -48,6 +48,8 @@ mod control;
 mod declarations;
 #[path = "check/functions.rs"]
 mod functions;
+#[path = "check/hkt_regressions.rs"]
+mod hkt_regressions;
 #[path = "check/memory.rs"]
 mod memory;
 #[path = "check/numeric.rs"]

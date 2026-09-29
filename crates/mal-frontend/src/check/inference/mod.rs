@@ -1,25 +1,26 @@
 //! Generic value reference and call checking from local type constraints.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::resolve::ast as resolved;
-use crate::resolve::ast::TypeId;
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
 use super::ast::{Expression, Type};
-use super::{CheckResult, Checker, GenericSignature};
+use super::{CheckResult, Checker};
 
 enum GenericCallExpectation<'a> {
     Result(Option<&'a Type>),
     ReturnedFunctionParameter(&'a Type),
 }
 
+mod arguments;
 mod constraint;
 mod probe;
 
-use constraint::{constrain, resolve_substitution};
+use arguments::{argument_templates, inferred_arguments, parameter_ids};
+use constraint::constrain;
 
 impl Checker {
     pub(super) fn check_generic_reference(
@@ -168,7 +169,7 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        let signature = self.generic_signatures[&reference.id].clone();
+        let mut signature = self.generic_signatures[&reference.id].clone();
         if type_arguments.len() > signature.parameters.len() {
             return Err(Diagnostic::error("generic value argument arity mismatch")
                 .with_primary(
@@ -188,6 +189,12 @@ impl Checker {
         super::types::require_type_argument_kinds(
             &signature.parameter_kinds[..explicit.len()],
             &mut explicit,
+            reference.name.span,
+        )?;
+        (signature.parameter_kinds, signature.ty) = super::types::instantiate_signature_kinds(
+            &signature.parameter_kinds,
+            &explicit,
+            &signature.ty,
             reference.name.span,
         )?;
         let mut substitutions = signature
@@ -335,7 +342,13 @@ impl Checker {
         span: Span,
         expected: GenericCallExpectation<'_>,
     ) -> CheckResult<Expression> {
-        let signature = self.generic_signatures[&reference.id].clone();
+        let mut signature = self.generic_signatures[&reference.id].clone();
+        (signature.parameter_kinds, signature.ty) = super::types::instantiate_signature_kinds(
+            &signature.parameter_kinds,
+            explicit,
+            &signature.ty,
+            reference.name.span,
+        )?;
         let mut substitutions = signature
             .parameters
             .iter()
@@ -429,49 +442,4 @@ impl Checker {
             span,
         })
     }
-}
-
-fn parameter_ids(signature: &GenericSignature) -> HashSet<TypeId> {
-    signature
-        .parameters
-        .iter()
-        .map(|parameter| parameter.id)
-        .collect()
-}
-
-fn argument_templates(parameter: &Type, count: usize) -> Option<Vec<&Type>> {
-    match (count, parameter) {
-        (0, Type::Unit) => Some(Vec::new()),
-        (1, parameter) => Some(vec![parameter]),
-        (_, Type::Product(elements)) if elements.len() == count => Some(elements.iter().collect()),
-        _ => None,
-    }
-}
-
-fn inferred_arguments(
-    signature: &GenericSignature,
-    substitutions: &HashMap<TypeId, Type>,
-    span: Span,
-) -> Result<Vec<Type>, super::CheckFailure> {
-    let missing = signature
-        .parameters
-        .iter()
-        .filter(|parameter| !substitutions.contains_key(&parameter.id))
-        .map(|parameter| parameter.name.text.as_str())
-        .collect::<Vec<_>>();
-    if !missing.is_empty() {
-        return Err(
-            Diagnostic::error("generic type arguments cannot be inferred")
-                .with_primary(
-                    span,
-                    format!("write explicit type arguments for {}", missing.join(", ")),
-                )
-                .into(),
-        );
-    }
-    Ok(signature
-        .parameters
-        .iter()
-        .map(|parameter| resolve_substitution(parameter.id, substitutions, &mut HashSet::new()))
-        .collect())
 }

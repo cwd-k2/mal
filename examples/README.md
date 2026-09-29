@@ -33,6 +33,7 @@ for interchangeable vocabulary and public result shapes, not abstraction boundar
 | `buffer-handles` | Cell and View handles over a Buffer, with a runtime read-only flag |
 | `generic-loop` | iteration derived from a continue-or-break sum result |
 | `operation-family` | exact and structural generic type-indexed implementations |
+| `type-system` | inferred kinds, partial constructors, opaque HKT, and open storage requirements |
 | `hash-map` | opaque fixed-capacity linear probing driven by hash and equality families |
 | `tail-recursion` | bounded-stack recursive control |
 | `print-and-closure` | ordered external effects and captured values |
