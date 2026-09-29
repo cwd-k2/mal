@@ -419,6 +419,10 @@ impl Checker {
                 resolved::TypeExpression::Named(reference) => {
                     if reference.id == BUFFER_TYPE
                         || self.generic_aliases.contains_key(&reference.id)
+                        || self
+                            .opaque_types
+                            .get(&reference.id)
+                            .is_some_and(|definition| !definition.parameters.is_empty())
                     {
                         return Err(Diagnostic::error("generic type requires arguments")
                             .with_primary(

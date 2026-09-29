@@ -155,6 +155,17 @@ fn generic_patterns_bind_every_family_parameter_and_respect_repeated_variables()
 }
 
 #[test]
+fn overlap_check_uses_independent_variables_for_each_pattern() {
+    let error = check_error(
+        "operation<A, B> :: Unit;\n\
+         operation<(A, Int32), Buffer<B>> :: Unit := ();\n\
+         operation<(UInt8, A), Buffer<B>> :: Unit := ();",
+    );
+
+    assert_eq!(error.message, "duplicate operation implementation");
+}
+
+#[test]
 fn opaque_identity_is_preserved_in_operation_keys() {
     let program = check_ok(
         "opaque Values<A> :: Buffer<A>;\n\

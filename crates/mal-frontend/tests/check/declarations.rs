@@ -249,6 +249,10 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
             "Discard<A> :: USize; Pair<A, B> :: (A, B); value :: Discard<Pair<Int32>> := 0usize;",
             "generic type argument arity mismatch",
         ),
+        (
+            "Discard<A> :: USize; opaque Box<A> :: A; value :: Discard<Box> := 0usize;",
+            "generic type requires arguments",
+        ),
         ("value :: Buffer := 0;", "generic type requires arguments"),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");
