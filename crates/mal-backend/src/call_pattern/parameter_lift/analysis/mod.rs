@@ -71,17 +71,21 @@ pub(super) fn definitions(program: &Program) -> HashMap<ValueId, Definition> {
 /// Resolves a product-leaf path while walking backwards through SSA aliases and constructors.
 ///
 /// The returned atom identities cover every use along that trace. Admission treats precisely
-/// those identities as allowed forwarding uses of the callback.
+/// those identities as allowed forwarding uses of the callback. The returned values are the bindings whose
+/// definitions the trace read.
 pub(super) fn resolve_path(
     root: &Atom,
     path: &[usize],
     definitions: &HashMap<ValueId, Definition>,
-) -> Option<(Atom, HashSet<AtomId>)> {
+) -> Option<(Atom, HashSet<AtomId>, HashSet<ValueId>)> {
     let mut atom = root.clone();
     let mut trace = HashSet::from([root.id]);
+    let mut read = HashSet::new();
     for index in path {
         loop {
-            let definition = definitions.get(&atom.binding()?)?;
+            let binding = atom.binding()?;
+            read.insert(binding);
+            let definition = definitions.get(&binding)?;
             match &definition.operation {
                 Operation::Atom(alias) => {
                     trace.insert(alias.id);
@@ -96,7 +100,7 @@ pub(super) fn resolve_path(
             }
         }
     }
-    Some((atom, trace))
+    Some((atom, trace, read))
 }
 
 pub(super) fn replace_type(ty: &Type, path: &[usize], replacement: &Type) -> Option<Type> {

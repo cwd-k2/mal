@@ -32,17 +32,46 @@ struct Candidate {
     capture_type: Type,
     host_parameter_type: Type,
     host_closure_type: Type,
+    footprint: Footprint,
 }
 
+/// Everything admission read and the rewrite changes. The rewrite of a host that is only ever called directly stays
+/// inside these identities, so candidates with disjoint footprints are admitted against the same program and can be
+/// rewritten in one pass.
+#[derive(Default)]
+struct Footprint {
+    functions: HashSet<FunctionId>,
+    values: HashSet<ValueId>,
+    atoms: HashSet<AtomId>,
+}
+
+impl Footprint {
+    fn overlaps(&self, other: &Self) -> bool {
+        !self.functions.is_disjoint(&other.functions)
+            || !self.values.is_disjoint(&other.values)
+            || !self.atoms.is_disjoint(&other.atoms)
+    }
+
+    fn extend(&mut self, other: &Self) {
+        self.functions.extend(&other.functions);
+        self.values.extend(&other.values);
+        self.atoms.extend(&other.atoms);
+    }
+}
+
+/// Rewrites one round of independent candidates; returns whether any was found.
 pub(super) fn closure_parameters(program: &mut Program) -> bool {
-    let Some(candidate) = find_candidate(program) else {
+    let candidates = find_candidates(program);
+    if candidates.is_empty() {
         return false;
-    };
-    rewrite::apply(program, candidate);
+    }
+    rewrite::apply(program, candidates);
     true
 }
 
-fn find_candidate(program: &Program) -> Option<Candidate> {
+/// A candidate with a nested use alone, or else every direct candidate whose footprint is disjoint from the ones
+/// selected before it, in program order.
+fn find_candidates(program: &Program) -> Vec<Candidate> {
     let known = program
         .bindings
         .iter()
@@ -52,7 +81,8 @@ fn find_candidate(program: &Program) -> Option<Candidate> {
         })
         .collect::<HashMap<_, _>>();
     let index = Index::new(program);
-    let mut direct = None;
+    let mut direct = Vec::new();
+    let mut claimed = Footprint::default();
 
     for host in &program.functions {
         let Some(host_binding) = known.get(&host.id).copied() else {
@@ -73,9 +103,12 @@ fn find_candidate(program: &Program) -> Option<Candidate> {
             ) {
                 if candidate.nested.is_some() {
                     // Lifting the outer callback first would erase the capture edge this proof needs.
-                    return Some(candidate);
+                    return vec![candidate];
                 }
-                direct.get_or_insert(candidate);
+                if !candidate.footprint.overlaps(&claimed) {
+                    claimed.extend(&candidate.footprint);
+                    direct.push(candidate);
+                }
             }
         }
     }
@@ -108,6 +141,7 @@ fn admit_candidate(
         return None;
     }
 
+    let mut footprint = Footprint::default();
     let mut creators = HashSet::new();
     let mut replacements = HashMap::new();
     let mut forwarded = HashSet::new();
@@ -116,7 +150,9 @@ fn admit_candidate(
     let mut call_count = 0;
     for argument in index.host_call_arguments(host_binding, host) {
         call_count += 1;
-        let (leaf, trace) = resolve_path(argument, &path, &index.definitions)?;
+        let (leaf, trace, read) = resolve_path(argument, &path, &index.definitions)?;
+        footprint.atoms.extend(&trace);
+        footprint.values.extend(read);
         let leaf_origin = origin(&leaf, &index.aliases)?;
         if leaf_origin == callback {
             if leaf.binding() != Some(callback) {
@@ -200,12 +236,30 @@ fn admit_candidate(
         parameter: host_parameter_type.clone().into(),
         result: host_function.body.result.ty.clone().into(),
     };
+    footprint.functions.extend([host, target]);
+    footprint.values.extend(
+        [parameter, callback, host_binding]
+            .into_iter()
+            .chain(creators.iter().copied()),
+    );
+    footprint.atoms.extend(
+        replacements
+            .keys()
+            .chain(&forwarded)
+            .chain(&direct_calls)
+            .copied(),
+    );
+    if let Some(nested) = &nested {
+        footprint.functions.insert(nested.function);
+        footprint.atoms.extend(&nested.capture_atoms);
+    }
     Some(Candidate {
         host,
         host_binding,
         parameter,
         callback,
         target,
+        footprint,
         replacements,
         forwarded,
         direct_calls,

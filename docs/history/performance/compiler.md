@@ -238,3 +238,19 @@ callgrindでは次の三つが`malc`の時間の約四分の三を占めてい�
 
 examples、probe program、Typical 90、`.scratch/loop-perf`の計576 programについて、両modeのLLVM module、C shim、headerが
 変更前とbyte単位で一致した。
+
+## 2026-09-29 parameter liftの一括書き換え
+
+「parameter liftの候補判定」と同じsourceで、Clangを除くproductionのartifact生成時間を測った。parameter liftは一roundに一候補だけを書き換え、
+roundごとにprogram全体を索引し直していたため、`n`について二乗で伸びていた。
+
+| `n` | 変更前 | 変更後 |
+|---:|---:|---:|
+| 100 | 114 ms | 20 ms |
+| 200 | 412 ms | 45 ms |
+| 400 | 1,768 ms | 99 ms |
+
+値として使われるhostは候補にしないため、候補の書き換えは判定が読んだfunction、binding、atomの外へ及ばない。これらを候補の
+footprintとして記録し、footprintが互いに素なdirect候補を同じ索引から選んで一回の走査で書き換える。nested captureを持つ候補は
+外側のcallbackを先に書き換えると判定の根拠が消えるため、従来どおり単独で書き換える。examples、probe program、Typical 90、
+`.scratch/loop-perf`の計576 programについて、両modeのLLVM module、C shim、headerが変更前とbyte単位で一致した。
