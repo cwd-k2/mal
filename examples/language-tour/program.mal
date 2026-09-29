@@ -1,0 +1,31 @@
+require "./host.c";
+
+extern printInt32 :: Int32 -> Unit;
+
+Division :: [Unit, Int32];
+
+divide :: (Int32, Int32) -> Division := (numerator, denominator) -> [invalid, valid] => {
+    when (denominator == 0) {
+        invalid();
+    };
+    valid(numerator / denominator);
+};
+
+makeAdder :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
+
+// Each result edge either supplies the quotient or chooses the caller's fallback.
+divideOr :: (Int32, Int32, Int32) -> Int32 := (numerator, denominator, fallback) ->
+    divide(numerator, denominator)[() -> fallback, (quotient) -> quotient];
+
+main :: Unit -> Int32 := () -> {
+    pair := (20i32, 22i32);
+    (left, right) := pair;
+    addTen := makeAdder(10i32);
+
+    printInt32(left + right);
+    printInt32(addTen(5i32));
+    printInt32(divideOr(84i32, 2i32, 0i32));
+    printInt32(divideOr(1i32, 0i32, -1i32));
+    printInt32(2_147_483_647i32 + 1i32);
+    0;
+};

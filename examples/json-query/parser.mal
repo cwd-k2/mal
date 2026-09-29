@@ -1,15 +1,11 @@
 require "./bytes.mal";
 require "./scanner.mal";
 
-// JsonStatistics fields: 0 JSON value count, 1 maximum value depth.
 JsonStatistics :: (UInt64, UInt64);
-// Variant 0 is an error message; variant 1 is the statistics for a complete document.
 ParseResult :: [Symbol, JsonStatistics];
-// ParserFrame encodes the continuation selected when the parser returns to one stack coordinate.
+// Frames encode the continuation selected when a nested value completes.
 ParserFrame :: UInt8;
-// ParserFrames keeps reusable storage and a logical stack length.
 opaque ParserFrames :: (Buffer<ParserFrame>, USize);
-// ParserState fields: 0 unread input, 1 return stack, 2 value depth, 3 statistics.
 opaque ParserState :: (Bytes, ParserFrames, UInt64, JsonStatistics);
 
 // ParserState is an explicit machine configuration, so iteration can distinguish the next

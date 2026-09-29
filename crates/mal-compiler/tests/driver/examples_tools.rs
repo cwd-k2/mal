@@ -77,14 +77,14 @@ fn json_query_example_parses_stdin_and_selects_an_argument_query() {
 }
 
 #[test]
-fn brainfuck_compiler_example_emits_executable_llvm_ir() {
-    let directory = NativeFixture::new("brainfuck-llvm");
+fn compiler_pipeline_example_emits_executable_llvm_ir() {
+    let directory = NativeFixture::new("compiler-pipeline");
     let example = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
         .expect("compiler has a repository parent")
-        .join("examples/brainfuck-llvm");
-    let compiler = directory.join("brainfuck-llvm");
+        .join("examples/compiler-pipeline");
+    let compiler = directory.join("compiler-pipeline");
     let output = directory.malc([
         OsStr::new("build"),
         example.join("program.mal").as_os_str(),
@@ -173,170 +173,4 @@ fn brainfuck_compiler_example_emits_executable_llvm_ir() {
     assert!(
         String::from_utf8_lossy(&write_failure.stderr).starts_with("cannot write output, errno ")
     );
-}
-
-#[test]
-fn tail_recursion_example_executes_a_large_direct_tail_call() {
-    let directory = NativeFixture::new("driver");
-    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("compiler has a repository parent")
-        .join("examples/tail-recursion/program.mal");
-
-    let checked = directory.malc([OsStr::new("check"), example.as_os_str()]);
-    assert!(
-        checked.status.success(),
-        "{}",
-        String::from_utf8_lossy(&checked.stderr)
-    );
-
-    let executable = directory.join("example");
-    let output = directory.malc([
-        OsStr::new("build"),
-        example.as_os_str(),
-        OsStr::new("--output"),
-        executable.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(directory.run(executable).status.success());
-}
-
-#[test]
-fn typed_memory_example_accesses_unaligned_storage() {
-    let directory = NativeFixture::new("driver");
-    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("compiler has a repository parent")
-        .join("examples/typed-memory");
-    let executable = directory.join("example");
-    let output = directory.malc([
-        OsStr::new("build"),
-        example.join("program.mal").as_os_str(),
-        OsStr::new("--output"),
-        executable.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(directory.run(executable).status.success());
-}
-
-#[test]
-fn fallible_tree_example_cleans_partial_construction() {
-    let directory = NativeFixture::new("fallible-tree");
-    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("compiler has a repository parent")
-        .join("examples/fallible-tree");
-    let executable = directory.join("example");
-    let output = directory.malc([
-        OsStr::new("build"),
-        example.join("program.mal").as_os_str(),
-        OsStr::new("--output"),
-        executable.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let output = directory.run(executable);
-    assert!(output.status.success());
-    assert!(output.stdout.is_empty());
-    assert!(output.stderr.is_empty());
-}
-
-#[test]
-fn buffer_tree_example_builds_mutates_and_traverses_a_tree() {
-    let directory = NativeFixture::new("driver");
-    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("compiler has a repository parent")
-        .join("examples/buffer-tree");
-    let executable = directory.join("example");
-    let output = directory.malc([
-        OsStr::new("build"),
-        example.join("program.mal").as_os_str(),
-        OsStr::new("--output"),
-        executable.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(directory.run(executable).status.success());
-}
-
-#[test]
-fn relation_modeling_examples_build_and_validate_their_results() {
-    for name in ["relation-views", "csr-dijkstra", "spreadsheet"] {
-        let directory = NativeFixture::new(name);
-        let example = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(2)
-            .expect("compiler has a repository parent")
-            .join("examples")
-            .join(name);
-        let executable = directory.join("example");
-        let output = directory.malc([
-            OsStr::new("build"),
-            example.join("program.mal").as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ]);
-        assert!(
-            output.status.success(),
-            "{name}: {}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-
-        let output = directory.run(executable);
-        assert!(output.status.success(), "{name}: {}", output.status);
-        assert!(output.stdout.is_empty());
-        assert!(output.stderr.is_empty());
-    }
-}
-
-#[test]
-fn strict_float_example_preserves_bits_across_the_host_abi() {
-    let directory = NativeFixture::new("driver");
-    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("compiler has a repository parent")
-        .join("examples/strict-float");
-    let program = example.join("program.mal");
-
-    let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);
-    assert!(
-        checked.status.success(),
-        "{}",
-        String::from_utf8_lossy(&checked.stderr)
-    );
-
-    let executable = directory.join("example");
-    let output = directory.malc([
-        OsStr::new("build"),
-        program.as_os_str(),
-        OsStr::new("--output"),
-        executable.as_os_str(),
-    ]);
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(directory.run(executable).status.success());
 }

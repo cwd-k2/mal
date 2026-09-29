@@ -14,7 +14,7 @@ Status: Historical record
 
 | workload | 内容 | 変更前 direct / loop（Minstr） | 変更後 loop（Minstr） |
 |:---|:---|---:|---:|
-| dijkstra | `examples/csr-dijkstra`の`_loop`利用を8000 nodeへ拡大。managedなtupleをcaptureし、loopを入れ子にする | 546 / 3272 | 549 |
+| dijkstra | 当時の`examples/csr-dijkstra`にあった`_loop`利用を8000 nodeへ拡大。managedなtupleをcaptureし、loopを入れ子にする | 546 / 3272 | 549 |
 | matmul, separate combinators | 同じsignatureのcombinatorを別名で三段に重ねた200×200 | 44 / 1777 | 99 |
 | matmul, shared combinator | 同じ`upto<UInt64>`を三段に重ねた200×200 | 44 / 1061 | 99 |
 | shared combinator | 一つの`upto<UInt64>`を三種のcallbackで使う | 632 / 1500 | 504 |

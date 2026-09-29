@@ -1,4 +1,4 @@
-// Bytes is a logical cursor that shares one managed Buffer identity.
+// Cursor movement retains the same immutable input carrier.
 opaque Bytes :: (Buffer<UInt8>, USize);
 
 allBytes :: Buffer<UInt8> -> Bytes := (buffer) -> (buffer, 0usize);

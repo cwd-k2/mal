@@ -1,0 +1,30 @@
+require "./host.c";
+
+extern transferBuffer :: Unit -> Address;
+extern receive :: (Address, USize) -> USize;
+extern send :: (Address, USize) -> Unit;
+
+transferCapacity :: USize := 16usize;
+
+main :: Unit -> Int32 := () -> {
+    address := transferBuffer();
+    length := receive(address, transferCapacity);
+    bytes := from<UInt8>(address, 0usize, length);
+
+    // The Symbol is a snapshot; later mutation through an alias changes only the Buffer identity.
+    snapshot := *bytes;
+    alias := bytes;
+    alias.put(0usize, 'M');
+    alias.copy(#alias, *"!", 0usize, 1usize);
+
+    valid := snapshot == "malあ\0\xff"
+        && *bytes == "Malあ\0\xff!"
+        && snapshot / 3usize == "mal"
+        && snapshot % 3usize / 3usize == "あ";
+
+    bytes.into(address, 0usize, #bytes);
+    send(address, #bytes);
+    if (valid)
+    then 0
+    else 1;
+};

@@ -1,0 +1,14 @@
+require "./host.c";
+
+extern inspect :: (UInt64, UInt64, UInt64, Float32, Float32, Float64, Int64) -> Int32;
+
+main :: Unit -> Int32 := () ->
+    inspect(
+        '\xff'.u64,
+        (255u8 + 1u8).u64,
+        (-1i8).u64,
+        1.000000059604644775390625f32,
+        1.40129846e-45f32,
+        -0.0f64,
+        (-42.75f64).i64
+    );

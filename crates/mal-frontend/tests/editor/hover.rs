@@ -114,17 +114,6 @@ fn inferred_call_results_and_callback_parameters_preserve_specialized_aliases() 
 }
 
 #[test]
-fn buffer_handles_inferred_views_keep_the_generic_alias() {
-    let text = include_str!("../../../../examples/buffer-handles/program.mal");
-    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
-
-    for name in ["writable :=", "readonly :="] {
-        let hover = document.hover_at(text.find(name).unwrap()).unwrap();
-        assert_eq!(hover.ty, "View<Int32>");
-    }
-}
-
-#[test]
 fn external_function_references_share_the_declaration_identity() {
     let text = "extern output :: UInt8 -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(1u8) };\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");

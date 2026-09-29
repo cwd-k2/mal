@@ -1,0 +1,59 @@
+// The sum separates another complete state from the independently typed final result.
+loop<State, Result> :: (State, State -> [State, Result]) -> Result :=
+    (state, step) -> step(state)[
+        (next) -> loop(next, step),
+        (result) -> result
+    ];
+
+foldRange<Value> :: (UInt64, UInt64, Value, (Value, UInt64) -> Value) -> Value :=
+    (start, end, initial, step) ->
+        loop((start, initial), (index, value) -> [continue, finish] => {
+            when (index > end) {
+                finish(value);
+            };
+            next := step(value, index);
+            when (index == end) {
+                finish(next);
+            };
+            continue(index + 1u64, next);
+        });
+
+foldBuffer<Element, Value> :: (Buffer<Element>, Value, (Value, Element) -> Value) -> Value :=
+    (elements, initial, step) ->
+        loop((0usize, initial), (index, value) -> [continue, finish] => {
+            when (index == #elements) {
+                finish(value);
+            };
+            continue(index + 1usize, step(value, elements.get(index)));
+        });
+
+// The recursive edge has no pending work; both arguments are the complete next state.
+sumDownFrom :: (UInt64, UInt64) -> UInt64 := (total, remaining) -> [return] => {
+    when (remaining == 0u64) {
+        return(total);
+    };
+    return(sumDownFrom(total + remaining, remaining - 1u64));
+};
+
+main :: Unit -> Int32 := () -> {
+    oddSum := foldRange(0u64, 999_999u64, 0u64, (total, value) ->
+        if (value % 2u64 == 0u64)
+            then total
+            else total + value
+    );
+
+    values := make<UInt64>(3usize);
+    values.new(10u64);
+    values.new(20u64);
+    values.new(30u64);
+    bufferSum := values.foldBuffer(0u64, (total, value) -> total + value);
+
+    recursiveSum := sumDownFrom(0u64, 1_000_000u64);
+    if (
+        oddSum == 250_000_000_000u64
+        && bufferSum == 60u64
+        && recursiveSum == 500_000_500_000u64
+    )
+    then 0
+    else 1;
+};

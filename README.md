@@ -67,10 +67,10 @@ The pinned development environment is provided by Nix. From the repository root 
 nix run . -- --help
 nix develop
 cargo test --workspace
-cargo run -p mal-compiler -- check examples/print-and-closure/program.mal
-cargo run -p mal-compiler -- build examples/print-and-closure/program.mal -o /tmp/mal-example
-cargo run -p mal-compiler -- emit atcoder examples/print-and-closure/program.mal -o /tmp/Main.cpp
-cargo run -p mal-fmt -- examples/print-and-closure/program.mal
+cargo run -p mal-compiler -- check examples/language-tour/program.mal
+cargo run -p mal-compiler -- build examples/language-tour/program.mal -o /tmp/mal-example
+cargo run -p mal-compiler -- emit atcoder examples/language-tour/program.mal -o /tmp/Main.cpp
+cargo run -p mal-fmt -- examples/language-tour/program.mal
 /tmp/mal-example
 ```
 

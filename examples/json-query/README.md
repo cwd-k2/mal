@@ -1,45 +1,22 @@
-# JSON query example
+# JSON query
 
-This example reads one JSON value from standard input, validates its complete syntax, and applies a
-query selected by the sole process argument. `count` counts JSON values, excluding object keys, and
-`depth` reports the maximum container/value nesting depth. Both results are rendered as JSON by the
-mal program and written to standard output.
+This capstone reads one JSON value from standard input and applies the sole process argument:
+`count` counts JSON values excluding object keys, while `depth` reports maximum value nesting. The
+parser validates the complete document and renders either a JSON result or a diagnostic.
 
-The source files follow the data path: `bytes.mal` owns the opaque shared byte cursor, `scanner.mal`
-owns JSON token recognition, and `parser.mal` hides its frame stack and machine state behind opaque
-types while owning complete-document admission.
+The files follow the data path. `bytes.mal` owns the cursor abstraction, `scanner.mal` recognizes
+tokens, `parser.mal` owns an explicit frame stack and parser state, `query.mal` validates the query,
+and `render.mal` constructs output. Parser transitions use the continue-or-finish sum protocol from
+[`control-and-iteration`](../control-and-iteration/); nested structure lives in the frame relation,
+not in a recursive syntax tree.
 
-The parser accepts objects, arrays, strings with JSON escapes, numbers, booleans, null, and JSON
-whitespace. It defunctionalizes the recursive-descent control flow into one `_parse` dispatcher and
-a central `Buffer<ParserFrame>` stack instead of building a recursive syntax tree. `_parse`
-uses the same continue-or-break sum encoding introduced by the
-[`generic-loop`](../generic-loop/) example: `continue` carries the next complete `ParserState`, while
-`break` carries the final `ParseResult`. Each frame records what the enclosing container must do after
-a child value completes. The stack pairs reusable Buffer storage with a logical count: push appends or
-reuses one slot, replacement uses `put`, and pop decrements the logical count. Nesting is limited only
-by the target-sized count and available memory.
+> [!NOTE]
+> The frame Buffer is a carrier for parser continuations. Its indices have stack meaning only through
+> the push, replace, and pop operations owned by `parser.mal`.
 
-Whitespace, digit, escape, string, and number scans reuse the same loop with smaller cursor states.
-Their input `Bytes` values are the complete changing state, while token rules remain in the step callbacks.
-
-The input bytes and frame bytes are finite carriers with different interpretations. Parser operations
-give input positions their token meaning and frame values their control-state meaning. Recursive JSON
-topology therefore exists in the transition relation followed by `_parse`, not in a recursive value
-type or a materialized syntax tree.
-
-The host owns the stdin allocation. The program admits its initialized prefix into a mal-owned
-`Buffer<UInt8>` before releasing that allocation; parsing uses only the resulting mal-owned storage.
-The selected process argument is likewise an ordinary program value at the entry point. Output rendering uses mal-owned `Symbol` values, then writes them in
-chunks through the fixed host buffer instead of treating its capacity as an output limit.
-
-Input is expected to be UTF-8. The example validates JSON token and structural syntax, including the
-shape of `\u` escapes, but does not decode Unicode escapes or reject unpaired UTF-16 surrogates.
-
-The example also demonstrates passing named functions as exhaustive continuations. In particular,
-`query[renderCount, renderDepth]` selects a renderer and returns it as an ordinary function value;
-`stats[renderer]` then applies that selected function.
-
-From the repository root in Nushell:
+The host allocation is released immediately after its initialized prefix is admitted into a
+mal-owned Buffer. Output is copied through a fixed staging area in chunks. Strings and escape syntax
+are validated, but `\u` escapes are not decoded and unpaired UTF-16 surrogates are not rejected.
 
 ```nu
 nix develop --command cargo run -p mal-compiler -- build examples/json-query/program.mal --output /tmp/mal-json-query
@@ -47,9 +24,4 @@ nix develop --command cargo run -p mal-compiler -- build examples/json-query/pro
 '{"name":"mal","items":[true,null,35]}' | /tmp/mal-json-query depth
 ```
 
-Expected output:
-
-```json
-{"ok":true,"count":6}
-{"ok":true,"depth":3}
-```
+The two results are `{"ok":true,"count":6}` and `{"ok":true,"depth":3}`.

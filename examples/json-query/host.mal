@@ -2,9 +2,7 @@ require "./host.c";
 require "./bytes.mal";
 
 extern InputAllocation;
-// StdinBytes fields: 0 allocation authority, 1 readable memory, 2 initialized byte length.
 StdinBytes :: (InputAllocation, Address, USize);
-// OutputBuffer fields: 0 process-lifetime writable memory, 1 nonzero byte capacity.
 OutputBuffer :: (Address, USize);
 
 // Reads standard input into storage retained until releaseInput receives its allocation authority.

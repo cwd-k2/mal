@@ -32,29 +32,25 @@ fn run(name: &str) -> std::process::Output {
     directory.run(executable)
 }
 
-fn assert_silent_success(name: &str) {
-    let output = run(name);
-    assert!(output.status.success(), "{name}: {}", output.status);
-    assert!(output.stdout.is_empty(), "{name}: unexpected stdout");
-    assert!(output.stderr.is_empty(), "{name}: unexpected stderr");
-}
-
 #[test]
-fn language_examples_build_and_run() {
-    for name in ["hash-map", "operation-family", "type-system"] {
-        assert_silent_success(name);
+fn focused_examples_build_and_run() {
+    for name in [
+        "generic-map",
+        "canonical-memory",
+        "numeric-semantics",
+        "indexed-graph",
+    ] {
+        let output = run(name);
+        assert!(output.status.success(), "{name}: {}", output.status);
+        assert!(output.stdout.is_empty(), "{name}: unexpected stdout");
+        assert!(output.stderr.is_empty(), "{name}: unexpected stderr");
     }
-
-    let output = run("buffer-handles");
-    assert_eq!(output.status.code(), Some(38));
-    assert!(output.stdout.is_empty());
-    assert!(output.stderr.is_empty());
 }
 
 #[test]
-fn generic_loop_example_runs_in_baseline_and_production_profiles() {
-    let directory = NativeFixture::new("generic-loop");
-    let program = example("generic-loop").join("program.mal");
+fn control_example_runs_in_baseline_and_production_profiles() {
+    let directory = NativeFixture::new("control-and-iteration");
+    let program = example("control-and-iteration").join("program.mal");
     for profile in ["baseline", "production"] {
         let executable = directory.join(profile);
         let output = directory.malc([
@@ -78,12 +74,10 @@ fn generic_loop_example_runs_in_baseline_and_production_profiles() {
 }
 
 #[test]
-fn output_examples_reproduce_host_results() {
+fn host_observable_examples_preserve_their_contracts() {
     for (name, expected) in [
-        ("print-and-closure", "1\n15\n-2147483648\n"),
-        ("numeric-conversion", "255\n0\n18446744073709551615\n"),
-        ("opaque-aggregate", "42\n"),
-        ("resizable-buffer", "al\nmal-shared-buffer\n"),
+        ("language-tour", "42\n15\n42\n-1\n-2147483648\n"),
+        ("managed-bytes", "9 bytes\n"),
     ] {
         let output = run(name);
         assert!(output.status.success(), "{name}: {}", output.status);
@@ -97,32 +91,10 @@ fn output_examples_reproduce_host_results() {
 }
 
 #[test]
-fn symbol_round_trip_example_copies_and_concatenates_bytes() {
-    let directory = NativeFixture::new("symbol-round-trip");
-    let program = example("symbol-round-trip").join("program.mal");
-    let checked = directory.malc([OsStr::new("check"), program.as_os_str()]);
-    assert!(
-        checked.status.success(),
-        "{}",
-        String::from_utf8_lossy(&checked.stderr)
-    );
+fn resource_error_example_copies_bytes_and_reports_open_errors() {
+    let directory = NativeFixture::new("resource-errors");
     let executable = directory.join("example");
-    build(&directory, "symbol-round-trip", &executable);
-    let output = directory.run(executable);
-    assert!(output.status.success());
-    assert_eq!(String::from_utf8(output.stdout).unwrap(), "9 bytes\n");
-}
-
-#[test]
-fn socket_packet_example_transfers_bytes_through_borrowed_memory() {
-    assert_silent_success("socket-packet");
-}
-
-#[test]
-fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
-    let directory = NativeFixture::new("recoverable-file");
-    let executable = directory.join("example");
-    build(&directory, "recoverable-file", &executable);
+    build(&directory, "resource-errors", &executable);
 
     let contents = (0..9000)
         .map(|value| (value % 251) as u8)
@@ -131,7 +103,7 @@ fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
     let output = Command::new(&executable)
         .arg(input)
         .output()
-        .expect("copy recoverable file");
+        .expect("copy resource-error input");
     assert!(output.status.success());
     assert_eq!(output.stdout, contents);
     assert!(output.stderr.is_empty());
@@ -139,7 +111,7 @@ fn recoverable_file_example_copies_bytes_and_reports_open_errors() {
     let output = Command::new(&executable)
         .arg(directory.join("missing.bin"))
         .output()
-        .expect("report missing recoverable file");
+        .expect("report missing resource-error input");
     assert_eq!(output.status.code(), Some(1));
     assert!(output.stdout.is_empty());
     assert!(String::from_utf8_lossy(&output.stderr).starts_with("file error: "));

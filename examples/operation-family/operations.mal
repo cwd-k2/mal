@@ -1,3 +1,0 @@
-equal<A> :: (A, A) -> Bool;
-zero<A> :: A;
-extent<F, A> :: F<A> -> USize;

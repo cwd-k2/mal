@@ -42,8 +42,8 @@ Buffer値をbindingや引数へ渡すcopyは同じmutable identityへのaliasを
 - `make`で作った新しいBufferへ`copy`で全rowを代入し、独立したsnapshotを返す。
 
 rowを並べ替えるoperationは、carrier相対の全座標も同時にremapしなければならない。要素追加だけなら既存indexは安定する。
-この性質とdomain aliasを使う実行例は[`buffer-tree`](../../examples/buffer-tree/README.md)、relationを複数の方法で解釈する例は
-[`relation-views`](../../examples/relation-views/README.md)を参照する。
+この性質を使って複数のcolumnをnode座標とedge座標で結合する実行例は
+[`indexed-graph`](../../examples/indexed-graph/README.md)を参照する。
 
 外部resourceに属するnode、recoverable allocation、個別releaseが必要な構造には`Address`とextern contractを使う。
 その場合、malはAddressのreferentを知らず、`from<T>`と`buffer.into`によるcopy可能な範囲だけをC hostとのcopy primitiveが提供する。

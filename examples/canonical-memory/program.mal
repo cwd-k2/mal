@@ -1,0 +1,35 @@
+require "./host.c";
+
+// The address is deliberately unaligned, so the host must use generated canonical-memory helpers.
+extern unalignedStorage :: Unit -> Address;
+extern incrementSample :: Address -> Unit;
+
+SampleRecord :: (Int64, UInt8);
+
+main :: Unit -> Int32 := () -> {
+    base := unalignedStorage();
+
+    samples := make<SampleRecord>(2usize);
+    samples.new((7i64, 9u8));
+    samples.new((40i64, 1u8));
+    samples.into(base, 0usize, 2usize);
+
+    firstValue := samples.get(0usize);
+    displaced := samples.get(1usize);
+    samples.put(0usize, displaced);
+    samples.put(1usize, firstValue);
+    samples.into(base, 0usize, 2usize);
+
+    incrementSample(base);
+    result := from<SampleRecord>(base, 0usize, 2usize);
+    incremented := result.get(0usize);
+    moved := result.get(1usize);
+    (number, small) := incremented;
+    (movedNumber, movedSmall) := moved;
+    if (number == 41i64
+        && small == 2u8
+        && movedNumber == 7i64
+        && movedSmall == 9u8)
+    then 0
+    else 1;
+};

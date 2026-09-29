@@ -95,10 +95,10 @@ dynamic continuationはsource valueとして構成、capture、clone、resumeで
 
 子から戻った後にも処理を行うtree traversal、入力のnesting自体を表す構造再帰、resource cleanupの順序を表す再帰は、
 単純な反復へ置き換えない。明示work stackなど別の表現が必要なら、反復combinatorの導入とは別の設計判断として扱う。
-実行例は[`generic-loop`](../../examples/generic-loop/)、parser state machineは
-[`json-query`](../../examples/json-query/)、処理途中の局所利用は
-[`resizable-buffer`](../../examples/resizable-buffer/)、carrier走査とrelation解釈の分離は
-[`relation-views`](../../examples/relation-views/)に置く。
+実行例は[`control-and-iteration`](../../examples/control-and-iteration/)、parser state machineは
+[`json-query`](../../examples/json-query/)、managed storageのaliasとhost transferは
+[`managed-bytes`](../../examples/managed-bytes/)、carrier走査とrelation解釈の分離は
+[`indexed-graph`](../../examples/indexed-graph/)に置く。
 
 ## lambdaの中断とredex
 
