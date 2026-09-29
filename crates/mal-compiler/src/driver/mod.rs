@@ -15,12 +15,16 @@ pub use build::{OptimizationMode, ToolchainOptions, build, emit_atcoder};
 
 static NEXT_TEMPORARY: AtomicU64 = AtomicU64::new(0);
 
-/// Loads the program rooted at `source_path` and type-checks it. Nothing is written.
+/// Loads the program rooted at `source_path`, type-checks it, and, when the root declares `main`, specializes it so that
+/// every source error a build would report is reported here. Nothing is written.
 pub fn check(source_path: &Path) -> Result<(), Error> {
     let graph = graph::load(source_path)?;
-    mal_frontend::analysis::check_graph(&graph)
-        .map(|_| ())
-        .map_err(|error| Error::diagnostic(error, &graph))
+    let checked = mal_frontend::analysis::check_graph(&graph)
+        .map_err(|error| Error::diagnostic(error, &graph))?;
+    match mal_frontend::analysis::specialization_error(&checked) {
+        Some(error) => Err(Error::diagnostic(error, &graph)),
+        None => Ok(()),
+    }
 }
 
 /// Returns the C header for the program rooted at `source_path`, which needs no `main`.

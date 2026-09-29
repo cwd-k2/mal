@@ -32,6 +32,13 @@ pub fn analyze_graph(graph: &SourceGraph) -> Result<Analysis, Diagnostic> {
     Ok(Analysis { resolved, checked })
 }
 
+/// The source error that specialization reports for an executable program, such as a reached operation key without an
+/// implementation. A program without `main` is a library and is not specialized, so it has none.
+pub fn specialization_error(checked: &crate::check::ast::Program) -> Option<Diagnostic> {
+    checked.entry?;
+    crate::check::specialize(checked.clone()).err()
+}
+
 /// `analyze` reduced to the checked program. A program without `main` checks; only specialization needs an entry point.
 pub fn check(source: &SourceFile) -> Result<crate::check::ast::Program, Diagnostic> {
     analyze(source).map(|analysis| analysis.checked)

@@ -54,7 +54,10 @@ malc emit atcoder source.mal -o Main.cpp
 
 ### `check`
 
-sourceを型検査する。成功時には生成物を作らない。
+sourceを型検査する。root fileが`main`を宣言する実行可能programでは、`build`と同じくspecializationまで行い、到達したoperation
+keyのimplementationがないことなどspecializationで分かるsource errorも報告する。`main`のないlibrary fileは型検査までとする。
+language serverのdiagnosticも同じ範囲を報告する。成功時には生成物を作らない。設計理由は
+[D091](../history/decisions/active/D091.md)に記録する。
 
 ### `emit header`と`emit host`
 

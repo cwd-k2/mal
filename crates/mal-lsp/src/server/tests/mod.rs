@@ -103,6 +103,29 @@ fn publishes_diagnostics_once_per_document_version() {
 }
 
 #[test]
+fn reports_specialization_errors_and_keeps_semantic_queries() {
+    let text = "zero<A> :: A;\nzero<Int32> :: Int32 := 0i32;\nmain :: Unit -> Int32 := () -> (zero<Int64>).i32;\n";
+    let uri = "file:///missing-implementation.mal";
+    let mut server = Server::new();
+    let opened = server.handle(did_open(uri, text));
+
+    assert!(
+        opened.messages[0]["params"]["diagnostics"][0]["message"]
+            .as_str()
+            .is_some_and(|message| message.starts_with("missing operation implementation"))
+    );
+    let hover = request_at(
+        &mut server,
+        7,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("main").unwrap(),
+    );
+    assert_ne!(hover["result"], Value::Null);
+}
+
+#[test]
 fn returns_no_semantic_result_while_the_current_source_is_invalid() {
     let text = "good :: Int32 := 1;\nbad :: Int32 := ;\n";
     let uri = "file:///invalid-semantic.mal";

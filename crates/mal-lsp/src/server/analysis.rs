@@ -79,24 +79,21 @@ impl Server {
         match mal_syntax::graph::load_with_overlays(&path, &document.text, &overlays) {
             Ok(graph) => match mal_frontend::analysis::analyze_graph(&graph) {
                 Ok(analysis) => {
+                    // The program type-checks, so editor queries stay available beside a specialization error.
+                    let diagnostics =
+                        mal_frontend::analysis::specialization_error(&analysis.checked)
+                            .map(|diagnostic| graph_diagnostic(&graph, diagnostic))
+                            .into_iter()
+                            .collect();
                     document.analysis = AnalysisState::Ready {
                         graph: Some(graph),
                         analysis,
                         semantic: None,
                     };
-                    Vec::new()
+                    diagnostics
                 }
                 Err(diagnostic) => {
-                    let source = diagnostic
-                        .primary
-                        .as_ref()
-                        .and_then(|label| graph.source(label.span.file()))
-                        .unwrap_or_else(|| graph.root_source());
-                    let diagnostic = if source.id() == graph.root() {
-                        lsp_diagnostic(source, diagnostic)
-                    } else {
-                        lsp_diagnostic_at_root(source, diagnostic)
-                    };
+                    let diagnostic = graph_diagnostic(&graph, diagnostic);
                     document.analysis = AnalysisState::Failed { graph: Some(graph) };
                     vec![diagnostic]
                 }
@@ -159,12 +156,16 @@ impl Document {
         let source = self.source(uri);
         match mal_frontend::analysis::analyze(&source) {
             Ok(analysis) => {
+                let diagnostics = mal_frontend::analysis::specialization_error(&analysis.checked)
+                    .map(|diagnostic| lsp_diagnostic(&source, diagnostic))
+                    .into_iter()
+                    .collect();
                 self.analysis = AnalysisState::Ready {
                     graph: None,
                     analysis,
                     semantic: None,
                 };
-                Vec::new()
+                diagnostics
             }
             Err(diagnostic) => {
                 self.analysis = AnalysisState::Failed { graph: None };
@@ -241,6 +242,23 @@ fn lsp_diagnostic(source: &SourceFile, diagnostic: mal_syntax::diagnostic::Diagn
         message.push_str(&note);
     }
     json!({"range": range, "severity": 1, "source": "malc", "message": message})
+}
+
+/// Converts a graph diagnostic for the root's URI: at its own range in the root, otherwise at the root's zero range.
+fn graph_diagnostic(
+    graph: &mal_syntax::source::SourceGraph,
+    diagnostic: mal_syntax::diagnostic::Diagnostic,
+) -> Value {
+    let source = diagnostic
+        .primary
+        .as_ref()
+        .and_then(|label| graph.source(label.span.file()))
+        .unwrap_or_else(|| graph.root_source());
+    if source.id() == graph.root() {
+        lsp_diagnostic(source, diagnostic)
+    } else {
+        lsp_diagnostic_at_root(source, diagnostic)
+    }
 }
 
 fn lsp_diagnostic_at_root(

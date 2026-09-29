@@ -70,6 +70,24 @@ fn allows_frontend_analysis_without_an_entry_but_rejects_executable_generation()
 }
 
 #[test]
+fn checks_an_executable_through_specialization() {
+    let directory = NativeFixture::new("driver-check-specialization");
+    let source = directory.write(
+        "program.mal",
+        "zero<A> :: A;\nzero<Int32> :: Int32 := 0i32;\nmain :: Unit -> Int32 := () -> (zero<Int64>).i32;\n",
+    );
+    let output = directory.malc([OsStr::new("check"), source.as_os_str()]);
+
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("error: missing operation implementation"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("program.mal:3:"), "{stderr}");
+}
+
+#[test]
 fn rejects_empty_paths_and_non_source_extensions() {
     let directory = NativeFixture::new("driver-invalid-requirement");
     let empty = directory.write("empty.mal", "require \"\";\n");
