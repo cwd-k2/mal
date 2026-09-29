@@ -23,12 +23,13 @@ external operationは宣言によって通常のtop-level function valueとし�
 値としてbindingしたり引数やresultとして受け渡したりできる。
 
 ```mal
-main :: Unit -> Unit := () -> {
+main :: Unit -> Int32 := () -> {
     (mem, address) := alloc(5bytes);
     bytes := *"hello";
     bytes.into(address, 0usize, #bytes);
     output(address, #bytes);
     release(mem);
+    0
 };
 ```
 

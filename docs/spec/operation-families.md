@@ -35,7 +35,7 @@ termだけを認め、constructor pattern variableを拒否する。kind `Type`�
 Pair<A> :: (A, A);
 first<F, A> :: F<A> -> A;
 first<Pair, Int32> :: Pair<Int32> -> Int32 := (left, _) -> left;
-first<Pair, A> :: Pair<A> -> A := (left, _) -> left;
+first<Buffer, A> :: Buffer<A> -> A := (values) -> values.get(0usize);
 ```
 
 declarationとimplementationはsource orderに従う。implementationは同じfileで先に宣言されたfamily、またはそのfileが直接

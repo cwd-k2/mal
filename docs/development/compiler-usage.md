@@ -108,7 +108,8 @@ requireされたhost C sourceと同じ`clang`でcompile、linkする。extern ca
 C ABIへ変換する。ambient `CC`は参照せず、compiler自体を差し替えるCLIはない。
 
 `baseline`はoptionalなcompiler techniqueを使わず、Clangへ`-O0`を渡してLTO unitを作らない。Nix toolchainがambientに指定する
-`_FORTIFY_SOURCE`の`-O0` warningだけは`-Wno-error=#warnings`でerrorから外す。その他のwarningは`-Werror`のままである。
+`_FORTIFY_SOURCE`の`-O0` warningだけは`-Wno-error=#warnings`でerrorから外す。その他のwarningは`-Werror`のままであり、
+requireされたhost C sourceも同じ`-std=c11 -Wall -Wextra -Werror -pedantic`でcompileするため、host codeのwarningもbuildを失敗させる。
 
 既定の`production`は各artifactを`-O2 -flto`でcompileし、generated LLVM module、C shim、C11 runtime、requireされたhost C sourceを
 一つのlink-time optimization unitにする。これはprogram固有のLLVM IRとprogram非依存のC mechanismのsource責務を保ったまま、境界上の

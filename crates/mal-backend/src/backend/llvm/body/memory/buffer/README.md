@@ -13,7 +13,7 @@ The implementation is split as follows:
 | File | Responsibility |
 |---|---|
 | `mod.rs` | operation dispatch, element-storage classification, runtime calls, and direct element access |
-| `address.rs` | snapshot conversion between `Buffer<UInt8>` and `Symbol` |
+| `address.rs` | `from` and `into` copies between a `Buffer` and C host storage |
 | `managed.rs` | one numbered retain/release callback pair per managed element type |
 
 `new` and `fill` pass an element through the entry-block `%mal_buffer_value` scratch allocation sized in

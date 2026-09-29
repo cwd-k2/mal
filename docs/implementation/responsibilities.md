@@ -58,7 +58,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `resolve` | name identity、scope、lexical captureの推論 |
 | `types` / `check` | principal kind inference、canonical type-level termの正規化、typed AST、rigid constructor argumentと通常型の局所的な型argument推論、type ruleのvalidation、entry bindingのidentityとadmitted parameter form |
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
-| `call_pattern` | closure-converted programを書き換える唯一の最適化。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、複製したbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
+| `call_pattern` | closure-converted programを書き換える唯一のstage。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、続いてknown parameterを通るclosureと直接呼ぶlocal closureのcaptureをparameterへlambda liftする。複製や書換えで作るbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
 | `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをtarget layoutに依存しない実行計画として構成 |
 | `backend/c` | file別`ProgramInterface`からpublic C file header、build用umbrella header、host stubへの変換 |

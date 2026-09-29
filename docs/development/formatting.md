@@ -42,7 +42,7 @@ command grammarのusage errorが`2`である。
 - receiver-first applicationとconversionを含むpostfix chainのsuffix直前にsource改行があれば、
   一段深いchain継続として保つ。
 
-line commentのcontentsと順序を保持する。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、
+line commentのcontentsと順序を保持し、末尾のspaceだけを取り除く。tokenと同じsource lineにあるcommentはそのtokenの後へ残し、
 単独行のcommentは次のtokenと同じindentに置く。top-levelの単独行commentは直後のitemと同じgroupに置く。
 上記の意味を持つ改行以外のwhitespaceと空行数は保持しない。
 
