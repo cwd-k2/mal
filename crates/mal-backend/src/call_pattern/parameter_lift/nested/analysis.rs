@@ -73,22 +73,31 @@ fn matching_creators(
 
 fn capture_aliases(function: &crate::closure::ast::Function, capture: usize) -> HashSet<ValueId> {
     let mut aliases = HashSet::new();
-    let mut changed = true;
-    while changed {
-        changed = false;
-        for_function_block(function, &mut |block| {
-            for item in &block.bindings {
-                let Pattern::Binding { id, .. } = item.pattern else {
-                    continue;
-                };
-                let Operation::Atom(atom) = &item.operation else {
-                    continue;
-                };
-                let source = atom.kind == AtomKind::Reference(Reference::Capture(capture))
-                    || atom.binding().is_some_and(|id| aliases.contains(&id));
-                changed |= source && aliases.insert(id);
+    let mut pending = Vec::new();
+    let mut dependents = HashMap::<ValueId, Vec<ValueId>>::new();
+    for_function_block(function, &mut |block| {
+        for item in &block.bindings {
+            let Pattern::Binding { id, .. } = item.pattern else {
+                continue;
+            };
+            let Operation::Atom(atom) = &item.operation else {
+                continue;
+            };
+            if atom.kind == AtomKind::Reference(Reference::Capture(capture)) {
+                if aliases.insert(id) {
+                    pending.push(id);
+                }
+            } else if let Some(source) = atom.binding() {
+                dependents.entry(source).or_default().push(id);
             }
-        });
+        }
+    });
+    while let Some(source) = pending.pop() {
+        for alias in dependents.remove(&source).unwrap_or_default() {
+            if aliases.insert(alias) {
+                pending.push(alias);
+            }
+        }
     }
     aliases
 }
