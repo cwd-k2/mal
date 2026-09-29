@@ -330,3 +330,5 @@ fn dispatches_multiple_typed_self_continuation_frames_in_llvm() {
 
 #[path = "frames/frame_native.rs"]
 mod frame_native;
+#[path = "frames/native_stack.rs"]
+mod native_stack;

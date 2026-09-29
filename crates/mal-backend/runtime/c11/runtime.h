@@ -53,7 +53,7 @@ void *mal_control_reserve_frame(
 );
 void *mal_control_storage(MalContext *context);
 size_t mal_control_capacity(MalContext *context);
-/* Records the native stack budget of a program run, measured from the process entry. */
+/* Records a native stack limit within both the program-entry budget and the current thread's mapped stack. */
 void mal_native_stack_begin(MalContext *context);
 /* Whether the native stack is used up, so a recursive call must push a frame instead of nesting a native call. */
 uint8_t mal_native_stack_is_deep(MalContext *context, void *stack_address);

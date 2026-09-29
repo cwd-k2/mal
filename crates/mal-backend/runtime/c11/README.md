@@ -7,7 +7,7 @@ Program-specific behavior, such as frame layout, resume targets, and owner trans
 | File | Responsibility |
 |---|---|
 | `core.c` | closure environment allocation, retain and release dispatch, and the program-independent trap terminal |
-| `control.c` | growable control byte storage: capacity, growth, release, and storage access for the internal ABI |
+| `control.c` | growable control byte storage and the mapped-stack-aware bound for optional native recursion |
 | `bytes.c`, `bytes_internal.h` | byte owner storage policy, and the header layout shared with static owners emitted by LLVM |
 | `buffer.c`, `buffer_internal.h` | `Buffer` storage: allocation, growth, `new`, and element ownership callbacks for managed elements |
 | `buffer_range.c` | `fill` and `copy`, which extend the count and write a range, including overlapping managed copies |
