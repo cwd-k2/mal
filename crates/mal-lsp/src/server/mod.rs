@@ -192,8 +192,8 @@ impl Server {
                             published_diagnostics: None,
                         },
                     );
-                    self.invalidate_analyses();
-                    self.publish_workspace_diagnostics(&item.uri, &mut messages);
+                    self.invalidate_analyses_reading(&item.uri);
+                    self.publish_workspace_diagnostics(Some(&item.uri), &mut messages);
                 }
             }
             (Some("textDocument/didChange"), None) => {
@@ -204,25 +204,24 @@ impl Server {
                 {
                     document.version = params.text_document.version;
                     document.text.clone_from(&text.text);
-                    self.invalidate_analyses();
-                    self.publish_workspace_diagnostics(&params.text_document.uri, &mut messages);
+                    self.invalidate_analyses_reading(&params.text_document.uri);
+                    self.publish_workspace_diagnostics(
+                        Some(&params.text_document.uri),
+                        &mut messages,
+                    );
                 }
             }
             (Some("textDocument/didClose"), None) => {
                 if let Ok(params) = serde_json::from_value::<DidCloseParams>(params) {
+                    // Documents that read the closed buffer now read the file on disk instead.
+                    self.invalidate_analyses_reading(&params.text_document.uri);
                     self.documents.remove(&params.text_document.uri);
                     messages.push(publish_diagnostics(
                         &params.text_document.uri,
                         None,
                         Vec::new(),
                     ));
-                    self.invalidate_analyses();
-                    let remaining = self.documents.keys().cloned().collect::<Vec<_>>();
-                    for uri in remaining {
-                        if let Some(message) = self.diagnostics(&uri) {
-                            messages.push(message);
-                        }
-                    }
+                    self.publish_workspace_diagnostics(None, &mut messages);
                 }
             }
             _ => {}

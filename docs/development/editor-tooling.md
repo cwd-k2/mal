@@ -123,7 +123,8 @@ module責務は[`crates/mal-lsp/README.md`](../../crates/mal-lsp/README.md)を�
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
 document symbol、completion、semantic token、inlay hintを提供する。semantic requestはsource全体がparse、resolve、checkに
 成功したときに利用できる。compiler diagnosticの範囲は`malc check`と同じであり、`main`を持つprogramのspecialization errorも
-報告するが、semantic requestは止めない。`require`を含むsourceでは同じsource graphを解析し、definition、references、renameは
+報告するが、semantic requestは止めない。documentを開く、変更する、閉じるたびに、そのdocumentと、直前の解析でそのfileを
+source graphから読んだopen document、およびsource graphを読み込めなかったopen documentだけを再解析する。`require`を含むsourceでは同じsource graphを解析し、definition、references、renameは
 `.mal` file境界を跨ぐ。document symbolとsemantic tokenはrequest対象fileだけを返し、completionはそのfile自身の名前と
 直接requireしたfileの公開名を返す。
 renameは新しい名前が元と同じ種類（valueまたはtype）の一つのidentifierとしてlexできる場合だけ編集を返し、keyword、空白を含む名前、

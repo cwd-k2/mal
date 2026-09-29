@@ -168,3 +168,48 @@ fn does_not_republish_unchanged_diagnostics_for_open_dependents() {
     assert_eq!(changed.messages[0]["params"]["version"], 2);
     assert_eq!(changed.messages[0]["params"]["diagnostics"], json!([]));
 }
+
+#[test]
+fn reanalyzes_only_documents_that_read_the_changed_file() {
+    let files = TestFiles::new();
+    let root_text = "require \"library.mal\";\nanswer :: Unit -> Int32 := () -> publicValue;\n";
+    let root_path = files.write("program.mal", root_text);
+    let library_path = files.write("library.mal", "publicValue :: Int32 := 42;\n");
+    let other_path = files.write("other.mal", "alone :: Int32 := 1;\n");
+    let root_uri = path_to_uri(&root_path);
+    let library_uri = path_to_uri(&library_path);
+    let other_uri = path_to_uri(&other_path);
+    let mut server = Server::new();
+    server.handle(did_open(&root_uri, root_text));
+    server.handle(did_open(&other_uri, "alone :: Int32 := 1;\n"));
+    server.handle(did_open(&library_uri, "publicValue :: Int32 := 42;\n"));
+    for (id, (uri, text)) in [
+        (&root_uri, root_text),
+        (&other_uri, "alone :: Int32 := 1;\n"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let name = text.find("answer").or_else(|| text.find("alone")).unwrap();
+        request_at(
+            &mut server,
+            id as i64,
+            "textDocument/hover",
+            uri,
+            text,
+            name,
+        );
+        assert!(server.documents[uri].has_semantic());
+    }
+
+    server.handle(did_change(&library_uri, 2, "publicValue :: Int32 := 43;\n"));
+
+    assert!(
+        !server.documents[&root_uri].has_semantic(),
+        "the requiring document is analyzed again"
+    );
+    assert!(
+        server.documents[&other_uri].has_semantic(),
+        "an unrelated document keeps its analysis"
+    );
+}

@@ -32,28 +32,50 @@ impl Server {
         ))
     }
 
-    pub(super) fn invalidate_analyses(&mut self) {
-        for document in self.documents.values_mut() {
-            document.analysis = AnalysisState::Stale;
+    /// Marks stale the document at `changed` and every open document whose last analysis read that file. A document
+    /// whose graph could not be loaded may come to depend on it, so it is marked stale too.
+    pub(super) fn invalidate_analyses_reading(&mut self, changed: &str) {
+        let path = uri_to_path(changed).map(|path| std::fs::canonicalize(&path).unwrap_or(path));
+        for (uri, document) in &mut self.documents {
+            let reads = uri == changed
+                || match &document.analysis {
+                    AnalysisState::Stale | AnalysisState::Failed { graph: None } => true,
+                    AnalysisState::Ready { graph: None, .. } => false,
+                    AnalysisState::Failed { graph: Some(graph) }
+                    | AnalysisState::Ready {
+                        graph: Some(graph), ..
+                    } => path
+                        .as_ref()
+                        .is_none_or(|path| graph.files().iter().any(|file| file.path() == path)),
+                };
+            if reads {
+                document.analysis = AnalysisState::Stale;
+            }
         }
     }
 
+    /// Publishes changed diagnostics for `primary`, when it is open, and then for every other stale document.
     pub(super) fn publish_workspace_diagnostics(
         &mut self,
-        primary: &str,
+        primary: Option<&str>,
         messages: &mut Vec<Value>,
     ) {
-        if let Some(message) = self.diagnostics(primary) {
+        if let Some(primary) = primary
+            && self.documents.contains_key(primary)
+            && let Some(message) = self.diagnostics(primary)
+        {
             messages.push(message);
         }
-        let mut remaining = self
+        let mut stale = self
             .documents
-            .keys()
-            .filter(|uri| uri.as_str() != primary)
-            .cloned()
+            .iter()
+            .filter(|(uri, document)| {
+                Some(uri.as_str()) != primary && matches!(document.analysis, AnalysisState::Stale)
+            })
+            .map(|(uri, _)| uri.clone())
             .collect::<Vec<_>>();
-        remaining.sort();
-        for uri in remaining {
+        stale.sort();
+        for uri in stale {
             if let Some(message) = self.diagnostics(&uri) {
                 messages.push(message);
             }
