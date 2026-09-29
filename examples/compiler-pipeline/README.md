@@ -12,7 +12,9 @@ straight-line source uses a tail edge.
 
 `host.mal` owns a bounded process-lifetime transfer area. The C host reads source into one external
 allocation, mal admits it and releases the handle, and later output is copied through the transfer
-area in chunks. File and output failures remain typed sums without exposing platform syscall shapes.
+area in chunks. Source paths must be shorter than the 4,096-byte transfer capacity; source and output
+sizes are not limited by that staging area. File and output failures remain typed sums without
+exposing platform syscall shapes.
 
 > [!NOTE]
 > External source storage is authority only while reading. Compilation starts from an immutable
