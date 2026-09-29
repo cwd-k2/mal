@@ -133,9 +133,9 @@ impl Resolver {
                 parameters,
                 value,
             } => {
-                let (bindings, shadowed) = self.push_type_parameters(parameters)?;
+                let bindings = self.push_type_parameters(parameters)?;
                 let resolved = self.resolve_type(value);
-                self.pop_type_parameters(&bindings, shadowed);
+                self.pop_type_parameters(&bindings);
                 ast::TopItem::GenericTypeAlias {
                     binding: self.type_binding(name)?,
                     parameters: bindings,
@@ -147,9 +147,9 @@ impl Resolver {
                 parameters,
                 representation,
             } => {
-                let (bindings, shadowed) = self.push_type_parameters(parameters)?;
+                let bindings = self.push_type_parameters(parameters)?;
                 let resolved = self.resolve_type(representation);
-                self.pop_type_parameters(&bindings, shadowed);
+                self.pop_type_parameters(&bindings);
                 ast::TopItem::OpaqueType {
                     binding: self.type_binding(name)?,
                     parameters: bindings,
@@ -187,9 +187,9 @@ impl Resolver {
                     self.operation_families.insert(binding.id);
                     self.operation_parameters
                         .insert(binding.id, parameters.clone());
-                    let (parameter_bindings, shadowed) = self.push_type_parameters(&parameters)?;
+                    let parameter_bindings = self.push_type_parameters(&parameters)?;
                     let annotation = self.resolve_type(annotation);
-                    self.pop_type_parameters(&parameter_bindings, shadowed);
+                    self.pop_type_parameters(&parameter_bindings);
                     ast::TopItem::OperationFamily {
                         binding,
                         parameters: parameter_bindings,
@@ -207,8 +207,7 @@ impl Resolver {
                                 .any(|argument| type_mentions(argument, &parameter.text))
                         })
                         .collect::<Vec<_>>();
-                    let (parameter_bindings, shadowed) =
-                        self.push_type_parameters(&parameter_names)?;
+                    let parameter_bindings = self.push_type_parameters(&parameter_names)?;
                     let resolved = (|| {
                         let arguments = arguments
                             .iter()
@@ -229,7 +228,7 @@ impl Resolver {
                         };
                         Ok((arguments, annotation, value))
                     })();
-                    self.pop_type_parameters(&parameter_bindings, shadowed);
+                    self.pop_type_parameters(&parameter_bindings);
                     let (arguments, annotation, value) = resolved?;
                     ast::TopItem::OperationImplementation {
                         family: ast::ValueReference {
@@ -244,7 +243,7 @@ impl Resolver {
                 } else {
                     let parameters = generic_parameter_names(arguments)?;
                     let binding = self.declare_value(name, ValueOwner::TopLevel)?;
-                    let (parameter_bindings, shadowed) = self.push_type_parameters(&parameters)?;
+                    let parameter_bindings = self.push_type_parameters(&parameters)?;
                     let resolved = (|| {
                         let annotation = self.resolve_type(annotation)?;
                         let value = value.as_ref().expect("generic binding has an initializer");
@@ -261,7 +260,7 @@ impl Resolver {
                         };
                         Ok((annotation, value))
                     })();
-                    self.pop_type_parameters(&parameter_bindings, shadowed);
+                    self.pop_type_parameters(&parameter_bindings);
                     let (annotation, value) = resolved?;
                     ast::TopItem::GenericBinding {
                         binding,
@@ -319,40 +318,42 @@ impl Resolver {
         Ok(mal_syntax::ast::Node::new(kind, ty.span))
     }
 
+    /// Brings the parameters of one declaration into type scope. A parameter may not reuse the name of a type, so
+    /// every type name in a declaration means one thing.
     fn push_type_parameters(
         &mut self,
         parameters: &[mal_syntax::ast::Name],
-    ) -> Result<(Vec<TypeBinding>, Vec<Option<TypeBinding>>), Diagnostic> {
+    ) -> Result<Vec<TypeBinding>, Diagnostic> {
         let mut bindings = Vec::with_capacity(parameters.len());
-        let mut shadowed = Vec::with_capacity(parameters.len());
         let mut names = std::collections::HashSet::new();
         for name in parameters {
             if !names.insert(name.text.clone()) {
-                self.pop_type_parameters(&bindings, shadowed);
+                self.pop_type_parameters(&bindings);
                 return Err(Diagnostic::error("duplicate type parameter")
                     .with_primary(name.span, "this parameter is declared more than once"));
+            }
+            if self.types.contains_key(&name.text) {
+                self.pop_type_parameters(&bindings);
+                return Err(Diagnostic::error(format!(
+                    "type parameter `{}` has the name of a type",
+                    name.text
+                ))
+                .with_primary(name.span, "rename this parameter; it would hide the type"));
             }
             let binding = TypeBinding {
                 id: ast::TypeId(self.next_type),
                 name: name.clone(),
             };
             self.next_type += 1;
-            shadowed.push(self.types.insert(name.text.clone(), binding.clone()));
+            self.types.insert(name.text.clone(), binding.clone());
             bindings.push(binding);
         }
-        Ok((bindings, shadowed))
+        Ok(bindings)
     }
 
-    fn pop_type_parameters(
-        &mut self,
-        parameters: &[TypeBinding],
-        shadowed: Vec<Option<TypeBinding>>,
-    ) {
-        for (parameter, previous) in parameters.iter().zip(shadowed) {
+    fn pop_type_parameters(&mut self, parameters: &[TypeBinding]) {
+        for parameter in parameters {
             self.types.remove(&parameter.name.text);
-            if let Some(previous) = previous {
-                self.types.insert(parameter.name.text.clone(), previous);
-            }
         }
     }
 

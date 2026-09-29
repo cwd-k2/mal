@@ -115,3 +115,22 @@ fn resolves_every_predefined_fixed_width_integer_type() {
         ]
     );
 }
+
+#[test]
+fn type_parameters_cannot_reuse_type_names() {
+    for text in [
+        "narrow<Int32> :: Int32 -> Int32 := (value) -> value;",
+        "wrap<Buffer> :: Buffer -> Unit := (_) -> ();",
+        "first<Point> :: Point -> Point := (value) -> value;\nPoint :: (Int32, Int32);",
+        "opaque Box<Symbol> :: Symbol;",
+        "size<USize> :: USize -> Int32;",
+    ] {
+        let error = resolve_error(text);
+        assert!(
+            error.message.starts_with("type parameter `")
+                && error.message.ends_with("` has the name of a type"),
+            "input: {text}: {}",
+            error.message
+        );
+    }
+}

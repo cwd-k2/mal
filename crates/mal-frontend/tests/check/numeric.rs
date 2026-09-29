@@ -291,28 +291,6 @@ fn checks_conversions_between_integer_and_float_types() {
 }
 
 #[test]
-fn conversion_suffixes_are_not_captured_by_type_parameters() {
-    let program = check_ok(
-        "narrow<Int32> :: (Int32, Int64) -> Int64 := (_, wide) -> wide.i32.i64;
-\
-         main :: Unit -> Int32 := () -> narrow(1u8, 7i64).i32;",
-    );
-    let TopItem::GenericBinding(binding) = &program.items[0].kind else {
-        panic!("expected a generic binding");
-    };
-    let ExpressionKind::Lambda(lambda) = &binding.value.kind else {
-        panic!("expected a lambda initializer");
-    };
-    let check::ast::Completion::Value(result) = lambda.body.result.as_ref() else {
-        panic!("expected a value result");
-    };
-    let ExpressionKind::NumericConversion { value } = &result.kind else {
-        panic!("expected the outer conversion");
-    };
-    assert_eq!(value.ty, Type::Int32);
-}
-
-#[test]
 fn checks_target_quantity_literals_arithmetic_and_conversions() {
     check_ok(
         "scale :: (USize, ByteSize) -> ByteSize := (count, size) -> count * size;\n\

@@ -32,6 +32,10 @@ implementation候補やspecialization済みinstanceを推論の情報源にし�
 `Buffer<A>` resultから`A`を推論でき、期待型がなければ`make<A>`、`from<A>`と明示する。
 [AddressとBuffer](memory.md#buffer)に各operationの型を定める。
 
+型parameterの名前は、そのdeclarationから見える型名、すなわちpredefined型、直接requireしたfileから導入した型、同じfileの
+top-level型と同じであってはならない。型parameterは型名をshadowしないため、declaration内の型名は常に一つのものを指す。
+設計理由は[D089](../history/decisions/active/D089.md)に記録する。
+
 型parameterはkind inferenceにより通常のsource typeまたはtype constructorを表す。kind annotation、user-defined kind、bound、
 constraintはない。generic aliasはtransparentであり、型argumentを
 代入して展開したcanonical typeと同じ型になる。alias右辺のtype expressionに直接現れないparameterはphantomであり、
