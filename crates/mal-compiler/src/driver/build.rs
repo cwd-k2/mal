@@ -271,10 +271,13 @@ fn render_atcoder_submission(graph: &SourceGraph, assembly: &str) -> String {
             "// ---- mal module: {} ----",
             display_path.display()
         );
-        for line in source.text().split('\n') {
+        // Source lines end at CR, LF, or CRLF as the lexer defines them; Clang also ends a comment at a lone CR.
+        let mut number = 1;
+        while let Some(line) = source.line(number) {
             submission.push_str("// ");
-            submission.push_str(line.strip_suffix('\r').unwrap_or(line));
+            submission.push_str(line.text);
             submission.push('\n');
+            number += 1;
         }
     }
     submission.push_str("// ---- generated x86_64 assembly ----\n");
@@ -297,6 +300,28 @@ fn render_atcoder_submission(graph: &SourceGraph, assembly: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::C_COMPILER_REQUIRED_OPTIONS;
+    use mal_syntax::source::{FileId, SourceFile, SourceGraph};
+
+    #[test]
+    fn comments_out_every_source_line_whatever_its_line_ending() {
+        let root = FileId::new(0);
+        let graph = SourceGraph::new(
+            root,
+            vec![SourceFile::new(
+                root,
+                "/tmp/program.mal",
+                "a\rb\r\nc\n".into(),
+            )],
+            vec![Vec::new()],
+            Vec::new(),
+        );
+
+        let submission = super::render_atcoder_submission(&graph, "nop");
+
+        assert!(submission.contains("// a\n// b\n// c\n"), "{submission}");
+        assert!(!submission.contains('\r'), "{submission}");
+    }
+
     #[test]
     fn compiler_required_options_only_own_admission_and_semantics() {
         assert_eq!(
