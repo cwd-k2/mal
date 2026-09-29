@@ -611,3 +611,22 @@ fn gives_each_generic_instance_binders_no_other_instance_shares() {
         "instances must not share parameter binder identities"
     );
 }
+
+#[test]
+fn nested_inferred_generic_calls_check_each_argument_once() {
+    // Each level used to re-check its argument once per inference round, so 20 levels took hours.
+    let depth = 20;
+    let identity = format!(
+        "id<A> :: A -> A := (x) -> x;\nmain :: Unit -> Int32 := () -> {}1i32{};",
+        "id(".repeat(depth),
+        ")".repeat(depth)
+    );
+    check_ok(&identity);
+
+    let lambdas = format!(
+        "apply<A, B> :: (A -> B, A) -> B := (f, x) -> f(x);\nmain :: Unit -> Int32 := () -> {}x{};",
+        (0..depth).map(|_| "apply((x) -> ").collect::<String>(),
+        ", 1i32)".repeat(depth)
+    );
+    check_ok(&lambdas);
+}

@@ -50,6 +50,9 @@ impl Checker {
         expression: &Node<resolved::Expression>,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
+        if let Some(reused) = self.reuse_argument(expression, expected) {
+            return Ok(reused);
+        }
         let mut checked = match &expression.kind {
             resolved::Expression::Reference(reference) => Expression {
                 kind: if self.generic_signatures.contains_key(&reference.id) {

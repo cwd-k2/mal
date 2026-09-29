@@ -97,7 +97,6 @@ impl From<Diagnostic> for CheckFailure {
 
 type CheckResult<T> = Result<T, CheckFailure>;
 
-#[derive(Clone)]
 struct Checker {
     kinds: Kinds,
     next_kind_variable: u32,
@@ -121,6 +120,8 @@ struct Checker {
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     result_targets: HashMap<ValueId, ResultTarget>,
     used_result_targets: HashSet<ValueId>,
+    /// One memo per generic call being inferred, innermost last.
+    argument_memos: Vec<inference::ArgumentMemo>,
 }
 
 #[derive(Clone)]
@@ -166,6 +167,7 @@ impl Checker {
             externals: HashMap::new(),
             result_targets: HashMap::new(),
             used_result_targets: HashSet::new(),
+            argument_memos: Vec::new(),
         }
     }
 

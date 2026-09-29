@@ -19,7 +19,10 @@ mod arguments;
 mod constraint;
 #[cfg(test)]
 mod constraint_tests;
+mod memo;
 mod probe;
+
+pub(super) use memo::ArgumentMemo;
 
 use arguments::{argument_templates, inferred_arguments, parameter_ids};
 use constraint::constrain;
@@ -361,6 +364,21 @@ impl Checker {
         span: Span,
         expected: GenericCallExpectation<'_>,
     ) -> CheckResult<Expression> {
+        self.argument_memos.push(ArgumentMemo::new(arguments));
+        let result = self
+            .check_inferred_generic_call_arguments(reference, explicit, arguments, span, expected);
+        self.argument_memos.pop();
+        result
+    }
+
+    fn check_inferred_generic_call_arguments(
+        &mut self,
+        reference: &resolved::ValueReference,
+        explicit: &[Type],
+        arguments: &[Node<resolved::Expression>],
+        span: Span,
+        expected: GenericCallExpectation<'_>,
+    ) -> CheckResult<Expression> {
         let mut signature = self.generic_signatures[&reference.id].clone();
         (signature.parameter_kinds, signature.ty) = super::types::instantiate_signature_kinds(
             &signature.parameter_kinds,
@@ -422,8 +440,9 @@ impl Checker {
                     }
                 }
                 None => {
-                    let mut probe = self.clone();
-                    if let Ok(actual) = probe.check_untyped_argument(arguments, span) {
+                    let (actual, _) =
+                        self.transaction(|probe| probe.check_untyped_argument(arguments, span));
+                    if let Ok(actual) = actual {
                         constrain(parameter, &actual.ty, &flexible, &mut substitutions, span)?;
                     }
                 }

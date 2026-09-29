@@ -181,3 +181,22 @@ LLVM moduleとC shimが変更前とbyte単位で一致した。残る伸びはCl
 `execution/optimization/unique_capture`がfunctionごとにapplication graphをDFSして再帰を判定し、functionごとに全
 application siteを走査していた。再帰functionはSCCで一度に求め、各functionを呼ぶsiteも一度だけ索引する。`malc`側の時間は
 `n = 4,000`で約2.3 sから0.1 s未満になり、残りはClangである。生成物は上と同じcorpusでbyte単位で一致した。
+
+## 2026-09-29 generic callのargument probe
+
+環境はx86_64 NixOS development environment、Rust 1.97.1。generic callの型argument推論は、argumentをprobeしてtemplateを
+制約する反復を行い、各probeで`Checker`全体をcloneしてargumentを検査し直していた。最終検査もargumentを再検査したため、
+generic callの入れ子一段ごとにargumentの検査回数が数倍になった。`malc check`のwall-clockは次のとおりである。
+
+| Workload | 変更前 | 変更後 |
+|---|---:|---:|
+| `id(id(...(1i32)))`、12段 | 3,465 ms | 2 ms |
+| `id(...)`、16段 | 60 s超 | 2 ms |
+| `apply((v) -> apply(..., 1i32), 1i32)`、14段 | 15,201 ms | 2 ms |
+| 4,000 bindingと4,000個の`apply((v) -> v, 1i32)` | 6,277 ms | 82 ms |
+
+probeはcloneせず、operation requirement、result targetの使用、alias展開中の集合だけを戻すtransactionにする。generic callは
+自身のdirect argumentごとのmemoを持ち、同じexpectation、またはexpectationなしで同じ型になったprobeの検査結果を最終検査で再利用する。
+同じenclosing environmentで同じexpectationに対して検査したargumentは同じelaborationになり、expectationなしで型`T`になった
+argumentは`T`を期待しても同じelaborationになるためである。repository内の全`.mal`とそのtoken変異30,000件の計30,570件で、
+checked programとspecialization結果、diagnosticが変更前と一致した。

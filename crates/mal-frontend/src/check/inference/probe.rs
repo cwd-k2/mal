@@ -14,7 +14,7 @@ use super::constraint::{constrain, constrain_generic_scheme, has_unresolved};
 
 impl Checker {
     pub(super) fn probe_constraint(
-        &self,
+        &mut self,
         argument: &Node<resolved::Expression>,
         template: &Type,
         flexible: &HashSet<TypeId>,
@@ -52,29 +52,31 @@ impl Checker {
                     allow_defaults,
                 )?;
             }
-            let mut probe = self.clone();
             let expected_result =
                 (!has_unresolved(result, flexible, substitutions)).then_some(result.as_ref());
-            probe.check_lambda_against(
-                lambda,
-                argument.span,
-                parameter.as_ref().clone(),
-                expected_result,
-            )
+            let expected = expected_result.map(|_| instantiated.clone());
+            self.probe_argument(argument, expected.as_ref(), |probe| {
+                probe.check_lambda_against(
+                    lambda,
+                    argument.span,
+                    parameter.as_ref().clone(),
+                    expected_result,
+                )
+            })
         } else if contextual {
-            let mut probe = self.clone();
-            if unresolved {
-                probe.check_expression(argument, None)
-            } else {
-                probe.check_expression(argument, Some(&instantiated))
-            }
+            let expected = (!unresolved).then_some(&instantiated);
+            self.probe_argument(argument, expected, |probe| {
+                probe.check_expression(argument, expected)
+            })
         } else {
-            let mut probe = self.clone();
-            match probe.check_expression(argument, None) {
+            match self.probe_argument(argument, None, |probe| {
+                probe.check_expression(argument, None)
+            }) {
                 Ok(checked) => Ok(checked),
                 Err(_) if !unresolved => {
-                    let mut contextual_probe = self.clone();
-                    contextual_probe.check_expression(argument, Some(&instantiated))
+                    self.probe_argument(argument, Some(&instantiated), |probe| {
+                        probe.check_expression(argument, Some(&instantiated))
+                    })
                 }
                 Err(error) => Err(error),
             }
@@ -92,7 +94,7 @@ impl Checker {
     }
 
     fn probe_direct_result_constraints(
-        &self,
+        &mut self,
         lambda: &resolved::Lambda,
         result_template: &Type,
         flexible: &HashSet<TypeId>,
@@ -149,10 +151,10 @@ impl Checker {
                                 allow_defaults,
                             )?,
                             _ => {
-                                let mut probe = self.clone();
-                                if let Ok(argument) =
+                                let (argument, _) = self.transaction(|probe| {
                                     probe.check_untyped_argument(arguments, expression.span)
-                                {
+                                });
+                                if let Ok(argument) = argument {
                                     constrain(
                                         template,
                                         &argument.ty,
