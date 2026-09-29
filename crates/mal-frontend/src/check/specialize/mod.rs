@@ -98,7 +98,6 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             let definition = specializer
                 .definitions
                 .get(&generic)
-                .cloned()
                 .expect("checked generic reference has a definition");
             let substitutions = definition
                 .parameters
@@ -106,14 +105,15 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
                 .map(|parameter| parameter.id)
                 .zip(arguments)
                 .collect::<HashMap<_, _>>();
-            let mut value = definition.value;
-            specializer.begin_instance_identities();
-            specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
+            let mut value = definition.value.clone();
             let ty = runtime_type(&substitute_type(
                 &definition.ty,
                 &substitutions,
                 definition.span,
             )?);
+            let span = definition.span;
+            specializer.begin_instance_identities();
+            specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
             specializer.specializations.push(Node::new(
                 TopItem::Binding(Box::new(Binding {
                     pattern: Pattern::Binding {
@@ -122,9 +122,9 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
                     },
                     annotation: Some(ty),
                     value,
-                    span: definition.span,
+                    span,
                 })),
-                definition.span,
+                span,
             ));
             continue;
         }
@@ -132,15 +132,17 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         let (implementation, substitutions, binding) =
             specializer.pending_operations[operation_cursor].clone();
         operation_cursor += 1;
+        let implementation = &specializer.implementations[implementation];
         let family = implementation.family.id;
-        let mut value = implementation.value;
-        specializer.begin_instance_identities();
-        specializer.expression(&mut value, &substitutions, Some((family, binding.id)))?;
+        let mut value = implementation.value.clone();
         let implementation_ty = runtime_type(&substitute_type(
             &implementation.ty,
             &substitutions,
             implementation.span,
         )?);
+        let span = implementation.span;
+        specializer.begin_instance_identities();
+        specializer.expression(&mut value, &substitutions, Some((family, binding.id)))?;
         specializer.specializations.push(Node::new(
             TopItem::Binding(Box::new(Binding {
                 pattern: Pattern::Binding {
@@ -149,9 +151,9 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
                 },
                 annotation: Some(implementation_ty),
                 value,
-                span: implementation.span,
+                span,
             })),
-            implementation.span,
+            span,
         ));
     }
     for index in 0..specializer.bindings.len() {
@@ -179,8 +181,9 @@ struct Specializer {
     instance_buckets: HashMap<(ValueId, u64), Vec<usize>>,
     fingerprints: TypeFingerprints,
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
+    /// Selected implementations by index into `implementations`, with the key substitution and instance binding.
     pending_operations: Vec<(
-        OperationImplementation,
+        usize,
         HashMap<crate::resolve::ast::TypeId, Type>,
         ValueBinding,
     )>,
@@ -294,10 +297,11 @@ impl Specializer {
         let (implementation, substitutions) = self
             .implementations
             .iter()
-            .filter(|implementation| implementation.family.id == family.id)
-            .find_map(|implementation| {
+            .enumerate()
+            .filter(|(_, implementation)| implementation.family.id == family.id)
+            .find_map(|(index, implementation)| {
                 match_operation_pattern(implementation, arguments)
-                    .map(|substitutions| (implementation.clone(), substitutions))
+                    .map(|substitutions| (index, substitutions))
             })
             .ok_or_else(|| {
                 Diagnostic::error("missing operation implementation").with_primary(
