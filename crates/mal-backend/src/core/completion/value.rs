@@ -33,7 +33,7 @@ impl Lowerer {
                 ty: source.ty.clone(),
                 span: source.span,
             },
-            UnaryOperator::SymbolLength | UnaryOperator::Star => {
+            UnaryOperator::Length | UnaryOperator::Star => {
                 unreachable!("specialized unary operation has a dedicated node")
             }
         }

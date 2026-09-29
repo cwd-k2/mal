@@ -195,7 +195,7 @@ impl Parser<'_> {
             TokenKind::Minus => Some(UnaryOperator::Negate),
             TokenKind::Bang => Some(UnaryOperator::LogicalNot),
             TokenKind::Tilde => Some(UnaryOperator::BitwiseNot),
-            TokenKind::Hash => Some(UnaryOperator::SymbolLength),
+            TokenKind::Hash => Some(UnaryOperator::Length),
             TokenKind::Star => Some(UnaryOperator::Star),
             _ => None,
         }

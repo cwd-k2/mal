@@ -193,6 +193,7 @@ impl SourceProvider for SourceGraph {
 impl SourceProvider for Vec<SourceFile> {
     fn source(&self, id: FileId) -> Option<&SourceFile> {
         self.get(id.index() as usize)
+            .filter(|source| source.id() == id)
     }
 }
 

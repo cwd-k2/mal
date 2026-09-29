@@ -80,7 +80,7 @@ impl Checker {
         span: Span,
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
-        if operator.kind == UnaryOperator::SymbolLength {
+        if operator.kind == UnaryOperator::Length {
             let value = self.check_expression(operand, None)?;
             let viewed = super::types::representation_view(&value.ty, value.span.file());
             if matches!(viewed, Type::Buffer(_)) {

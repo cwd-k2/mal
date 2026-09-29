@@ -287,8 +287,8 @@ pub enum UnaryOperator {
     LogicalNot,
     /// Integer bitwise complement (`~`).
     BitwiseNot,
-    /// Symbol byte length (`#`).
-    SymbolLength,
+    /// Symbol byte length or Buffer element count (`#`).
+    Length,
     /// Symbol/Buffer snapshot conversion (`*`).
     Star,
 }

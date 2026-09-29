@@ -102,6 +102,11 @@ fn render_label(rendered: &mut String, sources: &impl SourceProvider, label: &La
         .chars()
         .count()
         .max(1);
+    // Tabs before the label are repeated so the caret lines up with the line above wherever the terminal puts tab stops.
+    let padding = source.text()[line.start..label.span.start()]
+        .chars()
+        .map(|character| if character == '\t' { '\t' } else { ' ' })
+        .collect::<String>();
     let gutter_width = start.line.to_string().len();
     let _ = writeln!(
         rendered,
@@ -116,7 +121,7 @@ fn render_label(rendered: &mut String, sources: &impl SourceProvider, label: &La
         rendered,
         "{:gutter_width$} | {}{} {}",
         "",
-        " ".repeat(start.column - 1),
+        padding,
         "^".repeat(underline_width),
         label.message
     );
@@ -145,6 +150,20 @@ mod tests {
                 "  |          ^^ expected Unit\n",
                 "note: a lambda body has one result type\n",
             )
+        );
+    }
+
+    #[test]
+    fn repeats_tabs_before_the_caret() {
+        let file = FileId::new(0);
+        let source = SourceFile::new(file, "sample.mal", "\tvalue := 12;\n".into());
+        let diagnostic =
+            Diagnostic::error("unexpected integer").with_primary(Span::new(file, 10, 12), "here");
+
+        assert!(
+            diagnostic
+                .render(&source)
+                .contains("  | \t         ^^ here\n")
         );
     }
 

@@ -50,7 +50,7 @@ fn parses_symbol_length_and_byte_access_with_access_precedence() {
     let Expression::Unary { operator, operand } = binding_value(r#"value := #create();"#) else {
         panic!("expected Symbol length");
     };
-    assert_eq!(operator.kind, UnaryOperator::SymbolLength);
+    assert_eq!(operator.kind, UnaryOperator::Length);
     assert!(matches!(operand.kind, Expression::Call { .. }));
 
     let Expression::Binary {
@@ -131,7 +131,7 @@ fn prefix_operators_bind_more_tightly_than_indexed_access() {
         ("value := -symbol # 1usize;", UnaryOperator::Negate),
         ("value := !flag # 1usize;", UnaryOperator::LogicalNot),
         ("value := ~bits # 1usize;", UnaryOperator::BitwiseNot),
-        ("value := #symbol # 1usize;", UnaryOperator::SymbolLength),
+        ("value := #symbol # 1usize;", UnaryOperator::Length),
     ] {
         let Expression::Binary { operator, left, .. } = binding_value(text) else {
             panic!("expected indexed access at the root of `{text}`");
