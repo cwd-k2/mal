@@ -23,6 +23,18 @@ pub fn parse(source: &SourceFile) -> Result<Program, Diagnostic> {
     parse_tokens(source, &tokens)
 }
 
+/// Lexes `source` and parses only its leading `require` declarations, which is all source-graph loading needs. The rest
+/// of the file is parsed once, by the analysis that consumes it.
+pub fn parse_requirements(source: &SourceFile) -> Result<Vec<Node<Requirement>>, Diagnostic> {
+    let tokens = lex(source)?;
+    let mut parser = Parser::new(source, &tokens);
+    let mut requirements = Vec::new();
+    while parser.at(&TokenKind::Require) {
+        requirements.push(parser.parse_requirement()?);
+    }
+    Ok(requirements)
+}
+
 /// Parses tokens the caller already lexed from `source`, so the formatter can share one lexing pass.
 pub fn parse_tokens(source: &SourceFile, tokens: &[Token]) -> Result<Program, Diagnostic> {
     let source_end = Span::new(source.id(), source.text().len(), source.text().len());

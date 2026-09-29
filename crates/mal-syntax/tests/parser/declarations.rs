@@ -197,3 +197,22 @@ fn splits_a_shift_token_only_between_directly_nested_generic_lists() {
         parse(&source(text)).expect_err(text);
     }
 }
+
+#[test]
+fn parses_only_the_leading_requirements_for_graph_loading() {
+    let source = source("require \"./a.mal\";\nrequire \"./b.c\";\nvalue := ;\n");
+    let requirements =
+        mal_syntax::parser::parse_requirements(&source).expect("the requirement prefix is valid");
+
+    assert_eq!(
+        requirements
+            .iter()
+            .map(|requirement| requirement.kind.path.as_slice())
+            .collect::<Vec<_>>(),
+        [b"./a.mal".as_slice(), b"./b.c".as_slice()]
+    );
+    assert!(
+        parse(&source).is_err(),
+        "the full parse still rejects the file"
+    );
+}

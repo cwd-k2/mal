@@ -193,15 +193,15 @@ impl<'a> Builder<'a> {
             || SourceFile::load(id, path).map_err(LoadError::source),
             |text| Ok(SourceFile::new(id, path, (*text).to_owned())),
         )?;
-        let parsed =
-            crate::parser::parse(&source).map_err(|error| LoadError::diagnostic(error, &source))?;
+        let requirements = crate::parser::parse_requirements(&source)
+            .map_err(|error| LoadError::diagnostic(error, &source))?;
         self.states.insert(path.to_owned(), State::Loading);
         self.files.push(source);
         self.requirements.push(Vec::new());
         Ok(PendingFile {
             path: path.to_owned(),
             id,
-            requirements: parsed.requirements.into_iter(),
+            requirements: requirements.into_iter(),
             requested_by,
         })
     }
