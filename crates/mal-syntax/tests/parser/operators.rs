@@ -123,3 +123,23 @@ fn keeps_comparison_and_shift_distinct_from_generic_delimiters() {
     };
     assert!(matches!(callee.kind, Expression::GenericName { .. }));
 }
+
+#[test]
+fn prefix_operators_bind_more_tightly_than_indexed_access() {
+    for (text, expected) in [
+        ("value := *buffer # 1usize;", UnaryOperator::Star),
+        ("value := -symbol # 1usize;", UnaryOperator::Negate),
+        ("value := !flag # 1usize;", UnaryOperator::LogicalNot),
+        ("value := ~bits # 1usize;", UnaryOperator::BitwiseNot),
+        ("value := #symbol # 1usize;", UnaryOperator::SymbolLength),
+    ] {
+        let Expression::Binary { operator, left, .. } = binding_value(text) else {
+            panic!("expected indexed access at the root of `{text}`");
+        };
+        assert_eq!(operator.kind, BinaryOperator::SymbolAt);
+        assert!(
+            matches!(&left.kind, Expression::Unary { operator, .. } if operator.kind == expected),
+            "expected a prefix operand in `{text}`"
+        );
+    }
+}

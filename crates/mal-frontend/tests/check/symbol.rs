@@ -81,3 +81,10 @@ fn rejects_invalid_symbol_operations() {
         assert!(error.primary.is_some(), "input: {text}");
     }
 }
+
+#[test]
+fn indexes_the_snapshot_of_a_prefix_conversion() {
+    check_ok(r#"third :: Buffer<UInt8> -> UInt8 := (bytes) -> *bytes # 2usize;"#);
+    let error = check_error(r#"bad :: Symbol -> UInt8 := (value) -> -value # 0usize;"#);
+    assert_eq!(error.message, "negation is not defined for this type");
+}

@@ -4,6 +4,8 @@ use crate::lexer::TokenKind;
 
 use super::Parser;
 
+const PREFIX_OPERAND: u8 = 22;
+
 mod control;
 mod forms;
 mod lambda;
@@ -68,12 +70,8 @@ impl Parser<'_> {
     fn parse_prefix(&mut self) -> Result<Node<Expression>, Diagnostic> {
         if let Some(operator) = self.unary_operator() {
             let token = self.advance().clone();
-            let minimum = if operator == UnaryOperator::SymbolLength {
-                22
-            } else {
-                21
-            };
-            let operand = self.parse_expression_bp(minimum)?;
+            // Prefix binds tighter than every binary operator, including indexed access at 21.
+            let operand = self.parse_expression_bp(PREFIX_OPERAND)?;
             let span = self.span(token.span.start(), operand.span.end());
             return Ok(Node::new(
                 Expression::Unary {
