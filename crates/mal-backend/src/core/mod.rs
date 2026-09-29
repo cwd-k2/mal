@@ -18,7 +18,6 @@ mod lambda;
 mod pattern;
 mod primitive;
 
-use self::bool::bool_type;
 pub(crate) use self::interface::lower_interface;
 use self::primitive::lower_binary_primitive;
 

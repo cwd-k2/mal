@@ -29,7 +29,7 @@ pub(super) fn view_operand(mut operand: Expression) -> Expression {
     operand
 }
 
-/// Builds a checked binary operation. Symbol operands select the Symbol operation the operator denotes, so later
+/// Builds a checked binary operation. Symbol and Bool operands select the operation the operator denotes, so later
 /// stages never re-derive it from operand types.
 pub(super) fn binary_expression(
     operator: &Node<BinaryOperator>,
@@ -38,6 +38,22 @@ pub(super) fn binary_expression(
     ty: Type,
     span: Span,
 ) -> Expression {
+    if left.ty == bool_type()
+        && matches!(
+            operator.kind,
+            BinaryOperator::Equal | BinaryOperator::NotEqual
+        )
+    {
+        return Expression {
+            kind: ExpressionKind::BoolEquality {
+                equal: operator.kind == BinaryOperator::Equal,
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+            ty,
+            span,
+        };
+    }
     if left.ty == Type::Symbol {
         let primitive = match operator.kind {
             BinaryOperator::Add => Some(SymbolPrimitive::Concatenate),

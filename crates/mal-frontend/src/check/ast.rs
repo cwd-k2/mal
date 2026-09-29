@@ -727,6 +727,15 @@ pub enum ExpressionKind {
         /// The checked argument carrier.
         argument: Box<Expression>,
     },
+    /// `==` or `!=` on `Bool`, which lowering expands into continuation applications.
+    BoolEquality {
+        /// Whether the operator is `==` rather than `!=`.
+        equal: bool,
+        /// The checked left operand, evaluated first.
+        left: Box<Expression>,
+        /// The checked right operand.
+        right: Box<Expression>,
+    },
     /// A Symbol operation selected by the checker from its operator and operand types.
     SymbolOperation {
         /// The selected operation.

@@ -136,6 +136,10 @@ impl IdentityBounds {
                 self.expression(callee);
                 self.expression(argument);
             }
+            ExpressionKind::BoolEquality { left, right, .. } => {
+                self.expression(left);
+                self.expression(right);
+            }
             ExpressionKind::Memory { operands, .. }
             | ExpressionKind::SymbolOperation { operands, .. } => {
                 for operand in operands {

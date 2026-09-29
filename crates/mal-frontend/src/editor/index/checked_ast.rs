@@ -153,6 +153,10 @@ impl Index {
                 self.collect_checked_expression(callee);
                 self.collect_checked_expression(argument);
             }
+            ExpressionKind::BoolEquality { left, right, .. } => {
+                self.collect_checked_expression(left);
+                self.collect_checked_expression(right);
+            }
             ExpressionKind::SumElimination {
                 scrutinee,
                 continuations,

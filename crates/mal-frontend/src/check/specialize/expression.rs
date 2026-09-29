@@ -146,6 +146,10 @@ impl Specializer {
                 self.expression(callee, substitutions, self_instance)?;
                 self.expression(argument, substitutions, self_instance)?;
             }
+            ExpressionKind::BoolEquality { left, right, .. } => {
+                self.expression(left, substitutions, self_instance)?;
+                self.expression(right, substitutions, self_instance)?;
+            }
             ExpressionKind::Memory { operands, .. }
             | ExpressionKind::SymbolOperation { operands, .. } => {
                 for operand in operands {

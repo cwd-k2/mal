@@ -47,7 +47,7 @@ use super::function_name;
 use memory::ManagedBufferElements;
 use plan::{TopLevelConstants, collect_pattern_slot, insert_slot, main_function};
 use scalar::{comparison_predicate, scalar_type};
-use types::{Types, is_bool};
+use types::Types;
 
 pub(super) fn admit_target(
     execution: &crate::execution::Program,

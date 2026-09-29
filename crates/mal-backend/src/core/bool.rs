@@ -22,7 +22,6 @@ impl Lowerer {
             right,
         } = &condition.kind
             && is_comparison(operator.kind)
-            && left.ty != bool_type()
         {
             return Expression {
                 kind: ExpressionKind::PrimitiveBranch {
@@ -91,16 +90,17 @@ impl Lowerer {
         self.case(left, arms, bool_type(), span)
     }
 
-    pub(super) fn lower_bool_equality_after_left(
+    /// `Bool` equality as continuation applications: both operands are bound in order, then the left one selects a
+    /// case of the right one.
+    pub(super) fn lower_bool_equality(
         &mut self,
-        operator: BinaryOperator,
+        equal: bool,
         left: Expression,
-        right: &checked::Expression,
+        right: Expression,
         span: Span,
     ) -> Expression {
         let left_id = self.temporary();
         let right_id = self.temporary();
-        let equal = operator == BinaryOperator::Equal;
         let right_when_false = self.bool_case_reference(right_id, equal, !equal, span);
         let right_when_true = self.bool_case_reference(right_id, !equal, equal, span);
         let comparison = self.case(
@@ -112,7 +112,6 @@ impl Lowerer {
             bool_type(),
             span,
         );
-        let right = self.lower_expression(right);
         let right_let = self.temporary_let(right_id, right, comparison, span);
         self.temporary_let(left_id, left, right_let, span)
     }

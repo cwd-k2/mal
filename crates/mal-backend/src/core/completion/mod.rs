@@ -303,6 +303,17 @@ impl Lowerer {
                 };
                 self.lower_value_with(left, result_type, &mut left_next)
             }
+            checked::ExpressionKind::BoolEquality { equal, left, right } => {
+                let mut left_next = |lowerer: &mut Lowerer, left: Expression| {
+                    let mut right_next = |lowerer: &mut Lowerer, right: Expression| {
+                        let expression =
+                            lowerer.lower_bool_equality(*equal, left.clone(), right, value.span);
+                        continuation(lowerer, expression)
+                    };
+                    lowerer.lower_value_with(right, result_type, &mut right_next)
+                };
+                self.lower_value_with(left, result_type, &mut left_next)
+            }
             checked::ExpressionKind::NumericConversion { value: operand }
             | checked::ExpressionKind::SumInjection { value: operand, .. } => {
                 let mut next = |lowerer: &mut Lowerer, operand: Expression| {

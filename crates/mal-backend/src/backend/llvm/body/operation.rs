@@ -1,6 +1,4 @@
-use crate::backend::llvm::syntax::{
-    BinaryOperator, CastOperator, ComparisonKind, ComparisonPredicate, UnaryOperator,
-};
+use crate::backend::llvm::syntax::{BinaryOperator, CastOperator, UnaryOperator};
 use crate::control::ast::Operation;
 use crate::core::ast::UnaryPrimitive;
 use mal_frontend::check::ast::Type;
@@ -199,37 +197,19 @@ impl FunctionEmitter<'_> {
                 }
                 if result_type.is_some_and(super::types::is_bool) {
                     let register = self.register();
-                    if super::types::is_bool(&left.ty) {
-                        let predicate = match operator {
-                            crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Eq,
-                            crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Ne,
-                            _ => return None,
+                    let scalar = scalar_type(&left.ty, self.types.index_size())?;
+                    let (kind, predicate) =
+                        super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
+                    emit_instruction! {
+                        self;
+                        let #{ register.clone() } = compare {
+                            kind: #{ kind },
+                            predicate: #{ predicate },
+                            ty: #{ scalar.llvm_type() },
+                            left: #{ left.representation },
+                            right: #{ right.representation },
                         };
-                        emit_instruction! {
-                            self;
-                            let #{ register.clone() } = compare {
-                                kind: #{ ComparisonKind::Integer },
-                                predicate: #{ predicate },
-                                ty: (int(1_u16)),
-                                left: #{ left.representation },
-                                right: #{ right.representation },
-                            };
-                        };
-                    } else {
-                        let scalar = scalar_type(&left.ty, self.types.index_size())?;
-                        let (kind, predicate) =
-                            super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
-                        emit_instruction! {
-                            self;
-                            let #{ register.clone() } = compare {
-                                kind: #{ kind },
-                                predicate: #{ predicate },
-                                ty: #{ scalar.llvm_type() },
-                                left: #{ left.representation },
-                                right: #{ right.representation },
-                            };
-                        };
-                    }
+                    };
                     return Some(EmittedValue {
                         ty: result_type?.clone(),
                         representation: register,

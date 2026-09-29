@@ -33,7 +33,8 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                 | checked::ExpressionKind::SumInjection { value: operand, .. } => {
                     pending.push(Presence::Expression(operand));
                 }
-                checked::ExpressionKind::Binary { left, right, .. } => {
+                checked::ExpressionKind::Binary { left, right, .. }
+                | checked::ExpressionKind::BoolEquality { left, right, .. } => {
                     pending.push(Presence::Expression(right));
                     pending.push(Presence::Expression(left));
                 }

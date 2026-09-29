@@ -111,6 +111,11 @@ impl Lowerer {
                 }
             }
             checked::ExpressionKind::Binary { .. } => return self.lower_binary_chain(expression),
+            checked::ExpressionKind::BoolEquality { equal, left, right } => {
+                let left = self.lower_expression(left);
+                let right = self.lower_expression(right);
+                return self.lower_bool_equality(*equal, left, right, expression.span);
+            }
         };
         Expression {
             kind,
@@ -184,11 +189,6 @@ impl Lowerer {
         }
         if operator == BinaryOperator::SymbolAt {
             unreachable!("Symbol access is lowered before generic binary operators");
-        }
-        if matches!(operator, BinaryOperator::Equal | BinaryOperator::NotEqual)
-            && left.ty == bool_type()
-        {
-            return self.lower_bool_equality_after_left(operator, left, right, span);
         }
         Expression {
             kind: ExpressionKind::PrimitiveBinary {
