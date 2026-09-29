@@ -350,11 +350,12 @@ fn lower_operation(operation: &closure::Operation) -> Operation {
             function: *function,
             captures: captures.clone(),
         },
-        closure::Operation::SymbolLength { value } => Operation::SymbolLength {
-            value: value.clone(),
-        },
-        closure::Operation::SymbolAt { argument } => Operation::SymbolAt {
-            argument: argument.clone(),
+        closure::Operation::Symbol {
+            primitive,
+            operands,
+        } => Operation::Symbol {
+            primitive: *primitive,
+            operands: operands.clone(),
         },
         closure::Operation::Memory {
             primitive,

@@ -140,13 +140,23 @@ impl Lowerer {
                 let callee = builder.append(self, callee);
                 builder.finish(self, expression, Operation::Call { callee, argument })
             }
-            core::ExpressionKind::SymbolLength { value } => {
-                let (builder, value) = self.lower_operand(value);
-                builder.finish(self, expression, Operation::SymbolLength { value })
-            }
-            core::ExpressionKind::SymbolAt { argument } => {
-                let (builder, argument) = self.lower_operand(argument);
-                builder.finish(self, expression, Operation::SymbolAt { argument })
+            core::ExpressionKind::SymbolOperation {
+                primitive,
+                operands,
+            } => {
+                let mut builder = ExpressionBuilder::default();
+                let operands = operands
+                    .iter()
+                    .map(|operand| builder.append(self, operand))
+                    .collect();
+                builder.finish(
+                    self,
+                    expression,
+                    Operation::Symbol {
+                        primitive: *primitive,
+                        operands,
+                    },
+                )
             }
             core::ExpressionKind::Memory {
                 primitive,

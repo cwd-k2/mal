@@ -1,6 +1,8 @@
-use crate::backend::llvm::syntax::{BinaryOperator, llvm_global};
+use crate::backend::llvm::syntax::{
+    BinaryOperator, ComparisonKind, ComparisonPredicate, llvm_global,
+};
 use crate::closure::ast::{Atom, AtomKind, Reference};
-use mal_frontend::check::ast::Type;
+use mal_frontend::check::ast::{SymbolPrimitive, Type};
 
 use super::{EmittedValue, FunctionEmitter, memory::ByteViewFields};
 
@@ -41,9 +43,9 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    pub(super) fn emit_symbol_at(&mut self, argument: &Atom) -> Option<EmittedValue> {
-        let argument = self.atom(argument)?;
-        let [symbol, index] = self.product_fields(&argument, [&Type::Symbol, &Type::USize])?;
+    pub(super) fn emit_symbol_at(&mut self, symbol: &Atom, index: &Atom) -> Option<EmittedValue> {
+        let symbol = self.atom(symbol)?;
+        let index = self.atom(index)?;
         let data = self.byte_view_fields(&symbol)?.data;
         let result = self.register();
         emit_instruction! {
@@ -149,7 +151,7 @@ impl FunctionEmitter<'_> {
         &mut self,
         symbol: &Atom,
         index: &Atom,
-        operator: crate::core::ast::BinaryPrimitive,
+        primitive: SymbolPrimitive,
     ) -> Option<EmittedValue> {
         let symbol = self.atom(symbol)?;
         let index = self.atom(index)?;
@@ -157,9 +159,9 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let ByteViewFields { owner, data, count } = self.byte_view_fields(&symbol)?;
-        let (offset, length) = match operator {
-            crate::core::ast::BinaryPrimitive::Divide => ("0".into(), index.representation),
-            crate::core::ast::BinaryPrimitive::Remainder => {
+        let (offset, length) = match primitive {
+            SymbolPrimitive::Prefix => ("0".into(), index.representation),
+            SymbolPrimitive::Suffix => {
                 let length = self.register();
                 emit_instruction! {
                     self;
@@ -229,6 +231,57 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             owned: true,
             ..value
+        })
+    }
+}
+
+impl FunctionEmitter<'_> {
+    /// Byte-wise `==` or `!=` of two Symbols as an LLVM `i1`.
+    pub(super) fn emit_symbol_equality(
+        &mut self,
+        left: &Atom,
+        right: &Atom,
+        primitive: SymbolPrimitive,
+    ) -> Option<EmittedValue> {
+        let predicate = match primitive {
+            SymbolPrimitive::Equal => ComparisonPredicate::Ne,
+            SymbolPrimitive::NotEqual => ComparisonPredicate::Eq,
+            _ => return None,
+        };
+        let left = self.atom(left)?;
+        let right = self.atom(right)?;
+        let left = self.byte_view_fields(&left)?;
+        let right = self.byte_view_fields(&right)?;
+        let equality = self.register();
+        emit_instruction! {
+            self;
+            let #{ equality.clone() } = call {
+                tail: false,
+                result_type: (int(8_u16)),
+                callee: direct("mal_runtime_symbol_equal"),
+                arguments: [
+                    typed((ptr), #{ left.data }),
+                    typed(#{ self.types.index_llvm_type() }, #{ left.count }),
+                    typed((ptr), #{ right.data }),
+                    typed(#{ self.types.index_llvm_type() }, #{ right.count }),
+                ],
+            };
+        };
+        let register = self.register();
+        emit_instruction! {
+            self;
+            let #{ register.clone() } = compare {
+                kind: #{ ComparisonKind::Integer },
+                predicate: #{ predicate },
+                ty: (int(8_u16)),
+                left: #{ equality },
+                right: "0",
+            };
+        };
+        Some(EmittedValue {
+            ty: Type::Sum(vec![Type::Unit, Type::Unit].into()),
+            representation: register,
+            owned: false,
         })
     }
 }

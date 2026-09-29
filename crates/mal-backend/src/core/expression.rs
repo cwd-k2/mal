@@ -38,11 +38,15 @@ impl Lowerer {
                 callee: Box::new(self.lower_expression(callee)),
                 argument: Box::new(self.lower_expression(argument)),
             },
-            checked::ExpressionKind::SymbolLength { value } => ExpressionKind::SymbolLength {
-                value: Box::new(self.lower_expression(value)),
-            },
-            checked::ExpressionKind::SymbolAt { argument } => ExpressionKind::SymbolAt {
-                argument: Box::new(self.lower_expression(argument)),
+            checked::ExpressionKind::SymbolOperation {
+                primitive,
+                operands,
+            } => ExpressionKind::SymbolOperation {
+                primitive: *primitive,
+                operands: operands
+                    .iter()
+                    .map(|operand| self.lower_expression(operand))
+                    .collect(),
             },
             checked::ExpressionKind::Memory {
                 primitive,

@@ -32,12 +32,11 @@ pub(super) fn binding_operands(operation: &Operation) -> Vec<(BindingOperand, &A
         Operation::SumInjection { value, .. } => {
             vec![(BindingOperand::SumValue, value, true)]
         }
-        Operation::SymbolLength { value } => {
-            vec![(BindingOperand::SymbolLength, value, false)]
-        }
-        Operation::SymbolAt { argument } => {
-            vec![(BindingOperand::SymbolAt, argument, false)]
-        }
+        Operation::Symbol { operands, .. } => operands
+            .iter()
+            .enumerate()
+            .map(|(index, operand)| (BindingOperand::SymbolOperand(index), operand, false))
+            .collect(),
         Operation::Memory {
             primitive: _,
             operands,

@@ -111,40 +111,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let condition = self.register();
-                if left.ty == Type::Symbol {
-                    let left = self.byte_view_fields(&left)?;
-                    let right = self.byte_view_fields(&right)?;
-                    let equality = self.register();
-                    emit_instruction! {
-                        self;
-                        let #{ equality.clone() } = call {
-                            tail: false,
-                            result_type: (int(8_u16)),
-                            callee: direct("mal_runtime_symbol_equal"),
-                            arguments: [
-                                typed((ptr), #{ left.data }),
-                                typed(#{ self.types.index_llvm_type() }, #{ left.count }),
-                                typed((ptr), #{ right.data }),
-                                typed(#{ self.types.index_llvm_type() }, #{ right.count }),
-                            ],
-                        };
-                    };
-                    let predicate = match operator {
-                        crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Ne,
-                        crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Eq,
-                        _ => return None,
-                    };
-                    emit_instruction! {
-                        self;
-                        let #{ condition.clone() } = compare {
-                            kind: #{ ComparisonKind::Integer },
-                            predicate: #{ predicate },
-                            ty: (int(8_u16)),
-                            left: #{ equality },
-                            right: "0",
-                        };
-                    };
-                } else if is_bool(&left.ty) {
+                if is_bool(&left.ty) {
                     let predicate = match operator {
                         crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Eq,
                         crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Ne,

@@ -303,16 +303,10 @@ impl Lowerer {
                 };
                 self.lower_value_with(left, result_type, &mut left_next)
             }
-            checked::ExpressionKind::SymbolLength { value: operand }
-            | checked::ExpressionKind::NumericConversion { value: operand }
+            checked::ExpressionKind::NumericConversion { value: operand }
             | checked::ExpressionKind::SumInjection { value: operand, .. } => {
                 let mut next = |lowerer: &mut Lowerer, operand: Expression| {
                     let kind = match &value.kind {
-                        checked::ExpressionKind::SymbolLength { .. } => {
-                            ExpressionKind::SymbolLength {
-                                value: Box::new(operand),
-                            }
-                        }
                         checked::ExpressionKind::NumericConversion { .. } => {
                             ExpressionKind::NumericConversion {
                                 value: Box::new(operand),
@@ -337,21 +331,19 @@ impl Lowerer {
                 };
                 self.lower_value_with(operand, result_type, &mut next)
             }
-            checked::ExpressionKind::SymbolAt { argument } => {
-                let mut next = |lowerer: &mut Lowerer, argument: Expression| {
-                    continuation(
-                        lowerer,
-                        Expression {
-                            kind: ExpressionKind::SymbolAt {
-                                argument: Box::new(argument),
-                            },
-                            ty: value.ty.clone(),
-                            span: value.span,
-                        },
-                    )
-                };
-                self.lower_value_with(argument, result_type, &mut next)
-            }
+            checked::ExpressionKind::SymbolOperation {
+                primitive,
+                operands,
+            } => self.lower_values_with(
+                operands,
+                result_type,
+                continuation,
+                |operands| ExpressionKind::SymbolOperation {
+                    primitive: *primitive,
+                    operands,
+                },
+                value,
+            ),
             checked::ExpressionKind::Memory {
                 primitive,
                 operands,

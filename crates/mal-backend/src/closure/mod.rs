@@ -133,11 +133,15 @@ impl Converter {
                 callee: self.convert_atom(callee, environment),
                 argument: self.convert_atom(argument, environment),
             },
-            anf::Operation::SymbolLength { value } => Operation::SymbolLength {
-                value: self.convert_atom(value, environment),
-            },
-            anf::Operation::SymbolAt { argument } => Operation::SymbolAt {
-                argument: self.convert_atom(argument, environment),
+            anf::Operation::Symbol {
+                primitive,
+                operands,
+            } => Operation::Symbol {
+                primitive: *primitive,
+                operands: operands
+                    .iter()
+                    .map(|operand| self.convert_atom(operand, environment))
+                    .collect(),
             },
             anf::Operation::Memory {
                 primitive,

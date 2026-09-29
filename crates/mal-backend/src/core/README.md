@@ -23,3 +23,7 @@ Desugars a specialized checked program into the core language: explicit evaluati
 Core separates direct `Buffer` storage operations into `BufferOperation`. Snapshot conversion and copies across
 the C host-memory boundary remain `MemoryPrimitive`; they have different representation and ownership contracts
 even when the checked AST initially classifies both families as memory primitives.
+
+Symbol operations arrive from the checker as one `SymbolOperation` with a closed `SymbolPrimitive` and logical
+operands, and every later stage carries them as `Symbol` operations. No stage selects a Symbol operation from a binary
+operator and operand types.

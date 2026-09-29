@@ -185,25 +185,6 @@ impl FunctionEmitter<'_> {
                 left,
                 right,
             } => {
-                if *operator == crate::core::ast::BinaryPrimitive::Add
-                    && left.ty == Type::Symbol
-                    && right.ty == Type::Symbol
-                {
-                    self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
-                    self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
-                    return self.emit_symbol_concatenate(left, right, symbol_concat);
-                }
-                if matches!(
-                    operator,
-                    crate::core::ast::BinaryPrimitive::Divide
-                        | crate::core::ast::BinaryPrimitive::Remainder
-                ) && left.ty == Type::Symbol
-                    && right.ty == Type::USize
-                {
-                    self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
-                    self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
-                    return self.emit_symbol_partition(left, right, *operator);
-                }
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryLeft, left)?;
                 self.require_binding_borrow(site, binding, BindingOperand::BinaryRight, right)?;
                 let left = self.atom(left)?;
@@ -218,40 +199,7 @@ impl FunctionEmitter<'_> {
                 }
                 if result_type.is_some_and(super::types::is_bool) {
                     let register = self.register();
-                    if left.ty == Type::Symbol {
-                        let left = self.byte_view_fields(&left)?;
-                        let right = self.byte_view_fields(&right)?;
-                        let equality = self.register();
-                        emit_instruction! {
-                            self;
-                            let #{ equality.clone() } = call {
-                                tail: false,
-                                result_type: (int(8_u16)),
-                                callee: direct("mal_runtime_symbol_equal"),
-                                arguments: [
-                                    typed((ptr), #{ left.data }),
-                                    typed(#{ self.types.index_llvm_type() }, #{ left.count }),
-                                    typed((ptr), #{ right.data }),
-                                    typed(#{ self.types.index_llvm_type() }, #{ right.count }),
-                                ],
-                            };
-                        };
-                        let predicate = match operator {
-                            crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Ne,
-                            crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Eq,
-                            _ => return None,
-                        };
-                        emit_instruction! {
-                            self;
-                            let #{ register.clone() } = compare {
-                                kind: #{ ComparisonKind::Integer },
-                                predicate: #{ predicate },
-                                ty: (int(8_u16)),
-                                left: #{ equality },
-                                right: "0",
-                            };
-                        };
-                    } else if super::types::is_bool(&left.ty) {
+                    if super::types::is_bool(&left.ty) {
                         let predicate = match operator {
                             crate::core::ast::BinaryPrimitive::Equal => ComparisonPredicate::Eq,
                             crate::core::ast::BinaryPrimitive::NotEqual => ComparisonPredicate::Ne,
@@ -364,13 +312,35 @@ impl FunctionEmitter<'_> {
                     owned: false,
                 })
             }
-            Operation::SymbolLength { value } => {
-                self.require_binding_borrow(site, binding, BindingOperand::SymbolLength, value)?;
-                self.emit_symbol_length(value)
-            }
-            Operation::SymbolAt { argument } => {
-                self.require_binding_borrow(site, binding, BindingOperand::SymbolAt, argument)?;
-                self.emit_symbol_at(argument)
+            Operation::Symbol {
+                primitive,
+                operands,
+            } => {
+                for (index, operand) in operands.iter().enumerate() {
+                    self.require_binding_borrow(
+                        site,
+                        binding,
+                        BindingOperand::SymbolOperand(index),
+                        operand,
+                    )?;
+                }
+                use mal_frontend::check::ast::SymbolPrimitive;
+                match (primitive, operands.as_slice()) {
+                    (SymbolPrimitive::Length, [value]) => self.emit_symbol_length(value),
+                    (SymbolPrimitive::ByteAt, [symbol, index]) => {
+                        self.emit_symbol_at(symbol, index)
+                    }
+                    (SymbolPrimitive::Concatenate, [left, right]) => {
+                        self.emit_symbol_concatenate(left, right, symbol_concat)
+                    }
+                    (SymbolPrimitive::Prefix | SymbolPrimitive::Suffix, [symbol, index]) => {
+                        self.emit_symbol_partition(symbol, index, *primitive)
+                    }
+                    (SymbolPrimitive::Equal | SymbolPrimitive::NotEqual, [left, right]) => {
+                        self.emit_symbol_equality(left, right, *primitive)
+                    }
+                    _ => None,
+                }
             }
             Operation::ExternalCall { id, argument } => {
                 self.require_binding_borrow(

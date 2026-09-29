@@ -43,8 +43,7 @@ impl Analysis<'_> {
                     self.changed |= merge(&mut self.buffer_elements, &value);
                 }
             }
-            Operation::SymbolLength { .. }
-            | Operation::SymbolAt { .. }
+            Operation::Symbol { .. }
             | Operation::Memory { .. }
             | Operation::ExternalCall { .. }
             | Operation::NumericConversion { .. }

@@ -385,12 +385,20 @@ fn borrows_a_final_observation_before_dropping_its_source() {
             state
                 .bindings
                 .iter()
-                .position(|binding| matches!(binding.operation, Operation::SymbolLength { .. }))
+                .position(|binding| {
+                    matches!(
+                        binding.operation,
+                        Operation::Symbol {
+                            primitive: mal_frontend::check::ast::SymbolPrimitive::Length,
+                            ..
+                        }
+                    )
+                })
                 .map(|binding| (StateId(state_index), binding))
         })
         .expect("Symbol length binding");
     assert_eq!(
-        plan.binding_use(site, binding, BindingOperand::SymbolLength),
+        plan.binding_use(site, binding, BindingOperand::SymbolOperand(0)),
         Some(UseEffect::Borrow)
     );
     assert!(!plan.drops_after_binding(site, binding).is_empty());

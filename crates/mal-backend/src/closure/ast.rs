@@ -4,7 +4,7 @@ pub(crate) use crate::anf::ast::{Parameter, Pattern, TopLevelPattern};
 use crate::core::ast::{
     BinaryPrimitive, BufferOperation, JoinId, ProgramInterface, UnaryPrimitive,
 };
-use mal_frontend::check::ast::{MemoryPrimitive, Type};
+use mal_frontend::check::ast::{MemoryPrimitive, SymbolPrimitive, Type};
 use mal_frontend::resolve::ast::{ExternalOperationId, LambdaId};
 use mal_syntax::source::Span;
 
@@ -147,11 +147,9 @@ pub(crate) enum Operation {
         callee: Atom,
         argument: Atom,
     },
-    SymbolLength {
-        value: Atom,
-    },
-    SymbolAt {
-        argument: Atom,
+    Symbol {
+        primitive: SymbolPrimitive,
+        operands: Vec<Atom>,
     },
     Memory {
         primitive: MemoryPrimitive,

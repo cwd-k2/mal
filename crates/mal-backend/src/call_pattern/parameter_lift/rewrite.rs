@@ -369,8 +369,6 @@ fn rewrite_atoms(operation: &mut Operation, mut visit: impl FnMut(&mut Atom)) {
     match operation {
         Operation::Atom(atom)
         | Operation::Goto { value: atom, .. }
-        | Operation::SymbolLength { value: atom }
-        | Operation::SymbolAt { argument: atom }
         | Operation::ExternalCall { argument: atom, .. }
         | Operation::NumericConversion { operand: atom }
         | Operation::SumInjection { value: atom, .. }
@@ -378,6 +376,9 @@ fn rewrite_atoms(operation: &mut Operation, mut visit: impl FnMut(&mut Atom)) {
         Operation::MakeClosure { captures, .. }
         | Operation::Product(captures)
         | Operation::Memory {
+            operands: captures, ..
+        }
+        | Operation::Symbol {
             operands: captures, ..
         }
         | Operation::Buffer {

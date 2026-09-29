@@ -35,14 +35,20 @@ range :: (Symbol, USize, USize) -> Symbol := (value, start, length) -> {
     };
     assert!(matches!(
         completion_value(&length.body.result).kind,
-        ExpressionKind::SymbolLength { .. }
+        ExpressionKind::SymbolOperation {
+            primitive: mal_frontend::check::ast::SymbolPrimitive::Length,
+            ..
+        }
     ));
     let ExpressionKind::Lambda(item) = &top_binding(&program, 1).value.kind else {
         panic!("expected lambda");
     };
     assert!(matches!(
         completion_value(&item.body.result).kind,
-        ExpressionKind::SymbolAt { .. }
+        ExpressionKind::SymbolOperation {
+            primitive: mal_frontend::check::ast::SymbolPrimitive::ByteAt,
+            ..
+        }
     ));
     for index in 2..=3 {
         let Type::Function { result, .. } = &top_binding(&program, index).value.ty else {

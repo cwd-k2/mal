@@ -727,15 +727,12 @@ pub enum ExpressionKind {
         /// The checked argument carrier.
         argument: Box<Expression>,
     },
-    /// Symbol byte-count observation.
-    SymbolLength {
-        /// The observed Symbol.
-        value: Box<Expression>,
-    },
-    /// Symbol byte access after source operands have been packed.
-    SymbolAt {
-        /// The checked `(Symbol, USize)` argument carrier.
-        argument: Box<Expression>,
+    /// A Symbol operation selected by the checker from its operator and operand types.
+    SymbolOperation {
+        /// The selected operation.
+        primitive: SymbolPrimitive,
+        /// Logical operands in source evaluation order.
+        operands: Vec<Expression>,
     },
     /// A checked host-memory, Buffer, or snapshot primitive.
     Memory {
@@ -788,6 +785,25 @@ pub enum ExpressionKind {
         /// The checked right operand.
         right: Box<Expression>,
     },
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+/// An operation on immutable Symbol bytes, with its operands listed in the documented order.
+pub enum SymbolPrimitive {
+    /// `#symbol`: the byte count as `USize`.
+    Length,
+    /// `symbol # index`: one byte as `UInt8`.
+    ByteAt,
+    /// `left + right`: a new Symbol holding both byte sequences.
+    Concatenate,
+    /// `symbol / index`: the first `index` bytes.
+    Prefix,
+    /// `symbol % index`: the bytes from `index` on.
+    Suffix,
+    /// `left == right`: byte-wise equality as `Bool`.
+    Equal,
+    /// `left != right`: byte-wise inequality as `Bool`.
+    NotEqual,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]

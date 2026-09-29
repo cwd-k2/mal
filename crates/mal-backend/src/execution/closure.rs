@@ -208,7 +208,6 @@ fn collect_operation_uses(
     match operation {
         Operation::Atom(value)
         | Operation::Goto { value, .. }
-        | Operation::SymbolLength { value }
         | Operation::NumericConversion { operand: value }
         | Operation::PrimitiveUnary { operand: value, .. } => atom(value, false),
         Operation::MakeClosure { captures, .. } | Operation::Product(captures) => {
@@ -220,12 +219,13 @@ fn collect_operation_uses(
             atom(callee, true);
             atom(argument, false);
         }
-        Operation::SymbolAt { argument }
-        | Operation::ExternalCall { argument, .. }
+        Operation::ExternalCall { argument, .. }
         | Operation::SumInjection {
             value: argument, ..
         } => atom(argument, false),
-        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
+        Operation::Memory { operands, .. }
+        | Operation::Buffer { operands, .. }
+        | Operation::Symbol { operands, .. } => {
             for operand in operands {
                 atom(operand, false);
             }

@@ -29,7 +29,6 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                     pending.push(Presence::Expression(condition));
                 }
                 checked::ExpressionKind::Unary { operand, .. }
-                | checked::ExpressionKind::SymbolLength { value: operand }
                 | checked::ExpressionKind::NumericConversion { value: operand }
                 | checked::ExpressionKind::SumInjection { value: operand, .. } => {
                     pending.push(Presence::Expression(operand));
@@ -38,10 +37,8 @@ pub(super) fn contains_control(value: &checked::Expression) -> bool {
                     pending.push(Presence::Expression(right));
                     pending.push(Presence::Expression(left));
                 }
-                checked::ExpressionKind::SymbolAt { argument } => {
-                    pending.push(Presence::Expression(argument));
-                }
-                checked::ExpressionKind::Memory { operands, .. } => {
+                checked::ExpressionKind::Memory { operands, .. }
+                | checked::ExpressionKind::SymbolOperation { operands, .. } => {
                     pending.extend(operands.iter().rev().map(Presence::Expression));
                 }
                 checked::ExpressionKind::SumElimination {

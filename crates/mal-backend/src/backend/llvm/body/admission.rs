@@ -253,8 +253,6 @@ fn admit_operation<'a>(
     match operation {
         Operation::Atom(value)
         | Operation::Goto { value, .. }
-        | Operation::SymbolLength { value }
-        | Operation::SymbolAt { argument: value }
         | Operation::ExternalCall {
             argument: value, ..
         }
@@ -272,7 +270,10 @@ fn admit_operation<'a>(
                 admit_atom(capture, maximum)?;
             }
         }
-        Operation::Product(captures) => {
+        Operation::Product(captures)
+        | Operation::Symbol {
+            operands: captures, ..
+        } => {
             for capture in captures {
                 admit_atom(capture, maximum)?;
             }

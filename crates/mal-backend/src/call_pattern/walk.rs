@@ -79,8 +79,6 @@ fn operation(operation: &mut Operation, visitor: &mut impl Visitor) {
     match operation {
         Operation::Atom(atom)
         | Operation::Goto { value: atom, .. }
-        | Operation::SymbolLength { value: atom }
-        | Operation::SymbolAt { argument: atom }
         | Operation::ExternalCall { argument: atom, .. }
         | Operation::NumericConversion { operand: atom }
         | Operation::SumInjection { value: atom, .. }
@@ -95,7 +93,9 @@ fn operation(operation: &mut Operation, visitor: &mut impl Visitor) {
             visitor.atom(callee);
             visitor.atom(argument);
         }
-        Operation::Memory { operands, .. } | Operation::Buffer { operands, .. } => {
+        Operation::Memory { operands, .. }
+        | Operation::Buffer { operands, .. }
+        | Operation::Symbol { operands, .. } => {
             for atom in operands {
                 visitor.atom(atom);
             }

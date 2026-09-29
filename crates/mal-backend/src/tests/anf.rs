@@ -341,9 +341,11 @@ fn keeps_memory_operands_direct_and_evaluates_them_left_to_right() {
     let bindings = &top_lambda(&program, "main").body.bindings;
     assert!(matches!(bindings[0].operation, Operation::Call { .. }));
     assert!(matches!(bindings[1].operation, Operation::Call { .. }));
-    assert!(
-        bindings
-            .iter()
-            .any(|binding| matches!(binding.operation, Operation::SymbolAt { .. }))
-    );
+    assert!(bindings.iter().any(|binding| matches!(
+        &binding.operation,
+        Operation::Symbol {
+            primitive: mal_frontend::check::ast::SymbolPrimitive::ByteAt,
+            operands,
+        } if operands.len() == 2
+    )));
 }

@@ -116,8 +116,15 @@ impl<'a> FunctionEmitter<'a> {
                 .bindings
                 .iter()
                 .any(|binding| {
-                    binding.pattern.ty() == &Type::Symbol
-                        && matches!(&binding.operation, Operation::PrimitiveBinary { .. })
+                    matches!(
+                        &binding.operation,
+                        Operation::Symbol {
+                            primitive: mal_frontend::check::ast::SymbolPrimitive::Concatenate
+                                | mal_frontend::check::ast::SymbolPrimitive::Prefix
+                                | mal_frontend::check::ast::SymbolPrimitive::Suffix,
+                            ..
+                        }
+                    )
                 })
         });
         let buffer_value_storage =

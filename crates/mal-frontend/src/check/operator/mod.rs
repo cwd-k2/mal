@@ -5,7 +5,7 @@ use mal_syntax::ast::{BinaryOperator, Node, UnaryOperator};
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
-use super::ast::{Expression, ExpressionKind, MemoryPrimitive, Type};
+use super::ast::{Expression, ExpressionKind, MemoryPrimitive, SymbolPrimitive, Type};
 use super::float::{is_contextual_float, is_float};
 use super::integer::{
     integer_is_signed, integer_negative_magnitude, is_contextual_integer, is_integer, literal_type,
@@ -27,6 +27,55 @@ pub(super) fn view_operand(mut operand: Expression) -> Expression {
         operand.ty = viewed.clone();
     }
     operand
+}
+
+/// Builds a checked binary operation. Symbol operands select the Symbol operation the operator denotes, so later
+/// stages never re-derive it from operand types.
+pub(super) fn binary_expression(
+    operator: &Node<BinaryOperator>,
+    left: Expression,
+    right: Expression,
+    ty: Type,
+    span: Span,
+) -> Expression {
+    if left.ty == Type::Symbol {
+        let primitive = match operator.kind {
+            BinaryOperator::Add => Some(SymbolPrimitive::Concatenate),
+            BinaryOperator::Divide => Some(SymbolPrimitive::Prefix),
+            BinaryOperator::Remainder => Some(SymbolPrimitive::Suffix),
+            BinaryOperator::Equal => Some(SymbolPrimitive::Equal),
+            BinaryOperator::NotEqual => Some(SymbolPrimitive::NotEqual),
+            _ => None,
+        };
+        if let Some(primitive) = primitive {
+            return symbol(primitive, vec![left, right], ty, span);
+        }
+    }
+    Expression {
+        kind: ExpressionKind::Binary {
+            operator: operator.clone(),
+            left: Box::new(left),
+            right: Box::new(right),
+        },
+        ty,
+        span,
+    }
+}
+
+pub(super) fn symbol(
+    primitive: SymbolPrimitive,
+    operands: Vec<Expression>,
+    ty: Type,
+    span: Span,
+) -> Expression {
+    Expression {
+        kind: ExpressionKind::SymbolOperation {
+            primitive,
+            operands,
+        },
+        ty,
+        span,
+    }
 }
 
 /// The expected type of an operator result, seen through the declaring file's representation view.
@@ -94,13 +143,12 @@ impl Checker {
                 });
             }
             self.require_type(&value.ty, &Type::Symbol, value.span)?;
-            return Ok(Expression {
-                kind: ExpressionKind::SymbolLength {
-                    value: Box::new(value),
-                },
-                ty: Type::USize,
+            return Ok(symbol(
+                SymbolPrimitive::Length,
+                vec![value],
+                Type::USize,
                 span,
-            });
+            ));
         }
         if operator.kind == UnaryOperator::Negate
             && let Some(literal) = unparenthesized_integer(operand)
@@ -305,15 +353,7 @@ impl Checker {
                 unreachable!("specialized operators are checked separately")
             }
         };
-        Ok(Expression {
-            kind: ExpressionKind::Binary {
-                operator: operator.clone(),
-                left: Box::new(left),
-                right: Box::new(right),
-            },
-            ty: result,
-            span,
-        })
+        Ok(binary_expression(operator, left, right, result, span))
     }
 
     pub(super) fn check_binary_after_left(
@@ -327,17 +367,12 @@ impl Checker {
             BinaryOperator::SymbolAt => {
                 self.require_type(&left.ty, &Type::Symbol, left.span)?;
                 let (left, right) = self.check_after(left, right, Some(&Type::USize))?;
-                return Ok(Expression {
-                    kind: ExpressionKind::SymbolAt {
-                        argument: Box::new(Expression {
-                            kind: ExpressionKind::Product(vec![left, right]),
-                            ty: Type::Product(vec![Type::Symbol, Type::USize].into()),
-                            span,
-                        }),
-                    },
-                    ty: Type::UInt8,
+                return Ok(symbol(
+                    SymbolPrimitive::ByteAt,
+                    vec![left, right],
+                    Type::UInt8,
                     span,
-                });
+                ));
             }
             BinaryOperator::LogicalAnd | BinaryOperator::LogicalOr => {
                 self.require_type(&left.ty, &bool_type(), left.span)?;
@@ -345,27 +380,11 @@ impl Checker {
             }
             BinaryOperator::Add if left.ty == Type::Symbol => {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
-                return Ok(Expression {
-                    kind: ExpressionKind::Binary {
-                        operator: operator.clone(),
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
-                    ty: Type::Symbol,
-                    span,
-                });
+                return Ok(binary_expression(operator, left, right, Type::Symbol, span));
             }
             BinaryOperator::Divide | BinaryOperator::Remainder if left.ty == Type::Symbol => {
                 let (left, right) = self.check_after(left, right, Some(&Type::USize))?;
-                return Ok(Expression {
-                    kind: ExpressionKind::Binary {
-                        operator: operator.clone(),
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
-                    ty: Type::Symbol,
-                    span,
-                });
+                return Ok(binary_expression(operator, left, right, Type::Symbol, span));
             }
             _ => {}
         }
@@ -450,14 +469,6 @@ impl Checker {
         } else {
             arithmetic_result(operator.kind, &left.ty, &right.ty).unwrap_or_else(|| left.ty.clone())
         };
-        Ok(Expression {
-            kind: ExpressionKind::Binary {
-                operator: operator.clone(),
-                left: Box::new(left),
-                right: Box::new(right),
-            },
-            ty: result,
-            span,
-        })
+        Ok(binary_expression(operator, left, right, result, span))
     }
 }

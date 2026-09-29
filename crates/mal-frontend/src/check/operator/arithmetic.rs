@@ -3,12 +3,12 @@ use mal_syntax::ast::{BinaryOperator, Node};
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
-use super::super::ast::{Expression, ExpressionKind, Type};
+use super::super::ast::{Expression, Type};
 use super::super::float::{is_contextual_float, is_float};
 use super::super::integer::{is_contextual_integer, is_integer};
 use super::super::types::{bool_type, type_name};
 use super::super::{CheckFailure, CheckResult, Checker};
-use super::view_operand;
+use super::{binary_expression, view_operand};
 
 impl Checker {
     pub(super) fn check_additive(
@@ -34,15 +34,7 @@ impl Checker {
             let left = view_operand(self.check_before(left, None, right.span)?);
             if operator.kind == BinaryOperator::Add && left.ty == Type::Symbol {
                 let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
-                return Ok(Expression {
-                    kind: ExpressionKind::Binary {
-                        operator: operator.clone(),
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
-                    ty: Type::Symbol,
-                    span,
-                });
+                return Ok(binary_expression(operator, left, right, Type::Symbol, span));
             }
             let expected = left.ty.clone();
             let (left, right) = self.check_after(left, right, Some(&expected))?;
@@ -59,15 +51,7 @@ impl Checker {
             (left, right)
         };
         let result = left.ty.clone();
-        Ok(Expression {
-            kind: ExpressionKind::Binary {
-                operator: operator.clone(),
-                left: Box::new(left),
-                right: Box::new(right),
-            },
-            ty: result,
-            span,
-        })
+        Ok(binary_expression(operator, left, right, result, span))
     }
 
     fn check_symbol_concatenation(
@@ -79,15 +63,7 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let left = self.check_before(left, Some(&Type::Symbol), right.span)?;
         let (left, right) = self.check_after(left, right, Some(&Type::Symbol))?;
-        Ok(Expression {
-            kind: ExpressionKind::Binary {
-                operator: operator.clone(),
-                left: Box::new(left),
-                right: Box::new(right),
-            },
-            ty: Type::Symbol,
-            span,
-        })
+        Ok(binary_expression(operator, left, right, Type::Symbol, span))
     }
 
     pub(super) fn check_numeric_operands(

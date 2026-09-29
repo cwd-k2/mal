@@ -1,7 +1,7 @@
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, FunctionId, Parameter, Pattern, TopLevelPattern};
 use crate::core::ast::{BinaryPrimitive, BufferOperation, UnaryPrimitive};
-use mal_frontend::check::ast::{MemoryPrimitive, Type};
+use mal_frontend::check::ast::{MemoryPrimitive, SymbolPrimitive, Type};
 use mal_frontend::resolve::ast::ExternalOperationId;
 use mal_syntax::source::Span;
 
@@ -61,11 +61,9 @@ pub(crate) enum Operation {
         function: FunctionId,
         captures: Vec<Atom>,
     },
-    SymbolLength {
-        value: Atom,
-    },
-    SymbolAt {
-        argument: Atom,
+    Symbol {
+        primitive: SymbolPrimitive,
+        operands: Vec<Atom>,
     },
     Memory {
         primitive: MemoryPrimitive,
@@ -148,8 +146,6 @@ impl Operation {
     pub(crate) fn for_each_atom(&self, mut visit: impl FnMut(&Atom)) {
         match self {
             Self::Atom(atom)
-            | Self::SymbolLength { value: atom }
-            | Self::SymbolAt { argument: atom }
             | Self::ExternalCall { argument: atom, .. }
             | Self::NumericConversion { operand: atom }
             | Self::SumInjection { value: atom, .. }
@@ -159,6 +155,9 @@ impl Operation {
             }
             | Self::Product(atoms)
             | Self::Memory {
+                operands: atoms, ..
+            }
+            | Self::Symbol {
                 operands: atoms, ..
             }
             | Self::Buffer {

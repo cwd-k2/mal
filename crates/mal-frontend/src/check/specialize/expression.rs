@@ -63,7 +63,6 @@ impl Specializer {
                 }
             }
             ExpressionKind::Parenthesized(value)
-            | ExpressionKind::SymbolLength { value }
             | ExpressionKind::NumericConversion { value }
             | ExpressionKind::SumInjection { value, .. } => {
                 self.expression(value, substitutions, self_instance)?
@@ -147,10 +146,8 @@ impl Specializer {
                 self.expression(callee, substitutions, self_instance)?;
                 self.expression(argument, substitutions, self_instance)?;
             }
-            ExpressionKind::SymbolAt { argument } => {
-                self.expression(argument, substitutions, self_instance)?
-            }
-            ExpressionKind::Memory { operands, .. } => {
+            ExpressionKind::Memory { operands, .. }
+            | ExpressionKind::SymbolOperation { operands, .. } => {
                 for operand in operands {
                     self.expression(operand, substitutions, self_instance)?;
                 }

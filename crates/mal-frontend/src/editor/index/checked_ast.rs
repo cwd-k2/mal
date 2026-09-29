@@ -181,15 +181,14 @@ impl Index {
                     self.collect_checked_continuation(continuation, tail_reported);
                 }
             }
-            ExpressionKind::SymbolLength { value }
-            | ExpressionKind::NumericConversion { value }
+            ExpressionKind::NumericConversion { value }
             | ExpressionKind::SumInjection { value, .. } => self.collect_checked_expression(value),
-            ExpressionKind::Memory { operands, .. } => {
+            ExpressionKind::Memory { operands, .. }
+            | ExpressionKind::SymbolOperation { operands, .. } => {
                 for operand in operands {
                     self.collect_checked_expression(operand);
                 }
             }
-            ExpressionKind::SymbolAt { argument } => self.collect_checked_expression(argument),
             ExpressionKind::If {
                 condition,
                 then_branch,

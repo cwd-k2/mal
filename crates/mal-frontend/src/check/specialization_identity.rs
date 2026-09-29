@@ -104,7 +104,6 @@ impl IdentityBounds {
                 }
             }
             ExpressionKind::Parenthesized(value)
-            | ExpressionKind::SymbolLength { value }
             | ExpressionKind::NumericConversion { value }
             | ExpressionKind::SumInjection { value, .. } => self.expression(value),
             ExpressionKind::Block(block) => self.block(block),
@@ -137,10 +136,8 @@ impl IdentityBounds {
                 self.expression(callee);
                 self.expression(argument);
             }
-            ExpressionKind::SymbolAt { argument } => {
-                self.expression(argument);
-            }
-            ExpressionKind::Memory { operands, .. } => {
+            ExpressionKind::Memory { operands, .. }
+            | ExpressionKind::SymbolOperation { operands, .. } => {
                 for operand in operands {
                     self.expression(operand);
                 }

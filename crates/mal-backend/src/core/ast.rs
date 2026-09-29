@@ -1,4 +1,4 @@
-use mal_frontend::check::ast::{MemoryPrimitive, Type};
+use mal_frontend::check::ast::{MemoryPrimitive, SymbolPrimitive, Type};
 use mal_frontend::resolve::ast::{ExternalOperationId, LambdaId, ValueId as SourceValueId};
 use mal_syntax::source::Span;
 
@@ -136,11 +136,9 @@ pub(crate) enum ExpressionKind {
         callee: Box<Expression>,
         argument: Box<Expression>,
     },
-    SymbolLength {
-        value: Box<Expression>,
-    },
-    SymbolAt {
-        argument: Box<Expression>,
+    SymbolOperation {
+        primitive: SymbolPrimitive,
+        operands: Vec<Expression>,
     },
     Memory {
         primitive: MemoryPrimitive,
