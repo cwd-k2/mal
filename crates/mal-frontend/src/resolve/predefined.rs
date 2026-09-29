@@ -12,7 +12,7 @@ pub struct PredefinedType {
 pub struct PredefinedValue {
     pub name: &'static str,
     pub id: ValueId,
-    pub detail: Option<&'static str>,
+    pub detail: &'static str,
     pub documentation: &'static str,
     pub callable: bool,
 }
@@ -59,7 +59,7 @@ predefined_types!(
 // Keep the constant and metadata table in one declaration so name lookup, callable classification,
 // and editor documentation cannot acquire different identities for the same predefined value.
 macro_rules! predefined_values {
-    ($( $constant:ident = $id:literal => ($name:literal, $detail:expr, $documentation:literal, $callable:literal) ),+ $(,)?) => {
+    ($( $constant:ident = $id:literal => ($name:literal, $detail:literal, $documentation:literal, $callable:literal) ),+ $(,)?) => {
         $(#[doc = concat!("Reserved identity for predefined value `", $name, "`. ", $documentation)]
         pub const $constant: ValueId = ValueId($id);)+
 
@@ -77,16 +77,16 @@ macro_rules! predefined_values {
 }
 
 predefined_values!(
-    FALSE_VALUE = 0 => ("false", Some("Bool"), "The Boolean value for a false condition.", false),
-    TRUE_VALUE = 1 => ("true", Some("Bool"), "The Boolean value for a true condition.", false),
-    NEW_VALUE = 2 => ("new", Some("(Buffer<T>, T) -> USize"), "Appends a value to a `Buffer<T>` and returns its stable element index.", true),
-    GET_VALUE = 3 => ("get", Some("(Buffer<T>, USize) -> T"), "Reads an element from a `Buffer<T>`. The index must be within its current count.", true),
-    PUT_VALUE = 4 => ("put", Some("(Buffer<T>, USize, T) -> Unit"), "Replaces an element in a `Buffer<T>`. The index must be within its current count.", true),
-    MAKE_VALUE = 5 => ("make", Some("USize -> Buffer<T>"), "Creates an empty `Buffer<T>` with the requested initial capacity.", true),
-    FROM_VALUE = 6 => ("from", Some("(Address, USize, USize) -> Buffer<T>"), "Copies an exact element range from initialized C-host storage into a new `Buffer<T>`.", true),
-    INTO_VALUE = 7 => ("into", Some("(Buffer<T>, Address, USize, USize) -> Unit"), "Copies a Buffer range into C-host storage without consuming or mutating the Buffer.", true),
-    FILL_VALUE = 8 => ("fill", Some("(Buffer<T>, USize, USize, T) -> Unit"), "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
-    COPY_VALUE = 9 => ("copy", Some("(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit"), "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
+    FALSE_VALUE = 0 => ("false", "Bool", "The Boolean value for a false condition.", false),
+    TRUE_VALUE = 1 => ("true", "Bool", "The Boolean value for a true condition.", false),
+    NEW_VALUE = 2 => ("new", "(Buffer<T>, T) -> USize", "Appends a value to a `Buffer<T>` and returns its stable element index.", true),
+    GET_VALUE = 3 => ("get", "(Buffer<T>, USize) -> T", "Reads an element from a `Buffer<T>`. The index must be within its current count.", true),
+    PUT_VALUE = 4 => ("put", "(Buffer<T>, USize, T) -> Unit", "Replaces an element in a `Buffer<T>`. The index must be within its current count.", true),
+    MAKE_VALUE = 5 => ("make", "USize -> Buffer<T>", "Creates an empty `Buffer<T>` with the requested initial capacity.", true),
+    FROM_VALUE = 6 => ("from", "(Address, USize, USize) -> Buffer<T>", "Copies an exact element range from initialized C-host storage into a new `Buffer<T>`.", true),
+    INTO_VALUE = 7 => ("into", "(Buffer<T>, Address, USize, USize) -> Unit", "Copies a Buffer range into C-host storage without consuming or mutating the Buffer.", true),
+    FILL_VALUE = 8 => ("fill", "(Buffer<T>, USize, USize, T) -> Unit", "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
+    COPY_VALUE = 9 => ("copy", "(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit", "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
 );
 
 pub(crate) fn first_source_type_id() -> u32 {
@@ -125,7 +125,7 @@ mod tests {
         assert!(
             VALUES
                 .iter()
-                .all(|entry| entry.detail.is_some() && !entry.documentation.is_empty())
+                .all(|entry| !entry.detail.is_empty() && !entry.documentation.is_empty())
         );
     }
 

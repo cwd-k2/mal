@@ -7,7 +7,7 @@ use super::{Symbol, SymbolId, SymbolKind};
 pub(super) fn value_types() -> HashMap<resolved::ValueId, String> {
     crate::resolve::PREDEFINED_VALUES
         .iter()
-        .filter_map(|entry| entry.detail.map(|detail| (entry.id, detail.to_owned())))
+        .map(|entry| (entry.id, entry.detail.to_owned()))
         .collect()
 }
 
@@ -45,7 +45,7 @@ pub(super) fn symbols() -> Vec<Symbol> {
             } else {
                 SymbolKind::Value
             },
-            detail: entry.detail.map(str::to_owned),
+            detail: Some(entry.detail.to_owned()),
             documentation: Some(entry.documentation.to_owned()),
             span: None,
         });
