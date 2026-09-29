@@ -73,11 +73,12 @@ impl Checker {
                         .with_primary(reference.name.span, "remove these type arguments")
                         .into());
                 }
-                let arguments = arguments
-                    .iter()
-                    .map(|argument| self.expand_type(argument))
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.check_generic_reference(reference, arguments, expression.span)?
+                self.check_explicit_generic_reference(
+                    reference,
+                    arguments,
+                    expression.span,
+                    expected,
+                )?
             }
             resolved::Expression::Integer(literal) => {
                 self.check_integer(literal, expression.span, expected)?

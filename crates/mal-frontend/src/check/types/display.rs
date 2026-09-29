@@ -25,6 +25,19 @@ pub(in crate::check) fn type_name(ty: &Type) -> String {
                 Type::ByteSize => "ByteSize",
                 Type::USize => "USize",
                 Type::Parameter { name, .. } => name,
+                Type::Bound { .. } => "_",
+                Type::Application {
+                    constructor,
+                    argument,
+                    ..
+                } => {
+                    pending.push(TypeNamePart::Text(">"));
+                    pending.push(TypeNamePart::Type(argument));
+                    pending.push(TypeNamePart::Text("<"));
+                    pending.push(TypeNamePart::Type(constructor));
+                    continue;
+                }
+                Type::Abstraction { .. } => "<type constructor>",
                 Type::Buffer(element) => {
                     pending.push(TypeNamePart::Text(">"));
                     pending.push(TypeNamePart::Type(element));

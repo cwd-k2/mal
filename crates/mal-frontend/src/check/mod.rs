@@ -32,9 +32,9 @@ pub fn type_name(ty: &ast::Type) -> String {
     types::type_name(ty)
 }
 
-use self::ast::{AbruptExpression, Completion, Program, TopItem, Type};
+use self::ast::{AbruptExpression, Completion, Kind, Program, TopItem, Type};
 use self::interface::ExternalSignature;
-use self::types::GenericAliasDefinition;
+use self::types::{GenericAliasDefinition, Kinds};
 
 /// Applies every type and completion rule to a resolved program while retaining generic declarations.
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
@@ -99,11 +99,13 @@ type CheckResult<T> = Result<T, CheckFailure>;
 
 #[derive(Clone)]
 struct Checker {
+    kinds: Kinds,
+    next_kind_variable: u32,
     aliases: HashMap<TypeId, Node<resolved::TypeExpression>>,
     generic_aliases: HashMap<TypeId, GenericAliasDefinition>,
     opaque_types: HashMap<TypeId, types::OpaqueDefinition>,
     type_substitutions: std::sync::Arc<HashMap<TypeId, Type>>,
-    active_requirements: HashSet<TypeId>,
+    active_requirements: Vec<Type>,
     active_generic: Option<(ValueId, Vec<TypeId>)>,
     external_types: HashMap<TypeId, resolved::TypeBinding>,
     expanded_aliases: HashMap<TypeId, Type>,
@@ -123,8 +125,9 @@ struct Checker {
 #[derive(Clone)]
 struct GenericSignature {
     parameters: Vec<resolved::TypeBinding>,
+    parameter_kinds: Vec<Kind>,
     ty: Type,
-    requirements: HashSet<TypeId>,
+    requirements: Vec<Type>,
     operations: Vec<ast::OperationRequirement>,
 }
 
@@ -140,11 +143,13 @@ impl Checker {
     fn new() -> Self {
         let bool_type = Type::Sum(vec![Type::Unit, Type::Unit].into());
         Self {
+            kinds: Kinds::default(),
+            next_kind_variable: 0,
             aliases: HashMap::new(),
             generic_aliases: HashMap::new(),
             opaque_types: HashMap::new(),
             type_substitutions: Default::default(),
-            active_requirements: HashSet::new(),
+            active_requirements: Vec::new(),
             active_generic: None,
             external_types: HashMap::new(),
             expanded_aliases: HashMap::new(),
@@ -163,12 +168,13 @@ impl Checker {
     }
 
     fn check_program(mut self, program: &resolved::Program) -> CheckResult<Program> {
+        self.kinds = Kinds::infer(program)?;
         self.collect_aliases(program);
         // Source order keeps the reported error the same from run to run when several aliases are invalid.
         for item in &program.items {
             match &item.kind {
                 resolved::TopItem::TypeAlias { binding, .. } => {
-                    self.expand_type_id(binding.id, binding.name.span)?;
+                    self.expand_term_id(binding.id, binding.name.span)?;
                 }
                 resolved::TopItem::GenericTypeAlias { binding, .. } => {
                     let definition = self.generic_aliases[&binding.id].clone();
@@ -188,6 +194,11 @@ impl Checker {
         let mut entry = None;
         for item in &program.items {
             if matches!(item.kind, resolved::TopItem::GenericTypeAlias { .. }) {
+                continue;
+            }
+            if let resolved::TopItem::TypeAlias { binding, .. } = &item.kind
+                && self.expand_term_id(binding.id, binding.name.span)?.kind() != Kind::Type
+            {
                 continue;
             }
             if let resolved::TopItem::OperationFamily {
@@ -315,15 +326,21 @@ impl Checker {
         value: &Node<resolved::Expression>,
         span: Span,
     ) -> CheckResult<ast::GenericBinding> {
+        let parameter_kinds =
+            self.kinds
+                .parameters(parameters, annotation, &mut self.next_kind_variable)?;
+        let signature_parameter_kinds = parameter_kinds.clone();
         let substitutions = std::sync::Arc::new(
             parameters
                 .iter()
-                .map(|parameter| {
+                .zip(parameter_kinds)
+                .map(|(parameter, kind)| {
                     (
                         parameter.id,
                         Type::Parameter {
                             id: parameter.id,
                             name: parameter.name.text.clone(),
+                            kind,
                         },
                     )
                 })
@@ -346,6 +363,7 @@ impl Checker {
                 binding.id,
                 GenericSignature {
                     parameters: parameters.to_vec(),
+                    parameter_kinds: signature_parameter_kinds,
                     ty: ty.clone(),
                     requirements,
                     operations: Vec::new(),

@@ -15,15 +15,21 @@ impl Checker {
         annotation: &Node<resolved::TypeExpression>,
         span: Span,
     ) -> CheckResult<ast::OperationFamily> {
+        let parameter_kinds =
+            self.kinds
+                .parameters(parameters, annotation, &mut self.next_kind_variable)?;
+        let signature_parameter_kinds = parameter_kinds.clone();
         let substitutions = std::sync::Arc::new(
             parameters
                 .iter()
-                .map(|parameter| {
+                .zip(parameter_kinds)
+                .map(|(parameter, kind)| {
                     (
                         parameter.id,
                         Type::Parameter {
                             id: parameter.id,
                             name: parameter.name.text.clone(),
+                            kind,
                         },
                     )
                 })
@@ -37,6 +43,7 @@ impl Checker {
                 binding.id,
                 GenericSignature {
                     parameters: parameters.to_vec(),
+                    parameter_kinds: signature_parameter_kinds,
                     ty: ty.clone(),
                     requirements,
                     operations: Vec::new(),
@@ -63,15 +70,20 @@ impl Checker {
         value: &Node<resolved::Expression>,
         span: Span,
     ) -> CheckResult<ast::OperationImplementation> {
+        let parameter_kinds =
+            self.kinds
+                .parameters(parameters, annotation, &mut self.next_kind_variable)?;
         let substitutions = std::sync::Arc::new(
             parameters
                 .iter()
-                .map(|parameter| {
+                .zip(parameter_kinds)
+                .map(|(parameter, kind)| {
                     (
                         parameter.id,
                         Type::Parameter {
                             id: parameter.id,
                             name: parameter.name.text.clone(),
+                            kind,
                         },
                     )
                 })
@@ -81,10 +93,36 @@ impl Checker {
         let previous_generic = self.active_generic.take();
         let previous_operations = std::mem::take(&mut self.active_operations);
         let result = (|| {
-            let arguments = arguments
+            let mut arguments = arguments
                 .iter()
-                .map(|argument| self.expand_type(argument))
+                .map(|argument| self.expand_type_term(argument))
                 .collect::<Result<Vec<_>, _>>()?;
+            let signature = self
+                .generic_signatures
+                .get(&family.id)
+                .expect("an implementation refers to a checked operation family");
+            types::require_type_argument_kinds(
+                &signature.parameter_kinds,
+                &mut arguments,
+                family.name.span,
+            )?;
+            if signature
+                .parameter_kinds
+                .iter()
+                .zip(&arguments)
+                .any(|(kind, argument)| {
+                    matches!(kind, ast::Kind::Function { .. }) && contains_parameter(argument)
+                })
+            {
+                return Err(
+                    Diagnostic::error("operation constructor key must be closed")
+                        .with_primary(
+                            family.name.span,
+                            "replace the constructor parameter with a declared type constructor",
+                        )
+                        .into(),
+                );
+            }
             if parameters.is_empty() && arguments.iter().any(contains_parameter) {
                 return Err(Diagnostic::error(
                     "exact operation implementation requires closed types",
@@ -189,6 +227,15 @@ fn contains_parameter_id(ty: &Type, expected: TypeId) -> bool {
 fn contains_parameter_id_if(ty: &Type, predicate: impl Copy + Fn(TypeId) -> bool) -> bool {
     match ty {
         Type::Parameter { id, .. } => predicate(*id),
+        Type::Application {
+            constructor,
+            argument,
+            ..
+        } => {
+            contains_parameter_id_if(constructor, predicate)
+                || contains_parameter_id_if(argument, predicate)
+        }
+        Type::Abstraction { body, .. } => contains_parameter_id_if(body, predicate),
         Type::Buffer(element) => contains_parameter_id_if(element, predicate),
         Type::Opaque { arguments, .. } => arguments
             .iter()

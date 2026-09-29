@@ -10,14 +10,14 @@ with a `Value` or `Abrupt` completion for every expression.
 | `control` | `if`, `when`, direct blocks, and direct result blocks with their completion and local result targets |
 | `expression` | expression dispatch, references, literals, and products checked against the expected type |
 | `expression/application` | ordinary, receiver-first, and continuation application, result transfer, and empty elimination |
-| `inference` | call-local structural constraints for generic value references, including contextual literals, lambda results, and sum-continuation function contexts |
+| [`inference`](inference/README.md) | local inference and explicit prefixes for generic value references and calls |
 | `expression/elimination` | sum elimination continuations (function values, branches of the enclosing invocation, and result binder names) and their completion join |
 | `lambda` | parameters and body completion against the expected function type |
 | `operator` | numeric, logical, and Symbol operator rules and left-associative operator chains |
 | `operation` | operation-family signatures, implementation coherence, and structural termination |
 | `integer`, `product` | integer literals and operands against the expected type with fixed-width ranges, and product expressions against an expected product |
 | `memory` | `Buffer` access, Symbol snapshot conversion, and C host copy typing; logical operands are distinct from source products |
-| `types`, `types/properties`, `types/display` | alias collection, iterative alias cycle detection, canonical type expansion, `Representable` and physical limits, bounded diagnostic display |
+| [`types`](types/README.md) | kind inference, canonical type-level terms, source expansion, type properties, and runtime-type admission |
 | `interface` | extern transport checks and extraction of host-visible metadata |
 | `initializer` | admission of closed top-level values |
 | `float` | exact rounding of decimal float literals to IEEE 754 binary formats |

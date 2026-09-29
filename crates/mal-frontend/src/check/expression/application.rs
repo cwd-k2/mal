@@ -190,6 +190,17 @@ impl Checker {
         {
             return self.check_memory_intrinsic(reference, type_arguments, arguments, span);
         }
+        if let Some((reference, type_arguments)) = referenced_generic_value(callee)
+            && self.generic_signatures.contains_key(&reference.id)
+        {
+            return self.check_explicit_generic_call(
+                reference,
+                type_arguments,
+                arguments,
+                span,
+                expected,
+            );
+        }
         if let Some(reference) = referenced_value(callee)
             && matches!(
                 reference.id,

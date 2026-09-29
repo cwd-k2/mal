@@ -80,7 +80,7 @@ B :: Buffer<Unit>;
 B :: Buffer<(Int32, [Unit, Address], USize)>;
 ### buffer_two_args | err:
 B :: Buffer<Int32, Int32>;
-### buffer_no_arg | err:
+### buffer_partial_constructor | ok
 B :: Buffer;
 ### extern_symbol_param | err:
 extern f :: Symbol -> Unit;
@@ -183,3 +183,16 @@ main :: Unit -> Int32 := () -> {
     );
     0;
 };
+### higher_kinded_constructor_specializes | run:42
+Pair<A> :: (A, A);
+preserve<F, A> :: F<A> -> F<A> := (value) -> value;
+main :: Unit -> Int32 := () -> {
+    (left, right) := preserve<Pair>((20i32, 22i32));
+    left + right;
+};
+### constructor_inference_is_rigid | err:generic type arguments cannot be inferred
+Pair<A> :: (A, A);
+preserve<F, A> :: F<A> -> F<A> := (value) -> value;
+main :: Unit -> Pair<Int32> := () -> preserve((20i32, 22i32));
+### infinite_kind_is_rejected | err:infinite kind
+Omega<F> :: F<F>;

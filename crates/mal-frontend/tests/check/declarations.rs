@@ -231,11 +231,11 @@ fn keeps_phantom_detection_local_to_each_alias_declaration() {
 }
 
 #[test]
-fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
+fn checks_constructor_application_and_recursion_at_the_owning_stage() {
     for (source, message) in [
         (
             "Pair<A, B> :: (A, B); value :: Pair<Int32> := 0;",
-            "generic type argument arity mismatch",
+            "type constructor used as a value type",
         ),
         (
             "Value :: Int32; value :: Value<Int32> := 0;",
@@ -246,17 +246,59 @@ fn checks_generic_alias_arity_and_recursion_at_the_owning_stage() {
             "recursive generic type alias",
         ),
         (
-            "Discard<A> :: USize; Pair<A, B> :: (A, B); value :: Discard<Pair<Int32>> := 0usize;",
-            "generic type argument arity mismatch",
+            "value :: Buffer := 0;",
+            "type constructor used as a value type",
         ),
-        (
-            "Discard<A> :: USize; opaque Box<A> :: A; value :: Discard<Box> := 0usize;",
-            "generic type requires arguments",
-        ),
-        ("value :: Buffer := 0;", "generic type requires arguments"),
     ] {
         assert_eq!(check_error(source).message, message, "source: {source}");
     }
+
+    check_ok("Discard<A> :: USize; Pair<A, B> :: (A, B); value :: Discard<Pair<Int32>> := 0usize;");
+    check_ok("Discard<A> :: USize; opaque Box<A> :: A; value :: Discard<Box> := 0usize;");
+}
+
+#[test]
+fn infers_kinds_and_normalizes_partial_constructor_application() {
+    let program = check_ok(
+        "Apply<F, A> :: F<A>;\n\
+         Pair<A, B> :: (A, B);\n\
+         PairWithInt32 :: Pair<Int32>;\n\
+         value :: Apply<PairWithInt32, UInt8> := (42i32, 7u8);",
+    );
+
+    assert_eq!(
+        top_binding(&program, 0).value.ty,
+        Type::Product(vec![Type::Int32, Type::UInt8].into())
+    );
+}
+
+#[test]
+fn rejects_invalid_constructor_kinds_at_type_checking() {
+    for (source, message) in [
+        (
+            "Pair<A, B> :: (A, B); value :: Pair<Buffer, Int32> := 0;",
+            "type kind mismatch",
+        ),
+        (
+            "Pair<A, B> :: (A, B); value :: Pair<Int32, UInt8, Unit> := 0;",
+            "type does not accept arguments",
+        ),
+        ("Omega<F> :: F<F>;", "infinite kind"),
+    ] {
+        assert_eq!(check_error(source).message, message, "source: {source}");
+    }
+}
+
+#[test]
+fn generalizes_identity_constructor_kinds_per_use() {
+    check_ok(
+        "Id<X> :: X;\n\
+         Pair<A, B> :: (A, B);\n\
+         IntIdentity :: Id<Int32>;\n\
+         PairWithInt32 :: Id<Pair<Int32>>;\n\
+         left :: IntIdentity := 1;\n\
+         right :: PairWithInt32<UInt8> := (1i32, 2u8);",
+    );
 }
 
 #[test]

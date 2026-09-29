@@ -419,6 +419,61 @@ fn infers_generic_arguments_from_operands_results_and_function_contexts() {
 }
 
 #[test]
+fn accepts_explicit_constructor_arguments_and_infers_value_types() {
+    let program = check_ok(
+        "Pair<A> :: (A, A);\n\
+         preserve<F, A> :: F<A> -> F<A> := (value) -> value;\n\
+         main :: Unit -> Int32 := () -> {\n\
+             pair :: Pair<Int32> := (20, 22);\n\
+             (left, right) := preserve<Pair>(pair);\n\
+             left + right;\n\
+         };",
+    );
+
+    check::specialize(program).expect("specialize a constructor argument");
+
+    check_ok(
+        "Pair<A> :: (A, A);\n\
+         preserve<F, A> :: F<A> -> F<A> := (value) -> value;\n\
+         main :: Unit -> Int32 := () -> {\n\
+             keep :: Pair<Int32> -> Pair<Int32> := preserve<Pair>;\n\
+             (left, right) := keep((20i32, 22i32));\n\
+             left + right;\n\
+         };",
+    );
+
+    assert_eq!(
+        check_error(
+            "Pair<A> :: (A, A);\n\
+             preserve<F, A> :: F<A> -> F<A> := (value) -> value;\n\
+             main :: Unit -> Pair<Int32> := () -> preserve((20i32, 22i32));"
+        )
+        .message,
+        "generic type arguments cannot be inferred"
+    );
+}
+
+#[test]
+fn carries_applied_constructor_storable_requirements() {
+    let program = check_ok(
+        "Pair<A> :: (A, A);\n\
+         store<F, A> :: (F<A>, USize) -> Buffer<F<A>> := (_, length) -> make<F<A>>(length);\n\
+         main :: Unit -> Int32 := () -> { values := store<Pair>((1i32, 2i32), 1usize); (#values).i32; };",
+    );
+    check::specialize(program).expect("specialize an applied constructor requirement");
+
+    assert_eq!(
+        check_error(
+            "Callback<A> :: A -> A;\n\
+             store<F, A> :: (F<A>, USize) -> Buffer<F<A>> := (_, length) -> make<F<A>>(length);\n\
+             main :: Unit -> Int32 := () -> { store<Callback, Int32>((value) -> value, 1usize); 0; };"
+        )
+        .message,
+        "generic application lacks a Storable requirement"
+    );
+}
+
+#[test]
 fn infers_a_generic_continuation_result_parameter_from_the_sum_payload() {
     check_ok(
         "const<A, B> :: A -> B -> A := (value) -> (_) -> value;\n\
@@ -455,6 +510,27 @@ fn inferred_and_explicit_references_share_a_specialization_key() {
     );
     let specialized = check::specialize(program).expect("specialize shared application");
 
+    assert_eq!(specialized.program().items.len(), 2);
+}
+
+#[test]
+fn kind_polymorphic_constructors_share_a_canonical_specialization_key() {
+    let program = check_ok(
+        "Id<X> :: X;\n\
+         preserve<F, A> :: F<A> -> F<A> := (value) -> value;\n\
+         main :: Unit -> Int32 := () -> preserve<Id, Int32>(20i32) + preserve<Id, Int32>(22i32);",
+    );
+    let specialized = check::specialize(program).expect("specialize the canonical constructor");
+
+    assert_eq!(specialized.program().items.len(), 2);
+
+    let phantom = check_ok(
+        "Id<X> :: X;\n\
+         constant<F> :: Unit -> Int32 := () -> 21;\n\
+         main :: Unit -> Int32 := () -> constant<Id>() + constant<Id>();",
+    );
+    let specialized =
+        check::specialize(phantom).expect("canonicalize generalized constructor kinds");
     assert_eq!(specialized.program().items.len(), 2);
 }
 

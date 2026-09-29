@@ -8,8 +8,34 @@ use mal_syntax::source::FileId;
 use mal_syntax::source::Span;
 use std::{collections::HashSet, sync::Arc};
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+/// The compiler-inferred shape of a type-level term.
+pub enum Kind {
+    /// A complete type inhabited by runtime values.
+    Type,
+    /// A generalized variable in a principal kind scheme.
+    Variable(u32),
+    /// A type-level function from one kind to another.
+    Function {
+        /// The accepted argument kind.
+        parameter: Arc<Kind>,
+        /// The kind produced by application.
+        result: Arc<Kind>,
+    },
+}
+
+impl Kind {
+    /// Constructs a right-associated type-level function kind.
+    pub fn function(parameter: Kind, result: Kind) -> Self {
+        Self::Function {
+            parameter: Arc::new(parameter),
+            result: Arc::new(result),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
-/// A canonical checked type; aggregate and function children may share allocation identity.
+/// A canonical checked type-level term; value expressions always carry a term of kind `Type`.
 pub enum Type {
     /// The single-value `Unit` type.
     Unit,
@@ -47,6 +73,33 @@ pub enum Type {
         id: TypeId,
         /// Its source name for diagnostics.
         name: String,
+        /// The inferred kind of this use.
+        kind: Kind,
+    },
+    /// A bound variable in a canonical type-level abstraction, counted from the nearest binder.
+    Bound {
+        /// The de Bruijn index of the binder.
+        index: usize,
+        /// The kind assigned to the binder.
+        kind: Kind,
+    },
+    /// A type-level application that cannot yet beta-reduce because its callee is open.
+    Application {
+        /// The constructor term.
+        constructor: Arc<Type>,
+        /// The applied argument term.
+        argument: Arc<Type>,
+        /// The result kind established by kind checking.
+        kind: Kind,
+        /// The application site retained for delayed formation diagnostics.
+        span: Span,
+    },
+    /// A canonical type-level abstraction used for partial constructor application.
+    Abstraction {
+        /// The accepted argument kind.
+        parameter_kind: Kind,
+        /// The body, whose nearest bound variable has index zero.
+        body: Arc<Type>,
     },
     /// A shared mutable sequence of elements.
     Buffer(Arc<Type>),
@@ -118,12 +171,53 @@ impl PartialEq for Type {
                     Self::Parameter {
                         id: left_id,
                         name: left_name,
+                        kind: left_kind,
+                        ..
                     },
                     Self::Parameter {
                         id: right_id,
                         name: right_name,
+                        kind: right_kind,
+                        ..
                     },
-                ) if left_id == right_id && left_name == right_name => {}
+                ) if left_id == right_id && left_name == right_name && left_kind == right_kind => {}
+                (
+                    Self::Bound {
+                        index: left_index,
+                        kind: left_kind,
+                    },
+                    Self::Bound {
+                        index: right_index,
+                        kind: right_kind,
+                    },
+                ) if left_index == right_index && left_kind == right_kind => {}
+                (
+                    Self::Application {
+                        constructor: left_constructor,
+                        argument: left_argument,
+                        kind: left_kind,
+                        ..
+                    },
+                    Self::Application {
+                        constructor: right_constructor,
+                        argument: right_argument,
+                        kind: right_kind,
+                        ..
+                    },
+                ) if left_kind == right_kind => {
+                    pending.push((left_constructor, right_constructor));
+                    pending.push((left_argument, right_argument));
+                }
+                (
+                    Self::Abstraction {
+                        parameter_kind: left_kind,
+                        body: left_body,
+                    },
+                    Self::Abstraction {
+                        parameter_kind: right_kind,
+                        body: right_body,
+                    },
+                ) if left_kind == right_kind => pending.push((left_body, right_body)),
                 (Self::Buffer(left), Self::Buffer(right)) => pending.push((left, right)),
                 (
                     Self::Opaque {
@@ -185,6 +279,20 @@ impl PartialEq for Type {
 impl Eq for Type {}
 
 impl Type {
+    /// Returns the kind established for this canonical term.
+    pub fn kind(&self) -> Kind {
+        match self {
+            Self::Parameter { kind, .. }
+            | Self::Bound { kind, .. }
+            | Self::Application { kind, .. } => kind.clone(),
+            Self::Abstraction {
+                parameter_kind,
+                body,
+            } => Kind::function(parameter_kind.clone(), body.kind()),
+            _ => Kind::Type,
+        }
+    }
+
     /// Walks data-bearing subtypes in preorder, visiting shared aggregate nodes only once.
     ///
     /// Function parameter and result types are intentionally not data subtypes of the function value.

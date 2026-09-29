@@ -23,6 +23,28 @@ fn selects_exact_function_and_value_implementations() {
 }
 
 #[test]
+fn selects_closed_higher_kinded_operation_keys() {
+    let program = check_ok(
+        "Pair<A> :: (A, A);\n\
+         first<F, A> :: F<A> -> A;\n\
+         first<Pair, Int32> :: Pair<Int32> -> Int32 := (left, _) -> left;\n\
+         main :: Unit -> Int32 := () -> first<Pair>((20i32, 22i32));",
+    );
+
+    check::specialize(program).expect("select a closed constructor operation key");
+
+    assert_eq!(
+        check_error(
+            "Pair<A> :: (A, A);\n\
+             first<F, A> :: F<A> -> A;\n\
+             first<F, Int32> :: F<Int32> -> Int32 := (value) -> 0;"
+        )
+        .message,
+        "operation constructor key must be closed"
+    );
+}
+
+#[test]
 fn carries_symbolic_operation_requirements_through_generic_specialization() {
     let program = check_ok(
         "equal<A> :: (A, A) -> Bool;\n\
