@@ -109,7 +109,11 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             let mut value = definition.value;
             specializer.begin_instance_identities();
             specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
-            let ty = runtime_type(&substitute_type(&definition.ty, &substitutions));
+            let ty = runtime_type(&substitute_type(
+                &definition.ty,
+                &substitutions,
+                definition.span,
+            )?);
             specializer.specializations.push(Node::new(
                 TopItem::Binding(Box::new(Binding {
                     pattern: Pattern::Binding {
@@ -132,7 +136,11 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         let mut value = implementation.value;
         specializer.begin_instance_identities();
         specializer.expression(&mut value, &substitutions, Some((family, binding.id)))?;
-        let implementation_ty = runtime_type(&substitute_type(&implementation.ty, &substitutions));
+        let implementation_ty = runtime_type(&substitute_type(
+            &implementation.ty,
+            &substitutions,
+            implementation.span,
+        )?);
         specializer.specializations.push(Node::new(
             TopItem::Binding(Box::new(Binding {
                 pattern: Pattern::Binding {
@@ -205,7 +213,7 @@ impl Specializer {
         let TopItem::Binding(binding) = &mut item.kind else {
             unreachable!("the binding table contains only bindings")
         };
-        substitution::pattern(&mut binding.pattern, &HashMap::new());
+        substitution::pattern(&mut binding.pattern, &HashMap::new())?;
         if let Some(annotation) = &mut binding.annotation {
             *annotation = runtime_type(annotation);
         }

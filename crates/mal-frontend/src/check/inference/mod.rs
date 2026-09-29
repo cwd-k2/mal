@@ -17,6 +17,8 @@ enum GenericCallExpectation<'a> {
 
 mod arguments;
 mod constraint;
+#[cfg(test)]
+mod constraint_tests;
 mod probe;
 
 use arguments::{argument_templates, inferred_arguments, parameter_ids};
@@ -77,7 +79,8 @@ impl Checker {
             .zip(arguments.iter().cloned())
             .collect();
         for required in &signature.requirements {
-            let required = super::types::substitute_type(required, &substitutions);
+            let required =
+                super::types::substitute_type(required, &substitutions, reference.name.span)?;
             if !super::types::satisfies_storable_requirement(&required, &self.active_requirements) {
                 return Err(
                     Diagnostic::error("generic application lacks a Storable requirement")
@@ -114,8 +117,14 @@ impl Checker {
                     let requirement_arguments = requirement
                         .arguments
                         .iter()
-                        .map(|argument| super::types::substitute_type(argument, &substitutions))
-                        .collect::<Vec<_>>();
+                        .map(|argument| {
+                            super::types::substitute_type(
+                                argument,
+                                &substitutions,
+                                reference.name.span,
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
                     if !self.active_operations.iter().any(|existing| {
                         existing.family.id == requirement.family.id
                             && existing.arguments == requirement_arguments
@@ -135,7 +144,7 @@ impl Checker {
         };
         Ok(Expression {
             kind,
-            ty: super::types::substitute_type(&signature.ty, &substitutions),
+            ty: super::types::substitute_type(&signature.ty, &substitutions, reference.name.span)?,
             span,
         })
     }
@@ -204,7 +213,8 @@ impl Checker {
             .map(|(parameter, argument)| (parameter.id, argument))
             .collect::<HashMap<_, _>>();
         if let Some(expected) = expected {
-            let instantiated = super::types::substitute_type(&signature.ty, &substitutions);
+            let instantiated =
+                super::types::substitute_type(&signature.ty, &substitutions, reference.name.span)?;
             constrain(
                 &instantiated,
                 expected,
@@ -355,7 +365,8 @@ impl Checker {
             .zip(explicit)
             .map(|(parameter, argument)| (parameter.id, argument.clone()))
             .collect::<HashMap<_, _>>();
-        let instantiated = super::types::substitute_type(&signature.ty, &substitutions);
+        let instantiated =
+            super::types::substitute_type(&signature.ty, &substitutions, reference.name.span)?;
         let Type::Function { parameter, result } = &instantiated else {
             return Err(Diagnostic::error("cannot call a non-function value")
                 .with_primary(reference.name.span, "this generic value is not a function")

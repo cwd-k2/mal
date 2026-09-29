@@ -31,7 +31,8 @@ impl Checker {
         {
             constrain_generic_scheme(signature, template, flexible, substitutions, argument.span)?;
         }
-        let instantiated = super::super::types::substitute_type(template, substitutions);
+        let instantiated =
+            super::super::types::substitute_type(template, substitutions, argument.span)?;
         let unresolved = has_unresolved(&instantiated, flexible, substitutions);
         let checked = if let resolved::Expression::Lambda(lambda) = &argument.kind
             && let Type::Function { parameter, result } = &instantiated
@@ -105,7 +106,8 @@ impl Checker {
         else {
             return Ok(());
         };
-        let substituted = super::super::types::substitute_type(result_template, substitutions);
+        let substituted =
+            super::super::types::substitute_type(result_template, substitutions, lambda.body.span)?;
         let templates = match result_binders.as_slice() {
             [_] => vec![substituted],
             _ => {

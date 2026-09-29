@@ -21,21 +21,25 @@ impl Specializer {
         if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
             return self.binary_expression(expression, substitutions, self_instance);
         }
-        expression.ty = runtime_type(&substitute_type(&expression.ty, substitutions));
+        expression.ty = runtime_type(&substitute_type(
+            &expression.ty,
+            substitutions,
+            expression.span,
+        )?);
         match &mut expression.kind {
             ExpressionKind::GenericReference {
                 reference,
                 arguments,
             } => {
                 for argument in arguments.iter_mut() {
-                    *argument = substitute_type(argument, substitutions);
+                    *argument = substitute_type(argument, substitutions, expression.span)?;
                 }
                 let reference = self.request(reference, arguments)?;
                 expression.kind = ExpressionKind::Reference(reference);
             }
             ExpressionKind::OperationReference { family, arguments } => {
                 for argument in arguments.iter_mut() {
-                    *argument = substitute_type(argument, substitutions);
+                    *argument = substitute_type(argument, substitutions, expression.span)?;
                 }
                 let reference = self.request_operation(family, arguments)?;
                 expression.kind = ExpressionKind::Reference(reference);
@@ -77,8 +81,11 @@ impl Specializer {
                     }
                 }
                 for binder in result_binders {
-                    binder.parameter_type =
-                        runtime_type(&substitute_type(&binder.parameter_type, substitutions));
+                    binder.parameter_type = runtime_type(&substitute_type(
+                        &binder.parameter_type,
+                        substitutions,
+                        binder.binding.name.span,
+                    )?);
                 }
                 self.block(body, substitutions, self_instance)?;
             }
@@ -94,10 +101,16 @@ impl Specializer {
                         )
                     })?;
                 }
-                lambda.parameter_type =
-                    runtime_type(&substitute_type(&lambda.parameter_type, substitutions));
-                lambda.result_type =
-                    runtime_type(&substitute_type(&lambda.result_type, substitutions));
+                lambda.parameter_type = runtime_type(&substitute_type(
+                    &lambda.parameter_type,
+                    substitutions,
+                    expression.span,
+                )?);
+                lambda.result_type = runtime_type(&substitute_type(
+                    &lambda.result_type,
+                    substitutions,
+                    expression.span,
+                )?);
                 if self_instance.is_some() {
                     for capture in &mut lambda.captures {
                         if let Some(renamed) = self.renamed_reference(capture.source.id) {
@@ -110,10 +123,14 @@ impl Specializer {
                     }
                 }
                 if let Some(parameter) = &mut lambda.parameter {
-                    pattern(parameter, substitutions);
+                    pattern(parameter, substitutions)?;
                 }
                 for capture in &mut lambda.captures {
-                    capture.ty = runtime_type(&substitute_type(&capture.ty, substitutions));
+                    capture.ty = runtime_type(&substitute_type(
+                        &capture.ty,
+                        substitutions,
+                        capture.binding.name.span,
+                    )?);
                 }
                 if let Some((generic, specialized)) = self_instance {
                     if lambda.self_binding == Some(generic) {
@@ -178,7 +195,11 @@ impl Specializer {
     ) -> Result<(), Diagnostic> {
         let mut pending = vec![expression];
         while let Some(expression) = pending.pop() {
-            expression.ty = runtime_type(&substitute_type(&expression.ty, substitutions));
+            expression.ty = runtime_type(&substitute_type(
+                &expression.ty,
+                substitutions,
+                expression.span,
+            )?);
             if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
                 let ExpressionKind::Binary { left, right, .. } = &mut expression.kind else {
                     unreachable!()

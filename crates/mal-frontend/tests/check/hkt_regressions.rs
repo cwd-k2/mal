@@ -39,15 +39,11 @@ fn rejects_amplifying_constructor_composition_before_allocating_its_normal_form(
 
 #[test]
 fn reports_delayed_generic_normalization_instead_of_panicking() {
-    let parameters = (0..256)
-        .map(|index| format!("T{index}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let arguments = vec!["Unit"; 256].join(", ");
+    let fields = vec!["A"; 65_536].join(", ");
     let source = format!(
-        "Wide<{parameters}> :: T0;\n\
-         take<F> :: F<{arguments}> -> Unit := (_) -> ();\n\
-         value := take<Wide>;"
+        "Huge<A> :: ({fields});\n\
+         take<F, A> :: F<A> -> Unit := (_) -> ();\n\
+         value := take<Huge, Unit>;"
     );
 
     let error = check_error(&source);
@@ -59,7 +55,7 @@ fn reports_delayed_generic_normalization_instead_of_panicking() {
             .expect("normalization diagnostic")
             .span
             .start(),
-        source.find("take<Wide>").unwrap()
+        source.find("take<Huge, Unit>").unwrap()
     );
 }
 

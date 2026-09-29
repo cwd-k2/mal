@@ -45,9 +45,12 @@ pub(super) fn inferred_arguments(
                 .into(),
         );
     }
-    Ok(signature
+    signature
         .parameters
         .iter()
-        .map(|parameter| resolve_substitution(parameter.id, substitutions, &mut HashSet::new()))
-        .collect())
+        .map(|parameter| {
+            resolve_substitution(parameter.id, substitutions, &mut HashSet::new(), span)
+        })
+        .collect::<Result<_, _>>()
+        .map_err(Into::into)
 }

@@ -23,7 +23,7 @@ impl Specializer {
                     if self_instance.is_some() {
                         self.rename_pattern(&mut binding.pattern)?;
                     }
-                    pattern(&mut binding.pattern, substitutions);
+                    pattern(&mut binding.pattern, substitutions)?;
                     self.expression(&mut binding.value, substitutions, self_instance)?;
                 }
                 BodyItem::Expression(value) => {
@@ -31,7 +31,7 @@ impl Specializer {
                 }
             }
         }
-        completion(&mut block.result, substitutions);
+        completion(&mut block.result, substitutions)?;
         match block.result.as_mut() {
             Completion::Value(value) => self.expression(value, substitutions, self_instance)?,
             Completion::Abrupt(abrupt) => self.abrupt(abrupt, substitutions, self_instance)?,
@@ -74,13 +74,16 @@ impl Specializer {
                 self.expression(expression, substitutions, self_instance)
             }
             SumContinuation::Branch(branch) => {
-                branch.parameter_type =
-                    runtime_type(&substitute_type(&branch.parameter_type, substitutions));
+                branch.parameter_type = runtime_type(&substitute_type(
+                    &branch.parameter_type,
+                    substitutions,
+                    branch.body.span,
+                )?);
                 if let Some(parameter) = &mut branch.parameter {
                     if self_instance.is_some() {
                         self.rename_pattern(parameter)?;
                     }
-                    pattern(parameter, substitutions);
+                    pattern(parameter, substitutions)?;
                 }
                 self.block(&mut branch.body, substitutions, self_instance)
             }
@@ -90,10 +93,16 @@ impl Specializer {
                 {
                     transfer.target = renamed;
                 }
-                transfer.payload_type =
-                    runtime_type(&substitute_type(&transfer.payload_type, substitutions));
-                transfer.result_type =
-                    runtime_type(&substitute_type(&transfer.result_type, substitutions));
+                transfer.payload_type = runtime_type(&substitute_type(
+                    &transfer.payload_type,
+                    substitutions,
+                    transfer.span,
+                )?);
+                transfer.result_type = runtime_type(&substitute_type(
+                    &transfer.result_type,
+                    substitutions,
+                    transfer.span,
+                )?);
                 Ok(())
             }
         }

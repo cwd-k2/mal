@@ -11,32 +11,32 @@ mod kind_substitution;
 mod normalization;
 mod substitution;
 
-pub(in crate::check) fn apply(
-    constructor: Type,
-    argument: Type,
-    span: Span,
-) -> Result<Type, Diagnostic> {
-    Normalizer::new(span).apply(constructor, argument, span)
-}
-
-pub(in crate::check::types) struct Normalizer {
+pub(in crate::check) struct Normalizer {
     budget: normalization::Budget,
 }
 
 impl Normalizer {
-    pub(in crate::check::types) fn new(span: Span) -> Self {
+    pub(in crate::check) fn new(span: Span) -> Self {
         Self {
             budget: normalization::Budget::new(span),
         }
     }
 
-    pub(in crate::check::types) fn apply(
+    pub(in crate::check) fn apply(
         &mut self,
         constructor: Type,
         argument: Type,
         span: Span,
     ) -> Result<Type, Diagnostic> {
         apply_with_budget(constructor, argument, span, &mut self.budget, 0)
+    }
+
+    pub(in crate::check) fn abstraction(
+        &mut self,
+        parameter_kind: Kind,
+        body: Type,
+    ) -> Result<Type, Diagnostic> {
+        abstraction_with_budget(parameter_kind, body, &mut self.budget, 0)
     }
 }
 
@@ -77,21 +77,27 @@ fn apply_with_budget(
     Ok(applied)
 }
 
-pub(in crate::check) fn abstraction(parameter_kind: Kind, body: Type) -> Type {
+fn abstraction_with_budget(
+    parameter_kind: Kind,
+    body: Type,
+    budget: &mut normalization::Budget,
+    depth: usize,
+) -> Result<Type, Diagnostic> {
     if let Type::Application {
         constructor,
         argument,
         ..
     } = &body
         && matches!(argument.as_ref(), Type::Bound { index: 0, kind } if kind == &parameter_kind)
-        && !indices::contains_bound(constructor, 0)
+        && !indices::contains_bound_bounded(constructor, 0, budget, depth + 1)?
     {
-        return indices::shift(constructor, 0, -1);
+        return indices::shift_bounded(constructor, 0, -1, budget, depth + 1);
     }
-    Type::Abstraction {
+    budget.visit(depth)?;
+    Ok(Type::Abstraction {
         parameter_kind,
         body: body.into(),
-    }
+    })
 }
 
 pub(super) fn normalize_argument_kinds(

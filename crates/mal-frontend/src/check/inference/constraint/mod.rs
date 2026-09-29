@@ -8,90 +8,10 @@ use mal_syntax::{diagnostic::Diagnostic, source::Span};
 use super::super::ast::{Kind, Type};
 
 mod scheme;
+mod substitution;
 
 pub(super) use scheme::constrain_generic_scheme;
-
-pub(super) fn resolve_substitution(
-    id: TypeId,
-    substitutions: &HashMap<TypeId, Type>,
-    visiting: &mut HashSet<TypeId>,
-) -> Type {
-    if !visiting.insert(id) {
-        return substitutions[&id].clone();
-    }
-    let resolved = resolve_type(&substitutions[&id], substitutions, visiting);
-    visiting.remove(&id);
-    resolved
-}
-
-fn resolve_type(
-    ty: &Type,
-    substitutions: &HashMap<TypeId, Type>,
-    visiting: &mut HashSet<TypeId>,
-) -> Type {
-    match ty {
-        Type::Parameter { id, .. } if substitutions.contains_key(id) => {
-            resolve_substitution(*id, substitutions, visiting)
-        }
-        Type::Application {
-            constructor,
-            argument,
-            span,
-            ..
-        } => super::super::types::term::apply(
-            resolve_type(constructor, substitutions, visiting),
-            resolve_type(argument, substitutions, visiting),
-            *span,
-        )
-        .expect("inference substitution preserves application kinds"),
-        Type::Abstraction {
-            parameter_kind,
-            body,
-        } => super::super::types::term::abstraction(
-            parameter_kind.clone(),
-            resolve_type(body, substitutions, visiting),
-        ),
-        Type::Buffer(element) => {
-            Type::Buffer(resolve_type(element, substitutions, visiting).into())
-        }
-        Type::Opaque {
-            id,
-            name,
-            arguments,
-            representation,
-            declaration_file,
-        } => Type::Opaque {
-            id: *id,
-            name: name.clone(),
-            arguments: arguments
-                .iter()
-                .map(|argument| resolve_type(argument, substitutions, visiting))
-                .collect::<Vec<_>>()
-                .into(),
-            representation: resolve_type(representation, substitutions, visiting).into(),
-            declaration_file: *declaration_file,
-        },
-        Type::Product(elements) => Type::Product(
-            elements
-                .iter()
-                .map(|element| resolve_type(element, substitutions, visiting))
-                .collect::<Vec<_>>()
-                .into(),
-        ),
-        Type::Sum(members) => Type::Sum(
-            members
-                .iter()
-                .map(|member| resolve_type(member, substitutions, visiting))
-                .collect::<Vec<_>>()
-                .into(),
-        ),
-        Type::Function { parameter, result } => Type::Function {
-            parameter: resolve_type(parameter, substitutions, visiting).into(),
-            result: resolve_type(result, substitutions, visiting).into(),
-        },
-        _ => ty.clone(),
-    }
-}
+pub(super) use substitution::resolve_substitution;
 
 fn contains_unbound_from(
     ty: &Type,

@@ -154,16 +154,18 @@ impl Checker {
                     } else if let Some(ty) = predefined_type(id) {
                         values.push(ty);
                     } else if id == BUFFER_TYPE {
-                        values.push(term::abstraction(
-                            Kind::Type,
-                            Type::Buffer(
-                                Type::Bound {
-                                    index: 0,
-                                    kind: Kind::Type,
-                                }
-                                .into(),
-                            ),
-                        ));
+                        values.push(
+                            normalizer.abstraction(
+                                Kind::Type,
+                                Type::Buffer(
+                                    Type::Bound {
+                                        index: 0,
+                                        kind: Kind::Type,
+                                    }
+                                    .into(),
+                                ),
+                            )?,
+                        );
                     } else if let Some(binding) = self.external_types.get(&id) {
                         values.push(Type::External {
                             id,
@@ -280,7 +282,7 @@ impl Checker {
                 } => {
                     let mut body = values.pop().expect("alias expansion produces one term");
                     for kind in parameter_kinds.into_iter().rev() {
-                        body = term::abstraction(kind, body);
+                        body = normalizer.abstraction(kind, body)?;
                     }
                     values.push(body);
                     assert!(self.expanding.remove(&id));
@@ -305,7 +307,7 @@ impl Checker {
                         declaration_file: definition.binding.name.span.file(),
                     };
                     for kind in parameter_kinds.into_iter().rev() {
-                        body = term::abstraction(kind, body);
+                        body = normalizer.abstraction(kind, body)?;
                     }
                     values.push(body);
                     assert!(self.expanding.remove(&id));

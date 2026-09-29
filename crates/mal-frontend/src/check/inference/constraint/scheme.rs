@@ -24,7 +24,7 @@ pub(in crate::check::inference) fn constrain_generic_scheme(
     unify_flexible(&signature.ty, expected, &flexible, &mut substitutions, span)?;
     for id in outer_flexible {
         if substitutions.contains_key(id) {
-            let resolved = resolve_substitution(*id, &substitutions, &mut HashSet::new());
+            let resolved = resolve_substitution(*id, &substitutions, &mut HashSet::new(), span)?;
             if !contains_unbound_from(&resolved, &inner_flexible, &substitutions) {
                 outer_substitutions.insert(*id, resolved);
             }
