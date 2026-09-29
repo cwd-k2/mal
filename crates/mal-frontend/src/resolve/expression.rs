@@ -84,28 +84,44 @@ impl Resolver {
         Ok(ast::Node::new(kind, expression.span))
     }
 
+    /// A conversion suffix denotes a predefined numeric type directly. It is not a type name, so a type parameter
+    /// or other binding spelled like the target type cannot capture it.
     fn conversion_type_reference(
         &self,
         name: &ast::Name,
     ) -> Result<super::ast::TypeReference, Diagnostic> {
-        let canonical = match name.text.as_str() {
-            "i8" => "Int8",
-            "i16" => "Int16",
-            "i32" => "Int32",
-            "i64" => "Int64",
-            "u8" => "UInt8",
-            "u16" => "UInt16",
-            "u32" => "UInt32",
-            "u64" => "UInt64",
-            "f32" => "Float32",
-            "f64" => "Float64",
-            "bytes" => "ByteSize",
-            "usize" => "USize",
-            _ => return self.type_reference(name),
+        use super::ast::{
+            BYTE_SIZE_TYPE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE, INT32_TYPE,
+            INT64_TYPE, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE, UINT64_TYPE,
         };
-        self.type_reference(&ast::Name {
-            text: canonical.into(),
-            span: name.span,
+        let (id, canonical) = match name.text.as_str() {
+            "i8" => (INT8_TYPE, "Int8"),
+            "i16" => (INT16_TYPE, "Int16"),
+            "i32" => (INT32_TYPE, "Int32"),
+            "i64" => (INT64_TYPE, "Int64"),
+            "u8" => (UINT8_TYPE, "UInt8"),
+            "u16" => (UINT16_TYPE, "UInt16"),
+            "u32" => (UINT32_TYPE, "UInt32"),
+            "u64" => (UINT64_TYPE, "UInt64"),
+            "f32" => (FLOAT32_TYPE, "Float32"),
+            "f64" => (FLOAT64_TYPE, "Float64"),
+            "bytes" => (BYTE_SIZE_TYPE, "ByteSize"),
+            "usize" => (U_SIZE_TYPE, "USize"),
+            _ => {
+                return Err(
+                    Diagnostic::error("unknown numeric conversion").with_primary(
+                        name.span,
+                        "expected a numeric conversion suffix such as `.i32`",
+                    ),
+                );
+            }
+        };
+        Ok(super::ast::TypeReference {
+            id,
+            name: ast::Name {
+                text: canonical.into(),
+                span: name.span,
+            },
         })
     }
 

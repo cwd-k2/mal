@@ -136,20 +136,10 @@ impl Checker {
             )?,
             resolved::Expression::Conversion { type_ref, value } => {
                 let target = self.expand_type_id(type_ref.id, type_ref.name.span)?;
-                if matches!(target, Type::Sum(_)) {
-                    return Err(Diagnostic::error(
-                        "sum values must be constructed through result binders",
-                    )
-                    .with_primary(type_ref.name.span, "this is a sum type")
-                    .into());
-                }
-                if !is_integer(&target) && !is_float(&target) {
-                    return Err(
-                        Diagnostic::error("numeric conversion requires a numeric type")
-                            .with_primary(type_ref.name.span, "this is not a numeric type")
-                            .into(),
-                    );
-                }
+                debug_assert!(
+                    is_integer(&target) || is_float(&target),
+                    "the resolver maps conversion suffixes to predefined numeric types"
+                );
                 let value = self.check_expression(value, None)?;
                 if !is_integer(&value.ty) && !is_float(&value.ty) {
                     return Err(
