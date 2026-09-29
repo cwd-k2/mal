@@ -16,6 +16,15 @@ pub(super) fn unify(
         resolve(actual, substitutions),
     ) {
         (Kind::Variable(left), Kind::Variable(right)) if left == right => Ok(()),
+        (Kind::Variable(left), Kind::Variable(right)) => {
+            let (retained, replaced) = if left < right {
+                (left, right)
+            } else {
+                (right, left)
+            };
+            substitutions.insert(replaced, Kind::Variable(retained));
+            Ok(())
+        }
         (Kind::Variable(id), kind) | (kind, Kind::Variable(id)) => {
             if contains(&kind, id, substitutions) {
                 return Err(Diagnostic::error("infinite kind")

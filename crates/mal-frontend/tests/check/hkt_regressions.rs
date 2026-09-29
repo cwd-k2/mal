@@ -87,7 +87,7 @@ fn rejects_kind_growth_across_shallow_declarations() {
         source
     }
 
-    check_ok(&chain(40));
+    check_ok(&chain(100));
     let source = chain(300);
 
     let error = check_error(&source);

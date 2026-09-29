@@ -8,6 +8,7 @@ use super::{Kind, Type, type_name};
 mod indices;
 mod kind;
 mod kind_substitution;
+mod kind_variables;
 mod normalization;
 mod substitution;
 
@@ -135,6 +136,14 @@ pub(in crate::check) fn instantiate_kinds(
             .collect(),
         kind_substitution::rewrite(ty, &substitutions, &mut budget, 0)?,
     ))
+}
+
+pub(in crate::check::types) fn freshen_kind_variables(
+    ty: &Type,
+    next: &mut u32,
+    normalizer: &mut Normalizer,
+) -> Result<Type, Diagnostic> {
+    kind_substitution::freshen_variables(ty, next, &mut normalizer.budget)
 }
 
 pub(super) use kind::name as kind_name;

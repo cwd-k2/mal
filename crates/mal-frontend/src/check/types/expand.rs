@@ -173,6 +173,12 @@ impl Checker {
                         });
                     } else if let Some(expanded) = self.expanded_aliases.get(&id) {
                         values.push(expanded.clone());
+                    } else if let Some(expanded) = self.expanded_generic_aliases.get(&id) {
+                        values.push(term::freshen_kind_variables(
+                            expanded,
+                            &mut self.next_kind_variable,
+                            &mut normalizer,
+                        )?);
                     } else if let Some(definition) = self.generic_aliases.get(&id).cloned() {
                         if !self.expanding.insert(id) {
                             return Err(Diagnostic::error("recursive generic type alias")
@@ -284,6 +290,7 @@ impl Checker {
                     for kind in parameter_kinds.into_iter().rev() {
                         body = normalizer.abstraction(kind, body)?;
                     }
+                    self.expanded_generic_aliases.insert(id, body.clone());
                     values.push(body);
                     assert!(self.expanding.remove(&id));
                 }

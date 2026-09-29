@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use mal_syntax::diagnostic::Diagnostic;
 
-use super::{Kind, Type, kind::substitute, normalization::Budget};
+use super::{Kind, Type, kind_variables, normalization::Budget};
 
 pub(super) fn rewrite(
     ty: &Type,
@@ -13,16 +13,30 @@ pub(super) fn rewrite(
     if substitutions.is_empty() {
         return Ok(ty.clone());
     }
+    rewrite_with(
+        ty,
+        budget,
+        depth,
+        &mut kind_variables::Rewriter::new(substitutions),
+    )
+}
+
+fn rewrite_with(
+    ty: &Type,
+    budget: &mut Budget,
+    depth: usize,
+    kinds: &mut kind_variables::Rewriter<'_>,
+) -> Result<Type, Diagnostic> {
     budget.visit(depth)?;
     Ok(match ty {
         Type::Parameter { id, name, kind } => Type::Parameter {
             id: *id,
             name: name.clone(),
-            kind: substitute(kind, substitutions),
+            kind: kinds.rewrite(kind),
         },
         Type::Bound { index, kind } => Type::Bound {
             index: *index,
-            kind: substitute(kind, substitutions),
+            kind: kinds.rewrite(kind),
         },
         Type::Application {
             constructor,
@@ -30,20 +44,20 @@ pub(super) fn rewrite(
             kind,
             span,
         } => Type::Application {
-            constructor: rewrite(constructor, substitutions, budget, depth + 1)?.into(),
-            argument: rewrite(argument, substitutions, budget, depth + 1)?.into(),
-            kind: substitute(kind, substitutions),
+            constructor: rewrite_with(constructor, budget, depth + 1, kinds)?.into(),
+            argument: rewrite_with(argument, budget, depth + 1, kinds)?.into(),
+            kind: kinds.rewrite(kind),
             span: *span,
         },
         Type::Abstraction {
             parameter_kind,
             body,
         } => Type::Abstraction {
-            parameter_kind: substitute(parameter_kind, substitutions),
-            body: rewrite(body, substitutions, budget, depth + 1)?.into(),
+            parameter_kind: kinds.rewrite(parameter_kind),
+            body: rewrite_with(body, budget, depth + 1, kinds)?.into(),
         },
         Type::Buffer(element) => {
-            Type::Buffer(rewrite(element, substitutions, budget, depth + 1)?.into())
+            Type::Buffer(rewrite_with(element, budget, depth + 1, kinds)?.into())
         }
         Type::Opaque {
             id,
@@ -54,19 +68,17 @@ pub(super) fn rewrite(
         } => Type::Opaque {
             id: *id,
             name: name.clone(),
-            arguments: rewrite_all(arguments, substitutions, budget, depth + 1)?.into(),
-            representation: rewrite(representation, substitutions, budget, depth + 1)?.into(),
+            arguments: rewrite_all(arguments, budget, depth + 1, kinds)?.into(),
+            representation: rewrite_with(representation, budget, depth + 1, kinds)?.into(),
             declaration_file: *declaration_file,
         },
         Type::Product(elements) => {
-            Type::Product(rewrite_all(elements, substitutions, budget, depth + 1)?.into())
+            Type::Product(rewrite_all(elements, budget, depth + 1, kinds)?.into())
         }
-        Type::Sum(elements) => {
-            Type::Sum(rewrite_all(elements, substitutions, budget, depth + 1)?.into())
-        }
+        Type::Sum(elements) => Type::Sum(rewrite_all(elements, budget, depth + 1, kinds)?.into()),
         Type::Function { parameter, result } => Type::Function {
-            parameter: rewrite(parameter, substitutions, budget, depth + 1)?.into(),
-            result: rewrite(result, substitutions, budget, depth + 1)?.into(),
+            parameter: rewrite_with(parameter, budget, depth + 1, kinds)?.into(),
+            result: rewrite_with(result, budget, depth + 1, kinds)?.into(),
         },
         _ => ty.clone(),
     })
@@ -74,13 +86,13 @@ pub(super) fn rewrite(
 
 fn rewrite_all(
     types: &[Type],
-    substitutions: &HashMap<u32, Kind>,
     budget: &mut Budget,
     depth: usize,
+    kinds: &mut kind_variables::Rewriter<'_>,
 ) -> Result<Vec<Type>, Diagnostic> {
     let mut rewritten = Vec::new();
     for ty in types {
-        rewritten.push(rewrite(ty, substitutions, budget, depth)?);
+        rewritten.push(rewrite_with(ty, budget, depth, kinds)?);
     }
     Ok(rewritten)
 }
@@ -89,42 +101,13 @@ pub(super) fn canonicalize_variables(
     types: &mut [Type],
     budget: &mut Budget,
 ) -> Result<(), Diagnostic> {
-    let mut variables = Vec::new();
-    let mut pending = types.iter().collect::<Vec<_>>();
-    while let Some(ty) = pending.pop() {
-        collect_variables(&ty.kind(), &mut variables);
-        match ty {
-            Type::Application {
-                constructor,
-                argument,
-                ..
-            } => {
-                pending.push(argument);
-                pending.push(constructor);
-            }
-            Type::Abstraction { body, .. } | Type::Buffer(body) => pending.push(body),
-            Type::Opaque {
-                arguments,
-                representation,
-                ..
-            } => {
-                pending.push(representation);
-                pending.extend(arguments.iter().rev());
-            }
-            Type::Product(elements) | Type::Sum(elements) => {
-                pending.extend(elements.iter().rev());
-            }
-            Type::Function { parameter, result } => {
-                pending.push(result);
-                pending.push(parameter);
-            }
-            _ => {}
-        }
-    }
-    let substitutions = variables
+    let substitutions = kind_variables::collect(types.iter())
         .into_iter()
         .enumerate()
-        .map(|(index, id)| (id, Kind::Variable(u32::MAX - index as u32)))
+        .filter_map(|(index, id)| {
+            let canonical = u32::MAX - index as u32;
+            (id != canonical).then_some((id, Kind::Variable(canonical)))
+        })
         .collect();
     for ty in types {
         *ty = rewrite(ty, &substitutions, budget, 0)?;
@@ -132,17 +115,22 @@ pub(super) fn canonicalize_variables(
     Ok(())
 }
 
-fn collect_variables(kind: &Kind, variables: &mut Vec<u32>) {
-    match kind {
-        Kind::Type => {}
-        Kind::Variable(id) => {
-            if !variables.contains(id) {
-                variables.push(*id);
-            }
-        }
-        Kind::Function { parameter, result } => {
-            collect_variables(parameter, variables);
-            collect_variables(result, variables);
-        }
+pub(super) fn freshen_variables(
+    ty: &Type,
+    next: &mut u32,
+    budget: &mut Budget,
+) -> Result<Type, Diagnostic> {
+    let substitutions = kind_variables::collect(std::iter::once(ty))
+        .into_iter()
+        .filter_map(|id| {
+            let fresh = *next;
+            *next = next.checked_add(1).expect("kind identity space");
+            (id != fresh).then_some((id, Kind::Variable(fresh)))
+        })
+        .collect::<HashMap<_, _>>();
+    if substitutions.is_empty() {
+        return Ok(ty.clone());
     }
+    let mut kinds = kind_variables::Rewriter::new(&substitutions);
+    rewrite_with(ty, budget, 0, &mut kinds)
 }
