@@ -22,10 +22,6 @@ pub fn common_header() -> String {
     header::emit_common()
 }
 
-pub(crate) fn emit_header(interface: &ProgramInterface) -> String {
-    emit_file_header(interface, &[])
-}
-
 pub(crate) fn emit_file_header(interface: &ProgramInterface, dependencies: &[String]) -> String {
     let target = crate::backend::llvm::TargetLayout::natural(
         std::mem::size_of::<*const ()>(),

@@ -30,8 +30,7 @@ pub fn check(source_path: &Path) -> Result<(), Error> {
 /// Returns the C header for the program rooted at `source_path`, which needs no `main`.
 pub fn emit_header(source_path: &Path) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
-    mal_backend::pipeline::emit_header_graph(&graph)
-        .map_err(|error| Error::diagnostic(error, &graph))
+    mal_backend::pipeline::emit_header(&graph).map_err(|error| Error::diagnostic(error, &graph))
 }
 
 /// Writes generated text to `path`, creating parent directories first.
@@ -43,7 +42,7 @@ pub fn write_output(path: &Path, action: &str, contents: &str) -> Result<(), Err
 /// Returns a host implementation template that includes `header_name`.
 pub fn emit_host(source_path: &Path, header_name: &str) -> Result<String, Error> {
     let graph = graph::load(source_path)?;
-    mal_backend::pipeline::emit_host_graph(&graph, header_name)
+    mal_backend::pipeline::emit_host(&graph, header_name)
         .map_err(|error| Error::diagnostic(error, &graph))
 }
 

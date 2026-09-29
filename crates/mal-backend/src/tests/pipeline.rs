@@ -1,4 +1,4 @@
-use mal_syntax::source::{FileId, SourceFile};
+use mal_syntax::source::{FileId, SourceFile, SourceGraph};
 
 #[test]
 fn checks_in_memory_source_without_an_external_boundary() {
@@ -23,17 +23,23 @@ fn preserves_structured_frontend_diagnostics() {
 
 #[test]
 fn emits_host_stubs_with_a_validated_header_name() {
-    let source = SourceFile::new(
-        FileId::new(104),
-        "memory.mal",
-        "extern print :: (Address, USize) -> Unit;".into(),
+    let root = FileId::new(0);
+    let graph = SourceGraph::new(
+        root,
+        vec![SourceFile::new(
+            root,
+            "memory.mal",
+            "extern print :: (Address, USize) -> Unit;".into(),
+        )],
+        vec![Vec::new()],
+        Vec::new(),
     );
 
-    let output = crate::pipeline::emit_host(&source, "custom.h").expect("host output");
+    let output = crate::pipeline::emit_host(&graph, "custom.h").expect("host output");
     assert!(output.starts_with("#include \"custom.h\"\n"));
 
     let diagnostic =
-        crate::pipeline::emit_host(&source, "invalid\"name.h").expect_err("invalid quoted include");
+        crate::pipeline::emit_host(&graph, "invalid\"name.h").expect_err("invalid quoted include");
     assert!(
         diagnostic
             .message

@@ -1,7 +1,7 @@
 //! In-memory composition of frontend lowering and backend artifact generation.
 
 use mal_syntax::diagnostic::Diagnostic;
-use mal_syntax::source::{FileId, SourceFile, SourceGraph};
+use mal_syntax::source::{FileId, SourceGraph};
 use std::path::{Component, Path, PathBuf};
 
 pub use crate::backend::artifact::{LlvmArtifacts, RuntimeSource};
@@ -10,14 +10,9 @@ pub use crate::backend::c::{
 };
 pub use crate::backend::llvm::{Error as BackendError, Target};
 
-/// Generates the public C header from the checked host interface. No `main` is required and value bindings are not lowered.
-pub fn emit_header(source: &SourceFile) -> Result<String, Diagnostic> {
-    let interface = lower_interface(source)?;
-    Ok(crate::backend::c::emit_header(&interface))
-}
-
-/// `emit_header` for a program of several files.
-pub fn emit_header_graph(graph: &SourceGraph) -> Result<String, Diagnostic> {
+/// Generates the C file header of the graph root from its checked host interface. No `main` is required and value
+/// bindings are not lowered.
+pub fn emit_header(graph: &SourceGraph) -> Result<String, Diagnostic> {
     let interface = lower_graph_interface(graph)?;
     let interface = interface.for_file(graph.root());
     let dependencies = header_dependencies(graph, graph.root())?;
@@ -27,15 +22,9 @@ pub fn emit_header_graph(graph: &SourceGraph) -> Result<String, Diagnostic> {
     ))
 }
 
-/// Generates a host implementation template that includes `header_name` and traps in every external operation until it is
-/// implemented.
-pub fn emit_host(source: &SourceFile, header_name: &str) -> Result<String, Diagnostic> {
-    let interface = lower_interface(source)?;
-    crate::backend::c::emit_host(&interface, header_name)
-}
-
-/// `emit_host` for a program of several files.
-pub fn emit_host_graph(graph: &SourceGraph, header_name: &str) -> Result<String, Diagnostic> {
+/// Generates a host implementation template for the graph root that includes `header_name` and traps in every external
+/// operation until it is implemented.
+pub fn emit_host(graph: &SourceGraph, header_name: &str) -> Result<String, Diagnostic> {
     let interface = lower_graph_interface(graph)?;
     crate::backend::c::emit_host(&interface.for_file(graph.root()), header_name)
 }
@@ -125,11 +114,6 @@ fn build_header_files(
         .filter(|(_, selected)| *selected)
         .map(|(index, _)| FileId::new(index as u32))
         .collect()
-}
-
-fn lower_interface(source: &SourceFile) -> Result<crate::core::ast::ProgramInterface, Diagnostic> {
-    let checked = mal_frontend::analysis::check(source)?;
-    Ok(crate::core::lower_interface(&checked))
 }
 
 fn lower_graph_interface(
