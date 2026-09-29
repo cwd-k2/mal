@@ -52,6 +52,59 @@ fn opaque_declarations_with_the_same_representation_remain_distinct() {
 }
 
 #[test]
+fn operators_see_the_representation_in_the_declaring_file() {
+    check_ok(
+        "opaque Counter :: Int32;
+\
+         opaque Name :: Symbol;
+\
+         start :: Counter := 1 + 2;
+\
+         next :: Counter -> Counter := (count) -> count + 1i32;
+\
+         back :: Counter -> Counter := (count) -> -count;
+\
+         same :: (Counter, Counter) -> Bool := (left, right) -> left == right;
+\
+         before :: (Counter, Counter) -> Bool := (left, right) -> left < right;
+\
+         join :: (Name, Name) -> Name := (left, right) -> left + right;
+\
+         split :: Name -> Name := (name) -> name / 1usize;
+\
+         size :: Name -> USize := (name) -> #name;",
+    );
+}
+
+#[test]
+fn an_opaque_type_equals_only_its_own_representation_layers() {
+    check_ok(
+        "opaque Inner :: Int32;
+\
+         opaque Outer :: Inner;
+\
+         wrap :: Inner -> Outer := (inner) -> inner;
+\
+         unwrap :: Outer -> Inner := (outer) -> outer;
+\
+         deep :: Int32 -> Outer := (value) -> value;",
+    );
+    assert_eq!(
+        check_error(
+            "opaque Inner :: Int32;
+\
+             opaque Other :: Int32;
+\
+             opaque Outer :: Inner;
+\
+             wrong :: Other -> Outer := (other) -> other;",
+        )
+        .message,
+        "type mismatch"
+    );
+}
+
+#[test]
 fn rejects_recursive_opaque_representations_even_when_unused() {
     assert_eq!(
         check_error("opaque Loop<A> :: (A, Loop<A>);").message,

@@ -19,3 +19,11 @@ Pair<A> :: (A, A);
 first<F, A> :: F<A> -> A;
 first<Pair, Int32> :: Pair<Int32> -> Int32 := (left, _) -> left;
 main :: Unit -> Int32 := () -> first<Pair>((42i32, 0i32));
+### opaque_operators_in_declaring_file_run | run:42
+opaque Counter :: Int32;
+start :: Counter := 40;
+next :: Counter -> Counter := (count) -> count + 1i32;
+main :: Unit -> Int32 := () -> {
+    count := next(next(start));
+    if (count == next(next(start))) then count else 0;
+};

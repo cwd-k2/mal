@@ -20,7 +20,7 @@ Status: Historical records
 | managed ownership | [D033](active/D033.md)、[D035](active/D035.md)、[D041](active/D041.md)、[D055](active/D055.md)、[D057](active/D057.md)、[D058](active/D058.md)、[D075](active/D075.md)、[D080](active/D080.md)、[D083](active/D083.md) |
 | Float | [D009](active/D009.md)、[D019](active/D019.md) |
 | literalとscalar operation | [D011](active/D011.md)、[D013](active/D013.md)、[D020](active/D020.md)、[D021](active/D021.md)、[D025](active/D025.md)、[D035](active/D035.md) |
-| externとopaque value | [D012](active/D012.md)、[D015](active/D015.md)、[D016](active/D016.md)、[D039](active/D039.md)、[D040](active/D040.md)、[D053](active/D053.md)、[D054](active/D054.md)、[D074](active/D074.md)、[D078](active/D078.md)、[D084](active/D084.md) |
+| externとopaque value | [D012](active/D012.md)、[D015](active/D015.md)、[D016](active/D016.md)、[D039](active/D039.md)、[D040](active/D040.md)、[D053](active/D053.md)、[D054](active/D054.md)、[D074](active/D074.md)、[D078](active/D078.md)、[D084](active/D084.md)、[D088](active/D088.md) |
 | top-level initialization | [D018](active/D018.md) |
 | predefined名 | [D077](active/D077.md) |
 | source file requirement | [D032](active/D032.md) |

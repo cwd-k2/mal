@@ -83,12 +83,16 @@ impl Checker {
                     expected,
                 )?
             }
-            resolved::Expression::Integer(literal) => {
-                self.check_integer(literal, expression.span, expected)?
-            }
-            resolved::Expression::Float(literal) => {
-                self.check_float(literal, expression.span, expected)?
-            }
+            resolved::Expression::Integer(literal) => self.check_integer(
+                literal,
+                expression.span,
+                super::operator::view_expected(expected, expression.span),
+            )?,
+            resolved::Expression::Float(literal) => self.check_float(
+                literal,
+                expression.span,
+                super::operator::view_expected(expected, expression.span),
+            )?,
             resolved::Expression::Byte(value) => Expression {
                 kind: ExpressionKind::Integer(i128::from(*value)),
                 ty: Type::UInt8,
@@ -180,6 +184,7 @@ impl Checker {
                 if matches!(operator.kind, mal_syntax::ast::UnaryOperator::Star) {
                     self.check_memory_unary(operator.kind, operand, expression.span)?
                 } else {
+                    let expected = super::operator::view_expected(expected, expression.span);
                     self.check_unary(operator, operand, expression.span, expected)?
                 }
             }
@@ -187,7 +192,10 @@ impl Checker {
                 operator,
                 left,
                 right,
-            } => self.check_binary_chain(operator, left, right, expression.span, expected)?,
+            } => {
+                let expected = super::operator::view_expected(expected, expression.span);
+                self.check_binary_chain(operator, left, right, expression.span, expected)?
+            }
         };
         if let Some(expected) = expected {
             self.require_type(&checked.ty, expected, checked.span)?;

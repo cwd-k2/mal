@@ -55,11 +55,13 @@ impl Checker {
             });
         }
 
+        let takes_unit =
+            super::types::representation_view(&expected_parameter, span.file()) == &Type::Unit;
         let parameter = match &lambda.parameter {
-            Some(parameter) if expected_parameter != Type::Unit => Some(Box::new(
+            Some(parameter) if !takes_unit => Some(Box::new(
                 self.check_pattern(parameter, &expected_parameter)?,
             )),
-            None if expected_parameter == Type::Unit => None,
+            None if takes_unit => None,
             _ => {
                 return Err(self
                     .lambda_parameter_mismatch(&expected_parameter, span)

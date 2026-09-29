@@ -55,12 +55,12 @@ impl Checker {
                         (*abrupt).preceded_by(vec![left]),
                     )));
                 }
-                result => result?,
+                result => super::operator::view_operand(result?),
             };
             let left = self.check_before(left, Some(&right.ty), right.span)?;
             (left, right)
         } else {
-            let left = self.check_before(left, None, right.span)?;
+            let left = super::operator::view_operand(self.check_before(left, None, right.span)?);
             let expected = left.ty.clone();
             self.check_after(left, right, Some(&expected))?
         };

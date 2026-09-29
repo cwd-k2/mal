@@ -49,65 +49,78 @@ pub(in crate::check) fn representation_view(ty: &Type, file: FileId) -> &Type {
     current
 }
 
+/// Whether `left` and `right` are the same type once the file-local opaque types declared in `file` may be viewed as
+/// their representations. At each position only one side is viewed, through as many layers declared in `file` as
+/// needed: an opaque type equals its representation, but two opaque types with the same representation stay apart.
 pub(in crate::check) fn equivalent_in_file(left: &Type, right: &Type, file: FileId) -> bool {
-    let mut pending = vec![(left, right)];
-    while let Some((left, right)) = pending.pop() {
-        if left == right {
-            continue;
-        }
-        if matches!((left, right), (Type::Opaque { .. }, Type::Opaque { .. })) {
-            return false;
-        }
-        let left_view = representation_view(left, file);
-        let right_view = representation_view(right, file);
-        if !std::ptr::eq(left, left_view) || !std::ptr::eq(right, right_view) {
-            pending.push((left_view, right_view));
-            continue;
-        }
-        match (left, right) {
-            (Type::Parameter { id: left, .. }, Type::Parameter { id: right, .. })
-                if left == right =>
-            {
-                continue;
-            }
-            (
-                Type::Application {
-                    constructor: left_constructor,
-                    argument: left_argument,
-                    ..
-                },
-                Type::Application {
-                    constructor: right_constructor,
-                    argument: right_argument,
-                    ..
-                },
-            ) => {
-                pending.push((left_constructor, right_constructor));
-                pending.push((left_argument, right_argument));
-            }
-            (Type::Buffer(left), Type::Buffer(right)) => pending.push((left, right)),
-            (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
-                if left.len() == right.len() =>
-            {
-                pending.extend(left.iter().zip(right.iter()));
-            }
-            (
-                Type::Function {
-                    parameter: left_parameter,
-                    result: left_result,
-                },
-                Type::Function {
-                    parameter: right_parameter,
-                    result: right_result,
-                },
-            ) => {
-                pending.push((left_parameter, right_parameter));
-                pending.push((left_result, right_result));
-            }
-            _ => return false,
-        }
+    left == right
+        || same_file_layers(left, file).any(|view| same_structure(view, right, file))
+        || same_file_layers(right, file).any(|view| same_structure(left, view, file))
+        || same_structure(left, right, file)
+}
+
+/// The representations reached by viewing `ty` through one or more opaque layers declared in `file`.
+fn same_file_layers(ty: &Type, file: FileId) -> impl Iterator<Item = &Type> {
+    std::iter::successors(Some(ty), move |current| match current {
+        Type::Opaque {
+            representation,
+            declaration_file,
+            ..
+        } if *declaration_file == file => Some(representation.as_ref()),
+        _ => None,
+    })
+    .skip(1)
+}
+
+/// Equality of the outermost constructor without viewing either side, with views allowed again below it.
+fn same_structure(left: &Type, right: &Type, file: FileId) -> bool {
+    if left == right {
+        return true;
     }
-    true
+    let children: Vec<(&Type, &Type)> = match (left, right) {
+        // Uses of one parameter may record kinds instantiated at different sites.
+        (Type::Parameter { id: left, .. }, Type::Parameter { id: right, .. }) => {
+            return left == right;
+        }
+        (
+            Type::Application {
+                constructor: left_constructor,
+                argument: left_argument,
+                ..
+            },
+            Type::Application {
+                constructor: right_constructor,
+                argument: right_argument,
+                ..
+            },
+        ) => vec![
+            (left_constructor, right_constructor),
+            (left_argument, right_argument),
+        ],
+        (Type::Buffer(left), Type::Buffer(right)) => vec![(left, right)],
+        (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
+            if left.len() == right.len() =>
+        {
+            left.iter().zip(right.iter()).collect()
+        }
+        (
+            Type::Function {
+                parameter: left_parameter,
+                result: left_result,
+            },
+            Type::Function {
+                parameter: right_parameter,
+                result: right_result,
+            },
+        ) => vec![
+            (left_parameter, right_parameter),
+            (left_result, right_result),
+        ],
+        _ => return false,
+    };
+    children
+        .into_iter()
+        .all(|(left, right)| equivalent_in_file(left, right, file))
 }
 
 pub(in crate::check) fn function_placeholder() -> Type {

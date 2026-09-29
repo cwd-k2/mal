@@ -166,8 +166,11 @@ representationと、型argument数の不一致はdeclarationの使用有無に�
 
 宣言元source fileのtype checkingだけは、opaque typeとrepresentationを双方向にviewできる。このviewには専用の`pack`、`open`、
 coercion syntaxを使わず、既存のproduct構築とpattern、sumのresult binderとelimination、function applicationなどをそのまま使う。
-まずopaque identityのまま型を比較し、通常の構造と一致しないときだけ宣言元fileのrepresentation viewを使う。同じrepresentationを
-持つ別々のopaque type同士を、このviewで変換することはできない。
+まずopaque identityのまま型を比較し、通常の構造と一致しないときだけ宣言元fileのrepresentation viewを使う。型の各位置では
+一方の側だけを、宣言元fileのopaque層を必要なだけ辿ったrepresentationとして見る。したがって`opaque B :: A;`は`A`とも
+`A`のrepresentationとも一致するが、同じrepresentationを持つ別々のopaque type同士を、このviewで変換することはできない。
+primitive operatorとnumeric literalも、宣言元fileではoperandと期待型をこのviewで扱い、結果はrepresentationの型になる。
+設計理由は[D088](../history/decisions/active/D088.md)に記録する。
 
 publicなopaque名は通常のpublic typeと同様に直接`require`したfileへ導入されるが、representation viewのauthorityは導入されない。
 representationにprivate typeを含めてもよい。別fileはopaque値をsignature、型argument、productやsumの要素、値の受け渡しに使えるが、

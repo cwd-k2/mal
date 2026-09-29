@@ -19,6 +19,21 @@ mod logical;
 
 use arithmetic::{arithmetic_result, is_target_quantity, unsupported_binary};
 
+/// Operators see an operand of a file-local opaque type as its representation in the declaring file, like every
+/// other comparison there. The operand keeps its checked value; only the type the operator rule reads changes.
+pub(super) fn view_operand(mut operand: Expression) -> Expression {
+    let viewed = super::types::representation_view(&operand.ty, operand.span.file());
+    if !std::ptr::eq(viewed, &operand.ty) {
+        operand.ty = viewed.clone();
+    }
+    operand
+}
+
+/// The expected type of an operator result, seen through the declaring file's representation view.
+pub(super) fn view_expected(expected: Option<&Type>, span: Span) -> Option<&Type> {
+    expected.map(|ty| super::types::representation_view(ty, span.file()))
+}
+
 impl Checker {
     pub(super) fn binary_left_expected(
         &self,
@@ -108,10 +123,10 @@ impl Checker {
             }
         }
         if operator.kind == UnaryOperator::Negate {
-            let operand = self.check_expression(
+            let operand = view_operand(self.check_expression(
                 operand,
                 expected.filter(|expected| is_integer(expected) || is_float(expected)),
-            )?;
+            )?);
             if (!is_integer(&operand.ty) && !is_float(&operand.ty))
                 || is_target_quantity(&operand.ty)
             {
@@ -133,8 +148,9 @@ impl Checker {
             });
         }
         if operator.kind == UnaryOperator::BitwiseNot {
-            let operand =
-                self.check_expression(operand, expected.filter(|expected| is_integer(expected)))?;
+            let operand = view_operand(
+                self.check_expression(operand, expected.filter(|expected| is_integer(expected)))?,
+            );
             if !is_integer(&operand.ty) {
                 return Err(
                     Diagnostic::error("integer unary operator requires an integer")
@@ -186,7 +202,7 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         if operator.kind == BinaryOperator::SymbolAt {
-            let left = self.check_before(left, None, right.span)?;
+            let left = view_operand(self.check_before(left, None, right.span)?);
             return self.check_binary_after_left(operator, left, right, span);
         }
         if matches!(
@@ -202,7 +218,7 @@ impl Checker {
             && !is_contextual_float(left)
         {
             let left_expected = self.binary_left_expected(operator, expected);
-            let left = self.check_before(left, left_expected.as_ref(), right.span)?;
+            let left = view_operand(self.check_before(left, left_expected.as_ref(), right.span)?);
             return self.check_binary_after_left(operator, left, right, span);
         }
         let expected_integer = expected.filter(|expected| is_integer(expected));
@@ -249,12 +265,12 @@ impl Checker {
                                 (*abrupt).preceded_by(vec![left]),
                             )));
                         }
-                        result => result?,
+                        result => view_operand(result?),
                     };
                     let left = self.check_before(left, Some(&right.ty), right.span)?;
                     (left, right)
                 } else {
-                    let left = self.check_before(left, None, right.span)?;
+                    let left = view_operand(self.check_before(left, None, right.span)?);
                     let expected = left.ty.clone();
                     self.check_after(left, right, Some(&expected))?
                 };

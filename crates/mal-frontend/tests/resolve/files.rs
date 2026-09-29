@@ -132,6 +132,24 @@ fn opaque_representation_authority_does_not_cross_requirements() {
 }
 
 #[test]
+fn operators_do_not_see_a_representation_from_another_file() {
+    let (graph, parsed) = make_graph(
+        &[
+            (
+                "root.mal",
+                "require \"./counter.mal\"; next :: Counter -> Int32 := (count) -> count + 1i32;",
+            ),
+            ("counter.mal", "opaque Counter :: Int32;"),
+        ],
+        &[&[(1, 0)], &[]],
+    );
+
+    let resolved = mal_frontend::resolve::resolve_graph(&graph, &parsed).unwrap();
+    let error = mal_frontend::check::check(&resolved).expect_err("representation is file-local");
+    assert_eq!(error.message, "type mismatch");
+}
+
+#[test]
 fn rejects_conflicting_imports_and_dependency_entry_points() {
     let (graph, parsed) = make_graph(
         &[

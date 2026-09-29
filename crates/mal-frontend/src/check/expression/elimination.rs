@@ -121,11 +121,13 @@ impl Checker {
         payload: &Type,
         hint: Option<&Type>,
     ) -> CheckResult<(SumBranch, Option<Type>)> {
+        let takes_unit =
+            super::super::types::representation_view(payload, branch.span.file()) == &Type::Unit;
         let parameter = match &branch.parameter {
-            Some(parameter) if payload != &Type::Unit => {
+            Some(parameter) if !takes_unit => {
                 Some(Box::new(self.check_pattern(parameter, payload)?))
             }
-            None if payload == &Type::Unit => None,
+            None if takes_unit => None,
             _ => {
                 return Err(self.lambda_parameter_mismatch(payload, branch.span).into());
             }
@@ -160,7 +162,11 @@ impl Checker {
         let Some(target) = self.result_targets.get(&reference.id).cloned() else {
             return Ok(None);
         };
-        if payload != &target.parameter {
+        if !super::super::types::equivalent_in_file(
+            payload,
+            &target.parameter,
+            continuation.span.file(),
+        ) {
             return Err(Diagnostic::error("result binder does not accept this payload")
                 .with_primary(
                     continuation.span,
