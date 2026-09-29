@@ -3,6 +3,7 @@ require "./support.mal";
 
 extern Handle;
 extern write :: (Handle, Symbol) -> Unit;
+opaque Box<A> :: A;
 Pair :: (Int32, UInt8);
 Choice :: [Int32, UInt8];
 

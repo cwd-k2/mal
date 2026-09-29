@@ -150,6 +150,23 @@ test('highlights requirements and private identifiers', async () => {
   );
 });
 
+test('highlights opaque and extern as declaration keywords', async () => {
+  const grammar = await loadGrammar();
+  const line = 'opaque Box<A> :: A; extern Handle;';
+  const tokens = grammar.tokenizeLine(line).tokens.map((candidate) => ({
+    text: line.slice(candidate.startIndex, candidate.endIndex),
+    scopes: candidate.scopes,
+  }));
+
+  for (const keyword of ['opaque', 'extern']) {
+    assert.ok(
+      tokens
+        .find((token) => token.text === keyword)
+        .scopes.includes('keyword.declaration.mal'),
+    );
+  }
+});
+
 test('classifies lowercase names outside the keyword set as value identifiers', async () => {
   const grammar = await loadGrammar();
   const line = 'ordinary := value;';

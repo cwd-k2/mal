@@ -96,8 +96,8 @@
           "match": "\\b(?:if|then|else|when)\\b"
         },
         {
-          "name": "keyword.other.extern.mal",
-          "match": "\\bextern\\b"
+          "name": "keyword.declaration.mal",
+          "match": "\\b(?:extern|opaque)\\b"
         },
         {
           "name": "keyword.other.require.mal",
