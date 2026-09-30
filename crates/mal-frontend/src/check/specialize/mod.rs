@@ -9,7 +9,7 @@ use mal_syntax::diagnostic::Diagnostic;
 use super::ast::*;
 use super::specialization_identity::next_identities;
 use super::type_fingerprint::TypeFingerprints;
-use super::types::{runtime_type, substitute_type};
+use super::types::{runtime_type, substitute_type, type_name};
 
 mod admission;
 mod expression;
@@ -304,12 +304,14 @@ impl Specializer {
                     .map(|substitutions| (index, substitutions))
             })
             .ok_or_else(|| {
+                let key = arguments
+                    .iter()
+                    .map(type_name)
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 Diagnostic::error("missing operation implementation").with_primary(
                     family.name.span,
-                    format!(
-                        "no implementation of `{}` exists for these type arguments",
-                        family.name.text
-                    ),
+                    format!("no implementation of `{}<{key}>` exists", family.name.text),
                 )
             })?;
         admit_specialization(self.instances.len(), family.name.span)?;

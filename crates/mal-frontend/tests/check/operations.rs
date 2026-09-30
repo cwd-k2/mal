@@ -102,6 +102,10 @@ fn reports_a_missing_exact_implementation_when_the_goal_is_reached() {
     let error = check::specialize(program).expect_err("missing implementation");
 
     assert_eq!(error.message, "missing operation implementation");
+    assert_eq!(
+        error.primary.expect("primary label").message,
+        "no implementation of `equal<UInt8>` exists"
+    );
 }
 
 #[test]
