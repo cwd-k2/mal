@@ -7,6 +7,35 @@ Status: Exploratory support document
 [run protocol](run-protocol.md#poolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。名前は`pool`接頭辞を外した仮のものであり、Poolの名前を`require`した
 fileだけへ導入する規則と合わせて決める。
 
+## 層
+
+Pool案のmemoryは次の層からなる。
+
+- Engram lifecycle：`Share`、`Consume`、`Drop`と回収により、すべてのmanaged valueの寿命を自動で管理する。Poolを使わない
+  `Symbol`、closure environment、productとsumもここに属する。
+- Pool：malが所有する可変storageのmodelである。identity、State、slotを持ち、各slotのLiveとVacantは使う側が管理する。
+- run protocol：連続したcoordinate範囲をまとめて扱う語彙である。
+- Buffer：Pool上の、占有状態とcapacityを自動で管理するsequenceであり、一つのLiveなrun `[0, count)`だけを持つ。
+- `Symbol`：不変のrunであり、`Buffer<UInt8>`とstorageを共有して相互に変換できる。
+- `Address`：hostのstorageであり、run protocolを通してだけ交換する。
+
+PoolとBufferはどちらもEngramであり、寿命の管理に差はない。Bufferが自動で管理するのは、slotの占有状態とcapacityである。
+
+## coordinateの線形性
+
+Poolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、coordinate空間は順序を持ち途中に抜けがない。この線形性により
+`[offset, offset + length)`という区間、つまりrunが意味を持つ。runの意味はPool storageの物理配置に依存しない。実装は
+`Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合runの操作はbulk copyになる。
+
+coordinate空間が線形でも、占有状態には穴があり得る。runを読む操作が全coordinateのLiveを要求するのはそのためである。containerは
+この線形空間の使い方で性格が決まる。
+
+- Bufferは、Liveなcoordinateの集合が0から始まる一つの区間であることをinvariantにする。
+- Dequeはcoordinateをcapacityで折り返す輪として扱い、一つの論理的なrunが最大二つの区間になる。
+- Mapは線形性をprobeの順序に使い、Liveなcoordinateは散らばる。
+
+[key](pool-keys.md)は順序ではなくidentityでslotを指すため、runを作らない。
+
 ## PoolとBufferの責務
 
 memory操作は、抽象する単位で三つの語彙に分かれる。
