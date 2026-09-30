@@ -1,11 +1,11 @@
-# 既存exampleで見るPool化の差分
+# 既存exampleで見るIxPool化の差分
 
 Status: Exploratory example
 
 この文書は、現在の[`examples/`](../../../examples/)をPool案へ移したときに、source、ownership、precondition、costの何が
-変わるかを示す。現在の動作は[AddressとBuffer](../../spec/memory.md)、Pool primitiveの規則は
+変わるかを示す。現在の動作は[AddressとBuffer](../../spec/memory.md)、IxPool primitiveの規則は
 [lifecycle contract](lifecycle-contract.md)、Bufferのmal実装は[Buffer実装](buffer-implementation.md)を正とする。
-Pool側のcodeは未採択の擬似codeである。
+IxPool側のcodeは未採択の擬似codeである。
 
 ## Bufferの利用者
 
@@ -25,12 +25,12 @@ bytes.into(address, 0usize, #bytes);
 - `alias.put(0usize, 'M')`はBuffer fileの`put`から`putAt`になる。利用者は現行どおり`0 < #alias`を満たし、Buffer実装は
   live prefix invariantでslotがLiveであることを導く。
 - `alias.copy(#alias, ...)`は現在のcountを越えるrangeを書く。Buffer実装は`reserve`してから、Liveなslotを置換しVacantなslotを
-  initするrun primitiveを呼び、最後にStateのcountを更新する。primitiveがなければPool callのloopになる。
-- `from`、`*bytes`、`*"!"`、`into`はAddressやSymbolのbytesとPool slotの間の一括copyであり、core Pool APIだけでは書けない。
-  必要なprimitiveと、それを使った各operationは[Pool上のBuffer実装](buffer-implementation.md)に示す。
+  initするrun primitiveを呼び、最後にStateのcountを更新する。primitiveがなければIxPool callのloopになる。
+- `from`、`*bytes`、`*"!"`、`into`はAddressやSymbolのbytesとIxPool slotの間の一括copyであり、core IxPool APIだけでは書けない。
+  必要なprimitiveと、それを使った各operationは[IxPool上のBuffer実装](buffer-implementation.md)に示す。
 
 `main`の`Buffer<Symbol>`はC runtimeが`mal_runtime_buffer_from_arguments`でentry前に構築する。Bufferをmalで実装しても、
-このruntime関数はPool representationと、Buffer fileが選んだStateの意味（count）を知る必要がある。entry ABIが
+このruntime関数はIxPool representationと、Buffer fileが選んだStateの意味（count）を知る必要がある。entry ABIが
 opaque Bufferのrepresentationへ依存する点は、Buffer置換の判断で別に扱う。
 
 `indexed-graph`は`_copyBuffer`で`make`と全体`copy`を、Dijkstraのworkspaceで`fill`を使う。
@@ -40,7 +40,7 @@ distances := make<UInt64>(nodeCount);
 distances.fill(0usize, nodeCount, infinity);
 ```
 
-elementがunmanagedなのでShareもDropも起きないが、Pool上の`fill`は`nodeCount`回の`initAt`になる。現行runtimeのloopと
+elementがunmanagedなのでShareもDropも起きないが、IxPool上の`fill`は`nodeCount`回の`initAt`になる。現行runtimeのloopと
 同等にするには、runtime representationとcanonical layoutが一致する型のbulk fast pathが要る。
 
 ## Bufferの上に書いたcontainer
@@ -59,13 +59,13 @@ hashMap<K, V> :: USize -> HashMap<K, V> := (capacity) -> {
 };
 ```
 
-Poolへ直接置くと、PoolのVacantがempty entryを表し、slotは`(K, V)`だけになる。Stateは使わないので`Unit`にする。
+IxPoolへ直接置くと、IxPoolのVacantがempty entryを表し、slotは`(K, V)`だけになる。Stateは使わないので`Unit`にする。
 
 ```mal
-opaque HashMap<K, V> :: Pool<Unit, (K, V)>;
+opaque HashMap<K, V> :: IxPool<Unit, (K, V)>;
 
 hashMap<K, V> :: USize -> HashMap<K, V> := (capacity) ->
-    makePool<Unit, (K, V)>((), capacity);
+    makeIxPool<Unit, (K, V)>((), capacity);
 
 _hashMapGetFrom<K, V> :: (HashMap<K, V>, K, USize, USize) -> HashLookup<V> :=
     (slots, key, index, remaining) -> [missing, found] => {
@@ -112,7 +112,7 @@ _hashMapPutFrom<K, V> :: (HashMap<K, V>, K, V, USize, USize) -> Bool :=
   retainとreleaseの往復が一組減る。
 - keyの比較のために`getAt`が`(K, V)`全体をShareする点は、現行の`slots.get(index)`と同じである。
 
-deletionとresizeは現行exampleと同じく省略する。resize自体は現行Bufferでも`new`で伸ばして書き直せるが、Pool上では
+deletionとresizeは現行exampleと同じく省略する。resize自体は現行Bufferでも`new`で伸ばして書き直せるが、IxPool上では
 [Mapのrehash](collection-examples.md#open-addressing-map)のように`takeAt`でentryを移し、K、VのShareとDropを起こさずに済む。
 
 ## preconditionの責任
@@ -125,24 +125,24 @@ deletionとresizeは現行exampleと同じく省略する。resize自体は現�
 bytes.get(#bytes);
 ```
 
-`index == #bytes`はBufferの`index < #buffer`に違反し、Buffer実装はそのまま`getAt`をVacant slotへ呼ぶ。Poolは検査しないので、
+`index == #bytes`はBufferの`index < #buffer`に違反し、Buffer実装はそのまま`getAt`をVacant slotへ呼ぶ。IxPoolは検査しないので、
 現在の未検査preconditionと同じ扱いになる。
 
-利用者が公開preconditionを守っても、container実装の誤りでPool preconditionへ違反し得る。例えば`new`が`count == capacity`での
+利用者が公開preconditionを守っても、container実装の誤りでIxPool preconditionへ違反し得る。例えば`new`が`count == capacity`での
 `reserve`を忘れると、`initAt(buffer, count, value)`は`index < capacity`に違反する。これはBuffer実装の誤りであり、
 占有状態を検査するtest用runtimeで検出する対象である。
 
-HashMapは公開operationにpreconditionを持たないため、すべてのPool preconditionを実装が満たす。上のcodeでは、probe coordinateが
+HashMapは公開operationにpreconditionを持たないため、すべてのIxPool preconditionを実装が満たす。上のcodeでは、probe coordinateが
 `% capacity`で範囲内になり、`getAt`と`putAt`は`isLive`がtrueの直後、`initAt`はfalseの直後だけに呼ぶ。
-capacity 0の早期returnは剰余のpreconditionのためにも必要であり、Poolが代わりに検査することはない。
+capacity 0の早期returnは剰余のpreconditionのためにも必要であり、IxPoolが代わりに検査することはない。
 
 ## costの比較
 
-| operation | 現行Buffer | Pool上の実装 |
+| operation | 現行Buffer | IxPool上の実装 |
 |---|---|---|
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`reserve`とgrowth policyを呼ぶ |
-| `fill`、`copy` | runtimeのloopとretain callback | run primitiveのloopとshare callback、またはPool callのloop |
+| `fill`、`copy` | runtimeのloopとretain callback | run primitiveのloopとshare callback、またはIxPool callのloop |
 | `from`、`into`、`*` | runtimeのbulk copy | host境界とSymbol用のcompiler primitive |
 | HashMapの構築 | capacity個のempty entryを`fill` | 占有metadataの初期化 |
 | managed elementの挿入 | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |

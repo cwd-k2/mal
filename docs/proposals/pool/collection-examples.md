@@ -1,8 +1,8 @@
-# Pool上のcollection例
+# IxPool上のcollection例
 
 Status: Exploratory example
 
-この文書は、[Pool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、slot map、木を、試作で動かした
+この文書は、[IxPool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、IdPool、木を、試作で動かした
 codeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
 試作そのものは[試作で確かめたこと](prototypes.md)を正とする。例は未採択の擬似codeである。
 
@@ -14,7 +14,7 @@ growth policyを各containerで繰り返さないための関数である。
 Bufferと同じく`[0, count)`をLiveに保つが、popは値を取り出してcountを減らす。
 
 ```mal
-opaque Stack<T> :: Pool<USize, T>;
+opaque Stack<T> :: IxPool<USize, T>;
 
 push<T> :: (Stack<T>, T) -> Unit := (stack, value) -> {
     count := state(stack);
@@ -41,7 +41,7 @@ pop<T> :: Stack<T> -> [Unit, T] := (stack) -> [empty, found] => {
 
 ```mal
 less<T> :: (T, T) -> Bool;
-opaque Heap<T> :: Pool<USize, T>;
+opaque Heap<T> :: IxPool<USize, T>;
 
 // The slot at `hole` is Vacant. Parents greater than `value` move down into it.
 _siftUp<T> :: (Heap<T>, USize, T) -> Unit := (heap, hole, value) -> [return] => {
@@ -80,7 +80,7 @@ linear probingのMapである。Stateは要素数で、どのprobe列も途中�
 ```mal
 equal<K> :: (K, K) -> Bool;
 hash<K> :: K -> UInt64;
-opaque HashMap<K, V> :: Pool<USize, (K, V)>;
+opaque HashMap<K, V> :: IxPool<USize, (K, V)>;
 
 _find<K, V> :: (HashMap<K, V>, K, USize, USize) -> [Unit, USize] :=
     (map, key, index, remaining) -> [missing, found] => {
@@ -116,35 +116,35 @@ mapRemove<K, V> :: (HashMap<K, V>, K) -> [Unit, V] := (map, key) -> [missing, fo
 ```
 
 `_home`はhashをcapacityで割ったcoordinate、`_next`は一つ先のcoordinateを返す。`hash`と`equal`はoperation familyの
-requirementであり、Poolはhash、equality、load factor、probe順序を知らない。
+requirementであり、IxPoolはhash、equality、load factor、probe順序を知らない。
 
-Mapの公開operationは利用者にpreconditionを課さないため、Poolのpreconditionはすべて実装が満たす。capacity 0では`_locate`が
+Mapの公開operationは利用者にpreconditionを課さないため、IxPoolのpreconditionはすべて実装が満たす。capacity 0では`_locate`が
 剰余を計算せずmissingを返し、以後のprobe coordinateは剰余で範囲内になる。`getAt`と`takeAt`は`isLive`がtrueだった
 coordinateにだけ、`initAt`はfalseだったcoordinateか、直前に`takeAt`したcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ
 到達できないため、判定から呼び出しまでの間に状態は変わらない。
 
-insertはload factorが3/4を超える前にrehashする。別のPoolへ移し替えると既存のaliasが追随しないため、entryを`takeAt`で一時的な
-Poolへ移し、元のPoolを`reserve`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
+insertはload factorが3/4を超える前にrehashする。別のIxPoolへ移し替えると既存のaliasが追随しないため、entryを`takeAt`で一時的な
+IxPoolへ移し、元のIxPoolを`reserve`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
 起きない。一時的なallocationと二回の移動が代表的なMapで高価なら、同じidentityのstorageを交換するprimitiveを検討する。
 
-## slot map
+## IdPool
 
-要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のPoolに置く。Vacantなslotは値を持たないため、generationと
-free listをvalueのPoolへ置けない。
+[IdPool](idpool.md)をIxPoolの上に書いた形である。要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
+free listをvalueのIxPoolへ置けない。
 
 ```mal
-SlotKey :: (USize, UInt64); // coordinate、発行時のgeneration
+opaque Id<T> :: (USize, UInt64); // coordinate、発行時のgeneration
 
 // values: Stateは要素数。generations: 発行した全coordinateでLive、Stateは発行数。free: 空いたcoordinateのstack。
-opaque SlotMap<T> :: (Pool<USize, T>, Pool<USize, UInt64>, Pool<USize, UInt64>);
+opaque IdPool<T> :: (IxPool<USize, T>, IxPool<USize, UInt64>, IxPool<USize, UInt64>);
 
-_current<T> :: (SlotMap<T>, SlotKey) -> Bool := ((_, generations, _), (index, generation)) ->
+_current<T> :: (IdPool<T>, Id<T>) -> Bool := ((_, generations, _), (index, generation)) ->
     index < state(generations) && getAt(generations, index) == generation;
 
-slotRemove<T> :: (SlotMap<T>, SlotKey) -> [Unit, T] := (map, key) -> [missing, found] => {
-    when (!_current(map, key)) missing();
-    (values, generations, free) := map;
-    (index, generation) := key;
+idRemove<T> :: (IdPool<T>, Id<T>) -> [Unit, T] := (pool, id) -> [missing, found] => {
+    when (!_current(pool, id)) missing();
+    (values, generations, free) := pool;
+    (index, generation) := id;
     value := takeAt(values, index);
     setState(values, state(values) - 1usize);
     putAt(generations, index, generation + 1u64);
@@ -156,9 +156,9 @@ slotRemove<T> :: (SlotMap<T>, SlotKey) -> [Unit, T] := (map, key) -> [missing, f
 };
 ```
 
-挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。keyの照合は利用者が古いkeyを持ち続けるため
-検査してmissingを返し、Poolのpreconditionへは流さない。この例はkeyの照合をmalで書いており、
-[Pool key extension](pool-keys.md)の`SlotKey`をprimitiveにする前の形である。
+挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`Id<T>`の照合は利用者が古い`Id<T>`を持ち
+続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`Id<T>`にIdPoolのidentityを含めないため、別の
+IdPoolの`Id<T>`を区別しない。[IdPool](idpool.md#照合)の照合はそれも区別する。
 
 ## 木
 
@@ -167,7 +167,7 @@ coordinateは`free`のstackで再利用する。
 
 ```mal
 _Node :: (UInt64, UInt64, UInt64, UInt64);
-opaque Tree :: (Pool<(USize, USize), _Node>, Pool<USize, UInt64>);
+opaque Tree :: (IxPool<(USize, USize), _Node>, IxPool<USize, UInt64>);
 
 _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
     _ := takeAt(nodes, link.usize);
@@ -186,15 +186,15 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
 
 ## 試作での確認
 
-試作では、五つの例を次の条件で動かし、全Poolの解放まで確認した。
+試作では、五つの例を次の条件で動かし、全IxPoolの解放まで確認した。
 
 - stack：2000個をpushし、逆順にpopする。
 - binary heap：擬似乱数の2000個をpushし、popの結果が減少しないことと個数を確かめる。
-- slot map：2000個を挿入し、3個に1個を削除した後、同数を挿入し直す。削除したkeyはmissingになり、残したkeyと新しいkeyは
+- IdPool：2000個を挿入し、3個に1個を削除した後、同数を挿入し直す。削除した`Id<T>`はmissingになり、残した`Id<T>`と新しい`Id<T>`は
   値を返す。
 - Map：2000個を挿入し、100個を置き換え、1000個を削除した後、全keyの存在と値を確かめる。rehashを含む。
 - 木：擬似乱数のkeyを2000個挿入し、半分を削除して、残りの存在、削除したkeyの不在、中順の単調性を確かめる。削除したkeyを
   入れ直してもcapacityは増えない。
 
-C host上の試作ではword Poolの`getAt`を`takeAt`と`initAt`で実装しているため、heapと木の比較や走査がhost callを倍にする。これは
+C host上の試作ではword IxPoolの`getAt`を`takeAt`と`initAt`で実装しているため、heapと木の比較や走査がhost callを倍にする。これは
 [primitive一覧](primitives.md#slot-primitive)が`getAt`をprimitiveに残す理由の一つである。

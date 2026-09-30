@@ -1,16 +1,16 @@
-# Poolの所有権primitive
+# IxPoolの所有権primitive
 
 Status: Exploratory support document
 
-この文書は、Pool、Arena、`ValuePool`、run primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
+この文書は、IxPool、Arena、`ValuePool`、run primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
 operand effectへ分解する。storage、precondition、failureは[lifecycle contract](lifecycle-contract.md)、local slotとcall conventionの
 現行規則は[managed valueのownership](../../implementation/ownership.md)を正とする。
 
 ## place
 
-Poolのslot、PoolのState、Arenaのentryは、どれも`Vacant`または`Live`のplaceである。Liveなplaceはちょうど一つの
+IxPoolのslot、IxPoolのState、Arenaのentryは、どれも`Vacant`または`Live`のplaceである。Liveなplaceはちょうど一つの
 responsibilityを持つ。これは[local slot](../../implementation/ownership.md#slotとoperation)のinitialize、vacate、replaceと同じ状態であり、
-違いはplaceがPool identityの中にあり、実行時のcoordinateで選ばれることだけである。
+違いはplaceがIxPool identityの中にあり、実行時のcoordinateで選ばれることだけである。
 
 ## 核になる遷移
 
@@ -30,8 +30,8 @@ execution ownershipが、operandを後で使うなら`Share`し、last useなら
 
 ## 派生operation
 
-他のPool operationは`init`と`take`の合成として定義する。primitiveとして残すのは占有状態の往復やcarrierの移動を省く性能のため、
-および`get`のようにstorageを共有するPoolで派生形の`init`が共有storageのcopyを起こすのを避けるためであり、意味はこの分解と同じである。
+他のIxPool operationは`init`と`take`の合成として定義する。primitiveとして残すのは占有状態の往復やcarrierの移動を省く性能のため、
+および`get`のようにstorageを共有するIxPoolで派生形の`init`が共有storageのcopyを起こすのを避けるためであり、意味はこの分解と同じである。
 `share`と`drop`の回数と順序も分解と一致しなければならない。
 
 ```text
@@ -54,7 +54,7 @@ setState(pool, s)   = put(pool.state, s)
 | `dropAt` | `drop` | なし | 1 |
 | `writeRange`（n slot） | slotごとに`init`または`put` | n − 1 | Liveだったslot数 |
 | `copyRange`（n slot） | sourceのn回の`get`の後、destinationへ`init`または`put` | n | Liveだったslot数 |
-| Poolの終了 | Stateと全Live slotの`drop` | なし | Live place数 |
+| IxPoolの終了 | Stateと全Live slotの`drop` | なし | Live place数 |
 | `reserve` | 遷移なし。全carrierを移動するだけ | なし | なし |
 
 `writeRange`はcall siteから一つのresponsibilityを受け取り、残りのslotのためにruntimeが`share`する。n = 0なら
@@ -63,23 +63,24 @@ setState(pool, s)   = put(pool.state, s)
 
 ## 拡張operation
 
-writable successor、Arena、keyも同じ語彙で表せる。
+writable successor、IdPool、Arena、`Id<T>`も同じ語彙で表せる。
 
-- `writableSuccessor(pool)`は、inputが唯一のresponsibilityならそのidentityをresultへ移す。共有中なら新しいPoolを作り、
+- `writableSuccessor(pool)`は、inputが唯一のresponsibilityならそのidentityをresultへ移す。共有中なら新しいIxPoolを作り、
   Stateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。
 - `ValuePool`の更新はwritable successorの後に`put`または`init`を行い、successorを返す。
-- `arenaAdd`は新しいPoolをentryへ`init`し、`arenaRemove`はentryを`drop`し、`arenaPool`はentryを`get`してPool handleを`Share`する。
-- `SlotKey`と`PoolKey`は所有権を持たないdataであり、どの遷移も起こさない。
+- IdPoolの`idInsert`は要素を空いた場所へ`init`し、`idRemove`は`take`し、`idGet`は`get`する。
+- `arenaAdd`は新しいIxPoolをentryへ`init`し、`arenaRemove`はentryを`drop`し、`arenaGet`はentryを`get`してIxPoolを`Share`する。
+- `Id<T>`は所有権を持たないdataであり、どの遷移も起こさない。
 
 ## compilerとruntimeの分担
 
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
-- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`、`writeRange`のvalue、`makePool`と
-  `setState`のState、`arenaAdd`のPool、writable successorのinputが該当する。
+- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`、`writeRange`のvalue、`makeIxPool`と
+  `setState`のState、`arenaAdd`のIxPool、writable successorのinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。D083の保持解析は、`Store`へ渡るparameterをreturnやcaptureと同じく
   保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
-- Pool handle、index、lengthは`Borrow`である。resultは全てownedであり、これは現行のprimitive resultと変わらない。
+- IxPool handle、index、lengthは`Borrow`である。resultは全てownedであり、これは現行のprimitive resultと変わらない。
 
 現行のBuffer operandは全て`Borrow`で、保存に必要なretainはruntimeが行う。これは`Store`を常にruntime内の`Share`として扱うことに
 当たる。`Store`を導入すると、last useのvalueを`Consume`してruntime内のretainとcall site側のreleaseを省ける。
@@ -87,11 +88,11 @@ compilerのexecution ownershipに新しく要るのは、operand effectの`Store
 runtimeが型ごとに必要とするglueは、上の表で「primitive内」に数えたものだけである。
 
 - `share<T>`は、primitiveが一つのresponsibilityから複数を作るときに使う。`get`、range operation、共有時のwritable successorが該当する。
-- `drop<T>`は、primitive内で終わるresponsibilityに使う。`put`の旧value、`drop`、Poolの終了が該当する。
+- `drop<T>`は、primitive内で終わるresponsibilityに使う。`put`の旧value、`drop`、IxPoolの終了が該当する。
 - relocationと`init`、`take`はcarrierを移動するだけでglueを呼ばない。
 
-glueは失敗せず、I/O、host resourceの`close`、別Poolの更新など観測可能な作用を持たない。Pool終了時のStateとslotのdrop順は
-sourceから観測できず、container algorithmはその順序へ依存しない。pluginが新しいPool相当operationを追加する場合も、operandごとの
+glueは失敗せず、I/O、host resourceの`close`、別IxPoolの更新など観測可能な作用を持たない。IxPool終了時のStateとslotのdrop順は
+sourceから観測できず、container algorithmはその順序へ依存しない。pluginが新しいIxPool相当operationを追加する場合も、operandごとの
 `Borrow`または`Store`と、上の分解を宣言する。
 
 ## 所有権を持たないprimitive

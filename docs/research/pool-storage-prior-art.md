@@ -25,7 +25,7 @@ storage再利用を試みる。borrowed call、一時Share、別の回収方式�
 `Arc::make_mut`はstrong aliasがなくweak pointerだけが残る場合、inner valueをcloneせずweak pointerを元allocationから切り離す。
 これはCOWとnonowning identityを合成する際にも追加ruleが必要なことを示す。Poolのkeyがidentityやgenerationを持つ場合、
 storage再利用とcopyのどちらを選んだかがkeyの有効性へ現れてはならない。Pool案での扱いは
-[identity](../proposals/pool/identity.md#keyとの合成)に置く。
+[identity](../proposals/pool/identity.md#idとの合成)に置く。
 
 ## Persistent indexed sequence
 

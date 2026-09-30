@@ -1,9 +1,9 @@
-# Pool上のBuffer実装
+# IxPool上のBuffer実装
 
 Status: Exploratory example
 
-この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、core Pool APIと少数のcompiler primitiveで
-実装した擬似codeを示す。Pool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、`from`、`into`、`copy`、`fill`の
+この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、core IxPool APIと少数のcompiler primitiveで
+実装した擬似codeを示す。IxPool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、`from`、`into`、`copy`、`fill`の
 familyと意味は[run protocol](run-protocol.md)を正とする。
 
 predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
@@ -17,12 +17,12 @@ malで起こすため、`symbol`と`loadSymbol`は`Buffer<UInt8>`の`*`のため
 ## 表現とinvariant
 
 ```mal
-opaque Buffer<A> :: Pool<USize, A>;
+opaque Buffer<A> :: IxPool<USize, A>;
 ```
 
 Stateはcountである。`[0, count)`がLive、`[count, capacity)`がVacantであり、`count <= capacity`を保つ。
 公開operationは利用者がBufferの[未検査precondition](../../spec/memory.md#未検査precondition)を満たす限り、このinvariantから
-Pool preconditionを導く。利用者が違反した場合はinvariantが壊れ得るが、結果を保証しない点は現行Bufferと同じである。
+IxPool preconditionを導く。利用者が違反した場合はinvariantが壊れ得るが、結果を保証しない点は現行Bufferと同じである。
 
 ## 補助
 
@@ -53,7 +53,7 @@ _extendCount<A> :: (Buffer<A>, USize) -> Unit := (buffer, end) ->
 ## 要素operation
 
 ```mal
-make<A> :: USize -> Buffer<A> := (capacity) -> makePool<USize, A>(0usize, capacity);
+make<A> :: USize -> Buffer<A> := (capacity) -> makeIxPool<USize, A>(0usize, capacity);
 
 length<A> :: Buffer<A> -> USize := (buffer) -> state<USize, A>(buffer);
 
@@ -97,10 +97,10 @@ copy<Buffer<A>> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
 ```
 
 公開preconditionの`offset <= #buffer`により、destination rangeはLiveな部分とそれに続くVacantな部分からなり、穴を作らない。
-`copy`の`sourceOffset + length <= #source`はsource rangeが全てLiveであることを与える。`_ensureCapacity`がsourceと同じPoolを
+`copy`の`sourceOffset + length <= #source`はsource rangeが全てLiveであることを与える。`_ensureCapacity`がsourceと同じIxPoolを
 relocateしてもcoordinateは変わらない。countの更新はprimitiveの後に行い、その間にmal codeは走らない。
 
-`writeRange`が性能だけのためのprimitiveであることは、同じ遷移をPool callで書けることで分かる。
+`writeRange`が性能だけのためのprimitiveであることは、同じ遷移をIxPool callで書けることで分かる。
 
 ```mal
 _fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
@@ -119,7 +119,7 @@ _fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
 
 ```mal
 from<Buffer<A>> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
-    buffer := makePool<USize, A>(0usize, length);
+    buffer := makeIxPool<USize, A>(0usize, length);
     load<USize, A>(buffer, 0usize, address, offset, length);
     setState<USize, A>(buffer, length);
     buffer;
@@ -132,7 +132,7 @@ snapshot :: Buffer<UInt8> -> Symbol := (buffer) ->
     symbol<USize>(buffer, 0usize, state<USize, UInt8>(buffer));
 
 bytes :: Symbol -> Buffer<UInt8> := (symbol) -> {
-    buffer := makePool<USize, UInt8>(0usize, #symbol);
+    buffer := makeIxPool<USize, UInt8>(0usize, #symbol);
     loadSymbol<USize>(buffer, 0usize, symbol);
     setState<USize, UInt8>(buffer, #symbol);
     buffer;
@@ -146,10 +146,10 @@ bytes :: Symbol -> Buffer<UInt8> := (symbol) -> {
 ## 現行Bufferとの差分
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
-- growth policy、count、invariantはruntimeからこのfileへ移り、runtimeはPool primitiveとrun primitiveだけを持つ。
-- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`Pool<State, UInt8>`は
+- growth policy、count、invariantはruntimeからこのfileへ移り、runtimeはIxPool primitiveとrun primitiveだけを持つ。
+- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<State, UInt8>`は
   [canonical layout](lifecycle-contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
-- C runtimeの`mal_runtime_buffer_from_arguments`は、`main`へ渡す`Buffer<Symbol>`をPool representationとState=countで構築する。
+- C runtimeの`mal_runtime_buffer_from_arguments`は、`main`へ渡す`Buffer<Symbol>`をIxPool representationとState=countで構築する。
   これはentry ABIがこのfileのrepresentation選択へ依存することを意味する。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
 - `from`はcontainer型をkeyとするfamilyになるため、`from<UInt8>(...)`の明示形は`from<Buffer<UInt8>>(...)`になる。期待result型が

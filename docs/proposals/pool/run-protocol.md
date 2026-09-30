@@ -2,12 +2,12 @@
 
 Status: Exploratory support document
 
-この文書は、containerの連続したcoordinate範囲を扱う公開語彙、run protocolを管理する。Poolのslot遷移は
+この文書は、containerの連続したcoordinate範囲を扱う公開語彙、run protocolを管理する。IxPoolのslot遷移は
 [所有権primitive](ownership-primitives.md)、slot preconditionは[lifecycle contract](lifecycle-contract.md)、Bufferによる実装は
 [Buffer実装](buffer-implementation.md)を正とする。
 
-run protocolは、Poolの仕組みとcontainerごとのinvariantをつなぐrunの語彙である。slot、run、sequenceの三つの語彙と
-PoolとBufferの責務分担は[primitive一覧](primitives.md#poolとbufferの責務)が所有する。
+run protocolは、IxPoolの仕組みとcontainerごとのinvariantをつなぐrunの語彙である。slot、run、sequenceの三つの語彙と
+IxPoolとBufferの責務分担は[primitive一覧](primitives.md#poolとbufferの責務)が所有する。
 
 ## family
 
@@ -41,22 +41,22 @@ host側の範囲、permission、初期化は現行の`from`、`into`と同じ[�
 どのcoordinateを読めるか、どこへ書けるか、書いた後にcontainerの他のStateがどう変わるかは、各実装がpreconditionと方針として
 定める。Bufferは`offset <= #buffer`を要求し、書いたrunの末尾までcountを延ばす。runの操作中にmal codeは実行されない。
 
-## Poolのrun primitive
+## IxPoolのrun primitive
 
-generic implementationのpatternはfamilyの型parameterしかbinderにできないため、二つのparameterを持つ`Pool<S, T>`は
-`into<A>`のような一parameterのfamilyを`S`と`T`について汎用に実装できない。Poolは代わりに、familyの実装に使うrun primitiveを
+generic implementationのpatternはfamilyの型parameterしかbinderにできないため、二つのparameterを持つ`IxPool<S, T>`は
+`into<A>`のような一parameterのfamilyを`S`と`T`について汎用に実装できない。IxPoolは代わりに、familyの実装に使うrun primitiveを
 提供する。
 
 run primitiveの型と区分は[primitive一覧](primitives.md#run-primitive)に置き、この文書はpreconditionと意味を所有する。
 
 | primitive | 読むrun | 書くrun |
 |---|---|---|
-| `load` | hostの範囲。現行の`from`と同じ条件 | Poolのrunがcapacity内 |
-| `store` | Poolのrunが全てLive | hostの範囲。現行の`into`と同じ条件 |
-| `writeRange` | なし | Poolのrunがcapacity内 |
+| `load` | hostの範囲。現行の`from`と同じ条件 | IxPoolのrunがcapacity内 |
+| `store` | IxPoolのrunが全てLive | hostの範囲。現行の`into`と同じ条件 |
+| `writeRange` | なし | IxPoolのrunがcapacity内 |
 | `copyRange` | sourceのrunが全てLive | destinationのrunがcapacity内 |
 
-書き込むcoordinateはLiveになり、VacantならinitしLiveなら新しい値を成立させてから旧値をDropする。`copyRange`は同じPool
+書き込むcoordinateはLiveになり、VacantならinitしLiveなら新しい値を成立させてから旧値をDropする。`copyRange`は同じIxPool
 identityの重なるrunでも開始時点のsourceを写す。`load`と`store`は`Representable(T)`を要求し、host側のoffset計算を
 表現できない場合は現行の`from`、`into`と同じくtrapする。share、dropの回数は[所有権primitive](ownership-primitives.md#派生operation)に
 示す。
@@ -64,12 +64,12 @@ identityの重なるrunでも開始時点のsourceを写す。`load`と`store`�
 ## `*`
 
 `Buffer<UInt8>`と`Symbol`の変換`*`はrun protocolに含めず、`Buffer<UInt8>`だけの操作とする。byte列に限った変換であり、
-他のcontainerへ一般化する実例がないためである。実装はbyte Poolのstorageを`Symbol`と共有する
+他のcontainerへ一般化する実例がないためである。実装はbyte IxPoolのstorageを`Symbol`と共有する
 [representation](lifecycle-contract.md#runtime-representation)を使う。
 
 ## 他のcontainer
 
-Buffer以外のcontainerも、自分のinvariantでPoolのrun primitiveの条件を満たせば同じfamilyを実装できる。例えばring bufferの
+Buffer以外のcontainerも、自分のinvariantでIxPoolのrun primitiveの条件を満たせば同じfamilyを実装できる。例えばring bufferの
 `into`は、折り返しの前後で二回`store`を呼ぶ。利用者はcontainerの種類に関係なく同じ名前でhostと交換できる。
 
 ## 未決定事項
@@ -77,4 +77,4 @@ Buffer以外のcontainerも、自分のinvariantでPoolのrun primitiveの条件
 - `Representable(A)`をrequirementとして伝播させる規則。現行の[generics](../../spec/generics.md#requirements)ではgeneric本体が
   型parameterの要素に`from`と`into`を使えず、`from<Buffer<A>>`のgeneric implementationを書けない。`Storable(A)`と同じく
   requirementとしてcallerのspecializationまで持ち上げる必要がある。
-- Pool primitiveの名前と、Poolの名前を`require`したfileだけへ導入する規則。
+- IxPool primitiveの名前と、IxPoolの名前を`require`したfileだけへ導入する規則。

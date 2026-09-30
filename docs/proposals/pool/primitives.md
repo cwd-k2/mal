@@ -1,55 +1,58 @@
-# Pool APIとprimitive一覧
+# IxPool APIとprimitive一覧
 
 Status: Exploratory support document
 
-この文書は、PoolとBufferの責務分担と、Pool案が仮定するprimitiveの一覧を管理する。slot primitiveのpreconditionは
+この文書は、IxPoolとBufferの責務分担と、Pool案が仮定するprimitiveの一覧を管理する。slot primitiveのpreconditionは
 [lifecycle contract](lifecycle-contract.md#未検査precondition)、run primitiveのpreconditionと意味は
 [run protocol](run-protocol.md#poolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。
-名前は仮のものであり、Poolの名前を`require`したfileだけへ導入する規則と合わせて決める。
+名前は仮のものであり、IxPoolの名前を`require`したfileだけへ導入する規則と合わせて決める。
 
 ## 層
 
 Pool案のmemoryは次の層からなる。
 
-- Engram lifecycle：`Share`、`Consume`、`Drop`と回収により、すべてのmanaged valueの寿命を自動で管理する。Poolを使わない
+- Engram lifecycle：`Share`、`Consume`、`Drop`と回収により、すべてのmanaged valueの寿命を自動で管理する。IxPoolを使わない
   `Symbol`、closure environment、productとsumもここに属する。
-- Pool：malが所有する可変storageのmodelである。identity、State、slotを持ち、各slotのLiveとVacantは使う側が管理する。
+- IxPool：malが所有する可変storageのmodelである。identity、State、slotを持ち、各slotのLiveとVacantは使う側が管理する。
 - run protocol：連続したcoordinate範囲をまとめて扱う語彙である。
-- Buffer：Pool上の、占有状態とcapacityを自動で管理するsequenceであり、一つのLiveなrun `[0, count)`だけを持つ。
+- Buffer：IxPool上の、占有状態とcapacityを自動で管理するsequenceであり、一つのLiveなrun `[0, count)`だけを持つ。
+- IdPool：IxPool上の、検査付きのhandle `Id<T>`で要素を引く所有者であり、Bufferと位置とidentityの役割で補い合う。
 - `Symbol`：不変のrunであり、`Buffer<UInt8>`とstorageを共有して相互に変換できる。
 - `Address`：hostのstorageであり、run protocolを通してだけ交換する。
 
-PoolとBufferはどちらもEngramであり、寿命の管理に差はない。Bufferが自動で管理するのは、slotの占有状態とcapacityである。
+IxPool、Buffer、IdPoolはどれもEngramであり、寿命の管理に差はない。BufferとIdPoolが自動で管理するのは、slotの占有状態と
+capacityである。
 
 ## coordinateの線形性
 
-Poolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、coordinate空間は順序を持ち途中に抜けがない。この線形性により
-`[offset, offset + length)`という区間、つまりrunが意味を持つ。runの意味はPool storageの物理配置に依存しない。実装は
+IxPoolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、coordinate空間は順序を持ち途中に抜けがない。この線形性により
+`[offset, offset + length)`という区間、つまりrunが意味を持つ。runの意味はIxPool storageの物理配置に依存しない。実装は
 `Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合runの操作はbulk copyになる。
 
 coordinate空間が線形でも、占有状態には穴があり得る。runを読む操作が全coordinateのLiveを要求するのはそのためである。Bufferは
 Liveなcoordinateの集合が0から始まる一つの区間であることをinvariantにする。他のcontainerがこの線形空間をどう使うかは
-[Pool上のcontainer](containers.md)で比較する。[key](pool-keys.md)は順序ではなくidentityでslotを指すため、runを作らない。
+[IxPool上のcontainer](containers.md)で比較する。[IdPool](idpool.md)の`Id<T>`は順序ではなくidentityで要素を指すため、
+runを作らない。
 
-## PoolとBufferの責務
+## IxPoolとBufferの責務
 
 memory操作は、抽象する単位で三つの語彙に分かれる。
 
 | 語彙 | 抽象する単位 | 操作 | 使える型 |
 |---|---|---|---|
-| slot | 一つのcoordinateのLiveまたはVacant | `initAt`、`takeAt`、`getAt`、`reserve`、State | Poolだけ |
+| slot | 一つのcoordinateのLiveまたはVacant | `initAt`、`takeAt`、`getAt`、`reserve`、State | IxPoolだけ |
 | run | 連続したcoordinate範囲 | `from`、`into`、`copy`、`fill` | run protocolを実装したcontainer |
 | sequence | 一つのLiveなrun `[0, count)` | `make`、`new`、`#`、growth policy | Bufferだけ |
 
-Poolはslotを、Bufferは一つのLiveなrunを抽象する。PoolはBufferの意味を定義できるが、一般の利用者へ見せる安全な語彙を持たず、
+IxPoolはslotを、Bufferは一つのLiveなrunを抽象する。IxPoolはBufferの意味を定義できるが、一般の利用者へ見せる安全な語彙を持たず、
 Bufferはslotを空ける語彙を持たない。
 
 | | slotの語彙 | runの語彙 |
 |---|---|---|
-| Pool | すべて使える | primitiveとして使え、runの状態は実装者が保証する |
+| IxPool | すべて使える | primitiveとして使え、runの状態は実装者が保証する |
 | Buffer | 使えない | run protocolとして使え、invariantが条件を保証する |
 
-Bufferは言語の組み込み型ではなく、Pool上のpreludeのopaque型であり、sequenceの語彙とrun protocolの実装を持つ。
+Bufferは言語の組み込み型ではなく、IxPool上のpreludeのopaque型であり、sequenceの語彙とrun protocolの実装を持つ。
 `Buffer<UInt8>`と`Symbol`の`*`だけはBufferに固有の操作である。
 
 ## 区分
@@ -65,40 +68,40 @@ Bufferは言語の組み込み型ではなく、Pool上のpreludeのopaque型で
 ## slot primitive
 
 ```mal
-Pool<State, T>
+IxPool<State, T>
 
-makePool<State, T> :: (State, USize) -> Pool<State, T>;
-state<State, T> :: Pool<State, T> -> State;
-setState<State, T> :: (Pool<State, T>, State) -> Unit;
-capacity<State, T> :: Pool<State, T> -> USize;
-reserve<State, T> :: (Pool<State, T>, USize) -> Unit;
-isLive<State, T> :: (Pool<State, T>, USize) -> Bool;
-initAt<State, T> :: (Pool<State, T>, USize, T) -> Unit;
-takeAt<State, T> :: (Pool<State, T>, USize) -> T;
-getAt<State, T> :: (Pool<State, T>, USize) -> T;
-putAt<State, T> :: (Pool<State, T>, USize, T) -> Unit;
-dropAt<State, T> :: (Pool<State, T>, USize) -> Unit;
+makeIxPool<State, T> :: (State, USize) -> IxPool<State, T>;
+state<State, T> :: IxPool<State, T> -> State;
+setState<State, T> :: (IxPool<State, T>, State) -> Unit;
+capacity<State, T> :: IxPool<State, T> -> USize;
+reserve<State, T> :: (IxPool<State, T>, USize) -> Unit;
+isLive<State, T> :: (IxPool<State, T>, USize) -> Bool;
+initAt<State, T> :: (IxPool<State, T>, USize, T) -> Unit;
+takeAt<State, T> :: (IxPool<State, T>, USize) -> T;
+getAt<State, T> :: (IxPool<State, T>, USize) -> T;
+putAt<State, T> :: (IxPool<State, T>, USize, T) -> Unit;
+dropAt<State, T> :: (IxPool<State, T>, USize) -> Unit;
 ```
 
 | primitive | 区分 | 役割 |
 |---|---|---|
-| `makePool` | 必須 | 初期StateとlogicalなcapacityでPoolを作る |
+| `makeIxPool` | 必須 | 初期StateとlogicalなcapacityでIxPoolを作る |
 | `state`、`setState` | 必須 | 共有identityのStateを読み、置き換える |
-| `capacity`、`reserve` | 必須 | logical capacityを読み、増やす。Poolは自動でgrowthしない |
+| `capacity`、`reserve` | 必須 | logical capacityを読み、増やす。IxPoolは自動でgrowthしない |
 | `isLive` | 必須 | coordinateの占有状態を読む |
 | `initAt`、`takeAt` | 核 | Vacant → Live、Live → Vacant |
 | `getAt` | 維持 | Liveなslotの値を`Share`する |
 | `putAt`、`dropAt` | 派生 | `takeAt`して`initAt`、`takeAt`して結果を捨てる |
 
-Poolの形成は`Storable(State)`と`Storable(T)`を要求する。Poolのcopyは同じState、capacity、slotを持つidentityを共有する。
+IxPoolの形成は`Storable(State)`と`Storable(T)`を要求する。IxPoolのcopyは同じState、capacity、slotを持つidentityを共有する。
 
 ## run primitive
 
 ```mal
-load<State, T> :: (Pool<State, T>, USize, Address, USize, USize) -> Unit;
-store<State, T> :: (Pool<State, T>, USize, USize, Address) -> Unit;
-writeRange<State, T> :: (Pool<State, T>, USize, USize, T) -> Unit;
-copyRange<State, T> :: (Pool<State, T>, USize, Pool<State, T>, USize, USize) -> Unit;
+load<State, T> :: (IxPool<State, T>, USize, Address, USize, USize) -> Unit;
+store<State, T> :: (IxPool<State, T>, USize, USize, Address) -> Unit;
+writeRange<State, T> :: (IxPool<State, T>, USize, USize, T) -> Unit;
+copyRange<State, T> :: (IxPool<State, T>, USize, IxPool<State, T>, USize, USize) -> Unit;
 ```
 
 | primitive | 引数 | 区分 | 理由 |
@@ -110,11 +113,11 @@ copyRange<State, T> :: (Pool<State, T>, USize, Pool<State, T>, USize, USize) -> 
 
 ## Symbol primitive
 
-byte Poolと`Symbol`の変換は、`Buffer<UInt8>`の`*`の実装に使う。
+byte IxPoolと`Symbol`の変換は、`Buffer<UInt8>`の`*`の実装に使う。
 
 ```mal
-symbol<State> :: (Pool<State, UInt8>, USize, USize) -> Symbol;
-loadSymbol<State> :: (Pool<State, UInt8>, USize, Symbol) -> Unit;
+symbol<State> :: (IxPool<State, UInt8>, USize, USize) -> Symbol;
+loadSymbol<State> :: (IxPool<State, UInt8>, USize, Symbol) -> Unit;
 ```
 
 | primitive | 区分 | 役割 |
@@ -122,7 +125,7 @@ loadSymbol<State> :: (Pool<State, UInt8>, USize, Symbol) -> Unit;
 | `symbol` | 必須 | Liveなrunの`Symbol`を作る。bytes列から`Symbol`を作る操作がmalにない |
 | `loadSymbol` | 性能 | `offset + #symbol <= capacity`のrunへ`Symbol`のbytesを書く。`symbol # index`のloopでも書ける |
 
-どちらもbyte Poolのstorageを`Symbol`と共有してよく、書き込みはcopy-on-writeにする
+どちらもbyte IxPoolのstorageを`Symbol`と共有してよく、書き込みはcopy-on-writeにする
 （[representation](lifecycle-contract.md#runtime-representation)）。
 
 ## 制御
@@ -136,7 +139,7 @@ trap :: Symbol -> [];
 
 ## core外の拡張
 
-次はcore Pool APIに含めず、所有する文書で扱う。
+次はcore IxPool APIに含めず、所有する文書で扱う。
 
 - `writableSuccessor`と`ValuePool`の更新操作：[identity](identity.md#valuepool)
-- `SlotKey`、`PoolKey`、`Arena`：[Pool key extension](pool-keys.md)
+- `IdPool`、`Id<T>`、`Arena`：[IdPool](idpool.md)
