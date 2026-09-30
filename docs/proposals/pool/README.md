@@ -48,6 +48,9 @@ Bufferと同じdense sequenceしか作れないならPoolを独立させる意�
 妥当性と権限は対になる。Poolのpreconditionを未検査にできるのは、Poolを直接呼ぶfileをopaque型で一つに閉じ込め、そのfileの
 invariantでpreconditionを満たせるからである。
 
+操作の語彙は、抽象する単位でslot、run、sequenceの三つに分かれる。PoolはslotをBufferは一つのLiveなrunを抽象し、両者をつなぐ
+`from`、`into`、`copy`、`fill`は[run protocol](run-protocol.md)のfamilyとして各containerが実装する。
+
 次の文書は、これらの規則を具体的なcodeで確かめる例である。
 
 - [source sketch](container-examples.md)：候補Pool APIと、BufferおよびMapの最小実装
@@ -90,7 +93,9 @@ growth policyを実装することが分離の目的である。
 ## Bufferと上位container
 
 Poolがallocationとelement lifecycleを所有すれば、Bufferはdense sequence policyとしてmalで実装でき、現在の評価順、alias、
-count semanticsを保てる。同じ基盤から、generational slot map、deque、priority queue、hash table、tree、graphを別々のopaque型として
+count semanticsを保てる。Bufferは組み込み型ではなくpreludeのopaque型になり、hostとの交換はPoolのrun primitiveで行う。
+`Buffer<UInt8>`と`Symbol`の`*`だけはBufferに固有の操作として残し、byte Poolのstorageを`Symbol`と共有する。仕様上のBufferは
+この参照実装で意味を定め、実装は同じ結果になる限り専用runtimeを使ってよい。同じ基盤から、generational slot map、deque、priority queue、hash table、tree、graphを別々のopaque型として
 定義できる。element equality、hash、orderingはPoolやpluginへ埋め込まず、通常のfunction引数または
 [operation family](../../spec/operation-families.md)のrequirementとして上位algorithmが要求する。
 
@@ -174,9 +179,8 @@ byte Poolと`Symbol`の変換を試作した（2026-09-30）。step 4と6の一�
 - 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]` elementを載せる形の比較。前者は
   占有metadataとPool終了時の走査を、後者はslotごとのsum tagと空値の書き込みを払う。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
-- `from`、`into`、`*buffer`、`*symbol`はcore Pool APIだけで書けない。[Buffer実装](buffer-implementation.md)が仮定する
-  range、host、Symbol primitiveを採るか、これらをBuffer固有のpredefined operationとして残すかを決める。host境界をPoolで
-  受ける場合は、`*`も`Pool<State, UInt8>`と`Symbol`の変換として、byte ownerを共有する形にするかを合わせて決める。
+- [run protocol](run-protocol.md#未決定事項)の`Representable`のrequirement伝播と、Pool primitiveの名前および
+  Poolの名前を`require`したfileだけへ導入する規則。
 - immutableな`Array<T>`を`Storable`にする[`ValuePool<State, T>`](identity.md#valuepool)を、identityを共有するPoolと別の型として持つか。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

@@ -3,43 +3,27 @@
 Status: Exploratory example
 
 この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、core Pool APIと少数のcompiler primitiveで
-実装した擬似codeを示す。Pool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、Bufferの最小sketchは
-[source sketch](container-examples.md#buffer)を正とする。
+実装した擬似codeを示す。Pool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、`from`、`into`、`copy`、`fill`の
+familyと意味は[run protocol](run-protocol.md)、Bufferの最小sketchは[source sketch](container-examples.md#buffer)を正とする。
 
 predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
 以下はそのfileがpreludeとしてこれらの名前を定義できると仮定する。
 
 ## 追加するcompiler primitive
 
-core Pool APIに加え、次を仮定する。
+core Pool APIと[run protocol](run-protocol.md#poolのrun-primitive)のrun primitiveに加え、次を仮定する。
 
 ```mal
 trap :: Symbol -> [];
 
-poolWriteRange<State, T> :: (Pool<State, T>, USize, USize, T) -> Unit;
-poolCopyRange<State, T> :: (Pool<State, T>, USize, Pool<State, T>, USize, USize) -> Unit;
-poolLoadSymbol<State> :: (Pool<State, UInt8>, USize, Symbol) -> Unit;
-
-poolLoad<State, T> :: (Pool<State, T>, USize, Address, USize, USize) -> Unit;
-poolStore<State, T> :: (Pool<State, T>, USize, USize, Address) -> Unit;
 poolSymbol<State> :: (Pool<State, UInt8>, USize, USize) -> Symbol;
+poolLoadSymbol<State> :: (Pool<State, UInt8>, USize, Symbol) -> Unit;
 ```
 
-`trap`は[primitive `trap`案](../primitive-trap.md)のものである。rangeを書き込むprimitiveは、destination range内の各slotを
-Liveにする。Live slotは新valueを成立させてから旧valueをDropし、Vacant slotはinitする。
-
-| primitive | 引数の意味 | precondition | 必要な理由 |
-|---|---|---|---|
-| `poolWriteRange` | `(pool, offset, length, value)` | `offset + length <= capacity` | 性能。Pool callのloopで書ける |
-| `poolCopyRange` | `(dest, destOffset, source, sourceOffset, length)` | dest rangeがcapacity内、source rangeが全てLive | 性能。loopで書ける |
-| `poolLoadSymbol` | `(pool, offset, symbol)` | `offset + #symbol <= capacity` | 性能。`symbol # index`のloopで書ける |
-| `poolLoad` | `(pool, offset, address, hostOffset, length)` | pool rangeがcapacity内、host rangeは`from`と同じ | 必須。malはAddressを読めない |
-| `poolStore` | `(pool, offset, length, address)` | pool rangeが全てLive、host rangeは`into`と同じ | 必須。malはAddressへ書けない |
-| `poolSymbol` | `(pool, offset, length)` | rangeが全てLive | 必須。bytes列からSymbolを作る操作がない |
-
-`poolCopyRange`はsourceとdestinationが同じidentityでもよく、operation開始時点のsource rangeを写した結果になる。
-range primitiveの`init`と`take`への分解と`share`、`drop`の回数は[所有権primitive](ownership-primitives.md#派生operation)に示す。`poolLoad`と`poolStore`は`Representable(T)`を
-要求し、host側のoffset計算を表現できない場合は現行の`from`、`into`と同じくtrapする。
+`trap`は[primitive `trap`案](../primitive-trap.md)のものであり、Bufferのoverflow trapをmalで再現するのに使う。
+`poolSymbol(pool, offset, length)`はLiveなrunの`Symbol`を作り、bytes列から`Symbol`を作る操作がmalにないため必須である。
+`poolLoadSymbol(pool, offset, symbol)`は`offset + #symbol <= capacity`を要求して`Symbol`のbytesをrunへ書き、`symbol # index`の
+loopでも書けるため性能のためのprimitiveである。
 
 ## 表現とinvariant
 
@@ -104,15 +88,17 @@ Vacantであり、`_ensureCapacity`の後はcapacity内にある。
 
 ## Range operation
 
+Bufferは[run protocol](run-protocol.md)のfamilyを実装する。runの公開preconditionはcountを単位とし、書いたrunの末尾までcountを延ばす。
+
 ```mal
-fill<A> :: (Buffer<A>, USize, USize, A) -> Unit := (buffer, offset, length, value) -> {
+fill<Buffer<E>, E> :: (Buffer<E>, USize, USize, E) -> Unit := (buffer, offset, length, value) -> {
     end := _rangeEnd(offset, length);
-    _ensureCapacity<A>(buffer, end);
-    poolWriteRange<USize, A>(buffer, offset, length, value);
-    _extendCount<A>(buffer, end);
+    _ensureCapacity<E>(buffer, end);
+    poolWriteRange<USize, E>(buffer, offset, length, value);
+    _extendCount<E>(buffer, end);
 };
 
-copy<A> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
+copy<Buffer<A>> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
     (destination, destinationOffset, source, sourceOffset, length) -> {
         end := _rangeEnd(destinationOffset, length);
         _ensureCapacity<A>(destination, end);
@@ -143,14 +129,14 @@ _fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
 ## Host境界とSymbol
 
 ```mal
-from<A> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
+from<Buffer<A>> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
     buffer := makePool<USize, A>(0usize, length);
     poolLoad<USize, A>(buffer, 0usize, address, offset, length);
     poolSetState<USize, A>(buffer, length);
     buffer;
 };
 
-into<A> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
+into<Buffer<A>> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
     poolStore<USize, A>(buffer, offset, length, address);
 
 snapshot :: Buffer<UInt8> -> Symbol := (buffer) ->
@@ -164,8 +150,9 @@ bytes :: Symbol -> Buffer<UInt8> := (symbol) -> {
 };
 ```
 
-`from`と`into`の`Representable(A)` requirementは、primitiveのrequirementからgeneric bindingへ導かれる。`snapshot`と`bytes`は
-prefix `*`の二方向に当たる。
+`from`と`into`はgeneric implementationで`Representable(A)`を要求するため、それをrequirementとして伝播させる規則が要る
+（[run protocol](run-protocol.md#未決定事項)）。`snapshot`と`bytes`はprefix `*`の二方向に当たり、run protocolに含めない
+`Buffer<UInt8>`だけの操作である。
 
 ## 現行Bufferとの差分
 
@@ -176,3 +163,5 @@ prefix `*`の二方向に当たる。
 - C runtimeの`mal_runtime_buffer_from_arguments`は、`main`へ渡す`Buffer<Symbol>`をPool representationとState=countで構築する。
   これはentry ABIがこのfileのrepresentation選択へ依存することを意味する。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
+- `from`はcontainer型をkeyとするfamilyになるため、`from<UInt8>(...)`の明示形は`from<Buffer<UInt8>>(...)`になる。期待result型が
+  `Buffer<UInt8>`なら現行どおり型argumentを省ける。
