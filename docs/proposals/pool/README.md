@@ -167,6 +167,17 @@ byte Poolと`Symbol`の変換を試作した（2026-09-30）。step 4と6の一�
 - phantomな型parameterにしか現れない型argumentを推論できず、操作ごとに明示が要った。これは
   [D092](../../history/decisions/active/D092.md)でconstructorでない場合に推論する規則へ改めた。
 
+## Buffer上のemulation
+
+同じPool APIを、現在の言語だけで`Buffer<S>`のStateと`Buffer<[Unit, T]>`のslotとして実装した（2026-09-30）。Vacantは`Unit`の
+variantで表し、Poolのpreconditionへの違反は戻らない。C host試作と同じcontainerのsourceが変更なしに動き、Poolの意味が現在の
+言語で定義できることを確かめた。
+
+- `Symbol`を要素に持つMap、Deque、heap、slot mapをrehash、削除、growth、slotの再利用まで動かし、valgrindで全allocationの解放と
+  error 0を確かめた。`takeAt`と`initAt`による移動は、managed valueのresponsibilityを一つに保った。
+- PoolはBufferの上に、BufferはPoolの上に、どちらも意味の上では書ける。前者はslotごとのsum tagと、`takeAt`ごとの`Share`と`Drop`を
+  払い、後者は追加のcostを持たない。Poolをprimitiveにするのはこの非対称のためである。
+
 ## 非目標
 
 - raw allocation、pointer arithmetic、manual `init`、manual `drop`、`free`を一般mal codeへ公開しない。
@@ -179,8 +190,9 @@ byte Poolと`Symbol`の変換を試作した（2026-09-30）。step 4と6の一�
 
 - [Pool key extension](pool-keys.md#未決定事項)のgeneration幅、iteration、Arena State、key equality。
 - live slot iteration、dense storage、bulk relocationのどこまでをcore外のextensionとして追加するか。
-- 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]` elementを載せる形の比較。前者は
-  占有metadataとPool終了時の走査を、後者はslotごとのsum tagと空値の書き込みを払う。
+- 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]` elementを載せる形の比較。
+  [Buffer上のemulation](#buffer上のemulation)で意味が同じことは確かめたが、占有metadataとPool終了時の走査に対する、slotごとの
+  sum tagと移動ごとの`Share`と`Drop`のcostは測っていない。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - [run protocol](run-protocol.md#未決定事項)の`Representable`のrequirement伝播と、Pool primitiveの名前および
   Poolの名前を`require`したfileだけへ導入する規則。
