@@ -28,6 +28,33 @@ Status: Exploratory support document
 - Mapの削除は、後続のentryを`takeAt`と`initAt`で穴へ詰め、tombstoneを持たない。
 - slot mapと木は、Vacantなslotを空き場所として再利用する。
 
+## Bufferの前提を外すと変わること
+
+現在のBufferでもMapやheapは書ける。[`generic-map`](../../../examples/generic-map/map.mal)は、空きを表す`[Unit, (K, V)]`で
+全bucketを`fill`してopen addressingを実装している。違いは、Bufferの前提がcontainerにどんなcostを課すかにある。
+
+| Bufferの前提 | Bufferで書くcontainerが払うもの | Poolで変わること |
+|---|---|---|
+| 全slotが値を持つ | 空きを表す番兵値とsum tag、構築時の全slotへの`fill`、probeごとのsum分岐 | Vacantが空きを表し、要素型をそのまま置ける |
+| countは増えるだけ | popも削除もできず、取り出した値は番兵で上書きするまでstorageに残る | `takeAt`で取り出した時点でresponsibilityがslotを離れる |
+| 値は`get`の`Share`と`put`の`Drop`でしか動かない | rehash、sift、ringの展開で、移動ごとに`Share`と`Drop`が起こる | `takeAt`と`initAt`による移動は`Share`も`Drop`も起こさない |
+| capacityはcountの延長としてしか増えない | 空き領域を作るたびに番兵を書く | `reserve`で書き込みなしにVacantを増やす |
+| 有効な範囲はcountだけで表す | container固有のinvariantを番兵値として要素の中へ符号化する | 占有状態はPoolが保ち、`isLive`で読める |
+
+`Symbol`などmanagedな要素では、二つ目と三つ目の差が大きい。Buffer上のMapで削除したentryは番兵で上書きするまでreferentを
+保持し続け、rehashはentryごとにretainとreleaseを往復する。Pool上では削除した値は取り出した時点で呼び出し元へ移り、rehashは
+所有者の数を変えない。unmanagedな要素では、差は主に番兵の書き込み、sum tagの分岐、構築時の`fill`の量になる。
+
+代わりにPool上のcontainerは次を払う。
+
+- 占有状態のmetadataを持ち、Poolの終了時にはLiveなslotを探して破棄する。
+- Poolのpreconditionを自分のinvariantで満たす責任を負う。違反はmanaged valueの二重破棄や未初期化carrierの読み出しになり得る。
+- growth policy、free list、要素の列挙を自分で書く。
+
+したがって、要素を末尾へ追加していくだけの列、[indexed-graph](../../../examples/indexed-graph/graph.mal)のように一度作って読むだけの
+表、snapshotを取って比べる用途ではBufferで足り、その方が単純である。途中を空ける、値を取り出す、要素を動かす、空きを値なしで
+持つ必要があるcontainerで、Poolの前提が効く。
+
 ## runの語彙を使えるcontainer
 
 runの操作は、読むrunが全てLiveであることを要求する。Liveな集合が区間になるcontainerだけが、その区間をrunとして公開できる。
