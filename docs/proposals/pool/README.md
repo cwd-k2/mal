@@ -140,14 +140,18 @@ Engram回収へ結合せず、従来どおり明示したhost operationが所有
 
 ## C host試作の結果
 
-compilerを変えず、占有状態を検査するC host上のPoolとoperation familyで、削除とresizeのあるMapとring Dequeを試作した
-（2026-09-30）。step 4と6の一部に当たり、managed element、自動lifetime、`Store`、性能は対象外である。
+compilerを変えず、占有状態を検査するC host上のPoolとoperation familyで、削除とresizeのあるMapとring Deque、
+byte Poolと`Symbol`の変換を試作した（2026-09-30）。step 4と6の一部に当たり、managed element、自動lifetime、`Store`、
+性能は対象外である。`Symbol`はextern境界を通らないため、同じoperationを持つhost側のropeで代用した。
 
 - 型ごとの実装は`init`、`take`、Stateだけで足り、`get`、`put`、`drop`、moveは通常のgeneric mal関数として書けた。
 - `take`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開を、entryをcopyせずに書けた。
 - 検査付きhostは、container実装の`reserve`忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはPoolの
   preconditionを示し、container operationを示さない。
-- `get`を`take`と`init`で派生すると探索ごとにhost callが倍になるため、`get`は性能のためのprimitiveとして残す価値がある。
+- `get`を`take`と`init`で派生すると探索ごとにhost callが倍になる。storageをsnapshotと共有するbyte Poolでは、派生形の
+  `init`が書き込みとして共有storageのcopyを起こすため、`get`はprimitiveとして残す。
+- byte Poolの`*`はPoolのstorageを共有するO(1)のsnapshotになり、以後どちらかへ書いた側だけがcopyした。逆向きの`*`も、
+  ropeが一つの葉ならstorageを貸し、それ以外は一度だけflattenした。ropeの`#`、byte access、`==`はallocationなしで書けた。
 - phantomな型parameterにしか現れない型argumentを推論できず、操作ごとに明示が要った。これは
   [D092](../../history/decisions/active/D092.md)でconstructorでない場合に推論する規則へ改めた。
 

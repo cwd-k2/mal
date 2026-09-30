@@ -30,8 +30,9 @@ execution ownershipが、operandを後で使うなら`Share`し、last useなら
 
 ## 派生operation
 
-他のPool operationは`init`と`take`の合成として定義する。primitiveとして残すのは占有状態の往復やcarrierの移動を省く性能のためであり、
-意味はこの分解と同じである。`share`と`drop`の回数と順序も分解と一致しなければならない。
+他のPool operationは`init`と`take`の合成として定義する。primitiveとして残すのは占有状態の往復やcarrierの移動を省く性能のため、
+および`get`のようにstorageを共有するPoolで派生形の`init`が共有storageのcopyを起こすのを避けるためであり、意味はこの分解と同じである。
+`share`と`drop`の回数と順序も分解と一致しなければならない。
 
 ```text
 get(place)          = v := take(place); init(place, v); v      // vを二度使うのでinitのoperandはShare
