@@ -82,12 +82,9 @@ pub(super) fn constrain(
     substitutions: &mut HashMap<TypeId, Type>,
     span: Span,
 ) -> Result<(), Diagnostic> {
-    if let Type::Parameter {
-        id,
-        kind: Kind::Type,
-        ..
-    } = template
+    if let Type::Parameter { id, kind, .. } = template
         && flexible.contains(id)
+        && inferable(kind, actual)
     {
         if let Some(previous) = substitutions.get(id) {
             if matches!(previous, Type::Parameter { id: previous, .. } if previous == id) {
@@ -102,8 +99,8 @@ pub(super) fn constrain(
         substitutions.insert(*id, actual.clone());
         return Ok(());
     }
-    // Only kind `Type` arguments are inferred. Leaving any other one unresolved reports the missing
-    // explicit argument instead of a conflict between two uses of the same parameter.
+    // A constructor argument is never inferred. Leaving it unresolved reports the missing explicit
+    // argument instead of a conflict between two uses of the same parameter.
     if let Type::Parameter { id, .. } = template
         && flexible.contains(id)
         && !substitutions.contains_key(id)
@@ -236,6 +233,17 @@ pub(super) fn constrain(
         }
         _ if template == actual => Ok(()),
         _ => Err(inference_conflict(template, actual, span)),
+    }
+}
+
+/// Whether a flexible parameter may be bound directly to `actual`. A parameter of kind `Type` always
+/// may. A kind-polymorphic parameter, which only reaches phantom positions, may when `actual` is not a
+/// constructor: a value type, or a kind-polymorphic parameter forwarded from the enclosing binding.
+fn inferable(parameter: &Kind, actual: &Type) -> bool {
+    match parameter {
+        Kind::Type => true,
+        Kind::Variable(_) => !matches!(actual.kind(), Kind::Function { .. }),
+        Kind::Function { .. } => false,
     }
 }
 

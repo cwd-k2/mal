@@ -137,13 +137,37 @@ fn generic_results_view_opaque_layers_declared_in_the_file() {
 }
 
 #[test]
-fn a_phantom_kind_argument_asks_for_an_explicit_type_argument() {
-    let error = check_error(
+fn phantom_type_arguments_are_inferred_unless_they_are_constructors() {
+    check_ok(
         "opaque Tagged<T> :: UInt64;\n\
-         forward<T> :: Tagged<T> -> Unit := (value) -> ();\n\
-         relay<T> :: Tagged<T> -> Unit := (value) -> forward(value);",
+         tag<T> :: UInt64 -> Tagged<T> := (value) -> value;\n\
+         untag<T> :: Tagged<T> -> UInt64 := (value) -> value;\n\
+         fromOperand :: Tagged<Int32> -> UInt64 := (value) -> untag(value);\n\
+         fromExpected :: UInt64 -> Tagged<Int32> := (value) -> tag(value);\n\
+         forwarded<T> :: Tagged<T> -> UInt64 := (value) -> untag(value);\n\
+         Ap<F, A> :: F<A>;\n\
+         opaque Link<F, A> :: Tagged<Ap<F, A>>;\n\
+         link<F, A> :: Link<F, A> -> Unit := (value) -> ();\n\
+         prefixed :: Link<Buffer, Int32> -> Unit := (value) -> link<Buffer>(value);",
     );
-    assert_eq!(error.message, "generic type arguments cannot be inferred");
+    assert_eq!(
+        check_error(
+            "opaque Holder<F> :: UInt64;\n\
+             hold<F> :: Holder<F> -> Unit := (value) -> ();\n\
+             direct :: Holder<Buffer> -> Unit := (value) -> hold(value);",
+        )
+        .message,
+        "generic type arguments cannot be inferred"
+    );
+    assert_eq!(
+        check_error(
+            "opaque Tagged<T> :: UInt64;\n\
+             same<T> :: (Tagged<T>, Tagged<T>) -> Unit := (left, right) -> ();\n\
+             mixed :: (Tagged<Int32>, Tagged<UInt8>) -> Unit := (left, right) -> same(left, right);",
+        )
+        .message,
+        "conflicting generic type inference"
+    );
 }
 
 #[test]

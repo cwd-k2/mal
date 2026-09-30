@@ -45,12 +45,19 @@ pub(super) fn inferred_arguments(
                 .into(),
         );
     }
-    signature
+    let mut arguments = signature
         .parameters
         .iter()
         .map(|parameter| {
             resolve_substitution(parameter.id, substitutions, &mut HashSet::new(), span)
         })
-        .collect::<Result<_, _>>()
-        .map_err(Into::into)
+        .collect::<Result<Vec<_>, _>>()?;
+    // Inferred kind-polymorphic arguments may share kind variables with other parameters, so they
+    // pass the same kind check as explicit arguments.
+    crate::check::types::require_type_argument_kinds(
+        &signature.parameter_kinds,
+        &mut arguments,
+        span,
+    )?;
+    Ok(arguments)
 }

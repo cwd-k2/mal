@@ -19,7 +19,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、kind/arity mismatch、constructor prefixの明示とrigid-only inference、operand・期待result・higher-order位置・lambda result・直和continuation payloadからの通常型推論、未確定と衝突、first-classな単相value、generic extern rejection | constructor termを含む推論形と明示形のspecialization key共有、required fileを跨ぐgeneric application |
+| [declaration/application](../spec/generics.md#declarationとapplication) | duplicate parameter、kind/arity mismatch、constructor prefixの明示とrigid-only inference、phantom parameterの非constructor推論、operand・期待result・higher-order位置・lambda result・直和continuation payloadからの通常型推論、未確定と衝突、first-classな単相value、generic extern rejection | constructor termを含む推論形と明示形のspecialization key共有、required fileを跨ぐgeneric application |
 | [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`と`Buffer<F<A>>`、alias展開、requirement不足、既知の非storable型 | constructor parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
 | [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
 | [operation family](../spec/operation-families.md) | familyとexact/generic implementationの分類、closed constructor key、constructor pattern rejection、pattern overlap、全parameter束縛、減少、signature不一致、requirement伝播、missing implementation、opaque key | directly required familyへのimplementation、constructor keyまたはgeneric patternから選択したimplementationが既存backendだけで実行される |

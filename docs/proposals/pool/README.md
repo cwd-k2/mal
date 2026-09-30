@@ -148,8 +148,8 @@ compilerを変えず、占有状態を検査するC host上のPoolとoperation f
 - 検査付きhostは、container実装の`reserve`忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはPoolの
   preconditionを示し、container operationを示さない。
 - `get`を`take`と`init`で派生すると探索ごとにhost callが倍になるため、`get`は性能のためのprimitiveとして残す価値がある。
-- phantomな型parameterはkind多相になり、そこにしか現れない型argumentは推論されない。built-in Poolは`Storable(T)`で
-  kindを`Type`に固定できるが、phantomな型付きhandle一般の問題は残る。
+- phantomな型parameterにしか現れない型argumentを推論できず、操作ごとに明示が要った。これは
+  [D092](../../history/decisions/active/D092.md)でconstructorでない場合に推論する規則へ改めた。
 
 ## 非目標
 
@@ -169,6 +169,5 @@ compilerを変えず、占有状態を検査するC host上のPoolとoperation f
 - `from`、`into`、`*buffer`、`*symbol`はcore Pool APIだけで書けない。[Buffer実装](buffer-implementation.md)が仮定する
   range、host、Symbol primitiveを採るか、これらをBuffer固有のpredefined operationとして残すかを決める。
 - immutableな`Array<T>`を`Storable`にする[`ValuePool<State, T>`](identity.md#valuepool)を、identityを共有するPoolと別の型として持つか。
-- phantom parameterにしか現れない型argumentを、期待型やoperandから推論する規則を[generics](../../spec/generics.md)へ加えるか。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。
