@@ -40,7 +40,8 @@ Bufferと同じdense sequenceしか作れないならPoolを独立させる意�
 この分離が成立するための低レイヤcontractは[Pool lifecycle contract](lifecycle-contract.md)で管理する。mutable identityと
 copy-on-write valueの参照管理はoptional extensionとして[Pool array ownership example](array-ownership.md)で比較する。
 既存の`examples/`をPool上へ移したときにsource、ownership、precondition、costの何が変わるかは
-[既存exampleで見るPool化の差分](current-examples.md)で示す。
+[既存exampleで見るPool化の差分](current-examples.md)、現行Bufferの全operationをPoolとcompiler primitiveで書いた形は
+[Pool上のBuffer実装](buffer-implementation.md)で示す。
 
 ## Poolのauthority
 
@@ -80,13 +81,12 @@ sourceから`Vacant` carrierを値として取得するoperation、任意address
 
 ## Core外のextension
 
-初期Pool APIはcoordinateによるslot accessだけで成立し、generation、stable handle、copy-on-writeを含めない。stable handleは
-slot map、tree、graphが外部へkeyを返す実例から、Pool identity、slot generation、stale key、Pool破棄後の表現を独立して決める。
-handleがPoolをretainするとelementから同じPoolへのowner cycleを作れるため、nonowning keyとliveなPool operandを組み合わせる案を
-初期候補とする。
+初期Pool APIはcoordinateによるslot accessだけで成立し、generation、key、copy-on-writeを含めない。slot map、tree、graphが
+外部へ参照を返す場合は、Poolをretainしない`Storable`なkeyを[Pool key extension](pool-keys.md)として追加する。slotを指す
+`SlotKey`は既存のPoolをownerにでき、Pool自体を指す`PoolKey`はownerとなる`Arena`を別に要する。
 
-identity-bearing handleが存在すると、copy-on-writeがstorageを再利用したか複製したかでhandleの有効性が変わり得る。したがって
-[array ownership example](array-ownership.md)のwritable-successor profileはstable handleを発行せず、両extensionを同一profileへ
+identity-bearing keyが存在すると、copy-on-writeがstorageを再利用したか複製したかでkeyの有効性が変わり得る。したがって
+[array ownership example](array-ownership.md)のwritable-successor profileはkeyを発行せず、両extensionを同一profileへ
 自動合成しない。`Pool<State, T>`自身をStateまたはelementへ格納することも初期profileでは認めない。
 
 ## file-local opaque型
@@ -184,13 +184,13 @@ lifetimeはEngram回収へ結合せず、従来どおり明示したhost operati
 
 ## 未決定事項
 
-- optionalなPool handleのsource型、nonowning identity、generation幅、failure resultとtrapの境界。
+- [Pool key extension](pool-keys.md#未決定事項)のgeneration幅、iteration、Arena State、key equality。
 - live slot iteration、dense storage、bulk relocationのどこまでをcore外のextensionとして追加するか。
 - 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]` elementを載せる形の比較。前者は
   占有metadataとPool終了時の走査を、後者はslotごとのsum tagと空値の書き込みを払う。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
-- `from`、`into`、`*buffer`、`*symbol`、`main`へ渡す`Buffer<Symbol>`など、host境界のbulk copyをPool APIだけで書けない問題。
-  trusted bulk primitiveを追加するか、これらをBuffer固有のpredefined operationとして残すかを決める。
+- `from`、`into`、`*buffer`、`*symbol`はcore Pool APIだけで書けない。[Buffer実装](buffer-implementation.md)が仮定する
+  range、host、Symbol primitiveを採るか、これらをBuffer固有のpredefined operationとして残すかを決める。
 - immutableな`Array<T>`を`Storable`にするため、更新がsuccessorを返す
   [`ValuePool<State, T>`](array-ownership.md#storableなimmutable-array)をidentity共有のPoolと別の型として持つか。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。

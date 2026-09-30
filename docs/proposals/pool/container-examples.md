@@ -33,8 +33,8 @@ Poolの形成は`Storable(State)`と`Storable(T)`を要求する。Poolのcopy�
 [未検査precondition](lifecycle-contract.md#未検査precondition)はlifecycle contractが所有する。以下のsketchでは、各Pool callの
 直前にそのpreconditionをどのinvariantが満たすかを本文で示す。
 
-Pool自身はStateにもelementにも格納できない。stable handleはこの例に必要なく、slot map、tree、graphが外部へkeyを返す実例から
-nonowning Pool identityとgenerationのcontractを分離して検討する。
+Pool自身はStateにもelementにも格納できない。keyはこの例に必要なく、[Pool key extension](pool-keys.md)で扱う。
+このsketchの全operationを実装した形は[Pool上のBuffer実装](buffer-implementation.md)に示す。
 
 mutable arrayのidentity共有と、immutable arrayのcopy-on-writeは
 [Pool array ownership example](array-ownership.md)で同じdense slot invariantを使って比較する。後者が仮定する

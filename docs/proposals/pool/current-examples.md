@@ -24,10 +24,10 @@ bytes.into(address, 0usize, #bytes);
 
 - `alias.put(0usize, 'M')`はBuffer fileの`put`から`poolPutAt`になる。利用者は現行どおり`0 < #alias`を満たし、Buffer実装は
   live prefix invariantでslotがLiveであることを導く。
-- `alias.copy(#alias, ...)`は現在のcountを越えるrangeを書くので、Buffer実装はcountより前を`poolPutAt`、以降を
-  `reserve`してから`poolInitAt`へ分け、最後にStateのcountを更新する。現行runtimeの一回のcopyがmal loopになる。
-- `from`、`*bytes`、`*"!"`、`into`はAddressやSymbolのbytesとPool slotの間の一括copyであり、現在のPool APIだけでは書けない。
-  trusted bulk primitiveを追加するか、Buffer固有のpredefined operationとして残すかはREADMEの未決定事項である。
+- `alias.copy(#alias, ...)`は現在のcountを越えるrangeを書く。Buffer実装は`reserve`してから、Liveなslotを置換しVacantなslotを
+  initするrange primitiveを呼び、最後にStateのcountを更新する。primitiveがなければPool callのloopになる。
+- `from`、`*bytes`、`*"!"`、`into`はAddressやSymbolのbytesとPool slotの間の一括copyであり、core Pool APIだけでは書けない。
+  必要なprimitiveと、それを使った各operationは[Pool上のBuffer実装](buffer-implementation.md)に示す。
 
 `main`の`Buffer<Symbol>`はC runtimeが`mal_runtime_buffer_from_arguments`でentry前に構築する。Bufferをmalで実装しても、
 このruntime関数はPool representationと、Buffer fileが選んだStateの意味（count）を知る必要がある。entry ABIが
@@ -142,8 +142,8 @@ capacity 0の早期returnは剰余のpreconditionのためにも必要であり�
 |---|---|---|
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`reserve`とgrowth policyを呼ぶ |
-| `fill`、`copy` | runtimeのloopとretain callback | elementごとのPool callか、未決定のbulk primitive |
-| `from`、`into`、`*` | runtimeのbulk copy | 現在のPool APIでは書けない |
+| `fill`、`copy` | runtimeのloopとretain callback | range primitiveのloopとshare callback、またはPool callのloop |
+| `from`、`into`、`*` | runtimeのbulk copy | host境界とSymbol用のcompiler primitive |
 | HashMapの構築 | capacity個のempty entryを`fill` | 占有metadataの初期化 |
 | managed elementの挿入 | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有metadataを走査してLive slotをDrop |
