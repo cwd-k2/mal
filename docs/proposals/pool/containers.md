@@ -56,6 +56,24 @@ Status: Exploratory support document
 表、snapshotを取って比べる用途ではBufferで足り、その方が単純である。途中を空ける、値を取り出す、要素を動かす、空きを値なしで
 持つ必要があるcontainerで、Poolの前提が効く。
 
+## 書く側から見た比較
+
+[collection例](collection-examples.md)をC host上で書いた経験では、削除、取り出し、移動、可変のmetadataを持つcontainerはBufferより
+書きやすかった。最も効いたのはStateである。malには可変のbindingがないため、Buffer上のDequeや木は`head`、`count`、`root`の置き場として
+別の`Buffer<USize>`を用意するか、要素の一つへ埋め込む必要がある。Poolでは`(head, count) := state(deque)`のようにstorageと
+同じidentityから読める。番兵値を置かず要素型をそのままslotに置けることと、`takeAt`、`initAt`、`moveAt`でアルゴリズムどおりに
+値を動かせることも、code量と読みやすさの両方に効いた。
+
+負担は、占有状態とStateを自分で正しく保つことに集約された。
+
+- `reserve`してから`initAt`し、`initAt`の後にStateを更新する、という対を毎回書く。Bufferの`new`はこれを一つの操作で行う。
+- 要素の列挙がないため、木の検査には中順の再帰を書き、Mapの全要素には`isLive`でcapacity全体を走査する。
+- slot mapのgenerationや木のfree listのように、Vacantなslotに関する情報の置き場を最初に設計する。
+
+この負担は、よく使う対を`reserveAtLeast`のような補助関数へまとめること、占有状態を検査するruntimeでcontainerをtestすること、
+[primitive `trap`](../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのPool実装や
+Poolの明示的な解放が必要だったのはC hostを経由したためであり、Poolの性質ではない。
+
 ## runの語彙を使えるcontainer
 
 runの操作は、読むrunが全てLiveであることを要求する。Liveな集合が区間になるcontainerだけが、その区間をrunとして公開できる。
