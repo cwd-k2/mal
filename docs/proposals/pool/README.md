@@ -152,6 +152,10 @@ byte Poolと`Symbol`の変換を試作した（2026-09-30）。step 4と6の一�
   `init`が書き込みとして共有storageのcopyを起こすため、`get`はprimitiveとして残す。
 - byte Poolの`*`はPoolのstorageを共有するO(1)のsnapshotになり、以後どちらかへ書いた側だけがcopyした。逆向きの`*`も、
   ropeが一つの葉ならstorageを貸し、それ以外は一度だけflattenした。ropeの`#`、byte access、`==`はallocationなしで書けた。
+- 同じscenarioを現行`Symbol`のflatなbyte ownerの方式（consumingな`+`が一意なownerをその場で伸ばす）とも比べた。
+  1.4 MBの行の反転、split、比較、書き出しはflatが4〜12倍速く、ropeが勝ったのは大きなtextの中央への挿入の反復だけだった。
+  Poolとのstorage共有とcopy-on-writeはどちらの表現でも同じく成り立つため、`Symbol`の表現はflatのままでよく、ropeは
+  Pool上の別containerとして持つ方が合う。
 - phantomな型parameterにしか現れない型argumentを推論できず、操作ごとに明示が要った。これは
   [D092](../../history/decisions/active/D092.md)でconstructorでない場合に推論する規則へ改めた。
 
