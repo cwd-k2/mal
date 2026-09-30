@@ -56,6 +56,7 @@ Poolが何を抽象するかは、Pool上の代表的なcontainerを比べた[Po
 具体的なcodeで確かめる例である。
 
 - [source sketch](container-examples.md)：候補Pool APIと、BufferおよびMapの最小実装
+- [collection例](collection-examples.md)：stack、binary heap、slot map、木の実装と試作での確認
 - [Buffer実装](buffer-implementation.md)：現行Bufferの全operationをPoolとcompiler primitiveで書いた形
 - [既存exampleとの差分](current-examples.md)：`examples/`をPool上へ移したときのsource、precondition、costの変化
 - [array ownership](array-ownership.md)：mutable arrayとcopy-on-write immutable arrayの比較
