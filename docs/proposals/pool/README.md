@@ -138,6 +138,19 @@ Engram回収へ結合せず、従来どおり明示したhost operationが所有
 6. slot mapまたはtreeをcoordinateで実装し、keyが実際に必要ならidentity、generation、stale/cross-Pool rejectionを独立して検査する。
 7. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換とtrusted crate境界を別々に判断する。
 
+## C host試作の結果
+
+compilerを変えず、占有状態を検査するC host上のPoolとoperation familyで、削除とresizeのあるMapとring Dequeを試作した
+（2026-09-30）。step 4と6の一部に当たり、managed element、自動lifetime、`Store`、性能は対象外である。
+
+- 型ごとの実装は`init`、`take`、Stateだけで足り、`get`、`put`、`drop`、moveは通常のgeneric mal関数として書けた。
+- `take`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開を、entryをcopyせずに書けた。
+- 検査付きhostは、container実装の`reserve`忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはPoolの
+  preconditionを示し、container operationを示さない。
+- `get`を`take`と`init`で派生すると探索ごとにhost callが倍になるため、`get`は性能のためのprimitiveとして残す価値がある。
+- phantomな型parameterはkind多相になり、そこにしか現れない型argumentは推論されない。built-in Poolは`Storable(T)`で
+  kindを`Type`に固定できるが、phantomな型付きhandle一般の問題は残る。
+
 ## 非目標
 
 - raw allocation、pointer arithmetic、manual `init`、manual `drop`、`free`を一般mal codeへ公開しない。
@@ -156,5 +169,6 @@ Engram回収へ結合せず、従来どおり明示したhost operationが所有
 - `from`、`into`、`*buffer`、`*symbol`はcore Pool APIだけで書けない。[Buffer実装](buffer-implementation.md)が仮定する
   range、host、Symbol primitiveを採るか、これらをBuffer固有のpredefined operationとして残すかを決める。
 - immutableな`Array<T>`を`Storable`にする[`ValuePool<State, T>`](identity.md#valuepool)を、identityを共有するPoolと別の型として持つか。
+- phantom parameterにしか現れない型argumentを、期待型やoperandから推論する規則を[generics](../../spec/generics.md)へ加えるか。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。
