@@ -2,6 +2,8 @@
 
 use mal_syntax::source::FileId;
 
+use crate::resolve::ast::TypeId;
+
 use super::super::ast::Type;
 
 mod substitution;
@@ -47,6 +49,12 @@ pub(in crate::check) fn representation_view(ty: &Type, file: FileId) -> &Type {
         current = representation;
     }
     current
+}
+
+/// The first layer below `ty`, viewing only opaque layers declared in `file`, that is the opaque declaration `id`.
+pub(in crate::check) fn layer_with_identity(ty: &Type, id: TypeId, file: FileId) -> Option<&Type> {
+    same_file_layers(ty, file)
+        .find(|layer| matches!(layer, Type::Opaque { id: layer_id, .. } if *layer_id == id))
 }
 
 /// Whether `left` and `right` are the same type once the file-local opaque types declared in `file` may be viewed as

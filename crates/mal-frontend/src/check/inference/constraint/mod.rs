@@ -110,6 +110,24 @@ pub(super) fn constrain(
     {
         return Ok(());
     }
+    // Two different opaque types meet only when one side, viewed through opaque layers declared in
+    // this file, reaches the other; types that merely share a representation stay distinct.
+    if let (
+        Type::Opaque {
+            id: template_id, ..
+        },
+        Type::Opaque { id: actual_id, .. },
+    ) = (template, actual)
+        && template_id != actual_id
+    {
+        let layers = super::super::types::layer_with_identity;
+        if let Some(view) = layers(template, *actual_id, span.file()) {
+            return constrain(view, actual, flexible, substitutions, span);
+        }
+        if let Some(view) = layers(actual, *template_id, span.file()) {
+            return constrain(template, view, flexible, substitutions, span);
+        }
+    }
     let both_opaque = matches!(
         (template, actual),
         (Type::Opaque { .. }, Type::Opaque { .. })

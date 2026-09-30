@@ -116,6 +116,27 @@ fn generic_code_keeps_phantom_opaque_arguments_equal() {
 }
 
 #[test]
+fn generic_results_view_opaque_layers_declared_in_the_file() {
+    check_ok(
+        "opaque Inner<T> :: (T, T);\n\
+         build<T> :: T -> Inner<T> := (value) -> (value, value);\n\
+         opaque Outer<T> :: Inner<T>;\n\
+         explicit<T> :: T -> Outer<T> := (value) -> build<T>(value);\n\
+         inferred :: Int32 -> Outer<Int32> := (value) -> build(value);",
+    );
+    assert_eq!(
+        check_error(
+            "opaque Left :: Int32;\n\
+             opaque Right :: Int32;\n\
+             same<T> :: (T, T) -> T := (first, _) -> first;\n\
+             wrong :: (Left, Right) -> Left := (left, right) -> same(left, right);",
+        )
+        .message,
+        "conflicting generic type inference"
+    );
+}
+
+#[test]
 fn a_phantom_kind_argument_asks_for_an_explicit_type_argument() {
     let error = check_error(
         "opaque Tagged<T> :: UInt64;\n\
