@@ -12,12 +12,16 @@ Status: Exploratory support document
 ## Runtime representation
 
 `Pool<State, T>`は`State`のcarrier、`T`のslot storage、各slotの`Vacant`または`Live`状態を一つのmanaged identityとして所有する。
-初期profileでは`State`と`T`をruntime value representationで保持し、canonical memory layoutをPoolのcontractにしない。
-これにより`Symbol`を含むaggregateとplugin-defined Engram leafへ同じlifecycle planを適用できる。
+Stateはruntime value representationで保持する。slot storageのlayoutは要素型ごとに実装が選び、sourceとhostへ観測させない。
+初期実装は[現行Buffer](../../implementation/ownership.md#bufferのelement)と同じく次を使い分ける。
 
-canonical memoryはhostとの値交換に限る。Pool上のBufferが`from`または`into`を提供する場合、canonical elementとruntime slotを
-fieldごとに変換する。numeric scalarのようにruntime representationとcanonical layoutが一致する`T`では、実装がbulk copyを使ってよい。
-ただし一致はcorrectness contractではなく、Pool storageのlayoutをsourceやhostへ観測させない。
+- `Representable`な`T`はcanonical memory layoutで置く。host境界のcopyはbulk copyになり、lifecycle glueを持たない。
+- `Symbol`を含む`T`はruntime value representationで置き、型別の`share`と`drop` glueを使う。plugin-defined Engram leafを含む
+  要素も同じ側に置き、同じlifecycle planを適用する。
+
+この選択はcorrectness contractではない。canonical layoutはhostとの値交換の形式であり、Pool storageがそれと一致することを
+sourceもhostも前提にしない。`Pool<State, UInt8>`のslot storageはbyte列そのものになるため、`Symbol`のbyte ownerとstorageを
+共有する特殊化も実装の選択として取れる。
 
 `size<T> == 0`または`stride<T> == 0`でもslotは消滅しない。Poolはcoordinateごとの占有状態と、handle extensionを使う場合はgenerationを
 別に保持する。element payloadのbyte数が0でも、capacity、`Live`/`Vacant`遷移、precondition、drop回数は通常の`T`と同じである。

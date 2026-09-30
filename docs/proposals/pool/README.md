@@ -167,7 +167,8 @@ compilerを変えず、占有状態を検査するC host上のPoolとoperation f
   占有metadataとPool終了時の走査を、後者はslotごとのsum tagと空値の書き込みを払う。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - `from`、`into`、`*buffer`、`*symbol`はcore Pool APIだけで書けない。[Buffer実装](buffer-implementation.md)が仮定する
-  range、host、Symbol primitiveを採るか、これらをBuffer固有のpredefined operationとして残すかを決める。
+  range、host、Symbol primitiveを採るか、これらをBuffer固有のpredefined operationとして残すかを決める。host境界をPoolで
+  受ける場合は、`*`も`Pool<State, UInt8>`と`Symbol`の変換として、byte ownerを共有する形にするかを合わせて決める。
 - immutableな`Array<T>`を`Storable`にする[`ValuePool<State, T>`](identity.md#valuepool)を、identityを共有するPoolと別の型として持つか。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

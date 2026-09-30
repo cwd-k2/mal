@@ -171,8 +171,8 @@ prefix `*`の二方向に当たる。
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移り、runtimeはPool primitiveと上のrange primitiveだけを持つ。
-- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。この実装では共有が失われ、
-  維持するには`Pool<State, UInt8>`のslot storageをbyte ownerにする特殊化が要る。
+- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`Pool<State, UInt8>`は
+  [canonical layout](lifecycle-contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - C runtimeの`mal_runtime_buffer_from_arguments`は、`main`へ渡す`Buffer<Symbol>`をPool representationとState=countで構築する。
   これはentry ABIがこのfileのrepresentation選択へ依存することを意味する。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
