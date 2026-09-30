@@ -52,7 +52,8 @@ invariantでpreconditionを満たせるからである。
 `from`、`into`、`copy`、`fill`は[run protocol](run-protocol.md)のfamilyとして各containerが実装する。PoolとBufferの責務分担と
 primitiveの一覧は[primitive一覧](primitives.md)が所有する。
 
-次の文書は、これらの規則を具体的なcodeで確かめる例である。
+Poolが何を抽象するかは、Pool上の代表的なcontainerを比べた[Pool上のcontainer](containers.md)で示す。次の文書は、これらの規則を
+具体的なcodeで確かめる例である。
 
 - [source sketch](container-examples.md)：候補Pool APIと、BufferおよびMapの最小実装
 - [Buffer実装](buffer-implementation.md)：現行Bufferの全operationをPoolとcompiler primitiveで書いた形

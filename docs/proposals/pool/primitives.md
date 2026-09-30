@@ -27,14 +27,9 @@ Poolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、coor
 `[offset, offset + length)`という区間、つまりrunが意味を持つ。runの意味はPool storageの物理配置に依存しない。実装は
 `Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合runの操作はbulk copyになる。
 
-coordinate空間が線形でも、占有状態には穴があり得る。runを読む操作が全coordinateのLiveを要求するのはそのためである。containerは
-この線形空間の使い方で性格が決まる。
-
-- Bufferは、Liveなcoordinateの集合が0から始まる一つの区間であることをinvariantにする。
-- Dequeはcoordinateをcapacityで折り返す輪として扱い、一つの論理的なrunが最大二つの区間になる。
-- Mapは線形性をprobeの順序に使い、Liveなcoordinateは散らばる。
-
-[key](pool-keys.md)は順序ではなくidentityでslotを指すため、runを作らない。
+coordinate空間が線形でも、占有状態には穴があり得る。runを読む操作が全coordinateのLiveを要求するのはそのためである。Bufferは
+Liveなcoordinateの集合が0から始まる一つの区間であることをinvariantにする。他のcontainerがこの線形空間をどう使うかは
+[Pool上のcontainer](containers.md)で比較する。[key](pool-keys.md)は順序ではなくidentityでslotを指すため、runを作らない。
 
 ## PoolとBufferの責務
 
