@@ -17,10 +17,13 @@ copy-on-writeの動作例は[array ownership](array-ownership.md)を正とする
 | 所有する | `IxPool<State, T>` | `ValuePool<State, T>` |
 | 所有しない | `Id<T>` | 通常のdata |
 
-`Storable`にできないのは、所有とidentity共有を両方持つ型である。storage内でShareされた値について、次の二つが起きるためである。
+`Storable`にできないのは、所有とidentity共有を両方持つ型である。identityを共有する値をstorageへ保存すると、その後のmutationを
+storage内のaliasから観測できるためである。これは[D075](../../history/decisions/active/D075.md)がBufferの要素を値に限った理由と
+同じであり、安全性ではなく言語の意味の選択である。
 
-- identityを共有すると、storageへ保存した後のmutationをaliasから観測できる。
-- 所有すると、自身のslotへ保存してowner cycleを作れる。
+owner cycleはこの除外の理由にならない。malは表現に寄与する再帰型を持たず、functionは`Storable`でないため、storageの要素から出る
+owner edgeは常に真に小さい型の値を指す。`IxPool<S, IxPool<S, T>>`のように自身を要素にする型は書けず、owner cycleは型の上で
+生じない。
 
 `ValuePool`はidentityを捨て、`Id<T>`は所有を捨てることで、それぞれ`Storable`になる。`IxPool<State, T>`は`Storable`でも
 `Representable`でも`HostMappable`でもなく、`IxPool<State, IxPool<...>>`のような入れ子も認めない。
@@ -52,7 +55,7 @@ valuePoolReserve<State, T> :: (ValuePool<State, T>, USize) -> ValuePool<State, T
 inputが唯一のresponsibilityならstorageを再利用し、共有中ならcopyする。
 
 - 更新前のvalueをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
-- 自身をelementとして保存しようとすると、そのoperandはShareされてuniquenessが成り立たず、copyへfallbackするのでcycleにならない。
+- 同じvalueを別のslotへ保存したoperandはShareされてuniquenessが成り立たず、以後の更新はcopyへfallbackする。
 
 更新を`Unit`を返すIxPool操作とsuccessor取得の二つへ分けると、Shareしたsuccessorを更新しないことが未検査preconditionになり、
 違反は別のvalueの変更として現れる。更新operation自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装の
