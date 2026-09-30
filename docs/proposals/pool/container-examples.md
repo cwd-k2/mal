@@ -29,8 +29,8 @@ poolDropAt<State, T> :: (Pool<State, T>, USize) -> Unit;
 ```
 
 Poolの形成は`Storable(State)`と`Storable(T)`を要求する。Poolのcopyは同じState、capacity、slotを持つidentityを共有する。
-`poolReserve`だけがallocationを増やし、Poolは自動的にgrowthしない。各operationのownership effectと
-[未検査precondition](lifecycle-contract.md#未検査precondition)はlifecycle contractが所有する。以下のsketchでは、各Pool callの
+`poolReserve`だけがallocationを増やし、Poolは自動的にgrowthしない。各operationのownership effectは
+[所有権primitive](ownership-primitives.md)、[未検査precondition](lifecycle-contract.md#未検査precondition)はlifecycle contractが所有する。以下のsketchでは、各Pool callの
 直前にそのpreconditionをどのinvariantが満たすかを本文で示す。
 
 Pool自身はStateにもelementにも格納できない。keyはこの例に必要なく、[Pool key extension](pool-keys.md)で扱う。
@@ -170,7 +170,8 @@ algorithmだけで決めてよい。temporary allocationとentryの2回移動が
 ## この例が要求する境界
 
 - Pool runtimeはStateとelementそれぞれについて、specializationが生成したlayout、share、drop glueを利用できる。
-- Pool primitiveは[lifecycle contract](lifecycle-contract.md)のownership effect、遷移順序、未検査preconditionに従う。
+- Pool primitiveは[所有権primitive](ownership-primitives.md)のeffectと遷移順序、[lifecycle contract](lifecycle-contract.md)の
+  未検査preconditionに従う。
 - container実装はfile-local invariantから、公開preconditionを満たすcallのPool preconditionを導ける。
 - opaque型の宣言元fileだけがrepresentation viewを使え、他fileはStateとslot invariantを迂回できない。
 - hidden representationのrequirementをopaque type constructorの形成条件として公開できる。

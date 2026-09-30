@@ -2,10 +2,11 @@
 
 Status: Exploratory support document
 
-この文書は、[Poolとopaque型によるcontainer基盤](README.md)が成立するために必要なstorage、ownership、precondition、failureの
+この文書は、[Poolとopaque型によるcontainer基盤](README.md)が成立するために必要なstorage、precondition、failureの
 低レイヤcontractを管理する。候補APIとcontainer algorithmは
 [source sketch](container-examples.md)、現在の規範は[AddressとBuffer](../../spec/memory.md)と
-[実行意味論](../../spec/execution.md)を正とする。
+[実行意味論](../../spec/execution.md)を正とする。各operationのownership effectと型別glueの必要箇所は
+[所有権primitive](ownership-primitives.md)が所有する。
 
 ## Runtime representation
 
@@ -21,40 +22,12 @@ fieldごとに変換する。numeric scalarのようにruntime representationと
 別に保持する。element payloadのbyte数が0でも、capacity、`Live`/`Vacant`遷移、precondition、drop回数は通常の`T`と同じである。
 占有状態は`poolIsLive`の結果とPool終了時にDropするslotの決定に使い、slot operationごとの検査には使わない。
 
-## Ownership effect
-
-Pool operationのfunction typeだけからowner successorを推論しない。built-in primitiveまたはtrusted plugin declarationが、各operandと
-resultに次のeffectを付与し、execution ownershipがcall siteのlast-use情報と合わせて具体的な`Share`、`Consume`、`Drop`へlowerする。
-
-| operation | lifecycle effect |
-|---|---|
-| `makePool(state, capacity)` | `state`を新しいPoolへShareまたはConsumeする |
-| `poolState(pool)` | StateをPoolに残し、resultをShareする |
-| `poolSetState(pool, state)` | 新StateをShareまたはConsumeした後、旧StateをDropする |
-| `poolInitAt(pool, index, value)` | `value`をVacant slotへShareまたはConsumeする |
-| `poolGetAt(pool, index)` | slotをLiveに保ち、resultをShareする |
-| `poolPutAt(pool, index, value)` | 新valueをShareまたはConsumeした後、旧valueをDropする |
-| `poolTakeAt(pool, index)` | slotのresponsibilityをresultへConsumeし、slotをVacantにする |
-| `poolDropAt(pool, index)` | slotのresponsibilityをDropし、slotをVacantにする |
-| `poolReserve(pool, capacity)` | carrierをrelocateするだけでShareまたはDropしない |
-| Poolの終了 | Stateと全Live slotを一度ずつDropしてstorageを解放する |
-
-`Share`と`Consume`の選択はsource operandがcall後も必要かで決まり、primitive名やC callback側で推測しない。primitive effectは
-use planだけでなく、parameterをPool slotへ保持する通常のmal wrapperをowned native entryにできるようD083の保持解析にも入力する。
-pluginが新しいPool相当operationを追加する場合は同じmetadataをtrusted boundaryで宣言する。
-
-lifecycle glueは失敗せず、I/O、host resourceの`close`、別Poolの更新など観測可能な作用を持たない。Pool破棄時のStateとslotのdrop順は
-sourceから観測できず、container algorithmはその順序へ依存しない。
-
 ## Primitive transitionとcontainer invariant
 
 各Pool primitiveは、preconditionを満たすcallで一つの遷移として振る舞う。`reserve`は全Stateとslotを保存して指定された
 logical capacityへ拡張し、要求が現在のcapacity以下ならPoolを変更しない。物理的なover-allocationは観測させない。
 storage sizeをtargetで表現できない場合とallocationに失敗した場合は、既存Engram allocationと同じくtrapする。
 [trap](../../spec/execution.md#trap)はterminalなので、失敗後のPool状態をsourceやlifecycle callbackへ公開する規則は要らない。
-
-`poolPutAt`と`poolSetState`は新しいresponsibilityを成立させてから旧valueをDropする。同じmanaged valueを読み出して書き戻す
-callで、旧valueのDropが新valueのreferentを解放しないための順序である。
 
 複数primitiveからなるBufferやMapのoperation全体はtransactionではなく、file-local invariantはcontainer operationのreturn時に
 回復すればよい。途中状態を観測できるのは、container実装が途中で呼ぶfunctionだけである。lifecycle glueはmal codeを実行せず、
@@ -127,8 +100,7 @@ sourceへ明示的な`retain`や`borrow`を公開するより、ownership plan�
 
 現在の`execution/ownership`は[D083](../../history/decisions/active/D083.md)のowned native entryを持ち、last-use argumentをcalleeへ
 Consumeできる。一方、primitive、host、memory、Buffer operationのoperandは現在すべてBorrowとして列挙され、Buffer runtimeが保存に
-必要なretainを行う。Poolでは`init`、`put`、`take`、writable successorのoperand/result relationをmetadataにし、use planとparameter保持解析の
-両方へ入力する必要がある。
+必要なretainを行う。Poolではoperand effect`Store`を追加し、use planとparameter保持解析の両方へ入力する必要がある。
 
 LLVM backendにはmanaged valueの型再帰的なretain/release、managed placeのinitialize/replace/vacate、Buffer elementごとのcallback生成が
 既にある。Poolはこのloweringの新しい利用者になり、別の型再帰を持たない。frontendの`Storable`は現在もclosed judgmentであり、Poolまたは

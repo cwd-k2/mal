@@ -38,7 +38,7 @@ Liveにする。Live slotは新valueを成立させてから旧valueをDropし�
 | `poolSymbol` | `(pool, offset, length)` | rangeが全てLive | 必須。bytes列からSymbolを作る操作がない |
 
 `poolCopyRange`はsourceとdestinationが同じidentityでもよく、operation開始時点のsource rangeを写した結果になる。
-`poolWriteRange`と`poolCopyRange`は書き込むslotごとにvalueを`Share`する。`poolLoad`と`poolStore`は`Representable(T)`を
+range primitiveの`init`と`take`への分解と`share`、`drop`の回数は[所有権primitive](ownership-primitives.md#派生operation)に示す。`poolLoad`と`poolStore`は`Representable(T)`を
 要求し、host側のoffset計算を表現できない場合は現行の`from`、`into`と同じくtrapする。
 
 ## 表現とinvariant

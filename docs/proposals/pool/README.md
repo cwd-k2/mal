@@ -36,8 +36,9 @@ logical State、denseまたはsparseな利用、growth、free-list、ordering、
 Bufferと同じdense sequenceしか作れないならPoolを独立させる意味はなく、逆にraw memory操作まで開くことも本案の目的ではない。
 
 候補となるPool primitiveと、Bufferおよびopen-address Mapのmal表現は
-[Pool-backed containerのsource sketch](container-examples.md)に分けて示す。storage layout、ownership effect、failure境界など、
-この分離が成立するための低レイヤcontractは[Pool lifecycle contract](lifecycle-contract.md)で管理する。mutable identityと
+[Pool-backed containerのsource sketch](container-examples.md)に分けて示す。storage layout、precondition、failure境界など、
+この分離が成立するための低レイヤcontractは[Pool lifecycle contract](lifecycle-contract.md)、各operationを`init`と`take`へ
+分解したownership effectは[所有権primitive](ownership-primitives.md)で管理する。mutable identityと
 copy-on-write valueの参照管理はoptional extensionとして[Pool array ownership example](array-ownership.md)で比較する。
 既存の`examples/`をPool上へ移したときにsource、ownership、precondition、costの何が変わるかは
 [既存exampleで見るPool化の差分](current-examples.md)、現行Bufferの全operationをPoolとcompiler primitiveで書いた形は
@@ -71,7 +72,7 @@ bucket数、vacant coordinateの選択は上位containerのpolicyとする。
 
 value operandをslotへ保存するoperationはowner successorを持ち、call後もsourceが必要なら`Share`、ownedなlast useなら`Consume`
 になる。単一slot operationを、常にborrowed valueを受けてruntime内でretainする現在のBuffer contractへ固定しない。各operationの
-effectと遷移順序は[lifecycle contract](lifecycle-contract.md#ownership-effect)が所有する。動的なlengthを持つ`fill`、`copy`、
+effectと遷移順序は[所有権primitive](ownership-primitives.md)が所有する。動的なlengthを持つ`fill`、`copy`、
 Pool破棄はprogram非依存runtimeで行うなら型別のshareまたはdrop callbackを必要とし、reserveによるrelocationだけがどちらも行わない。
 
 slot coordinateとLive/Vacant状態に関する条件は、Bufferのindexと同じ[未検査precondition](lifecycle-contract.md#未検査precondition)である。
