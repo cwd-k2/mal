@@ -9,22 +9,22 @@ copy-on-write immutable valueの参照管理を比較する。構文は未採択
 どちらもStateをlogical lengthとし、`[0, length)`だけがLiveであるdense slot invariantを持つ。違いは同じPool identityへの更新を
 公開するか、更新前に独立したPool responsibilityを得るかにある。
 
-この例だけがcore外のtrusted operation `poolWritableSuccessor`を仮定する。resultはcall開始時のState、logical capacity、全slotと
+この例だけがcore外のtrusted operation `writableSuccessor`を仮定する。resultはcall開始時のState、logical capacity、全slotと
 同じ値を持ち、その後resultを更新してもcall前から残る強いPool aliasの値を変えない。inputからresultへのowner-successor effectを持つが、
 unique token、reference count、raw mutable carrierをsourceへ返さない。
 
 ```mal
-poolWritableSuccessor<State, T> :: Pool<State, T> -> Pool<State, T>;
+writableSuccessor<State, T> :: Pool<State, T> -> Pool<State, T>;
 
 _reserveArraySlot<T> :: (Pool<USize, T>, USize) -> Unit :=
     (pool, required) -> {
-        capacity := poolCapacity<USize, T>(pool);
-        if (required <= capacity)
+        current := capacity<USize, T>(pool);
+        if (required <= current)
         then ()
         else {
-            doubled := if (capacity == 0usize) then 1usize else capacity * 2usize;
+            doubled := if (current == 0usize) then 1usize else current * 2usize;
             next := if (doubled < required) then required else doubled;
-            poolReserve<USize, T>(pool, next);
+            reserve<USize, T>(pool, next);
         };
     };
 ```
@@ -42,20 +42,20 @@ makeMutableArray<T> :: USize -> MutableArray<T> := (capacity) ->
     makePool<USize, T>(0usize, capacity);
 
 mutableLength<T> :: MutableArray<T> -> USize := (array) ->
-    poolState<USize, T>(array);
+    state<USize, T>(array);
 
 mutableGet<T> :: (MutableArray<T>, USize) -> T := (array, index) ->
-    poolGetAt<USize, T>(array, index);
+    getAt<USize, T>(array, index);
 
 mutableSet<T> :: (MutableArray<T>, USize, T) -> Unit :=
     (array, index, value) ->
-        poolPutAt<USize, T>(array, index, value);
+        putAt<USize, T>(array, index, value);
 
 mutableAppend<T> :: (MutableArray<T>, T) -> USize := (array, value) -> {
-    length := poolState<USize, T>(array);
+    length := state<USize, T>(array);
     _reserveArraySlot<T>(array, length + 1usize);
-    poolInitAt<USize, T>(array, length, value);
-    poolSetState<USize, T>(array, length + 1usize);
+    initAt<USize, T>(array, length, value);
+    setState<USize, T>(array, length + 1usize);
     length;
 };
 ```
@@ -88,29 +88,29 @@ makeArray<T> :: USize -> Array<T> := (capacity) ->
     makePool<USize, T>(0usize, capacity);
 
 arrayLength<T> :: Array<T> -> USize := (array) ->
-    poolState<USize, T>(array);
+    state<USize, T>(array);
 
 arrayGet<T> :: (Array<T>, USize) -> T := (array, index) ->
-    poolGetAt<USize, T>(array, index);
+    getAt<USize, T>(array, index);
 
 arraySet<T> :: (Array<T>, USize, T) -> Array<T> :=
     (array, index, value) -> {
-        writable := poolWritableSuccessor<USize, T>(array);
-        poolPutAt<USize, T>(writable, index, value);
+        writable := writableSuccessor<USize, T>(array);
+        putAt<USize, T>(writable, index, value);
         writable;
     };
 
 arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
-    length := poolState<USize, T>(array);
-    writable := poolWritableSuccessor<USize, T>(array);
+    length := state<USize, T>(array);
+    writable := writableSuccessor<USize, T>(array);
     _reserveArraySlot<T>(writable, length + 1usize);
-    poolInitAt<USize, T>(writable, length, value);
-    poolSetState<USize, T>(writable, length + 1usize);
+    initAt<USize, T>(writable, length, value);
+    setState<USize, T>(writable, length + 1usize);
     writable;
 };
 ```
 
-`poolWritableSuccessor`はinput Pool responsibilityを受け取り、call前から残る強いaliasとは独立して更新できるPoolを返す。参照数や
+`writableSuccessor`はinput Pool responsibilityを受け取り、call前から残る強いaliasとは独立して更新できるPoolを返す。参照数や
 一意性をsourceへ返さず、次の二つを同じobservable semanticsとして選べる。
 
 ```text
@@ -143,7 +143,7 @@ Pool案はこの二つの既存mechanismを、mutable identityとoptionalなwrit
 ## 必要な境界
 
 - Pool handleのcopyと終了を、それぞれEngram leafのShareとDropへlowerする。
-- `poolWritableSuccessor`はowned inputをConsumeでき、残る強いaliasがなければstorageを再利用できる。
+- `writableSuccessor`はowned inputをConsumeでき、残る強いaliasがなければstorageを再利用できる。
 - 共有時のsuccessorはState、全Live slot、Vacant metadataを保存する。allocation failureはtrapであり、inputの保存を要求しない。
 - reference countやcompilerが作る一時responsibilityをsourceから観測させない。
 - keyを同じprofileから発行せず、copyか再利用かをkeyの有効性から観測させない。

@@ -25,7 +25,7 @@ sourceもhostも前提にしない。`Pool<State, UInt8>`のslot storageはbyte�
 
 `size<T> == 0`または`stride<T> == 0`でもslotは消滅しない。Poolはcoordinateごとの占有状態と、handle extensionを使う場合はgenerationを
 別に保持する。element payloadのbyte数が0でも、capacity、`Live`/`Vacant`遷移、precondition、drop回数は通常の`T`と同じである。
-占有状態は`poolIsLive`の結果とPool終了時にDropするslotの決定に使い、slot operationごとの検査には使わない。
+占有状態は`isLive`の結果とPool終了時にDropするslotの決定に使い、slot operationごとの検査には使わない。
 
 ## Primitive transitionとcontainer invariant
 
@@ -50,17 +50,17 @@ runtimeはこれらを検査せず、違反時の実行結果を保証せず、t
 
 | operation | precondition |
 |---|---|
-| `poolIsLive(pool, index)` | `index < poolCapacity(pool)` |
-| `poolInitAt(pool, index, value)` | `index < poolCapacity(pool)`かつslotがVacant |
-| `poolGetAt`、`poolPutAt`、`poolTakeAt`、`poolDropAt` | `index < poolCapacity(pool)`かつslotがLive |
+| `isLive(pool, index)` | `index < capacity(pool)` |
+| `initAt(pool, index, value)` | `index < capacity(pool)`かつslotがVacant |
+| `getAt`、`putAt`、`takeAt`、`dropAt` | `index < capacity(pool)`かつslotがLive |
 
-`makePool`、`poolState`、`poolSetState`、`poolCapacity`、`poolReserve`はpreconditionを持たず、表現できないsizeと
+`makePool`、`state`、`setState`、`capacity`、`reserve`はpreconditionを持たず、表現できないsizeと
 allocation failureだけがtrapになる。
 
 preconditionの責任は二段に分かれる。container利用者はcontainerが公開するprecondition、例えばBufferの`index < #buffer`を満たす。
 container実装は、公開preconditionを満たすcallから到達する全Pool callがPool preconditionを満たすことをfile-local invariantで
 保証する。利用者が公開preconditionを守ってもPool preconditionへ違反するなら、それはcontainer実装の誤りである。公開preconditionを
-持たないoperation、例えばMapのlookupは、`poolIsLive`とStateで判定してからslot operationを呼ぶ。
+持たないoperation、例えばMapのlookupは、`isLive`とStateで判定してからslot operationを呼ぶ。
 
 Pool preconditionへの違反は、Vacant carrierのread、同じresponsibilityの二重Drop、Live valueのleakを起こし得る。したがって
 Poolを直接呼ぶfileはmanaged valueのmemory safetyをinvariantとして担い、opaque型はその責任を宣言元fileへ閉じ込める。

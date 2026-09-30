@@ -21,8 +21,8 @@ SlotKey<State, T>
 PoolKey<State, T>
 Arena<State, T>
 
-poolKeyAt<State, T> :: (Pool<State, T>, USize) -> SlotKey<State, T>;
-poolResolve<State, T> :: (Pool<State, T>, SlotKey<State, T>) -> [Unit, USize];
+keyAt<State, T> :: (Pool<State, T>, USize) -> SlotKey<State, T>;
+resolve<State, T> :: (Pool<State, T>, SlotKey<State, T>) -> [Unit, USize];
 
 makeArena<State, T> :: USize -> Arena<State, T>;
 arenaAdd<State, T> :: (Arena<State, T>, State, USize) -> PoolKey<State, T>;
@@ -30,7 +30,7 @@ arenaPool<State, T> :: (Arena<State, T>, PoolKey<State, T>) -> [Unit, Pool<State
 arenaRemove<State, T> :: (Arena<State, T>, PoolKey<State, T>) -> Unit;
 ```
 
-`poolKeyAt`はLive slotを指すcoordinateをpreconditionとする。`poolResolve`は、keyが同じPool identityから発行され、そのslotが
+`keyAt`はLive slotを指すcoordinateをpreconditionとする。`resolve`は、keyが同じPool identityから発行され、そのslotが
 発行時から一度もVacantになっていない場合だけcoordinateを返す。`arenaPool`はArenaが所有するPoolを`Share`して返し、
 `arenaRemove`はArenaの所有を終える。取り出し済みのPoolがlocalやclosureに残っていれば、そのPoolは通常のlifecycleで生き続ける。
 
@@ -76,7 +76,7 @@ _Node<T> :: (T, PoolKey<USize, USize>); // node value、隣接nodeのcoordinate�
 opaque Graph<T> :: (Pool<USize, _Node<T>>, Arena<USize, USize>);
 
 _adjacency<T> :: (Graph<T>, USize) -> Pool<USize, USize> := ((nodes, lists), node) -> {
-    (_, key) := poolGetAt<USize, _Node<T>>(nodes, node);
+    (_, key) := getAt<USize, _Node<T>>(nodes, node);
     arenaPool<USize, USize>(lists, key)[
         () -> trap("graph adjacency list was removed")[],
         (pool) -> pool
@@ -86,11 +86,11 @@ _adjacency<T> :: (Graph<T>, USize) -> Pool<USize, USize> := ((nodes, lists), nod
 
 Graphがnodeを削除しない限り、keyはfile-local invariantにより常に解決できる。ここでmissingになるならGraph実装の誤りなので、
 [primitive `trap`](../primitive-trap.md)で終了させる。利用者へnode handleを返す場合は、node Poolに対する`SlotKey`を使い、
-`poolResolve`のmissingを利用者へ返す。
+`resolve`のmissingを利用者へ返す。
 
 ## 未決定事項
 
-- `SlotKey`のgeneration幅と、retireしたslotを`poolCapacity`へどう反映するか。
+- `SlotKey`のgeneration幅と、retireしたslotを`capacity`へどう反映するか。
 - live slot iterationと`SlotKey`を同じextensionで提供するか。
 - Arenaの`State`を個々のPoolごとに持つか、Arena全体で一つ持つか。
 - keyにequalityとhashを与え、Mapのkeyにできるようにするか。

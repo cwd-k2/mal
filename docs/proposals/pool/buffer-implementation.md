@@ -9,21 +9,10 @@ familyと意味は[run protocol](run-protocol.md)、Bufferの最小sketchは[sou
 predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
 以下はそのfileがpreludeとしてこれらの名前を定義できると仮定する。
 
-## 追加するcompiler primitive
+## 使うprimitive
 
-core Pool APIと[run protocol](run-protocol.md#poolのrun-primitive)のrun primitiveに加え、次を仮定する。
-
-```mal
-trap :: Symbol -> [];
-
-poolSymbol<State> :: (Pool<State, UInt8>, USize, USize) -> Symbol;
-poolLoadSymbol<State> :: (Pool<State, UInt8>, USize, Symbol) -> Unit;
-```
-
-`trap`は[primitive `trap`案](../primitive-trap.md)のものであり、Bufferのoverflow trapをmalで再現するのに使う。
-`poolSymbol(pool, offset, length)`はLiveなrunの`Symbol`を作り、bytes列から`Symbol`を作る操作がmalにないため必須である。
-`poolLoadSymbol(pool, offset, symbol)`は`offset + #symbol <= capacity`を要求して`Symbol`のbytesをrunへ書き、`symbol # index`の
-loopでも書けるため性能のためのprimitiveである。
+[primitive一覧](primitives.md)のslot、run、Symbol、制御primitiveを使う。`trap`は現行runtimeと同じoverflow trapを
+malで起こすため、`symbol`と`loadSymbol`は`Buffer<UInt8>`の`*`のために使う。
 
 ## 表現とinvariant
 
@@ -31,7 +20,7 @@ loopでも書けるため性能のためのprimitiveである。
 opaque Buffer<A> :: Pool<USize, A>;
 ```
 
-Stateはcountである。`[0, count)`がLive、`[count, poolCapacity)`がVacantであり、`count <= poolCapacity`を保つ。
+Stateはcountである。`[0, count)`がLive、`[count, capacity)`がVacantであり、`count <= capacity`を保つ。
 公開operationは利用者がBufferの[未検査precondition](../../spec/memory.md#未検査precondition)を満たす限り、このinvariantから
 Pool preconditionを導く。利用者が違反した場合はinvariantが壊れ得るが、結果を保証しない点は現行Bufferと同じである。
 
@@ -46,41 +35,41 @@ _rangeEnd :: (USize, USize) -> USize := (offset, length) -> {
 };
 
 _ensureCapacity<A> :: (Buffer<A>, USize) -> Unit := (buffer, required) -> {
-    capacity := poolCapacity<USize, A>(buffer);
-    when (required > capacity) {
-        doubled := if (capacity > _maxUSize / 2usize) then _maxUSize else capacity * 2usize;
-        poolReserve<USize, A>(buffer, if (doubled < required) then required else doubled);
+    current := capacity<USize, A>(buffer);
+    when (required > current) {
+        doubled := if (current > _maxUSize / 2usize) then _maxUSize else current * 2usize;
+        reserve<USize, A>(buffer, if (doubled < required) then required else doubled);
     };
 };
 
 _extendCount<A> :: (Buffer<A>, USize) -> Unit := (buffer, end) ->
-    when (end > poolState<USize, A>(buffer)) poolSetState<USize, A>(buffer, end);
+    when (end > state<USize, A>(buffer)) setState<USize, A>(buffer, end);
 ```
 
 `_rangeEnd`はcountとrange末尾を表現できない場合の現行trapを再現する。allocation byte数を表現できない場合とallocation failureは
-`poolReserve`がtrapする。growth policyはこのfileが所有する。現行runtimeは必要byte数を16以上の2の累乗へ丸めるが、
-このfileはelement数で倍増し、byte単位の丸めは`poolCapacity`から観測できない`poolReserve`内部の選択として残す。
+`reserve`がtrapする。growth policyはこのfileが所有する。現行runtimeは必要byte数を16以上の2の累乗へ丸めるが、
+このfileはelement数で倍増し、byte単位の丸めは`capacity`から観測できない`reserve`内部の選択として残す。
 
 ## 要素operation
 
 ```mal
 make<A> :: USize -> Buffer<A> := (capacity) -> makePool<USize, A>(0usize, capacity);
 
-length<A> :: Buffer<A> -> USize := (buffer) -> poolState<USize, A>(buffer);
+length<A> :: Buffer<A> -> USize := (buffer) -> state<USize, A>(buffer);
 
 new<A> :: (Buffer<A>, A) -> USize := (buffer, value) -> {
-    count := poolState<USize, A>(buffer);
+    count := state<USize, A>(buffer);
     end := _rangeEnd(count, 1usize);
     _ensureCapacity<A>(buffer, end);
-    poolInitAt<USize, A>(buffer, count, value);
-    poolSetState<USize, A>(buffer, end);
+    initAt<USize, A>(buffer, count, value);
+    setState<USize, A>(buffer, end);
     count;
 };
 
-get<A> :: (Buffer<A>, USize) -> A := (buffer, index) -> poolGetAt<USize, A>(buffer, index);
+get<A> :: (Buffer<A>, USize) -> A := (buffer, index) -> getAt<USize, A>(buffer, index);
 
 put<A> :: (Buffer<A>, USize, A) -> Unit := (buffer, index, value) ->
-    poolPutAt<USize, A>(buffer, index, value);
+    putAt<USize, A>(buffer, index, value);
 ```
 
 `get`と`put`はBufferの`index < #buffer`をinvariantでLive slotへ写すだけで、検査を追加しない。`new`の`count`はinvariantにより
@@ -94,7 +83,7 @@ Bufferは[run protocol](run-protocol.md)のfamilyを実装する。runの公開p
 fill<Buffer<E>, E> :: (Buffer<E>, USize, USize, E) -> Unit := (buffer, offset, length, value) -> {
     end := _rangeEnd(offset, length);
     _ensureCapacity<E>(buffer, end);
-    poolWriteRange<USize, E>(buffer, offset, length, value);
+    writeRange<USize, E>(buffer, offset, length, value);
     _extendCount<E>(buffer, end);
 };
 
@@ -102,7 +91,7 @@ copy<Buffer<A>> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
     (destination, destinationOffset, source, sourceOffset, length) -> {
         end := _rangeEnd(destinationOffset, length);
         _ensureCapacity<A>(destination, end);
-        poolCopyRange<USize, A>(destination, destinationOffset, source, sourceOffset, length);
+        copyRange<USize, A>(destination, destinationOffset, source, sourceOffset, length);
         _extendCount<A>(destination, end);
     };
 ```
@@ -111,15 +100,15 @@ copy<Buffer<A>> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
 `copy`の`sourceOffset + length <= #source`はsource rangeが全てLiveであることを与える。`_ensureCapacity`がsourceと同じPoolを
 relocateしてもcoordinateは変わらない。countの更新はprimitiveの後に行い、その間にmal codeは走らない。
 
-`poolWriteRange`が性能だけのためのprimitiveであることは、同じ遷移をPool callで書けることで分かる。
+`writeRange`が性能だけのためのprimitiveであることは、同じ遷移をPool callで書けることで分かる。
 
 ```mal
 _fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
     (buffer, count, index, end, value) -> [return] => {
         when (index == end) return(());
         if (index < count)
-        then poolPutAt<USize, A>(buffer, index, value)
-        else poolInitAt<USize, A>(buffer, index, value);
+        then putAt<USize, A>(buffer, index, value)
+        else initAt<USize, A>(buffer, index, value);
         return(_fillFrom<A>(buffer, count, index + 1usize, end, value));
     };
 ```
@@ -131,21 +120,21 @@ _fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
 ```mal
 from<Buffer<A>> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
     buffer := makePool<USize, A>(0usize, length);
-    poolLoad<USize, A>(buffer, 0usize, address, offset, length);
-    poolSetState<USize, A>(buffer, length);
+    load<USize, A>(buffer, 0usize, address, offset, length);
+    setState<USize, A>(buffer, length);
     buffer;
 };
 
 into<Buffer<A>> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
-    poolStore<USize, A>(buffer, offset, length, address);
+    store<USize, A>(buffer, offset, length, address);
 
 snapshot :: Buffer<UInt8> -> Symbol := (buffer) ->
-    poolSymbol<USize>(buffer, 0usize, poolState<USize, UInt8>(buffer));
+    symbol<USize>(buffer, 0usize, state<USize, UInt8>(buffer));
 
 bytes :: Symbol -> Buffer<UInt8> := (symbol) -> {
     buffer := makePool<USize, UInt8>(0usize, #symbol);
-    poolLoadSymbol<USize>(buffer, 0usize, symbol);
-    poolSetState<USize, UInt8>(buffer, #symbol);
+    loadSymbol<USize>(buffer, 0usize, symbol);
+    setState<USize, UInt8>(buffer, #symbol);
     buffer;
 };
 ```

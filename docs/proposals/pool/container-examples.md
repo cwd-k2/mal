@@ -8,29 +8,9 @@ Status: Exploratory example
 
 ## 仮定するPool primitive
 
-Poolは挿入位置、logical size、free list、growth policyを決めない。共有mutableな`State`と、coordinateで選ぶtyped slotの
-Live/Vacant状態だけを持つ。
-
-```mal
-Pool<State, T>
-
-makePool<State, T> :: (State, USize) -> Pool<State, T>;
-poolState<State, T> :: Pool<State, T> -> State;
-poolSetState<State, T> :: (Pool<State, T>, State) -> Unit;
-poolCapacity<State, T> :: Pool<State, T> -> USize;
-poolReserve<State, T> :: (Pool<State, T>, USize) -> Unit;
-
-poolIsLive<State, T> :: (Pool<State, T>, USize) -> Bool;
-poolInitAt<State, T> :: (Pool<State, T>, USize, T) -> Unit;
-poolGetAt<State, T> :: (Pool<State, T>, USize) -> T;
-poolPutAt<State, T> :: (Pool<State, T>, USize, T) -> Unit;
-poolTakeAt<State, T> :: (Pool<State, T>, USize) -> T;
-poolDropAt<State, T> :: (Pool<State, T>, USize) -> Unit;
-```
-
-Poolの形成は`Storable(State)`と`Storable(T)`を要求する。Poolのcopyは同じState、capacity、slotを持つidentityを共有する。
-`poolReserve`だけがallocationを増やし、Poolは自動的にgrowthしない。各operationのownership effectは
-[所有権primitive](ownership-primitives.md)、[未検査precondition](lifecycle-contract.md#未検査precondition)はlifecycle contractが所有する。以下のsketchでは、各Pool callの
+Poolは挿入位置、logical size、free list、growth policyを決めない。sketchは[primitive一覧](primitives.md)のslot primitiveを
+その名前で使う。各operationのownership effectは[所有権primitive](ownership-primitives.md)、
+[未検査precondition](lifecycle-contract.md#未検査precondition)はlifecycle contractが所有する。以下のsketchでは、各Pool callの
 直前にそのpreconditionをどのinvariantが満たすかを本文で示す。
 
 Pool自身はStateにもelementにも格納できない。keyはこの例に必要なく、[Pool key extension](pool-keys.md)で扱う。
@@ -38,7 +18,7 @@ Pool自身はStateにもelementにも格納できない。keyはこの例に必�
 
 mutable arrayのidentity共有と、immutable arrayのcopy-on-writeは
 [Pool array ownership example](array-ownership.md)で同じdense slot invariantを使って比較する。後者が仮定する
-`poolWritableSuccessor`は基本slot APIではなく、参照数をsourceへ公開しないoptionalなtrusted operationである。
+`writableSuccessor`は基本slot APIではなく、参照数をsourceへ公開しないoptionalなtrusted operationである。
 
 ## opaque型のrepresentation view
 
@@ -65,7 +45,7 @@ makeBuffer<T> :: USize -> Buffer<T> := (initialCapacity) ->
     makePool<USize, T>(0usize, initialCapacity);
 
 length<T> :: Buffer<T> -> USize := (buffer) ->
-    poolState<USize, T>(buffer);
+    state<USize, T>(buffer);
 
 _nextCapacity :: (USize, USize) -> USize := (current, required) -> {
     doubled := current * 2usize;
@@ -73,30 +53,30 @@ _nextCapacity :: (USize, USize) -> USize := (current, required) -> {
 };
 
 new<T> :: (Buffer<T>, T) -> USize := (buffer, value) -> {
-    count := poolState<USize, T>(buffer);
-    if (count == poolCapacity<USize, T>(buffer))
-    then poolReserve<USize, T>(buffer, _nextCapacity(count, count + 1usize))
+    count := state<USize, T>(buffer);
+    if (count == capacity<USize, T>(buffer))
+    then reserve<USize, T>(buffer, _nextCapacity(count, count + 1usize))
     else ();
-    poolInitAt<USize, T>(buffer, count, value);
-    poolSetState<USize, T>(buffer, count + 1usize);
+    initAt<USize, T>(buffer, count, value);
+    setState<USize, T>(buffer, count + 1usize);
     count;
 };
 
 get<T> :: (Buffer<T>, USize) -> T := (buffer, index) ->
-    poolGetAt<USize, T>(buffer, index);
+    getAt<USize, T>(buffer, index);
 
 put<T> :: (Buffer<T>, USize, T) -> Unit := (buffer, index, value) ->
-    poolPutAt<USize, T>(buffer, index, value);
+    putAt<USize, T>(buffer, index, value);
 ```
 
 BufferだけがStateを更新し、removeを公開しないため、live coordinateは常に`[0, length(buffer))`であり、
-`length(buffer) <= poolCapacity(buffer)`である。Poolはこれらをsequence ruleとして知らない。
+`length(buffer) <= capacity(buffer)`である。Poolはこれらをsequence ruleとして知らない。
 
 このinvariantによりpreconditionは次のように移る。
 
 - `get`と`put`：利用者が公開precondition`index < #buffer`を満たせば、`index`はLive slotを指す。Bufferは検査を追加せず、
   利用者の違反は現行Bufferと同じく結果を保証しない。
-- `new`：`count`はlive prefixの直後なのでVacantであり、直前の`reserve`で`count < poolCapacity`になる。これは利用者に
+- `new`：`count`はlive prefixの直後なのでVacantであり、直前の`reserve`で`count < capacity`になる。これは利用者に
   preconditionを課さず、Buffer実装だけが満たす。
 - `count + 1usize`のoverflowと`_nextCapacity`のoverflowはこのsketchでは省略している。現行Bufferと同じくtrapさせるなら、
   Buffer実装が比較して[primitive `trap`](../primitive-trap.md)のようなmal-level trapを呼ぶ必要がある。
@@ -128,14 +108,14 @@ makeMap<K, V> :: USize -> Map<K, V> := (initialCapacity) ->
     );
 
 mapLength<K, V> :: Map<K, V> -> USize := (map) -> {
-    (size, _) := poolState<_MapState, _MapSlot<K, V>>(map);
+    (size, _) := state<_MapState, _MapSlot<K, V>>(map);
     size;
 };
 ```
 
-lookupはhashから始めたcoordinateをprobeし、`poolIsLive`がfalseならmissing、liveなtombstoneなら継続、entryならkeyを比較する。
-insertはload factorを見て必要なら同じPool identityのlogical capacityを拡張してrehashする。空bucketには`poolInitAt`、tombstoneまたは同じkeyには
-`poolPutAt`を使う。removeはentryを`tombstone`へreplaceし、Stateのlogical sizeだけを減らす。rehashだけがtombstoneをVacantへ戻す。
+lookupはhashから始めたcoordinateをprobeし、`isLive`がfalseならmissing、liveなtombstoneなら継続、entryならkeyを比較する。
+insertはload factorを見て必要なら同じPool identityのlogical capacityを拡張してrehashする。空bucketには`initAt`、tombstoneまたは同じkeyには
+`putAt`を使う。removeはentryを`tombstone`へreplaceし、Stateのlogical sizeだけを減らす。rehashだけがtombstoneをVacantへ戻す。
 
 ```mal
 equal<T> :: (T, T) -> Bool;
@@ -155,14 +135,14 @@ Mapのcopyは同じPool identityを共有するため全aliasから更新を観�
 
 Mapの公開operationは利用者にpreconditionを課さないので、Pool preconditionはすべてMap実装が満たす。
 
-- capacity 0では`% poolCapacity`を計算せずmissingを返す。以後のprobe coordinateは`% poolCapacity`で常に範囲内になる。
-- `poolGetAt`と`poolPutAt`は、同じcoordinateで`poolIsLive`がtrueだった直後にだけ呼ぶ。
-- `poolInitAt`は`poolIsLive`がfalseだったcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ到達できないため、判定から
+- capacity 0では`% capacity`を計算せずmissingを返す。以後のprobe coordinateは`% capacity`で常に範囲内になる。
+- `getAt`と`putAt`は、同じcoordinateで`isLive`がtrueだった直後にだけ呼ぶ。
+- `initAt`は`isLive`がfalseだったcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ到達できないため、判定から
   呼び出しまでの間に状態は変わらない。
 
 rehashでMapのhidden representationを別Poolへ交換すると既存aliasが追随しない。現APIだけでidentityを保つ場合は、元Poolの
-entryを`poolTakeAt`でtemporary Poolへ移し、tombstoneを`poolDropAt`し、元Poolを`reserve`してから新しいprobe位置へ
-`poolTakeAt`と`poolInitAt`で戻す。entryの移動はすべて`Consume`であり、K、Vの`Share`や`Drop`は起きない。途中状態は
+entryを`takeAt`でtemporary Poolへ移し、tombstoneを`dropAt`し、元Poolを`reserve`してから新しいprobe位置へ
+`takeAt`と`initAt`で戻す。entryの移動はすべて`Consume`であり、K、Vの`Share`や`Drop`は起きない。途中状態は
 [lifecycle contract](lifecycle-contract.md#primitive-transitionとcontainer-invariant)のとおり観測されないため、順序はfailureではなく
 algorithmだけで決めてよい。temporary allocationとentryの2回移動が代表的なMapで過度に高価なら、同一identity内のstorageを
 交換するprimitiveを追加する根拠になる。

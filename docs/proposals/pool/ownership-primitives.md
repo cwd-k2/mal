@@ -47,25 +47,25 @@ setState(pool, s)   = put(pool.state, s)
 
 | operation | 分解 | primitive内のshare | primitive内のdrop |
 |---|---|---|---|
-| `poolInitAt` | `init` | なし | なし |
-| `poolTakeAt` | `take` | なし | なし |
-| `poolGetAt`、`poolState` | `get` | 1 | なし |
-| `poolPutAt`、`poolSetState` | `put` | なし | 旧value 1 |
-| `poolDropAt` | `drop` | なし | 1 |
-| `poolWriteRange`（n slot） | slotごとに`init`または`put` | n − 1 | Liveだったslot数 |
-| `poolCopyRange`（n slot） | sourceのn回の`get`の後、destinationへ`init`または`put` | n | Liveだったslot数 |
+| `initAt` | `init` | なし | なし |
+| `takeAt` | `take` | なし | なし |
+| `getAt`、`state` | `get` | 1 | なし |
+| `putAt`、`setState` | `put` | なし | 旧value 1 |
+| `dropAt` | `drop` | なし | 1 |
+| `writeRange`（n slot） | slotごとに`init`または`put` | n − 1 | Liveだったslot数 |
+| `copyRange`（n slot） | sourceのn回の`get`の後、destinationへ`init`または`put` | n | Liveだったslot数 |
 | Poolの終了 | Stateと全Live slotの`drop` | なし | Live place数 |
-| `poolReserve` | 遷移なし。全carrierを移動するだけ | なし | なし |
+| `reserve` | 遷移なし。全carrierを移動するだけ | なし | なし |
 
-`poolWriteRange`はcall siteから一つのresponsibilityを受け取り、残りのslotのためにruntimeが`share`する。n = 0なら
+`writeRange`はcall siteから一つのresponsibilityを受け取り、残りのslotのためにruntimeが`share`する。n = 0なら
 受け取ったresponsibilityをruntimeが`drop`する。
-`poolCopyRange`はsourceを全て`get`してから書くので、同じidentityで範囲が重なってもsourceの値を先に失わない。
+`copyRange`はsourceを全て`get`してから書くので、同じidentityで範囲が重なってもsourceの値を先に失わない。
 
 ## 拡張operation
 
 writable successor、Arena、keyも同じ語彙で表せる。
 
-- `poolWritableSuccessor(pool)`は、inputが唯一のresponsibilityならそのidentityをresultへ移す。共有中なら新しいPoolを作り、
+- `writableSuccessor(pool)`は、inputが唯一のresponsibilityならそのidentityをresultへ移す。共有中なら新しいPoolを作り、
   Stateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。
 - `ValuePool`の更新はwritable successorの後に`put`または`init`を行い、successorを返す。
 - `arenaAdd`は新しいPoolをentryへ`init`し、`arenaRemove`はentryを`drop`し、`arenaPool`はentryを`get`してPool handleを`Share`する。
@@ -75,7 +75,7 @@ writable successor、Arena、keyも同じ語彙で表せる。
 
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
-- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`、`poolWriteRange`のvalue、`makePool`と
+- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`、`writeRange`のvalue、`makePool`と
   `setState`のState、`arenaAdd`のPool、writable successorのinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。D083の保持解析は、`Store`へ渡るparameterをreturnやcaptureと同じく
   保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
@@ -96,12 +96,12 @@ sourceから観測できず、container algorithmはその順序へ依存しな�
 
 ## 所有権を持たないprimitive
 
-`poolReserve`、`poolCapacity`、`poolIsLive`はplaceの遷移を起こさない。[Buffer実装](buffer-implementation.md)の
-`poolLoad`、`poolStore`、`poolSymbol`、`poolLoadSymbol`は、`Representable`な型か`UInt8`だけを扱う。これらの型は
+`reserve`、`capacity`、`isLive`はplaceの遷移を起こさない。[Buffer実装](buffer-implementation.md)の
+`load`、`store`、`symbol`、`loadSymbol`は、`Representable`な型か`UInt8`だけを扱う。これらの型は
 managed valueを含まないため、書き込みは形式上`init`または`put`でも`share`と`drop`はno-opであり、所有権解析へ入力を持たない。
 
 ## 検証
 
 - 分解を直接実行するtest用runtimeと比べ、各派生primitiveの`share`と`drop`の回数と順序が一致する。
 - `Store`へ渡るparameterを持つmal wrapperがowned native entryになり、last-use argumentを`Consume`する。
-- 同じvalueを`put`で書き戻す場合と、範囲が重なる`poolCopyRange`で、Drop済みのreferentを読まない。
+- 同じvalueを`put`で書き戻す場合と、範囲が重なる`copyRange`で、Drop済みのreferentを読まない。

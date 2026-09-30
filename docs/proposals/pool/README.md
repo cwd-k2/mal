@@ -49,7 +49,8 @@ Bufferと同じdense sequenceしか作れないならPoolを独立させる意�
 invariantでpreconditionを満たせるからである。
 
 操作の語彙は、抽象する単位でslot、run、sequenceの三つに分かれる。PoolはslotをBufferは一つのLiveなrunを抽象し、両者をつなぐ
-`from`、`into`、`copy`、`fill`は[run protocol](run-protocol.md)のfamilyとして各containerが実装する。
+`from`、`into`、`copy`、`fill`は[run protocol](run-protocol.md)のfamilyとして各containerが実装する。PoolとBufferの責務分担と
+primitiveの一覧は[primitive一覧](primitives.md)が所有する。
 
 次の文書は、これらの規則を具体的なcodeで確かめる例である。
 
