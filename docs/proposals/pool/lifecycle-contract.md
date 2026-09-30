@@ -6,7 +6,8 @@ Status: Exploratory support document
 低レイヤcontractを管理する。候補APIとcontainer algorithmは
 [source sketch](container-examples.md)、現在の規範は[AddressとBuffer](../../spec/memory.md)と
 [実行意味論](../../spec/execution.md)を正とする。各operationのownership effectと型別glueの必要箇所は
-[所有権primitive](ownership-primitives.md)が所有する。
+[所有権primitive](ownership-primitives.md)、型形成条件は[identity](identity.md#型形成条件)、representation viewの権限は
+[README](README.md#file-local-opaque型)が所有する。
 
 ## Runtime representation
 
@@ -60,24 +61,6 @@ container実装は、公開preconditionを満たすcallから到達する全Pool
 Pool preconditionへの違反は、Vacant carrierのread、同じresponsibilityの二重Drop、Live valueのleakを起こし得る。したがって
 Poolを直接呼ぶfileはmanaged valueのmemory safetyをinvariantとして担い、opaque型はその責任を宣言元fileへ閉じ込める。
 実装はtestやdebug buildで占有状態を検査してよいが、その検査結果をsemanticsにしない。
-
-## Propertyとopaque boundary
-
-初期profileではPoolの形成に現在のclosed judgmentである`Storable(State)`と`Storable(T)`を要求する。Pool自体は`Storable`でも
-`Representable`でも`HostMappable`でもなく、
-Poolを包むopaque型がこれらのpropertyを新たに宣言してhidden representationの制約を迂回することもできない。opaque型のrequirementsと
-lifecycleはcompilerがhidden representationから導く。
-
-将来plugin leafを`Storable`へ追加する場合も、layoutとdropだけから自動導出しない。storage内のShareが安全であること、値carrierの
-aliasが後のmal-owned mutationを観測しないこと、container edgeからowner cycleを作らないことを登録時に検査する。shared mutableな
-Pool、Buffer、function、external opaque valueを除外する現在の制約を、opaque wrapperやplugin registrationで迂回させない。
-
-opaqueのfile-local representation viewはPoolのallocation、copy、share、新しいidentityを暗黙に発生させない。ownership上は同じcarrier
-responsibilityの受け渡しであり、必要なShareまたはConsumeはopaque境界の周囲にある通常のvalue useが決める。
-
-Poolの`initAt`と`dropAt`は一般的なmanual memory operationではない。対象はPoolが所有するslotに限られ、raw address、
-uninitialized carrier、取り出し後にも残る`T`へのreferenceをsourceへ公開しない。この制限により、低レイヤcontainer authorへslot lifecycleを
-開きながら、一般の`drop(value)`やarbitrary placement initializationを導入せずに済む。
 
 ## Ordinary externとの境界
 

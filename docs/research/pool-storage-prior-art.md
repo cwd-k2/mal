@@ -2,7 +2,7 @@
 
 Status: Research note
 
-この文書は[Pool proposal](../proposals/pool/README.md)のcore contractを定めず、optionalなwritable successor、stable handle、
+この文書は[Pool proposal](../proposals/pool/README.md)のcore contractを定めず、optionalなwritable successor、key、
 persistent containerを判断するための外部事例を整理する。
 
 ## Copy-on-writeとuniqueness
@@ -20,14 +20,12 @@ library実装向けの
 malではruntime reference countをsource semanticsにせず、owned responsibilityを受け取ったwritable-successor operationだけが
 storage再利用を試みる。borrowed call、一時Share、別の回収方式では保守的にcopyしてよく、observableなArray valueは同じである。
 
-## Weakまたはstable handle
+## Weak pointerとkey
 
 `Arc::make_mut`はstrong aliasがなくweak pointerだけが残る場合、inner valueをcloneせずweak pointerを元allocationから切り離す。
-これはCOWとnonowning identityを合成する際にも追加ruleが必要なことを示す。Poolのstable handleがidentityやgenerationを持つ場合、
-storage再利用とcopyのどちらを選んだかがhandle validityへ現れてはならない。
-
-初期Pool案ではwritable-successor profileからstable handleを発行しない。handleを追加する別profileは、Poolをretainしないkey、
-destroy後の照合、generation overflow、successorとのidentity移行を独立して決める。
+これはCOWとnonowning identityを合成する際にも追加ruleが必要なことを示す。Poolのkeyがidentityやgenerationを持つ場合、
+storage再利用とcopyのどちらを選んだかがkeyの有効性へ現れてはならない。Pool案での扱いは
+[identity](../proposals/pool/identity.md#keyとの合成)に置く。
 
 ## Persistent indexed sequence
 

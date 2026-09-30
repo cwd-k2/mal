@@ -4,7 +4,7 @@ Status: Exploratory
 
 この文書は、core Pool APIの外に置くnonowning keyを管理する。core Poolはcoordinateだけでslotを選び、keyを発行しない。
 keyはslot map、tree、graphのように、container外へ参照を返す実例がある場合だけ追加する。Pool primitiveの規則は
-[lifecycle contract](lifecycle-contract.md)、値として振る舞うPoolとの関係は[array ownership](array-ownership.md)を正とする。
+[lifecycle contract](lifecycle-contract.md)、keyのidentity軸上の位置と`Storable`の根拠は[identity](identity.md)を正とする。
 
 ## 二つのkey
 
@@ -34,16 +34,11 @@ arenaRemove<State, T> :: (Arena<State, T>, PoolKey<State, T>) -> Unit;
 発行時から一度もVacantになっていない場合だけcoordinateを返す。`arenaPool`はArenaが所有するPoolを`Share`して返し、
 `arenaRemove`はArenaの所有を終える。取り出し済みのPoolがlocalやclosureに残っていれば、そのPoolは通常のlifecycleで生き続ける。
 
-## Storableになる理由
+## hostとsourceからの構築
 
-keyはPool identityとgenerationだけを持つimmutableなdataであり、`Storable`にできる。Poolを`Storable`にできない二つの理由に
-該当しないためである。
-
-- keyの値は後から変わらない。解決先のPoolは変わるが、これは`Storable`な`USize` indexが指すBufferの中身が変わるのと同じである。
-- keyはPoolをretainしないので、elementから自身のPoolを指してもowner cycleにならない。
-
-keyを`Representable`と`HostMappable`にはしない。hostが任意のbit列からkeyを作れると、照合がforgeryへの防御を担うことになり、
-identityとgenerationの幅がsecurity contractになるからである。sourceもprimitive以外からkeyを構築できない。
+keyが`Storable`になる理由は[identity](identity.md#所有権とidentity)で扱う。keyを`Representable`と`HostMappable`にはしない。
+hostが任意のbit列からkeyを作れると、照合がforgeryへの防御を担うことになり、identityとgenerationの幅がsecurity contractに
+なるからである。sourceもprimitive以外からkeyを構築できない。
 
 ## 照合とprecondition
 
@@ -68,19 +63,7 @@ weak keyはこの原則を破る。Arenaは回収時点をsourceの`arenaRemove`
 Arenaは`Pool<State, T>`だけを保持する一段のownerである。Arena自身は`Storable`でなく、ArenaのPoolがArenaやPoolをelementに
 持つこともできないため、owner edgeは深さ1で終わり、cycleを作らない。`Pool<State, Pool<...>>`を許す一般化はPoolを
 `Storable`にすることと同じであり、採らない。同じ理由でArenaは既存のPoolの組み合わせでは表せない。
-
-
-## ValuePoolとの関係
-
-`Array<Array<T>>`に相当する構造には二つの作り方がある。
-
-- [`ValuePool`](array-ownership.md#storableなimmutable-array)を入れ子にする。値として振る舞い、到達できなくなった内側の配列は
-  自動で回収される。cycleは作れない。
-- Arenaへ内側のPoolを置き、外側のslotへ`PoolKey`を保存する。identityを共有し、cycleを作れるが、回収は`arenaRemove`か
-  Arenaの破棄による。
-
-identity-bearing keyとwritable successorを同じprofileへ合成すると、storageを再利用したかcopyしたかがkeyの有効性として
-観測される。したがって`ValuePool`はkeyを発行せず、keyはidentityを共有するPoolとArenaにだけ付ける。
+`ValuePool`の入れ子との使い分けは[identity](identity.md#入れ子構造の選び方)で扱う。
 
 ## 例：隣接listを持つgraph
 
