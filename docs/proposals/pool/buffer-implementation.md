@@ -4,7 +4,7 @@ Status: Exploratory example
 
 この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、core Pool APIと少数のcompiler primitiveで
 実装した擬似codeを示す。Pool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、`from`、`into`、`copy`、`fill`の
-familyと意味は[run protocol](run-protocol.md)、Bufferの最小sketchは[source sketch](container-examples.md#buffer)を正とする。
+familyと意味は[run protocol](run-protocol.md)を正とする。
 
 predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
 以下はそのfileがpreludeとしてこれらの名前を定義できると仮定する。
@@ -146,7 +146,7 @@ bytes :: Symbol -> Buffer<UInt8> := (symbol) -> {
 ## 現行Bufferとの差分
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
-- growth policy、count、invariantはruntimeからこのfileへ移り、runtimeはPool primitiveと上のrange primitiveだけを持つ。
+- growth policy、count、invariantはruntimeからこのfileへ移り、runtimeはPool primitiveとrun primitiveだけを持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`Pool<State, UInt8>`は
   [canonical layout](lifecycle-contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - C runtimeの`mal_runtime_buffer_from_arguments`は、`main`へ渡す`Buffer<Symbol>`をPool representationとState=countで構築する。

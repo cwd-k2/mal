@@ -2,9 +2,9 @@
 
 Status: Exploratory example
 
-この文書は、[Pool上のcontainer](containers.md)で比べたstack、binary heap、slot map、木を、C host上の試作で動かしたcodeから
-要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、BufferとMapのsketchは
-[source sketch](container-examples.md)を正とする。例は未採択の擬似codeである。
+この文書は、[Pool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、slot map、木を、試作で動かした
+codeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
+試作そのものは[試作で確かめたこと](prototypes.md)を正とする。例は未採択の擬似codeである。
 
 各例は共通の補助として、capacityを4以上の倍増で確保する`reserveAtLeast(pool, required)`を使う。これはprimitiveではなく、
 growth policyを各containerで繰り返さないための関数である。
@@ -72,6 +72,61 @@ heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
 `_siftDown`は小さい方の子を`moveAt`で穴へ上げる。移動は`takeAt`と`initAt`だけで、比較の`getAt`以外に`Share`も`Drop`も起こさない。
 `less`は[operation family](../../spec/operation-families.md)のrequirementとしてheapへ渡る。
 
+## open addressing Map
+
+linear probingのMapである。Stateは要素数で、どのprobe列も途中にVacantを含まない。削除はtombstoneを置かず、後続のentryを穴へ
+詰めてこのinvariantを保つ。
+
+```mal
+equal<K> :: (K, K) -> Bool;
+hash<K> :: K -> UInt64;
+opaque HashMap<K, V> :: Pool<USize, (K, V)>;
+
+_find<K, V> :: (HashMap<K, V>, K, USize, USize) -> [Unit, USize] :=
+    (map, key, index, remaining) -> [missing, found] => {
+        when (remaining == 0usize) missing();
+        when (!isLive(map, index)) missing();
+        (storedKey, _) := getAt(map, index);
+        when (equal(storedKey, key)) found(index);
+        _find(map, key, _next(map, index), remaining - 1usize)[missing, found];
+    };
+
+// Moves each following entry back into the gap unless its home lies cyclically in (gap, index].
+_closeGap<K, V> :: (HashMap<K, V>, USize, USize) -> Unit := (map, gap, index) -> [return] => {
+    when (!isLive(map, index)) return(());
+    entry := takeAt(map, index);
+    (key, _) := entry;
+    home := _home(map, key);
+    stays := if (gap < index) then home > gap && home <= index else home > gap || home <= index;
+    when (stays) {
+        initAt(map, index, entry);
+        return(_closeGap(map, gap, _next(map, index)));
+    };
+    initAt(map, gap, entry);
+    return(_closeGap(map, index, _next(map, index)));
+};
+
+mapRemove<K, V> :: (HashMap<K, V>, K) -> [Unit, V] := (map, key) -> [missing, found] => {
+    index := _locate(map, key)[missing, (index) -> index];
+    (_, value) := takeAt(map, index);
+    setState(map, state(map) - 1usize);
+    _closeGap(map, index, _next(map, index));
+    found(value);
+};
+```
+
+`_home`はhashをcapacityで割ったcoordinate、`_next`は一つ先のcoordinateを返す。`hash`と`equal`はoperation familyの
+requirementであり、Poolはhash、equality、load factor、probe順序を知らない。
+
+Mapの公開operationは利用者にpreconditionを課さないため、Poolのpreconditionはすべて実装が満たす。capacity 0では`_locate`が
+剰余を計算せずmissingを返し、以後のprobe coordinateは剰余で範囲内になる。`getAt`と`takeAt`は`isLive`がtrueだった
+coordinateにだけ、`initAt`はfalseだったcoordinateか、直前に`takeAt`したcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ
+到達できないため、判定から呼び出しまでの間に状態は変わらない。
+
+insertはload factorが3/4を超える前にrehashする。別のPoolへ移し替えると既存のaliasが追随しないため、entryを`takeAt`で一時的な
+Poolへ移し、元のPoolを`reserve`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
+起きない。一時的なallocationと二回の移動が代表的なMapで高価なら、同じidentityのstorageを交換するprimitiveを検討する。
+
 ## slot map
 
 要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のPoolに置く。Vacantなslotは値を持たないため、generationと
@@ -131,14 +186,15 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
 
 ## 試作での確認
 
-C host上の試作では、四つの例を次の条件で動かし、全Poolの解放まで確認した。
+試作では、五つの例を次の条件で動かし、全Poolの解放まで確認した。
 
 - stack：2000個をpushし、逆順にpopする。
 - binary heap：擬似乱数の2000個をpushし、popの結果が減少しないことと個数を確かめる。
 - slot map：2000個を挿入し、3個に1個を削除した後、同数を挿入し直す。削除したkeyはmissingになり、残したkeyと新しいkeyは
   値を返す。
+- Map：2000個を挿入し、100個を置き換え、1000個を削除した後、全keyの存在と値を確かめる。rehashを含む。
 - 木：擬似乱数のkeyを2000個挿入し、半分を削除して、残りの存在、削除したkeyの不在、中順の単調性を確かめる。削除したkeyを
   入れ直してもcapacityは増えない。
 
-試作ではword Poolの`getAt`を`takeAt`と`initAt`で実装しているため、heapと木の比較や走査がhost callを倍にする。これは
+C host上の試作ではword Poolの`getAt`を`takeAt`と`initAt`で実装しているため、heapと木の比較や走査がhost callを倍にする。これは
 [primitive一覧](primitives.md#slot-primitive)が`getAt`をprimitiveに残す理由の一つである。

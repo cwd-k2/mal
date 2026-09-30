@@ -4,8 +4,8 @@ Status: Exploratory support document
 
 この文書は、PoolとBufferの責務分担と、Pool案が仮定するprimitiveの一覧を管理する。slot primitiveのpreconditionは
 [lifecycle contract](lifecycle-contract.md#未検査precondition)、run primitiveのpreconditionと意味は
-[run protocol](run-protocol.md#poolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。名前は`pool`接頭辞を外した仮のものであり、Poolの名前を`require`した
-fileだけへ導入する規則と合わせて決める。
+[run protocol](run-protocol.md#poolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。
+名前は仮のものであり、Poolの名前を`require`したfileだけへ導入する規則と合わせて決める。
 
 ## 層
 
@@ -37,7 +37,7 @@ memory操作は、抽象する単位で三つの語彙に分かれる。
 
 | 語彙 | 抽象する単位 | 操作 | 使える型 |
 |---|---|---|---|
-| slot | 一つのcoordinateのLiveまたはVacant | `init`、`take`、`get`、`reserve`、State | Poolだけ |
+| slot | 一つのcoordinateのLiveまたはVacant | `initAt`、`takeAt`、`getAt`、`reserve`、State | Poolだけ |
 | run | 連続したcoordinate範囲 | `from`、`into`、`copy`、`fill` | run protocolを実装したcontainer |
 | sequence | 一つのLiveなrun `[0, count)` | `make`、`new`、`#`、growth policy | Bufferだけ |
 
@@ -88,7 +88,7 @@ dropAt<State, T> :: (Pool<State, T>, USize) -> Unit;
 | `isLive` | 必須 | coordinateの占有状態を読む |
 | `initAt`、`takeAt` | 核 | Vacant → Live、Live → Vacant |
 | `getAt` | 維持 | Liveなslotの値を`Share`する |
-| `putAt`、`dropAt` | 派生 | `take`と`init`、`take`と破棄 |
+| `putAt`、`dropAt` | 派生 | `takeAt`して`initAt`、`takeAt`して結果を捨てる |
 
 Poolの形成は`Storable(State)`と`Storable(T)`を要求する。Poolのcopyは同じState、capacity、slotを持つidentityを共有する。
 

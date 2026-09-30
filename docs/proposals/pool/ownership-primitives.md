@@ -2,7 +2,7 @@
 
 Status: Exploratory support document
 
-この文書は、Pool、Arena、`ValuePool`、range primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
+この文書は、Pool、Arena、`ValuePool`、run primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
 operand effectへ分解する。storage、precondition、failureは[lifecycle contract](lifecycle-contract.md)、local slotとcall conventionの
 現行規則は[managed valueのownership](../../implementation/ownership.md)を正とする。
 

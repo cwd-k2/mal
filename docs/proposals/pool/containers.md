@@ -3,9 +3,8 @@
 Status: Exploratory support document
 
 この文書は、Pool上に構成する代表的なcontainerを並べ、各containerが共通に使うものと自分で決めるものから、Poolが何を
-抽象するかを示す。primitiveの一覧は[primitive一覧](primitives.md)、code sketchはBufferとMapを[source sketch](container-examples.md)と
-[既存exampleとの差分](current-examples.md)、stack、binary heap、slot map、木を[collection例](collection-examples.md)、keyとArenaは
-[Pool key extension](pool-keys.md)を正とする。
+抽象するかを示す。primitiveの一覧は[primitive一覧](primitives.md)、code sketchはBufferを[Buffer実装](buffer-implementation.md)と[既存exampleとの差分](current-examples.md)、
+その他のcontainerを[collection例](collection-examples.md)、keyとArenaは[Pool key extension](pool-keys.md)を正とする。
 
 ## containerの比較
 

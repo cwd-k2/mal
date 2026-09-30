@@ -15,22 +15,11 @@ operationを一つの組み込み型として持つ。この形はArrayまたは
 追加するたびにallocation、relocation、element lifecycleを別の組み込みruntimeへ複製するか、Bufferのindexとrow encodingへ
 container policyを押し込む必要がある。
 
-本案は次の層を分ける。
-
-```text
-Engram lifecycle lowering
-        ↓
-Pool<State, T>: shared state、typed carrier、slot lifecycle
-        ↓
-opaqueなmal型: Buffer<T>、Deque<T>、Map<K, V>、Tree<T>、Graph<T>
-        ↓
-通常のmal code: container固有の公開operationだけを使う
-```
-
-利用者へraw storage、uninitialized value、manual `drop`を公開せず、上位containerの実装者もstride、alignment、retain、releaseを
-型ごとに再定義しないことを目標とする。layout、lifecycle correctness、allocation failureはtrusted layerに残し、logical State、
-denseまたはsparseな利用、growth、free-list、ordering、hashing、snapshot policyをmal側が選ぶ。このpolicyを選べず
-Bufferと同じdense sequenceしか作れないならPoolを独立させる意味はなく、逆にraw memory操作まで開くことも本案の目的ではない。
+本案は、malが所有する可変storageのmodelとしてPoolを置き、BufferとMap、Deque、heap、treeなどをその上のopaque型として
+malで定義する。利用者へraw storage、uninitialized value、manual `drop`を公開せず、container実装者もstride、alignment、retain、
+releaseを型ごとに再定義しない。layout、lifecycle correctness、allocation failureはtrusted layerに残し、logical State、denseまたは
+sparseな利用、growth、free list、ordering、hashing、snapshot policyをmal側が選ぶ。このpolicyを選べずBufferと同じdense sequenceしか
+作れないならPoolを独立させる意味はなく、逆にraw memory操作まで開くことも本案の目的ではない。
 
 ## 設計の軸
 
@@ -48,32 +37,21 @@ Bufferと同じdense sequenceしか作れないならPoolを独立させる意�
 妥当性と権限は対になる。Poolのpreconditionを未検査にできるのは、Poolを直接呼ぶfileをopaque型で一つに閉じ込め、そのfileの
 invariantでpreconditionを満たせるからである。
 
-操作の語彙は、抽象する単位でslot、run、sequenceの三つに分かれる。PoolはslotをBufferは一つのLiveなrunを抽象し、両者をつなぐ
-`from`、`into`、`copy`、`fill`は[run protocol](run-protocol.md)のfamilyとして各containerが実装する。PoolとBufferの責務分担と
-primitiveの一覧は[primitive一覧](primitives.md)が所有する。
+## 文書の構成
 
-Poolが何を抽象するかは、Pool上の代表的なcontainerを比べた[Pool上のcontainer](containers.md)で示す。次の文書は、これらの規則を
-具体的なcodeで確かめる例である。
+API、語彙、containerは次の文書が所有する。
 
-- [source sketch](container-examples.md)：候補Pool APIと、BufferおよびMapの最小実装
-- [collection例](collection-examples.md)：stack、binary heap、slot map、木の実装と試作での確認
+- [primitive一覧](primitives.md)：memoryの層、coordinateの線形性、slot、run、sequenceの語彙、PoolとBufferの責務、全primitive
+- [run protocol](run-protocol.md)：`from`、`into`、`copy`、`fill`のfamilyとrun primitiveの意味
+- [Pool上のcontainer](containers.md)：代表的なcontainerの比較、Bufferの前提を外すと変わること、Poolの輪郭
+
+次の文書は、規則を具体的なcodeで確かめる例と結果である。
+
 - [Buffer実装](buffer-implementation.md)：現行Bufferの全operationをPoolとcompiler primitiveで書いた形
+- [collection例](collection-examples.md)：stack、binary heap、open addressing Map、slot map、木
 - [既存exampleとの差分](current-examples.md)：`examples/`をPool上へ移したときのsource、precondition、costの変化
 - [array ownership](array-ownership.md)：mutable arrayとcopy-on-write immutable arrayの比較
-
-## Poolの責務
-
-`Pool<State, T>`はmal-controlledなEngramであり、共有mutableな`State`、typed storage、各slotの`Vacant`または`Live`状態を
-一つのidentityとして所有する。Poolのaliasは同じidentityを共有する。Poolはcontainerの挿入位置、順序、logical size、
-free-list policyを決めない。
-
-capacityは現在initできるcoordinateの上限としてcontainer実装から観測できるlogical capacityであり、物理配置、over-allocation、
-growth単位は観測させない。Poolはauto-growせず、container実装が必要なcapacityとgrowth policyを決めて`reserve`する。
-fixed capacity、geometric growth、load factor、bucket数、vacant coordinateの選択は上位containerのpolicyとする。
-
-core Pool APIはcoordinateによるslot accessだけで成立し、key、generation、copy-on-writeを含めない。それらは
-[identity](identity.md)の軸に沿ったextensionとして、実例が必要とする場合だけ追加する。公開Pool APIの正確な名前と、
-live slot iterationをどの層が持つかは未決定である。
+- [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
 
 ## file-local opaque型
 
@@ -89,21 +67,19 @@ hidden representationを観察できるのは宣言元source fileだけであり
 allocation、copy、新しいEngram identityを作らず、同じcarrier responsibilityを受け渡す。opaque型はgeneric specializationと
 operation familyのkeyにdeclaration identityを残し、同じrepresentationを持つ二つのopaque型を混同しない。
 
-mutable metadataはPoolの`State`として共有identity側に置く。BufferはStateをlogical countとして使い、Mapはsize、使用bucket数、
-rehash thresholdなどを別のStateに持てる。`reserve`とslot lifecycleだけを提供するPool上へ、各fileが異なるState invariantと
-growth policyを実装することが分離の目的である。
+mutable metadataはPoolの`State`として共有identity側に置く。BufferはStateをcountとして使い、Mapは要素数を、Dequeは`(head, count)`を
+Stateに持つ。各fileは、`reserve`とslot遷移だけを提供するPool上に、自分のState invariantとgrowth policyを実装する。
 
 ## Bufferと上位container
 
-Poolがallocationとelement lifecycleを所有すれば、Bufferはdense sequence policyとしてmalで実装でき、現在の評価順、alias、
-count semanticsを保てる。Bufferは組み込み型ではなくpreludeのopaque型になり、hostとの交換はPoolのrun primitiveで行う。
-`Buffer<UInt8>`と`Symbol`の`*`だけはBufferに固有の操作として残し、byte Poolのstorageを`Symbol`と共有する。仕様上のBufferは
-この参照実装で意味を定め、実装は同じ結果になる限り専用runtimeを使ってよい。同じ基盤から、generational slot map、deque、priority queue、hash table、tree、graphを別々のopaque型として
-定義できる。element equality、hash、orderingはPoolやpluginへ埋め込まず、通常のfunction引数または
-[operation family](../../spec/operation-families.md)のrequirementとして上位algorithmが要求する。
+Bufferは組み込み型ではなく、Pool上のpreludeのopaque型になる。仕様上のBufferは[Buffer実装](buffer-implementation.md)の参照実装で
+意味を定め、実装は同じ結果になる限り専用runtimeを使ってよい。Bufferが提供する語彙とPoolとの責務分担は
+[primitive一覧](primitives.md#poolとbufferの責務)が所有する。
 
-standard Bufferのcore operationをdownstream sourceが同じidentityのまま上書きする仕組みは導入しない。一つのopaque型の
-representation invariantと公開operationは宣言元fileが所有し、別policyは別のopaque型として定義する。
+element equality、hash、orderingはPoolやpluginへ埋め込まず、通常のfunction引数または
+[operation family](../../spec/operation-families.md)のrequirementとして上位algorithmが要求する。standard Bufferのcore operationを
+downstream sourceが同じidentityのまま上書きする仕組みは導入しない。一つのopaque型のrepresentation invariantと公開operationは
+宣言元fileが所有し、別policyは別のopaque型として定義する。
 
 ## Managed Engramとの依存関係
 
@@ -146,37 +122,7 @@ Engram回収へ結合せず、従来どおり明示したhost operationが所有
 6. slot mapまたはtreeをcoordinateで実装し、keyが実際に必要ならidentity、generation、stale/cross-Pool rejectionを独立して検査する。
 7. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換とtrusted crate境界を別々に判断する。
 
-## C host試作の結果
-
-compilerを変えず、占有状態を検査するC host上のPoolとoperation familyで、削除とresizeのあるMapとring Deque、
-byte Poolと`Symbol`の変換を試作した（2026-09-30）。step 4と6の一部に当たり、managed element、自動lifetime、`Store`、
-性能は対象外である。`Symbol`はextern境界を通らないため、同じoperationを持つhost側のropeで代用した。
-
-- 型ごとの実装は`init`、`take`、Stateだけで足り、`get`、`put`、`drop`、moveは通常のgeneric mal関数として書けた。
-- `take`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開を、entryをcopyせずに書けた。
-- 検査付きhostは、container実装の`reserve`忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはPoolの
-  preconditionを示し、container operationを示さない。
-- `get`を`take`と`init`で派生すると探索ごとにhost callが倍になる。storageをsnapshotと共有するbyte Poolでは、派生形の
-  `init`が書き込みとして共有storageのcopyを起こすため、`get`はprimitiveとして残す。
-- byte Poolの`*`はPoolのstorageを共有するO(1)のsnapshotになり、以後どちらかへ書いた側だけがcopyした。逆向きの`*`も、
-  ropeが一つの葉ならstorageを貸し、それ以外は一度だけflattenした。ropeの`#`、byte access、`==`はallocationなしで書けた。
-- 同じscenarioを現行`Symbol`のflatなbyte ownerの方式（consumingな`+`が一意なownerをその場で伸ばす）とも比べた。
-  1.4 MBの行の反転、split、比較、書き出しはflatが4〜12倍速く、ropeが勝ったのは大きなtextの中央への挿入の反復だけだった。
-  Poolとのstorage共有とcopy-on-writeはどちらの表現でも同じく成り立つため、`Symbol`の表現はflatのままでよく、ropeは
-  Pool上の別containerとして持つ方が合う。
-- phantomな型parameterにしか現れない型argumentを推論できず、操作ごとに明示が要った。これは
-  [D092](../../history/decisions/active/D092.md)でconstructorでない場合に推論する規則へ改めた。
-
-## Buffer上のemulation
-
-同じPool APIを、現在の言語だけで`Buffer<S>`のStateと`Buffer<[Unit, T]>`のslotとして実装した（2026-09-30）。Vacantは`Unit`の
-variantで表し、Poolのpreconditionへの違反は戻らない。C host試作と同じcontainerのsourceが変更なしに動き、Poolの意味が現在の
-言語で定義できることを確かめた。
-
-- `Symbol`を要素に持つMap、Deque、heap、slot mapをrehash、削除、growth、slotの再利用まで動かし、valgrindで全allocationの解放と
-  error 0を確かめた。`takeAt`と`initAt`による移動は、managed valueのresponsibilityを一つに保った。
-- PoolはBufferの上に、BufferはPoolの上に、どちらも意味の上では書ける。前者はslotごとのsum tagと、`takeAt`ごとの`Share`と`Drop`を
-  払い、後者は追加のcostを持たない。Poolをprimitiveにするのはこの非対称のためである。
+compilerを変えない二つの試作が、step 4と6の一部を先取りした。結果は[試作で確かめたこと](prototypes.md)に置く。
 
 ## 非目標
 
@@ -188,14 +134,14 @@ variantで表し、Poolのpreconditionへの違反は戻らない。C host試作
 
 ## 未決定事項
 
+- Pool primitiveの名前と、Poolの名前を`require`したfileだけへ導入する規則。
+- [run protocol](run-protocol.md#未決定事項)が必要とする`Representable`のrequirement伝播。
+- live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
+- 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形の比較。意味は同じであり
+  （[試作](prototypes.md#poolとbufferの非対称)）、占有metadataとPool終了時の走査に対する、slotごとのsum tagと移動ごとの
+  `Share`と`Drop`のcostは測っていない。
 - [Pool key extension](pool-keys.md#未決定事項)のgeneration幅、iteration、Arena State、key equality。
-- live slot iteration、dense storage、bulk relocationのどこまでをcore外のextensionとして追加するか。
-- 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]` elementを載せる形の比較。
-  [Buffer上のemulation](#buffer上のemulation)で意味が同じことは確かめたが、占有metadataとPool終了時の走査に対する、slotごとの
-  sum tagと移動ごとの`Share`と`Drop`のcostは測っていない。
-- opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
-- [run protocol](run-protocol.md#未決定事項)の`Representable`のrequirement伝播と、Pool primitiveの名前および
-  Poolの名前を`require`したfileだけへ導入する規則。
 - immutableな`Array<T>`を`Storable`にする[`ValuePool<State, T>`](identity.md#valuepool)を、identityを共有するPoolと別の型として持つか。
+- opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

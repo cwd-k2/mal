@@ -3,8 +3,8 @@
 Status: Exploratory support document
 
 この文書は、[Poolとopaque型によるcontainer基盤](README.md)が成立するために必要なstorage、precondition、failureの
-低レイヤcontractを管理する。候補APIとcontainer algorithmは
-[source sketch](container-examples.md)、現在の規範は[AddressとBuffer](../../spec/memory.md)と
+低レイヤcontractを管理する。候補APIは[primitive一覧](primitives.md)、container algorithmは
+[collection例](collection-examples.md)、現在の規範は[AddressとBuffer](../../spec/memory.md)と
 [実行意味論](../../spec/execution.md)を正とする。各operationのownership effectと型別glueの必要箇所は
 [所有権primitive](ownership-primitives.md)、型形成条件は[identity](identity.md#型形成条件)、representation viewの権限は
 [README](README.md#file-local-opaque型)が所有する。
@@ -23,7 +23,7 @@ Stateはruntime value representationで保持する。slot storageのlayoutは�
 sourceもhostも前提にしない。`Pool<State, UInt8>`のslot storageはbyte列そのものになるため、`Symbol`のbyte ownerとstorageを
 共有する特殊化も実装の選択として取れる。
 
-`size<T> == 0`または`stride<T> == 0`でもslotは消滅しない。Poolはcoordinateごとの占有状態と、handle extensionを使う場合はgenerationを
+`size<T> == 0`または`stride<T> == 0`でもslotは消滅しない。Poolはcoordinateごとの占有状態と、[key extension](pool-keys.md)を使う場合はgenerationを
 別に保持する。element payloadのbyte数が0でも、capacity、`Live`/`Vacant`遷移、precondition、drop回数は通常の`T`と同じである。
 占有状態は`isLive`の結果とPool終了時にDropするslotの決定に使い、slot operationごとの検査には使わない。
 
@@ -87,7 +87,7 @@ sourceへ明示的な`retain`や`borrow`を公開するより、ownership plan�
 
 現在の`execution/ownership`は[D083](../../history/decisions/active/D083.md)のowned native entryを持ち、last-use argumentをcalleeへ
 Consumeできる。一方、primitive、host、memory、Buffer operationのoperandは現在すべてBorrowとして列挙され、Buffer runtimeが保存に
-必要なretainを行う。Poolではoperand effect`Store`を追加し、use planとparameter保持解析の両方へ入力する必要がある。
+必要なretainを行う。Poolで追加する`Store`は[所有権primitive](ownership-primitives.md#compilerとruntimeの分担)に示す。
 
 LLVM backendにはmanaged valueの型再帰的なretain/release、managed placeのinitialize/replace/vacate、Buffer elementごとのcallback生成が
 既にある。Poolはこのloweringの新しい利用者になり、別の型再帰を持たない。frontendの`Storable`は現在もclosed judgmentであり、Poolまたは

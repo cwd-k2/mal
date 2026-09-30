@@ -2,9 +2,9 @@
 
 Status: Exploratory example
 
-この文書は[Pool-backed containerのsource sketch](container-examples.md)の`Pool<State, T>`を使い、共有mutable identityと
+この文書は[primitive一覧](primitives.md)の`Pool<State, T>`を使い、共有mutable identityと
 copy-on-write immutable valueの参照管理を比較する。構文は未採択の擬似codeである。indexは公開precondition`index < length`に従い、
-[Buffer](container-examples.md#buffer)と同じinvariantでPool preconditionへ移るため、範囲検査を書かない。
+[Buffer](buffer-implementation.md#表現とinvariant)と同じinvariantでPool preconditionへ移るため、範囲検査を書かない。
 
 どちらもStateをlogical lengthとし、`[0, length)`だけがLiveであるdense slot invariantを持つ。違いは同じPool identityへの更新を
 公開するか、更新前に独立したPool responsibilityを得るかにある。

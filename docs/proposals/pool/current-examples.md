@@ -4,7 +4,7 @@ Status: Exploratory example
 
 この文書は、現在の[`examples/`](../../../examples/)をPool案へ移したときに、source、ownership、precondition、costの何が
 変わるかを示す。現在の動作は[AddressとBuffer](../../spec/memory.md)、Pool primitiveの規則は
-[lifecycle contract](lifecycle-contract.md)、Bufferのmal実装は[source sketch](container-examples.md#buffer)を正とする。
+[lifecycle contract](lifecycle-contract.md)、Bufferのmal実装は[Buffer実装](buffer-implementation.md)を正とする。
 Pool側のcodeは未採択の擬似codeである。
 
 ## Bufferの利用者
@@ -25,7 +25,7 @@ bytes.into(address, 0usize, #bytes);
 - `alias.put(0usize, 'M')`はBuffer fileの`put`から`putAt`になる。利用者は現行どおり`0 < #alias`を満たし、Buffer実装は
   live prefix invariantでslotがLiveであることを導く。
 - `alias.copy(#alias, ...)`は現在のcountを越えるrangeを書く。Buffer実装は`reserve`してから、Liveなslotを置換しVacantなslotを
-  initするrange primitiveを呼び、最後にStateのcountを更新する。primitiveがなければPool callのloopになる。
+  initするrun primitiveを呼び、最後にStateのcountを更新する。primitiveがなければPool callのloopになる。
 - `from`、`*bytes`、`*"!"`、`into`はAddressやSymbolのbytesとPool slotの間の一括copyであり、core Pool APIだけでは書けない。
   必要なprimitiveと、それを使った各operationは[Pool上のBuffer実装](buffer-implementation.md)に示す。
 
@@ -113,7 +113,7 @@ _hashMapPutFrom<K, V> :: (HashMap<K, V>, K, V, USize, USize) -> Bool :=
 - keyの比較のために`getAt`が`(K, V)`全体をShareする点は、現行の`slots.get(index)`と同じである。
 
 deletionとresizeは現行exampleと同じく省略する。resize自体は現行Bufferでも`new`で伸ばして書き直せるが、Pool上では
-[Mapのrehash](container-examples.md#map)のように`takeAt`でentryを移し、K、VのShareとDropを起こさずに済む。
+[Mapのrehash](collection-examples.md#open-addressing-map)のように`takeAt`でentryを移し、K、VのShareとDropを起こさずに済む。
 
 ## preconditionの責任
 
@@ -142,7 +142,7 @@ capacity 0の早期returnは剰余のpreconditionのためにも必要であり�
 |---|---|---|
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`reserve`とgrowth policyを呼ぶ |
-| `fill`、`copy` | runtimeのloopとretain callback | range primitiveのloopとshare callback、またはPool callのloop |
+| `fill`、`copy` | runtimeのloopとretain callback | run primitiveのloopとshare callback、またはPool callのloop |
 | `from`、`into`、`*` | runtimeのbulk copy | host境界とSymbol用のcompiler primitive |
 | HashMapの構築 | capacity個のempty entryを`fill` | 占有metadataの初期化 |
 | managed elementの挿入 | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
