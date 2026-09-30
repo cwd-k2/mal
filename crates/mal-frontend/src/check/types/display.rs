@@ -57,6 +57,7 @@ pub(in crate::check) fn type_name(ty: &Type) -> String {
                                 pending.push(TypeNamePart::Text(", "));
                             }
                         }
+                        pending.push(TypeNamePart::Text("<"));
                         pending.push(TypeNamePart::Text(name));
                         continue;
                     }

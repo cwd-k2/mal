@@ -102,6 +102,14 @@ pub(super) fn constrain(
         substitutions.insert(*id, actual.clone());
         return Ok(());
     }
+    // Only kind `Type` arguments are inferred. Leaving any other one unresolved reports the missing
+    // explicit argument instead of a conflict between two uses of the same parameter.
+    if let Type::Parameter { id, .. } = template
+        && flexible.contains(id)
+        && !substitutions.contains_key(id)
+    {
+        return Ok(());
+    }
     let both_opaque = matches!(
         (template, actual),
         (Type::Opaque { .. }, Type::Opaque { .. })

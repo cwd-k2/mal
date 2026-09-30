@@ -98,6 +98,22 @@ fn same_structure(left: &Type, right: &Type, file: FileId) -> bool {
             (left_argument, right_argument),
         ],
         (Type::Buffer(left), Type::Buffer(right)) => vec![(left, right)],
+        // The identity is the declaration and its arguments; a phantom argument's parameter uses may
+        // still carry kinds instantiated at different sites.
+        (
+            Type::Opaque {
+                id: left_id,
+                arguments: left_arguments,
+                ..
+            },
+            Type::Opaque {
+                id: right_id,
+                arguments: right_arguments,
+                ..
+            },
+        ) if left_id == right_id && left_arguments.len() == right_arguments.len() => {
+            left_arguments.iter().zip(right_arguments.iter()).collect()
+        }
         (Type::Product(left), Type::Product(right)) | (Type::Sum(left), Type::Sum(right))
             if left.len() == right.len() =>
         {

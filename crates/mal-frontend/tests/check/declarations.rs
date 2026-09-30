@@ -105,6 +105,37 @@ fn an_opaque_type_equals_only_its_own_representation_layers() {
 }
 
 #[test]
+fn generic_code_keeps_phantom_opaque_arguments_equal() {
+    check_ok(
+        "opaque Tagged<S, T> :: UInt64;\n\
+         forward<T> :: Tagged<Unit, T> -> Unit := (value) -> ();\n\
+         relay<T> :: Tagged<Unit, T> -> Unit := (value) -> forward<T>(value);\n\
+         family<S, T> :: Tagged<S, T> -> Unit;\n\
+         family<S, UInt64> :: Tagged<S, UInt64> -> Unit := (value) -> ();",
+    );
+}
+
+#[test]
+fn a_phantom_kind_argument_asks_for_an_explicit_type_argument() {
+    let error = check_error(
+        "opaque Tagged<T> :: UInt64;\n\
+         forward<T> :: Tagged<T> -> Unit := (value) -> ();\n\
+         relay<T> :: Tagged<T> -> Unit := (value) -> forward(value);",
+    );
+    assert_eq!(error.message, "generic type arguments cannot be inferred");
+}
+
+#[test]
+fn diagnostics_name_opaque_applications_with_their_arguments() {
+    let error = check_error(
+        "opaque Tagged<T> :: UInt64;\n\
+         wrong :: Tagged<Int32> -> Tagged<UInt8> := (value) -> value;",
+    );
+    let label = error.primary.expect("primary label").message;
+    assert!(label.contains("`Tagged<Int32>`"), "label: {label}");
+}
+
+#[test]
 fn rejects_recursive_opaque_representations_even_when_unused() {
     assert_eq!(
         check_error("opaque Loop<A> :: (A, Loop<A>);").message,
