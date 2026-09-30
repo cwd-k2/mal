@@ -29,13 +29,9 @@ poolDropAt<State, T> :: (Pool<State, T>, USize) -> Unit;
 ```
 
 Poolの形成は`Storable(State)`と`Storable(T)`を要求する。Poolのcopyは同じState、capacity、slotを持つidentityを共有する。
-`poolReserve`だけがallocationを増やし、Stateと全slotを保ったまま指定したlogical capacityへ拡張するかtrapする。runtimeの
-over-allocationは`poolCapacity`へ反映しない。Poolは自動的にgrowthせず、init対象は`index < poolCapacity(pool)`かつVacantでなければ
-ならない。
-
-`poolInitAt`と`poolPutAt`のvalue operandはowner successorである。execution ownershipは後続useのあるsourceを`Share`し、ownedな
-last useを`Consume`する。`poolGetAt`はslotを残すためresultを`Share`し、`poolTakeAt`はstored responsibilityをresultへ
-`Consume`する。`poolDropAt`はstored responsibilityを終了する。reserveによるrelocationはowner数を変えない。
+`poolReserve`だけがallocationを増やし、Poolは自動的にgrowthしない。各operationのownership effectと
+[未検査precondition](lifecycle-contract.md#未検査precondition)はlifecycle contractが所有する。以下のsketchでは、各Pool callの
+直前にそのpreconditionをどのinvariantが満たすかを本文で示す。
 
 Pool自身はStateにもelementにも格納できない。stable handleはこの例に必要なく、slot map、tree、graphが外部へkeyを返す実例から
 nonowning Pool identityとgenerationのcontractを分離して検討する。
@@ -93,8 +89,18 @@ put<T> :: (Buffer<T>, USize, T) -> Unit := (buffer, index, value) ->
     poolPutAt<USize, T>(buffer, index, value);
 ```
 
-BufferだけがStateを更新し、removeを公開しないため、live coordinateは常に`[0, length(buffer))`である。capacity 0からのgrowth、
-overflow、`index < length(buffer)`のpreconditionはBuffer implementationが所有する。Poolはこれらをsequence ruleとして知らない。
+BufferだけがStateを更新し、removeを公開しないため、live coordinateは常に`[0, length(buffer))`であり、
+`length(buffer) <= poolCapacity(buffer)`である。Poolはこれらをsequence ruleとして知らない。
+
+このinvariantによりpreconditionは次のように移る。
+
+- `get`と`put`：利用者が公開precondition`index < #buffer`を満たせば、`index`はLive slotを指す。Bufferは検査を追加せず、
+  利用者の違反は現行Bufferと同じく結果を保証しない。
+- `new`：`count`はlive prefixの直後なのでVacantであり、直前の`reserve`で`count < poolCapacity`になる。これは利用者に
+  preconditionを課さず、Buffer実装だけが満たす。
+- `count + 1usize`のoverflowと`_nextCapacity`のoverflowはこのsketchでは省略している。現行Bufferと同じくtrapさせるなら、
+  Buffer実装が比較して[primitive `trap`](../primitive-trap.md)のようなmal-level trapを呼ぶ必要がある。
+
 Bufferのaliasは同じPool Stateを開くので、一方からの`new`は他方の`length`へ反映される。
 
 prefix `#buffer`を維持する場合は`length`をoperator familyへ結ぶ規則が別途必要になる。`fill`とoverlapping `copy`もBuffer policyであり、
@@ -147,17 +153,25 @@ mapGet<K, V> :: (Map<K, V>, K) -> [Unit, V] := (map, key) ->
 `mapGet<K, V>`から`hash<K>`と`equal<K>`のoperation requirementが導かれる。Poolはhash、equality、load factor、probe順序を知らない。
 Mapのcopyは同じPool identityを共有するため全aliasから更新を観測し、独立snapshotは新しいPoolへlive entryだけをrehashする。
 
-rehashでMapのhidden representationを別Poolへ交換すると既存aliasが追随しない。現APIだけでidentityを保つ場合は、mutation前にtemporary
-Poolへ全entryを新配置で構築し、元Poolのreserveが成功した後、元slotをdropしてtemporary slotをtake/initで戻す。allocationとhash計算を
-元Poolのmutation前に完了させれば、commit部分はlifecycle遷移だけになる。これが代表的なMapで過度に高価なら、同一identity内のstorageを
-transactionally交換するprimitiveを追加する根拠になる。
+Mapの公開operationは利用者にpreconditionを課さないので、Pool preconditionはすべてMap実装が満たす。
+
+- capacity 0では`% poolCapacity`を計算せずmissingを返す。以後のprobe coordinateは`% poolCapacity`で常に範囲内になる。
+- `poolGetAt`と`poolPutAt`は、同じcoordinateで`poolIsLive`がtrueだった直後にだけ呼ぶ。
+- `poolInitAt`は`poolIsLive`がfalseだったcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ到達できないため、判定から
+  呼び出しまでの間に状態は変わらない。
+
+rehashでMapのhidden representationを別Poolへ交換すると既存aliasが追随しない。現APIだけでidentityを保つ場合は、元Poolの
+entryを`poolTakeAt`でtemporary Poolへ移し、tombstoneを`poolDropAt`し、元Poolを`reserve`してから新しいprobe位置へ
+`poolTakeAt`と`poolInitAt`で戻す。entryの移動はすべて`Consume`であり、K、Vの`Share`や`Drop`は起きない。途中状態は
+[lifecycle contract](lifecycle-contract.md#primitive-transitionとcontainer-invariant)のとおり観測されないため、順序はfailureではなく
+algorithmだけで決めてよい。temporary allocationとentryの2回移動が代表的なMapで過度に高価なら、同一identity内のstorageを
+交換するprimitiveを追加する根拠になる。
 
 ## この例が要求する境界
 
 - Pool runtimeはStateとelementそれぞれについて、specializationが生成したlayout、share、drop glueを利用できる。
-- `reserve`はStateと全slotのresponsibilityを変えず、物理carrierだけをrelocateする。
-- 単一slotへの保存はowner successorとしてownership planへ現れ、borrowed sourceの`Share`とlast-use ownerの`Consume`を区別できる。
-- runtime長の`fill`と`copy`には動的個数の`Share`、Pool破棄にはStateと全live slotの`Drop`が必要である。
+- Pool primitiveは[lifecycle contract](lifecycle-contract.md)のownership effect、遷移順序、未検査preconditionに従う。
+- container実装はfile-local invariantから、公開preconditionを満たすcallのPool preconditionを導ける。
 - opaque型の宣言元fileだけがrepresentation viewを使え、他fileはStateとslot invariantを迂回できない。
 - hidden representationのrequirementをopaque type constructorの形成条件として公開できる。
 - `hash`と`equal`はstorage primitiveではなく、通常のoperation familyとしてcontainer algorithmが要求する。

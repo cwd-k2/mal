@@ -39,6 +39,8 @@ Bufferと同じdense sequenceしか作れないならPoolを独立させる意�
 [Pool-backed containerのsource sketch](container-examples.md)に分けて示す。storage layout、ownership effect、failure境界など、
 この分離が成立するための低レイヤcontractは[Pool lifecycle contract](lifecycle-contract.md)で管理する。mutable identityと
 copy-on-write valueの参照管理はoptional extensionとして[Pool array ownership example](array-ownership.md)で比較する。
+既存の`examples/`をPool上へ移したときにsource、ownership、precondition、costの何が変わるかは
+[既存exampleで見るPool化の差分](current-examples.md)で示す。
 
 ## Poolのauthority
 
@@ -58,30 +60,23 @@ Poolの破棄             全Live<T>を終了してからstorageを解放する
 
 Poolは`State`、allocation済みslotまたはchunk、各slotの状態を同じidentity内に保持する。capacityは現在initできる
 coordinateの上限としてcontainer実装から観測できるlogical capacityであり、物理配置、over-allocation、growth単位は観測させない。
-`makePool`の値はinitial logical capacityとする。
+`makePool`の第2引数はinitial logical capacityとする。
 live slot数を内部で保持してよいが、sequence length、挿入位置、最大live coordinateを表すpublic contractにはしない。
 
 Poolはauto-growせず、container実装が必要なcapacityとgrowth policyを決めて`reserve`する。現在値より大きい
-`poolReserve(pool, capacity)`が成功するとlogical capacityは指定値と等しくなり、runtimeが確保した余剰bytesを
-`poolCapacity`から観測させない。`reserve`のallocation failureは
-既存Engram allocationと同じ規則で扱い、元のState、capacity、live slotを保つ。fixed capacity、geometric growth、load factor、
+`poolReserve(pool, capacity)`はlogical capacityを指定値と等しくし、runtimeが確保した余剰bytesを`poolCapacity`から観測させない。
+allocation failureと表現できないsizeは既存Engram allocationと同じくtrapする。fixed capacity、geometric growth、load factor、
 bucket数、vacant coordinateの選択は上位containerのpolicyとする。
 
-`poolInitAt`と`poolPutAt`のvalue operandはPool slotというowner successorを持つ。execution ownershipは、source responsibilityがcall後も
-必要なら`Share`し、ownedなlast useなら`Consume`してslotへ移す。単一slot operationは常にborrowed valueを受けてruntime内でretainする
-現在のBuffer contractへ固定しない。`poolGetAt`はslotを残すためresultを`Share`し、`poolTakeAt`はslotのresponsibilityをresultへ`Consume`する。
-`poolDropAt`はresultを作らずslotを`Drop`する。`poolState`と`poolSetState`もStateの同じownership規則に従う。
+value operandをslotへ保存するoperationはowner successorを持ち、call後もsourceが必要なら`Share`、ownedなlast useなら`Consume`
+になる。単一slot operationを、常にborrowed valueを受けてruntime内でretainする現在のBuffer contractへ固定しない。各operationの
+effectと遷移順序は[lifecycle contract](lifecycle-contract.md#ownership-effect)が所有する。動的なlengthを持つ`fill`、`copy`、
+Pool破棄はprogram非依存runtimeで行うなら型別のshareまたはdrop callbackを必要とし、reserveによるrelocationだけがどちらも行わない。
 
-この規則はretain callbackを全面的に不要にはしない。動的なlengthを持つ`fill`と`copy`は実行時に複数のowner successorを作り、
-source slotを残すcopyは各destination分を`Share`する。これらをprogram非依存runtimeで行うなら型別share callbackが必要である。
-Pool破棄と`dropAt`にはdrop callbackが必要であり、reserveによるrelocationだけがshare/dropを行わない。
-
-growthによるrelocationはlogical coordinateを保ち、`share`または`drop`を発生させない。新しい値を成立させる前に
-置換対象を破棄せず、途中のallocation failureで元のlive valueを失わない。allocation failureとtarget sizeで表現できないcapacityは、
-既存Engram allocationと同じfatal resource failureまたはtrap規則に従う候補とする。
-
+slot coordinateとLive/Vacant状態に関する条件は、Bufferのindexと同じ[未検査precondition](lifecycle-contract.md#未検査precondition)である。
+container利用者は公開preconditionを守り、container実装は自分のinvariantでPool preconditionを満たす。Poolは違反を検査もtrapもしない。
 sourceから`Vacant` carrierを値として取得するoperation、任意addressへの`init`、manual `drop`、raw element pointerは提供しない。
-公開Pool APIの正確な名前、Vacantまたは範囲外coordinateをsumで返すかtrapするか、live slot iterationをどの層が持つかは未決定である。
+公開Pool APIの正確な名前と、live slot iterationをどの層が持つかは未決定である。
 
 ## Core外のextension
 
@@ -173,7 +168,7 @@ lifetimeはEngram回収へ結合せず、従来どおり明示したhost operati
 
 1. opaque identity、file-local representation view、別fileからの構築と分解の拒否をfrontend testで固定する。
 2. backend内部にPoolのVacant/Live遷移を置き、unmanaged Stateとelementでreserve、init、put、take、dropを実行する。
-3. `Symbol`とmanaged aggregateでshare/drop回数、relocation、allocation failure後の元value保持、Pool終了時のlive allocation 0を検査する。
+3. `Symbol`とmanaged aggregateでshare/drop回数、relocation、同じvalueの書き戻し、Pool終了時のlive allocation 0を検査する。
 4. Pool上に実験的なdense containerをmalで実装し、現在のBufferとalias、range、overlap、trap semanticsを比較する。
 5. handleを持たないimmutable arrayでwritable successorを検証し、shared時のcopyとlast-use時のstorage再利用を別々に測る。
 6. slot mapまたはtreeをcoordinateで実装し、stable handleが実際に必要ならidentity、generation、stale/cross-Pool rejectionを独立して検査する。
@@ -191,7 +186,12 @@ lifetimeはEngram回収へ結合せず、従来どおり明示したhost operati
 
 - optionalなPool handleのsource型、nonowning identity、generation幅、failure resultとtrapの境界。
 - live slot iteration、dense storage、bulk relocationのどこまでをcore外のextensionとして追加するか。
+- 任意coordinateのVacantを持つPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]` elementを載せる形の比較。前者は
+  占有metadataとPool終了時の走査を、後者はslotごとのsum tagと空値の書き込みを払う。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
-- Bufferのcanonical host copyに対するruntime-layout Poolの性能と、追加fast pathの要否。
+- `from`、`into`、`*buffer`、`*symbol`、`main`へ渡す`Buffer<Symbol>`など、host境界のbulk copyをPool APIだけで書けない問題。
+  trusted bulk primitiveを追加するか、これらをBuffer固有のpredefined operationとして残すかを決める。
+- immutableな`Array<T>`を`Storable`にするため、更新がsuccessorを返す
+  [`ValuePool<State, T>`](array-ownership.md#storableなimmutable-array)をidentity共有のPoolと別の型として持つか。
 - Pool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

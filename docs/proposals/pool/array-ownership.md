@@ -3,7 +3,8 @@
 Status: Exploratory example
 
 この文書は[Pool-backed containerのsource sketch](container-examples.md)の`Pool<State, T>`を使い、共有mutable identityと
-copy-on-write immutable valueの参照管理を比較する。構文は未採択の擬似codeであり、bounds failureの表現は省略する。
+copy-on-write immutable valueの参照管理を比較する。構文は未採択の擬似codeである。indexは公開precondition`index < length`に従い、
+[Buffer](container-examples.md#buffer)と同じinvariantでPool preconditionへ移るため、範囲検査を書かない。
 
 どちらもStateをlogical lengthとし、`[0, length)`だけがLiveであるdense slot invariantを持つ。違いは同じPool identityへの更新を
 公開するか、更新前に独立したPool responsibilityを得るかにある。
@@ -145,7 +146,33 @@ Pool案はこの二つの既存mechanismを、mutable identityとoptionalなwrit
 
 - Pool handleのcopyと終了を、それぞれEngram leafのShareとDropへlowerする。
 - `poolWritableSuccessor`はowned inputをConsumeでき、残る強いaliasがなければstorageを再利用できる。
-- 共有時のsuccessorはState、全Live slot、Vacant metadataを保存し、途中のallocation failureでinputを失わない。
+- 共有時のsuccessorはState、全Live slot、Vacant metadataを保存する。allocation failureはtrapであり、inputの保存を要求しない。
 - reference countやcompilerが作る一時responsibilityをsourceから観測させない。
 - stable handleを同じprofileから発行せず、copyか再利用かをhandle validityから観測させない。
 - immutableなのはArrayの構造であり、elementが運ぶExtern referentまでimmutableにはしない。
+
+## Storableなimmutable array
+
+`Array<T>`の型形成条件はhidden representationの`Pool<USize, T>`から導かれ、Poolは`Storable`でないため`Array<T>`も
+`Storable`にならない。値としてimmutableでも、`Array<Array<T>>`やMapのvalueにはできない。
+
+Poolが`Storable`でない理由は二つある。storage内でShareしたPoolへの後のmutationをaliasが観測することと、Poolを自身の
+slotへ保存してowner cycleを作れることである。identityを共有するか値として振る舞うかを型で区別すれば、値側はどちらも起こさない。
+
+```mal
+ValuePool<State, T>
+
+valuePoolPutAt<State, T> :: (ValuePool<State, T>, USize, T) -> ValuePool<State, T>;
+valuePoolInitAt<State, T> :: (ValuePool<State, T>, USize, T) -> ValuePool<State, T>;
+valuePoolReserve<State, T> :: (ValuePool<State, T>, USize) -> ValuePool<State, T>;
+```
+
+各更新operationは`poolWritableSuccessor`を内部で行い、successorだけを変更して返す。更新前のvalueはsourceから変更できないため、
+storage内でShareしても後のmutationを観測しない。自身を保存しようとするとそのoperandはShareされるため、uniquenessが成り立たず
+copyへfallbackし、cycleにならない。したがって`Storable(State)`と`Storable(T)`から`Storable(ValuePool<State, T>)`を導け、
+`opaque Array<T> :: ValuePool<USize, T>`も`Storable`になる。
+
+`Unit`を返すPool操作とsuccessorを別operationにする形では、successorをShareした後に更新しないことが未検査preconditionになり、
+違反が別のArray valueの変更として現れる。更新operation自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装の
+invariantへ依存させない。uniqueness検査は更新ごとに一回の比較で、last useを`Consume`できるcallでは再利用される。
+このprofileもstable handleを発行しない。採否は[README](README.md#未決定事項)の未決定事項に置く。
