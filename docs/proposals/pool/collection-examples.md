@@ -2,7 +2,7 @@
 
 Status: Exploratory example
 
-この文書は、[IxPool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、IdPool、木を、試作で動かした
+この文書は、[IxPool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、SlotMap、木を、試作で動かした
 codeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
 試作そのものは[試作で確かめたこと](prototypes.md)を正とする。例は未採択の擬似codeである。
 
@@ -127,22 +127,22 @@ insertはload factorが3/4を超える前にrehashする。別のIxPoolへ移し
 IxPoolへ移し、元のIxPoolを`reserve`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
 起きない。一時的なallocationと二回の移動が代表的なMapで高価なら、同じidentityのstorageを交換するprimitiveを検討する。
 
-## IdPool
+## SlotMap
 
-generationで古いhandle `Id<T>`を検出するslot mapを、IxPoolの上に書いた形である。仕様の型ではなく、IxPoolで書けるcontainerの
+generationで古い`SlotKey<T>`を検出するmapを、IxPoolの上に書いた形である。仕様の型ではなく、IxPoolで書けるcontainerの
 一例である。要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
 free listをvalueのIxPoolへ置けない。
 
 ```mal
-opaque Id<T> :: (USize, UInt64); // coordinate、発行時のgeneration
+opaque SlotKey<T> :: (USize, UInt64); // coordinate、発行時のgeneration
 
 // values: Stateは要素数。generations: 発行した全coordinateでLive、Stateは発行数。free: 空いたcoordinateのstack。
-opaque IdPool<T> :: (IxPool<USize, T>, IxPool<USize, UInt64>, IxPool<USize, UInt64>);
+opaque SlotMap<T> :: (IxPool<USize, T>, IxPool<USize, UInt64>, IxPool<USize, UInt64>);
 
-_current<T> :: (IdPool<T>, Id<T>) -> Bool := ((_, generations, _), (index, generation)) ->
+_current<T> :: (SlotMap<T>, SlotKey<T>) -> Bool := ((_, generations, _), (index, generation)) ->
     index < state(generations) && getAt(generations, index) == generation;
 
-idRemove<T> :: (IdPool<T>, Id<T>) -> [Unit, T] := (pool, id) -> [missing, found] => {
+slotMapRemove<T> :: (SlotMap<T>, SlotKey<T>) -> [Unit, T] := (pool, id) -> [missing, found] => {
     when (!_current(pool, id)) missing();
     (values, generations, free) := pool;
     (index, generation) := id;
@@ -157,9 +157,9 @@ idRemove<T> :: (IdPool<T>, Id<T>) -> [Unit, T] := (pool, id) -> [missing, found]
 };
 ```
 
-挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`Id<T>`の照合は利用者が古い`Id<T>`を持ち
-続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`Id<T>`にIdPoolのidentityを含めないため、別の
-IdPoolの`Id<T>`を区別しない。区別が要るなら、IdPoolごとの番号をStateに持って`Id<T>`へ含める。
+挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`SlotKey<T>`の照合は利用者が古い`SlotKey<T>`を持ち
+続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`SlotKey<T>`にSlotMapのidentityを含めないため、別の
+SlotMapの`SlotKey<T>`を区別しない。区別が要るなら、SlotMapごとの番号をStateに持って`SlotKey<T>`へ含める。
 
 ## 木
 
@@ -191,7 +191,7 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
 
 - stack：2000個をpushし、逆順にpopする。
 - binary heap：擬似乱数の2000個をpushし、popの結果が減少しないことと個数を確かめる。
-- IdPool：2000個を挿入し、3個に1個を削除した後、同数を挿入し直す。削除した`Id<T>`はmissingになり、残した`Id<T>`と新しい`Id<T>`は
+- SlotMap：2000個を挿入し、3個に1個を削除した後、同数を挿入し直す。削除した`SlotKey<T>`はmissingになり、残した`SlotKey<T>`と新しい`SlotKey<T>`は
   値を返す。
 - Map：2000個を挿入し、100個を置き換え、1000個を削除した後、全keyの存在と値を確かめる。rehashを含む。
 - 木：擬似乱数のkeyを2000個挿入し、半分を削除して、残りの存在、削除したkeyの不在、中順の単調性を確かめる。削除したkeyを

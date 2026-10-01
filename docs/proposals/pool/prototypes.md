@@ -14,7 +14,7 @@ Status: Exploratory support document
 - Buffer上のemulation：現在の言語だけで、`Buffer<S>`のStateと`Buffer<[Unit, T]>`のslotとしてIxPool APIを実装した。Vacantは
   `Unit`のvariantで表し、preconditionへの違反は戻らない。
 
-どちらでも、stack、binary heap、Map、Deque、IdPool、木の同じsourceが変更なしに動いた。containerはIxPool APIにしか依存せず、
+どちらでも、stack、binary heap、Map、Deque、SlotMap、木の同じsourceが変更なしに動いた。containerはIxPool APIにしか依存せず、
 二つの試作は一つの意味の二つの実装である。[段階的な検証](README.md#段階的な検証)のstep 4と6の一部に当たり、`Store`による
 所有権の効果と性能は対象外である。
 
@@ -39,11 +39,11 @@ Buffer上のemulationで、[array ownership](array-ownership.md)の`Array<T>`を
 ## slot遷移とcontainer
 
 - 要素型ごとの実装は`initAt`、`takeAt`、Stateだけで足り、`putAt`、`dropAt`、`moveAt`は通常のgeneric関数として書けた。
-- `takeAt`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開、heapの穴を動かすsift、木とIdPoolの
+- `takeAt`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開、heapの穴を動かすsift、木とSlotMapの
   slot再利用を、要素をcopyせずに書けた。
 - C host試作の検査は、containerの`reserve`忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはIxPoolのpreconditionを
   示し、container operationを示さない。
-- Buffer上のemulationで`Symbol`を要素にしたMap、Deque、heap、IdPoolを動かし、valgrindで全allocationの解放とerror 0を
+- Buffer上のemulationで`Symbol`を要素にしたMap、Deque、heap、SlotMapを動かし、valgrindで全allocationの解放とerror 0を
   確かめた。`takeAt`と`initAt`による移動は、managed valueのresponsibilityを一つに保った。
 
 ## `get`とstorageの共有

@@ -66,7 +66,7 @@ API、語彙、contractは次の文書が所有する。
 次の文書は、個別のcontainerの設計、規則を確かめる例、試作の結果である。
 
 - [Buffer実装](buffer-implementation.md)：現行Bufferのhost交換以外のoperationをIxPoolの上に書いた参照実装
-- [collection例](collection-examples.md)：stack、binary heap、open addressing Map、IdPool、木
+- [collection例](collection-examples.md)：stack、binary heap、open addressing Map、SlotMap、木
 - [既存exampleとの差分](current-examples.md)：`examples/`をIxPool上へ移したときのsource、precondition、costの変化
 - [array ownership](array-ownership.md)：IxPool上のmutable arrayとImPool上のimmutable arrayの比較
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果

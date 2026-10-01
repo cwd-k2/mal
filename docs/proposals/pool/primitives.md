@@ -170,7 +170,7 @@ thaw<State, T> :: ImPool<State, T> -> IxPool<State, T>;
 
 ## primitiveでないもの
 
-検査付きのhandleを返すslot map（[IdPool](collection-examples.md#idpool)）は仕様に含めない。generationとfree listを含めて
+検査付きのkeyを返す[SlotMap](collection-examples.md#slotmap)は仕様に含めない。generationとfree listを含めて
 IxPoolの上に書けるため、必要なcontainerが自分で持つ。
 
 ## 測定後の候補

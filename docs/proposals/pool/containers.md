@@ -17,7 +17,7 @@ Status: Exploratory support document
 | Deque | `(head, count)` | `head`から`count`個、capacityで折り返す | 輪の上の位置 | 位置が`count`未満 |
 | binary heap | count | `[0, count)` | 暗黙の木の節点。子は`2i + 1`と`2i + 2` | なし |
 | open addressing Map | 要素数 | probe列の途中にVacantを含まない任意の集合 | hashから始まるprobe順 | なし |
-| IdPool | 要素数とfree listの位置 | 任意 | 要素のidentity | `Id<T>`の照合は検査する |
+| SlotMap | 要素数とfree listの位置 | 任意 | 要素のidentity | `SlotKey<T>`の照合は検査する |
 | 木 | root coordinateとfree list | 任意 | 節点のidentity。子をcoordinateで指す | 操作ごと |
 
 現在のBufferはcountを減らせないため、Buffer以外は書けないか、sizeを別に持って取り出した値をstorageに残すか、tombstoneや
@@ -26,7 +26,7 @@ Status: Exploratory support document
 - stackのpopとDequeの両端からの取り出しは、`takeAt`で値をcopyせずに取り出し、そのslotをVacantへ戻す。
 - binary heapのsiftは、親子の値を`takeAt`と`initAt`で入れ替え、`Share`も`Drop`も起こさない。
 - Mapの削除は、後続のentryを`takeAt`と`initAt`で穴へ詰め、tombstoneを持たない。
-- IdPoolと木は、Vacantなslotを空き場所として再利用する。
+- SlotMapと木は、Vacantなslotを空き場所として再利用する。
 
 ## Bufferの前提を外すと変わること
 
@@ -67,7 +67,7 @@ Status: Exploratory support document
 
 - `reserve`してから`initAt`し、`initAt`の後にStateを更新する、という対を毎回書く。Bufferの`new`はこれを一つの操作で行う。
 - 要素の列挙がないため、木の検査には中順の再帰を書き、Mapの全要素には`isLive`でcapacity全体を走査する。
-- IdPoolのgenerationや木のfree listのように、Vacantなslotに関する情報の置き場を最初に設計する。
+- SlotMapのgenerationや木のfree listのように、Vacantなslotに関する情報の置き場を最初に設計する。
 
 この負担は、よく使う対を`reserveAtLeast`のような補助関数へまとめること、占有状態を検査するruntimeでcontainerをtestすること、
 [primitive `trap`](../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのIxPool実装や
@@ -82,17 +82,17 @@ IxPoolの明示的な解放が必要だったのはC hostを経由したため�
 - Dequeの論理的な列は最大二つの区間に分かれる。hostとの交換はBufferを経由し、成長時に折り返した部分を動かす操作は値を写す
   `copy`ではなく、`takeAt`と`initAt`で移す。
 - binary heapは`[0, count)`がLiveだが、coordinateの順は要素の順序ではない。範囲を使うのは配列からの一括構築くらいである。
-- Map、IdPool、木のLiveな集合は区間にならない。rehashや複製は内部でslot遷移を使う。
+- Map、SlotMap、木のLiveな集合は区間にならない。rehashや複製は内部でslot遷移を使う。
 
 移す操作を一括にする`moveRange`と、IxPoolとhostの直接の交換は[測定後の候補](primitives.md#測定後の候補)に置く。
 
 ## Vacantが値を持たないこと
 
-Vacantなslotは値を持たない。IxPoolの上にmalで書くIdPoolと木は、次の空きcoordinateをVacantなslotへ書けないため、free listをStateに
+Vacantなslotは値を持たない。IxPoolの上にmalで書くSlotMapと木は、次の空きcoordinateをVacantなslotへ書けないため、free listをStateに
 置くか、`IxPool<Unit, USize>`のような別のIxPoolへ積む。これはIxPoolが未初期化carrierを公開しない代わりに生じる制約であり、Vacantな
 slotに値を置く必要があるcontainerは、要素を`[Unit, T]`のような直和にしてLiveなまま空きを表す。
 
-Liveなslotを列挙する操作もIxPoolにはない。Map、IdPool、木の全要素を訪れるには`isLive`でcapacity全体を走査するか、container自身が
+Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の全要素を訪れるには`isLive`でcapacity全体を走査するか、container自身が
 要素の並びを持つ。live slot iterationをどの層が持つかは[README](README.md#未決定事項)の未決定事項である。
 
 ## IxPoolの輪郭
