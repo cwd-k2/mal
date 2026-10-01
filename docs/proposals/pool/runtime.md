@@ -98,8 +98,9 @@ container実装は、公開preconditionを満たすcallから到達する全IxPo
 `index < capacity`に違反する。これはBuffer実装の誤りである。公開preconditionを持たないoperation、例えばMapのlookupは、
 `isLive`とStateで判定してからslot operationを呼ぶ。
 
-IxPool preconditionへの違反は、Vacant carrierのread、同じresponsibilityの二重Drop、Live valueのleakを起こし得る。したがって
-IxPoolを直接呼ぶfileはmanaged valueのmemory safetyをinvariantとして担い、opaque型はその責任を宣言元fileへ閉じ込める。
+IxPool preconditionへの違反は、Vacant carrierのread、同じresponsibilityの二重Drop、Live valueのleakを起こし得る。言語は
+これを防がず、IxPoolを直接呼ぶcodeがmanaged valueのmemory safetyを担う。containerはopaque型でrepresentationを隠すと、その責任を
+宣言元fileのinvariantへ集められる。
 実装はtestやdebug buildで占有状態を検査してよいが、その検査結果をsemanticsにしない。
 
 複数primitiveからなるcontainer operationはtransactionではなく、invariantはreturn時に回復すればよい。lifecycle glueはmal codeを

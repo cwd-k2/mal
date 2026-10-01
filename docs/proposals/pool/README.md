@@ -14,8 +14,8 @@ API、plugin ABIを定めない。
 番兵値やtombstoneでcontainerの方針を押し込むことになる（[container](containers.md#bufferの前提を外すと変わること)）。
 
 本案は、malが所有するstorageの仕組みを少数のprimitiveとして切り出し、Bufferを含むcontainerをその上にmalで定義する。layout、
-lifecycle、allocation failureはtrusted layerに残し、State、growth、free list、順序、hashはcontainerが選ぶ。利用者へraw storage、
-未初期化の値、手動の`drop`は公開しない。
+lifecycle、allocation failureはtrusted layerに残し、State、growth、free list、順序、hashはcontainerが選ぶ。raw storageと
+未初期化の値は公開せず、responsibilityはslotのVacantとLiveの遷移でだけ動かす。
 
 ## 要点
 
@@ -25,8 +25,8 @@ lifecycle、allocation failureはtrusted layerに残し、State、growth、free 
    slotの線形空間と、slotごとのLiveとVacantを持つ。`ImPool<State, T>`はidentityを持たず、更新のたびにsuccessorを返す。
 2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
    hostと`Symbol`との交換だけを自分のprimitiveとして持つ。Map、Deque、heap、木もIxPool上に、immutable arrayはImPool上に置く。
-3. IxPoolのslotに関する条件は未検査のpreconditionであり、IxPoolを直接呼べるのは[file-local opaque type](../../spec/types.md#file-local-opaque-type)
-   を宣言したfileだけである。containerの実装がinvariantでその条件を満たし、利用者はcontainerの公開preconditionだけを見る。
+3. IxPoolとImPoolのslotに関する条件は、Bufferと同じ未検査のpreconditionである。primitiveはどのfileからも呼べ、言語は
+   違反時の安全性を保証しない。containerの実装がinvariantでその条件を満たし、利用者はcontainerの公開preconditionだけを見る。
 
 この対は、一つのLiveなrunへ特化した型と、byte列へ特化した既存の型でも同じ形を取る。現在のBufferと`Symbol`は、この対を
 byte列に特化して既に実装したものに当たる。
@@ -53,11 +53,12 @@ ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照�
 | lifecycle | carrierをいつ確保、移動、解放するか | `reserve`、IxPool終了、型別glue | [runtime contract](runtime.md#runtime-representation) |
 | identity | 変更を誰が観測し、何を`Storable`にできるか | IxPoolとImPool | [identity](identity.md) |
 | 妥当性 | どのslotがLiveで、誰がそれを保証するか | 未検査preconditionとcontainer invariant | [runtime contract](runtime.md#未検査precondition) |
-| 権限 | 誰がIxPoolへ直接触れるか | file-local opaque型の宣言元file | 本書 |
+| 権限 | 誰がIxPoolへ直接触れるか | どのfileも。opaque型はcontainerのinvariantを宣言元fileへ閉じる | 本書 |
 | 表現 | どのbitで保持し、hostとどう交換するか | runtime representationとBufferのprimitive | [runtime contract](runtime.md#runtime-representation) |
 
-妥当性と権限は対になる。IxPoolのpreconditionを未検査にできるのは、IxPoolを直接呼ぶfileをopaque型で一つに閉じ込め、そのfileの
-invariantでpreconditionを満たせるからである。
+IxPoolへの接近は制限しない。malは安全性の担保を目的とせず、IxPoolのpreconditionを未検査にするのは現行Bufferの未検査
+preconditionと同じ選択である。containerは[file-local opaque type](../../spec/types.md#file-local-opaque-type)でrepresentationを
+隠すことで、IxPool preconditionを満たす責任を宣言元fileのinvariantへ集め、利用者へ公開preconditionだけを見せられる。
 
 ```mal
 opaque Buffer<T> :: IxPool<USize, T>;
@@ -80,7 +81,7 @@ containerが要求する。
 
 ## 非目標
 
-- raw allocation、pointer arithmetic、manual `init`、manual `drop`、`free`を一般mal codeへ公開しない。
+- raw allocation、pointer arithmetic、未初期化memory、任意の値への`drop`、`free`を一般mal codeへ公開しない。
 - IxPoolだけを理由にborrow checker、linear type、user-defined finalizer、tracing GCを導入しない。
 - `Representable(T)`やpublic C carrierを`Storable(T)`から自動的に導かない。
 - plugin ABI、dynamic loading、package system、friend fileをIxPoolの初期実装条件にしない。
@@ -88,9 +89,7 @@ containerが要求する。
 
 ## 未決定事項
 
-- IxPoolを使えるfileを、どのfileにも開くか、標準libraryとtrustedなcodeだけに限るか。後者では利用者はBufferと標準の
-  containerだけを見る。
-- primitiveの名前と、IxPoolの名前を`require`したfileだけへ導入する規則。
+- primitiveの名前と、それらをpreludeと`require`のどちらで導入するか。
 - [ImPool](primitives.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
 - [freezeとthaw](primitives.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
 - [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。

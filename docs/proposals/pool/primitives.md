@@ -152,5 +152,5 @@ IxPoolの上に書けるため、必要なcontainerが自分で持つ。
 
 - IxPoolの`moveRange`：範囲の`takeAt`と`initAt`を一括で行い、`Share`も`Drop`もしない。Dequeの成長、Mapのrehash、詰め直しが使う。
 - IxPoolとhostの直接の交換：Bufferを経由する一段のcopyを省く。ring bufferのように大量のI/Oを自前で行うcontainerが使う。
-  hostの権限をIxPoolへ広げるため、IxPoolを開くfileの範囲と合わせて判断する。
+  hostのdataがmalのstorageへ入る入口が`from`の外にも増える。
 - ImPoolの範囲の写し：immutable arrayのsliceと連結。`Symbol`の`+`、`/`、`%`をbyte列以外へ広げたものに当たる。
