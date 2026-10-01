@@ -132,9 +132,13 @@ Bufferは言語の組み込み型ではなく、IxPoolの上のpreludeのopaque�
 |---|---|---|
 | `from<A>(address, offset, length)` | 定数倍の周辺 | `admit`した`Host<A>`の要素をIxPoolへ置く |
 | `buffer.into(address, offset, length)` | 派生 | Bufferを`freeze`した値の範囲から`Host<A>`を作って`observe`する |
-| `*buffer`（`Buffer<UInt8>`から`Symbol`） | 派生 | Bufferを`freeze`した値の全体から`Host<UInt8>`を作って`Symbol`にする |
-| `*symbol`（`Symbol`から`Buffer<UInt8>`） | 定数倍の周辺 | `symbol # index`のloop |
+| `*buffer`（`Buffer<UInt8>`から`Symbol`） | 派生 | byte列の`freeze`。`symbol(host(freeze(buffer), 0, count))`であり、Liveなrun `[0, count)`だけを値にする |
+| `*symbol`（`Symbol`から`Buffer<UInt8>`） | 定数倍の周辺 | byte列の`thaw`。`Symbol`のbyte列を`thaw`し、Metaを長さにしたBufferを返す。`Symbol`をImPoolへ写す部分は`symbol # index`のloop |
 | `fill`、`copy` | 派生 | slot操作のloop |
+
+`*buffer`と`*symbol`は、identityを共有する側と値の側の間の`freeze`と`thaw`をbyte列に特化し、Bufferのinvariantに合わせて
+Liveなrunへ射影したものである。[Symbol conversion](../../spec/memory.md#symbol-conversion)が定める「以後のBuffer変更はresultを変更しない」と
+「Symbolは変更されない」は、`freeze`と`thaw`の後の書き込みがもう一方から観測されないことと一致する。
 
 Bufferは組み込みlibraryとして提供し、runtimeは参照実装と同じ結果になる一括処理で実装してよい。現行runtimeと同じ費用は、
 この実装の自由で保つ。`*`はbyte IxPoolのstorageを`Symbol`と共有してよく、書き込みはcopy-on-writeにする
