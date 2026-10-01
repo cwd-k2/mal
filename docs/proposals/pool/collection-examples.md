@@ -6,7 +6,7 @@ Status: Exploratory example
 immutable arrayを、試作で動かしたcodeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
 試作そのものは[試作で確かめたこと](prototypes.md)を正とする。例は未採択の擬似codeである。
 
-各例は共通の補助として、capacityを4以上の倍増で確保する`reserveAtLeast(pool, required)`を使う。これはprimitiveではなく、
+各例は共通の補助として、capacityが`required`未満なら4以上の倍増で`grow`する`ensureCapacity(pool, required)`を使う。これはprimitiveではなく、
 growth policyを各containerで繰り返さないための関数である。
 
 ## stack
@@ -17,18 +17,18 @@ Bufferと同じく`[0, count)`をLiveに保つが、popは値を取り出してc
 opaque Stack<T> :: IxPool<USize, T>;
 
 push<T> :: (Stack<T>, T) -> Unit := (stack, value) -> {
-    count := state(stack);
-    reserveAtLeast(stack, count + 1usize);
+    count := meta(stack);
+    ensureCapacity(stack, count + 1usize);
     initAt(stack, count, value);
-    setState(stack, count + 1usize);
+    setMeta(stack, count + 1usize);
 };
 
 pop<T> :: Stack<T> -> [Unit, T] := (stack) -> [empty, found] => {
-    count := state(stack);
+    count := meta(stack);
     when (count == 0usize) empty();
     top := count - 1usize;
     value := takeAt(stack, top);
-    setState(stack, top);
+    setMeta(stack, top);
     found(value);
 };
 ```
@@ -37,7 +37,7 @@ pop<T> :: Stack<T> -> [Unit, T] := (stack) -> [empty, found] => {
 
 ## Deque
 
-Stateを`(head, count)`とし、`head`から`count`個のcoordinateをcapacityで折り返してLiveに保つring bufferである。
+Metaを`(head, count)`とし、`head`から`count`個のcoordinateをcapacityで折り返してLiveに保つring bufferである。
 
 ```mal
 opaque Deque<T> :: IxPool<(USize, USize), T>;
@@ -54,32 +54,32 @@ _unwrap<T> :: (Deque<T>, USize, USize, USize) -> Unit :=
     };
 
 _ensureRoom<T> :: Deque<T> -> Unit := (deque) -> {
-    (head, count) := state(deque);
+    (head, count) := meta(deque);
     current := capacity(deque);
     when (count == current) {
-        reserve(deque, if (current == 0usize) then 4usize else current * 2usize);
+        grow(deque, if (current == 0usize) then 4usize else current);
         _unwrap(deque, 0usize, head, current);
     };
 };
 
 pushFront<T> :: (Deque<T>, T) -> Unit := (deque, value) -> {
     _ensureRoom(deque);
-    (head, count) := state(deque);
+    (head, count) := meta(deque);
     front := _slot(deque, head, capacity(deque) - 1usize);
     initAt(deque, front, value);
-    setState(deque, (front, count + 1usize));
+    setMeta(deque, (front, count + 1usize));
 };
 
 popBack<T> :: Deque<T> -> [Unit, T] := (deque) -> [empty, found] => {
-    (head, count) := state(deque);
+    (head, count) := meta(deque);
     when (count == 0usize) empty();
     value := takeAt(deque, _slot(deque, head, count - 1usize));
-    setState(deque, (head, count - 1usize));
+    setMeta(deque, (head, count - 1usize));
     found(value);
 };
 ```
 
-成長は`reserve`でcoordinateを保ったままcapacityを倍にし、折り返していた`[0, head)`を`moveAt`で旧capacityの後ろへ移す。
+成長は`grow`でcoordinateを保ったままcapacityを倍にし、折り返していた`[0, head)`を`moveAt`で旧capacityの後ろへ移す。
 移動は`Share`も`Drop`も起こさない。`pushBack`と`popFront`も同じ形で書ける。
 
 ## binary heap
@@ -106,11 +106,11 @@ _siftUp<T> :: (Heap<T>, USize, T) -> Unit := (heap, hole, value) -> [return] => 
 };
 
 heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
-    count := state(heap);
+    count := meta(heap);
     when (count == 0usize) empty();
     top := takeAt(heap, 0usize);
     last := count - 1usize;
-    setState(heap, last);
+    setMeta(heap, last);
     when (last > 0usize) _siftDown(heap, 0usize, takeAt(heap, last), last);
     found(top);
 };
@@ -121,7 +121,7 @@ heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
 
 ## open addressing Map
 
-linear probingのMapである。Stateは要素数で、どのprobe列も途中にVacantを含まない。削除はtombstoneを置かず、後続のentryを穴へ
+linear probingのMapである。Metaは要素数で、どのprobe列も途中にVacantを含まない。削除はtombstoneを置かず、後続のentryを穴へ
 詰めてこのinvariantを保つ。
 
 ```mal
@@ -132,16 +132,14 @@ opaque HashMap<K, V> :: IxPool<USize, (K, V)>;
 _find<K, V> :: (HashMap<K, V>, K, USize, USize) -> [Unit, USize] :=
     (map, key, index, remaining) -> [missing, found] => {
         when (remaining == 0usize) missing();
-        when (!isLive(map, index)) missing();
-        (storedKey, _) := getAt(map, index);
+        (storedKey, _) := peek(map, index)[() -> missing(), (entry) -> entry];
         when (equal(storedKey, key)) found(index);
         _find(map, key, _next(map, index), remaining - 1usize)[missing, found];
     };
 
 // Moves each following entry back into the gap unless its home lies cyclically in (gap, index].
 _closeGap<K, V> :: (HashMap<K, V>, USize, USize) -> Unit := (map, gap, index) -> [return] => {
-    when (!isLive(map, index)) return(());
-    entry := takeAt(map, index);
+    entry := swap(map, index, vacant())[() -> return(()), (entry) -> entry];
     (key, _) := entry;
     home := _home(map, key);
     stays := if (gap < index) then home > gap && home <= index else home > gap || home <= index;
@@ -156,7 +154,7 @@ _closeGap<K, V> :: (HashMap<K, V>, USize, USize) -> Unit := (map, gap, index) ->
 mapRemove<K, V> :: (HashMap<K, V>, K) -> [Unit, V] := (map, key) -> [missing, found] => {
     index := _locate(map, key)[missing, (index) -> index];
     (_, value) := takeAt(map, index);
-    setState(map, state(map) - 1usize);
+    setMeta(map, meta(map) - 1usize);
     _closeGap(map, index, _next(map, index));
     found(value);
 };
@@ -166,51 +164,52 @@ mapRemove<K, V> :: (HashMap<K, V>, K) -> [Unit, V] := (map, key) -> [missing, fo
 requirementであり、IxPoolはhash、equality、load factor、probe順序を知らない。
 
 Mapの公開operationは利用者にpreconditionを課さないため、IxPoolのpreconditionはすべて実装が満たす。capacity 0では`_locate`が
-剰余を計算せずmissingを返し、以後のprobe coordinateは剰余で範囲内になる。`getAt`と`takeAt`は`isLive`がtrueだった
-coordinateにだけ、`initAt`はfalseだったcoordinateか、直前に`takeAt`したcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ
+剰余を計算せずmissingを返し、以後のprobe coordinateは剰余で範囲内になる。`_find`と`_closeGap`は核の`peek`と`swap`の
+結果を除去してVacantを判定し、Live/Vacantのpreconditionを持つ周辺operationは、`mapRemove`の`takeAt`を`_locate`が見つけた
+coordinateにだけ、`initAt`を直前に`swap`でVacantにしたcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ
 到達できないため、判定から呼び出しまでの間に状態は変わらない。
 
 insertはload factorが3/4を超える前にrehashする。別のIxPoolへ移し替えると既存のaliasが追随しないため、entryを`takeAt`で一時的な
-IxPoolへ移し、元のIxPoolを`reserve`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
+IxPoolへ移し、元のIxPoolを`grow`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
 起きない。一時的なallocationと二回の移動が代表的なMapで高価なら、同じidentityのstorageを交換するprimitiveを検討する。
 
 ## SlotMap
 
 generationで古い`SlotKey<T>`を検出するmapを、IxPoolの上に書いた形である。要素の値、coordinateごとの
-generation、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
-free listをvalueのIxPoolへ置けない。
+generation、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは`Unit`しか持たないため、
+generationとfree listをvalueのIxPoolへ置けない。
 
 ```mal
 opaque SlotKey<T> :: (USize, UInt64); // coordinate、発行時のgeneration
 
-// values: Stateは要素数。generations: 発行した全coordinateでLive、Stateは発行数。free: 空いたcoordinateのstack。
+// values: Metaは要素数。generations: 発行した全coordinateでLive、Metaは発行数。free: 空いたcoordinateのstack。
 opaque SlotMap<T> :: (IxPool<USize, T>, IxPool<USize, UInt64>, IxPool<USize, UInt64>);
 
 _current<T> :: (SlotMap<T>, SlotKey<T>) -> Bool := ((_, generations, _), (index, generation)) ->
-    index < state(generations) && getAt(generations, index) == generation;
+    index < meta(generations) && getAt(generations, index) == generation;
 
 slotMapRemove<T> :: (SlotMap<T>, SlotKey<T>) -> [Unit, T] := (pool, id) -> [missing, found] => {
     when (!_current(pool, id)) missing();
     (values, generations, free) := pool;
     (index, generation) := id;
     value := takeAt(values, index);
-    setState(values, state(values) - 1usize);
+    setMeta(values, meta(values) - 1usize);
     putAt(generations, index, generation + 1u64);
-    vacated := state(free);
-    reserveAtLeast(free, vacated + 1usize);
+    vacated := meta(free);
+    ensureCapacity(free, vacated + 1usize);
     initAt(free, vacated, index.u64);
-    setState(free, vacated + 1usize);
+    setMeta(free, vacated + 1usize);
     found(value);
 };
 ```
 
 挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`SlotKey<T>`の照合は利用者が古い`SlotKey<T>`を持ち
 続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`SlotKey<T>`にSlotMapのidentityを含めないため、別の
-SlotMapの`SlotKey<T>`を区別しない。区別が要るなら、SlotMapごとの番号をStateに持って`SlotKey<T>`へ含める。
+SlotMapの`SlotKey<T>`を区別しない。区別が要るなら、SlotMapごとの番号をMetaに持って`SlotKey<T>`へ含める。
 
 ## 木
 
-節点`(key, value, left, right)`をslotに置き、子をcoordinateで指す二分探索木である。`nodes`のStateは`(root, size)`で、空いた
+節点`(key, value, left, right)`をslotに置き、子をcoordinateで指す二分探索木である。`nodes`のMetaは`(root, size)`で、空いた
 coordinateは`free`のstackで再利用する。
 
 ```mal
@@ -219,12 +218,12 @@ opaque Tree :: (IxPool<(USize, USize), _Node>, IxPool<USize, UInt64>);
 
 _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
     _ := takeAt(nodes, link.usize);
-    (root, size) := state(nodes);
-    setState(nodes, (root, size - 1usize));
-    vacated := state(free);
-    reserveAtLeast(free, vacated + 1usize);
+    (root, size) := meta(nodes);
+    setMeta(nodes, (root, size - 1usize));
+    vacated := meta(free);
+    ensureCapacity(free, vacated + 1usize);
     initAt(free, vacated, link);
-    setState(free, vacated + 1usize);
+    setMeta(free, vacated + 1usize);
 };
 ```
 
@@ -234,7 +233,7 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
 
 ## immutable array
 
-ImPoolの上で、更新のたびに新しい値を返す配列である。Stateは長さで、`[0, length)`だけがLiveである。mutable arrayに当たる
+ImPoolの上で、更新のたびに新しい値を返す配列である。Metaは長さで、`[0, length)`だけがLiveである。mutable arrayに当たる
 ものはBufferであり、同じinvariantをIxPoolの上に置く。
 
 ```mal
@@ -244,12 +243,12 @@ arraySet<T> :: (Array<T>, USize, T) -> Array<T> := (array, index, value) ->
     putAt(array, index, value);
 
 arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
-    length := state(array);
+    length := meta(array);
     current := capacity(array);
     grown := if (length < current)
         then array
-        else reserve(array, if (current == 0usize) then 1usize else current * 2usize);
-    setState(initAt(grown, length, value), length + 1usize);
+        else grow(array, if (current == 0usize) then 1usize else current);
+    setMeta(initAt(grown, length, value), length + 1usize);
 };
 ```
 

@@ -3,14 +3,14 @@
 Status: Exploratory example
 
 この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`のoperationのうち、hostと`Symbol`との交換を除く全てを
-core IxPool APIで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの
+IxPoolの核と周辺operationで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの
 意味は[AddressとBuffer](../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 
 ## 使うprimitive
 
-[primitive一覧](primitives.md)のslot primitiveと、現行runtimeと同じoverflow trapをmalで起こすための`trap`だけを使う。
+[primitive一覧](primitives.md)のIxPoolの核と周辺operationと、現行runtimeと同じoverflow trapをmalで起こすための`trap`だけを使う。
 
 ## 表現とinvariant
 
@@ -18,7 +18,7 @@ core IxPool APIで実装した擬似codeを示す。IxPool primitiveの規則は
 opaque Buffer<A> :: IxPool<USize, A>;
 ```
 
-Stateはcountである。`[0, count)`がLive、`[count, capacity)`がVacantであり、`count <= capacity`を保つ。
+Metaはcountである。`[0, count)`がLive、`[count, capacity)`がVacantであり、`count <= capacity`を保つ。
 公開operationは利用者がBufferの[未検査precondition](../../spec/memory.md#未検査precondition)を満たす限り、このinvariantから
 IxPool preconditionを導く。利用者が違反した場合はinvariantが壊れ得るが、結果を保証しない点は現行Bufferと同じである。
 
@@ -36,31 +36,36 @@ _ensureCapacity<A> :: (Buffer<A>, USize) -> Unit := (buffer, required) -> {
     current := capacity<USize, A>(buffer);
     when (required > current) {
         doubled := if (current > _maxUSize / 2usize) then _maxUSize else current * 2usize;
-        reserve<USize, A>(buffer, if (doubled < required) then required else doubled);
+        target := if (doubled < required) then required else doubled;
+        grow<USize, A>(buffer, target - current);
     };
 };
 
 _extendCount<A> :: (Buffer<A>, USize) -> Unit := (buffer, end) ->
-    when (end > state<USize, A>(buffer)) setState<USize, A>(buffer, end);
+    when (end > meta<USize, A>(buffer)) setMeta<USize, A>(buffer, end);
 ```
 
 `_rangeEnd`はcountとrange末尾を表現できない場合の現行trapを再現する。allocation byte数を表現できない場合とallocation failureは
-`reserve`がtrapする。growth policyはこのfileが所有する。現行runtimeは必要byte数を16以上の2の累乗へ丸めるが、
-このfileはelement数で倍増し、byte単位の丸めは`capacity`から観測できない`reserve`内部の選択として残す。
+`grow`がtrapする。growth policyはこのfileが所有する。現行runtimeは必要byte数を16以上の2の累乗へ丸めるが、
+このfileはelement数で倍増し、byte単位の丸めは`capacity`から観測できない`grow`内部の選択として残す。
 
 ## 要素operation
 
 ```mal
-make<A> :: USize -> Buffer<A> := (capacity) -> makeIxPool<USize, A>(0usize, capacity);
+make<A> :: USize -> Buffer<A> := (capacity) -> {
+    buffer :: Buffer<A> := pool<USize, A>(0usize);
+    grow<USize, A>(buffer, capacity);
+    buffer;
+};
 
-length<A> :: Buffer<A> -> USize := (buffer) -> state<USize, A>(buffer);
+length<A> :: Buffer<A> -> USize := (buffer) -> meta<USize, A>(buffer);
 
 new<A> :: (Buffer<A>, A) -> USize := (buffer, value) -> {
-    count := state<USize, A>(buffer);
+    count := meta<USize, A>(buffer);
     end := _rangeEnd(count, 1usize);
     _ensureCapacity<A>(buffer, end);
     initAt<USize, A>(buffer, count, value);
-    setState<USize, A>(buffer, end);
+    setMeta<USize, A>(buffer, end);
     count;
 };
 
@@ -94,7 +99,7 @@ _fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
 fill<A> :: (Buffer<A>, USize, USize, A) -> Unit := (buffer, offset, length, value) -> {
     end := _rangeEnd(offset, length);
     _ensureCapacity<A>(buffer, end);
-    _fillFrom<A>(buffer, state<USize, A>(buffer), offset, end, value);
+    _fillFrom<A>(buffer, meta<USize, A>(buffer), offset, end, value);
     _extendCount<A>(buffer, end);
 };
 
@@ -119,7 +124,7 @@ copy<A> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
     (destination, destinationOffset, source, sourceOffset, length) -> {
         end := _rangeEnd(destinationOffset, length);
         _ensureCapacity<A>(destination, end);
-        count := state<USize, A>(destination);
+        count := meta<USize, A>(destination);
         if (destinationOffset <= sourceOffset)
         then _copyUp<A>(destination, count, destinationOffset, source, sourceOffset, 0usize, length)
         else _copyDown<A>(destination, count, destinationOffset, source, sourceOffset, length);
@@ -140,16 +145,16 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 `from`、`into`、`*`の二方向はIxPoolの上に書けないため、[Bufferのprimitive](primitives.md#buffer)としてruntimeが持つ。
 型、意味、preconditionは現行の[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)と
 [Symbol conversion](../../spec/memory.md#symbol-conversion)のままである。runtimeはこのfileのrepresentation、つまりIxPoolと
-State=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`をLiveにしてcountを`length`にした新しいIxPoolを返す。
+Meta=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`をLiveにしてcountを`length`にした新しいIxPoolを返す。
 
 ## 現行Bufferとの差分
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPool primitiveと、`from`、`into`、`*`を持つ。
-- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<State, UInt8>`は
+- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
   [canonical layout](runtime.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
-  representation選択とState=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
+  representation選択とMeta=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
 
 公開operationと未検査preconditionを保つため、`managed-bytes`、`canonical-memory`、`indexed-graph`など`Buffer`を使う
@@ -158,11 +163,11 @@ State=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`�
 | operation | 現行Buffer | IxPool上の実装 |
 |---|---|---|
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
-| `new` | runtimeがgrowthを決める | Buffer fileが`reserve`とgrowth policyを呼ぶ |
+| `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
 | `from`、`into`、`*` | runtimeのbulk copy | 変わらない |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
-| 破棄 | `[0, count)`をrelease | 占有metadataを走査してLive slotをDrop |
+| 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
 
 `indexed-graph`のDijkstraが`fill`で初期化する距離表のように、unmanagedな要素の`fill`はIxPool callのloopにすると要素数だけcallが
 増える。現行runtimeのloopと同等にするには、runtime representationとcanonical layoutが一致する型の一括処理が要る。

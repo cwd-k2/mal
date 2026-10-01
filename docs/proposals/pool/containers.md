@@ -8,9 +8,9 @@ Status: Exploratory support document
 
 ## containerの比較
 
-各containerは、Stateに何を置くか、Liveなcoordinateの集合をどんな形に保つか、coordinateに何の意味を与えるかで決まる。
+各containerは、Metaに何を置くか、Liveなcoordinateの集合をどんな形に保つか、coordinateに何の意味を与えるかで決まる。
 
-| container | State | Liveなcoordinateの集合 | coordinateの意味 | 公開precondition |
+| container | Meta | Liveなcoordinateの集合 | coordinateの意味 | 公開precondition |
 |---|---|---|---|---|
 | Buffer | count | `[0, count)` | 列の位置 | `index < #buffer` |
 | stack | count | `[0, count)` | 列の位置 | なし。空のpopはmissingを返す |
@@ -38,8 +38,8 @@ Status: Exploratory support document
 | 全slotが値を持つ | 空きを表す番兵値とsum tag、構築時の全slotへの`fill`、probeごとのsum分岐 | Vacantが空きを表し、要素型をそのまま置ける |
 | countは増えるだけ | popも削除もできず、取り出した値は番兵で上書きするまでstorageに残る | `takeAt`で取り出した時点でresponsibilityがslotを離れる |
 | 値は`get`の`Share`と`put`の`Drop`でしか動かない | rehash、sift、ringの展開で、移動ごとに`Share`と`Drop`が起こる | `takeAt`と`initAt`による移動は`Share`も`Drop`も起こさない |
-| capacityはcountの延長としてしか増えない | 空き領域を作るたびに番兵を書く | `reserve`で書き込みなしにVacantを増やす |
-| 有効な範囲はcountだけで表す | container固有のinvariantを番兵値として要素の中へ符号化する | 占有状態はIxPoolが保ち、`isLive`で読める |
+| capacityはcountの延長としてしか増えない | 空き領域を作るたびに番兵を書く | `grow`で書き込みなしにVacantを増やす |
+| 有効な範囲はcountだけで表す | container固有のinvariantを番兵値として要素の中へ符号化する | 占有状態は`Slot<V>`の値としてIxPoolが保ち、`peek`で読める |
 
 `Symbol`などmanagedな要素では、二つ目と三つ目の差が大きい。Buffer上のMapで削除したentryは番兵で上書きするまでreferentを
 保持し続け、rehashはentryごとにretainとreleaseを往復する。IxPool上では削除した値は取り出した時点で呼び出し元へ移り、rehashは
@@ -58,18 +58,18 @@ Status: Exploratory support document
 ## 書く側から見た比較
 
 [collection例](collection-examples.md)をC host上で書いた経験では、削除、取り出し、移動、可変のmetadataを持つcontainerはBufferより
-書きやすかった。最も効いたのはStateである。malには可変のbindingがないため、Buffer上のDequeや木は`head`、`count`、`root`の置き場として
-別の`Buffer<USize>`を用意するか、要素の一つへ埋め込む必要がある。IxPoolでは`(head, count) := state(deque)`のようにstorageと
+書きやすかった。最も効いたのはMetaである。malには可変のbindingがないため、Buffer上のDequeや木は`head`、`count`、`root`の置き場として
+別の`Buffer<USize>`を用意するか、要素の一つへ埋め込む必要がある。IxPoolでは`(head, count) := meta(deque)`のようにstorageと
 同じidentityから読める。番兵値を置かず要素型をそのままslotに置けることと、`takeAt`、`initAt`、`moveAt`でアルゴリズムどおりに
 値を動かせることも、code量と読みやすさの両方に効いた。
 
-負担は、占有状態とStateを自分で正しく保つことに集約された。
+負担は、占有状態とMetaを自分で正しく保つことに集約された。
 
-- `reserve`してから`initAt`し、`initAt`の後にStateを更新する、という対を毎回書く。Bufferの`new`はこれを一つの操作で行う。
-- 要素の列挙がないため、木の検査には中順の再帰を書き、Mapの全要素には`isLive`でcapacity全体を走査する。
+- `grow`してから`initAt`し、`initAt`の後にMetaを更新する、という対を毎回書く。Bufferの`new`はこれを一つの操作で行う。
+- 要素の列挙がないため、木の検査には中順の再帰を書き、Mapの全要素には`peek`でcapacity全体を走査する。
 - SlotMapのgenerationや木のfree listのように、Vacantなslotに関する情報の置き場を最初に設計する。
 
-この負担は、よく使う対を`reserveAtLeast`のような補助関数へまとめること、占有状態を検査するruntimeでcontainerをtestすること、
+この負担は、よく使う対を`ensureCapacity`のような補助関数へまとめること、占有状態を検査するruntimeでcontainerをtestすること、
 [primitive `trap`](../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのIxPool実装や
 IxPoolの明示的な解放が必要だったのはC hostを経由したためであり、IxPoolの性質ではない。
 
@@ -86,13 +86,13 @@ IxPoolの明示的な解放が必要だったのはC hostを経由したため�
 
 移す操作を一括にする`moveRange`と、IxPoolとhostの直接の交換は[測定後の候補](primitives.md#測定後の候補)に置く。
 
-## Vacantが値を持たないこと
+## Vacantが`Unit`だけを持つこと
 
-Vacantなslotは値を持たない。IxPoolの上にmalで書くSlotMapと木は、次の空きcoordinateをVacantなslotへ書けないため、free listをStateに
-置くか、`IxPool<Unit, USize>`のような別のIxPoolへ積む。これはIxPoolが未初期化carrierを公開しない代わりに生じる制約であり、Vacantな
-slotに値を置く必要があるcontainerは、要素を`[Unit, T]`のような直和にしてLiveなまま空きを表す。
+Vacantなslotは`Unit`しか持たない。IxPoolの上にmalで書くSlotMapと木は、次の空きcoordinateをVacantなslotへ書けないため、free listをMetaに
+置くか、`IxPool<USize, USize>`のような別のIxPoolへ積む。これはIxPoolが未初期化carrierを公開しない代わりに生じる制約であり、
+空きslotに情報を置く必要があるcontainerは、要素を`[USize, T]`のような直和にして、Liveなslotの第一項で空きと次の空きcoordinateを表す。
 
-Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の全要素を訪れるには`isLive`でcapacity全体を走査するか、container自身が
+Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の全要素を訪れるには`peek`でcapacity全体を走査するか、container自身が
 要素の並びを持つ。live slot iterationをどの層が持つかは[README](README.md#未決定事項)の未決定事項である。
 
 ## IxPoolの輪郭
@@ -100,9 +100,9 @@ Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の�
 どのcontainerも共通に使い、IxPoolが提供するものは次である。
 
 - `0`から`capacity - 1`までの線形なcoordinate空間
-- coordinateごとのLiveとVacant、およびその間の遷移`initAt`と`takeAt`
-- 同じidentityに置く共有mutableなState
-- 明示的な`reserve`によるcapacityの拡張と、coordinateを保つrelocation
+- coordinateごとの`Slot<V>`の値と、それを読み書きする`peek`、`slot`、`swap`
+- 同じidentityに置く共有mutableなMeta
+- 明示的な`grow`によるcapacityの拡張と、coordinateを保つrelocation
 - 要素型ごとの型付きstorageと、寿命と所有権の正しさ
 
 containerごとに異なり、IxPoolが決めないものは次である。
@@ -112,5 +112,5 @@ containerごとに異なり、IxPoolが決めないものは次である。
 - growth policy、free list、順序、hash、要素の列挙
 - 公開preconditionと、それをIxPoolのpreconditionへ写すinvariant
 
-したがってIxPoolは、共有Stateを伴う型付きplaceの線形空間であり、どのplaceを使うかを持ち主が決めるもの、と言える。Bufferは
+したがってIxPoolは、共有Metaを伴う型付きplaceの線形空間であり、どのplaceを使うかを持ち主が決めるもの、と言える。Bufferは
 この空間の使い方の一つにすぎず、IxPoolの意味はBufferに依存しない。

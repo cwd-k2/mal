@@ -2,56 +2,91 @@
 
 Status: Exploratory support document
 
-この文書は、IxPoolとBufferの責務分担と、Pool案が仮定するprimitiveの一覧と意味を管理する。slot primitiveのpreconditionと
-所有権の効果は[runtime contract](runtime.md)、Bufferのoperationの意味とpreconditionは[AddressとBuffer](../../spec/memory.md)を
-正とする。名前は仮のものである。
+この文書は、Pool案のprimitiveを、意味を定める核と、核で意味を定めたうえで費用のためにprimitiveにする周辺に分けて管理する。
+核の導出と図示は[slotモデル](slot-model.md)、所有権の効果とpreconditionの責任は[runtime contract](runtime.md)、Bufferの
+operationの意味とpreconditionは[AddressとBuffer](../../spec/memory.md)を正とする。名前は仮のものである。
 
 ## 区分
 
-各primitiveを次のどれかに分類する。
+各operationを次のどれかに分類する。
 
-- 核：所有権を動かす遷移。他の操作はこれらへ分解できる。
-- 必須：malの他の操作では表せない。
-- 維持：意味は他の操作へ分解できるが、分解するとstorageの共有を壊すためprimitiveに残す。
-- 性能：他の操作のloopで書けるが、call数や分岐を減らすためprimitiveにする。
-- 派生：他のprimitiveで書く通常の関数。性能のためprimitiveにしてもよく、その場合も意味は分解と同じである。
+- 核：Poolの意味論を定める。他のoperationの意味は核の合成で定まる。
+- 必須：核を含むmalの他の操作では表せない。
+- 性能：意味は核の合成と同じであり、`Share`、`Drop`、tagの分岐、call数を減らすため、またはstorageを共有するためにprimitiveにする。
+- 派生：他のoperationで書く通常の関数。
 
 ## IxPool
 
-```mal
-IxPool<State, T>
+### 核
 
-makeIxPool<State, T> :: (State, USize) -> IxPool<State, T>;
-state<State, T> :: IxPool<State, T> -> State;
-setState<State, T> :: (IxPool<State, T>, State) -> Unit;
-capacity<State, T> :: IxPool<State, T> -> USize;
-reserve<State, T> :: (IxPool<State, T>, USize) -> Unit;
-isLive<State, T> :: (IxPool<State, T>, USize) -> Bool;
-initAt<State, T> :: (IxPool<State, T>, USize, T) -> Unit;
-takeAt<State, T> :: (IxPool<State, T>, USize) -> T;
-getAt<State, T> :: (IxPool<State, T>, USize) -> T;
-putAt<State, T> :: (IxPool<State, T>, USize, T) -> Unit;
-dropAt<State, T> :: (IxPool<State, T>, USize) -> Unit;
-moveAt<State, T> :: (IxPool<State, T>, USize, USize) -> Unit;
+```mal
+IxPool<Meta, V>
+Slot<V> :: [Unit, V];
+
+pool<Meta, V> :: Meta -> IxPool<Meta, V>;
+grow<Meta, V> :: (IxPool<Meta, V>, USize) -> Unit;
+capacity<Meta, V> :: IxPool<Meta, V> -> USize;
+peek<Meta, V> :: (IxPool<Meta, V>, USize) -> Slot<V>;
+slot<Meta, V> :: (IxPool<Meta, V>, USize, Slot<V>) -> Unit;
+meta<Meta, V> :: IxPool<Meta, V> -> Meta;
+setMeta<Meta, V> :: (IxPool<Meta, V>, Meta) -> Unit;
 ```
 
-| primitive | 区分 | 役割 |
+IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。`m`は`Meta`の値、`n`はcoordinate空間の大きさ、`slots`は`[0, n)`の
+各coordinateに`Slot<V>`の値を割り当てる。`Slot<V>`の第一項をVacant、第二項をLiveと呼ぶ。
+
+| primitive | 意味 | precondition |
 |---|---|---|
-| `makeIxPool` | 必須 | 初期StateとlogicalなcapacityでIxPoolを作る |
-| `state`、`setState` | 必須 | 共有identityのStateを読み、置き換える |
-| `capacity`、`reserve` | 必須 | logical capacityを読み、増やす。IxPoolは自動でgrowthしない |
-| `isLive` | 必須 | coordinateの占有状態を読む |
-| `initAt`、`takeAt` | 核 | Vacant → Live、Live → Vacant |
-| `getAt` | 維持 | Liveなslotの値を`Share`する |
-| `putAt`、`dropAt` | 派生 | `takeAt`して`initAt`、`takeAt`して結果を捨てる |
-| `moveAt(pool, source, destination)` | 派生 | `source`を`takeAt`して`destination`へ`initAt`する |
+| `pool(m)` | `(m, 0, ∅)`を持つ新しいidentityを返す | なし |
+| `grow(pool, k)` | `n := n + k`とし、増えたslotをVacantにする | なし |
+| `capacity(pool)` | `n`を返す | なし |
+| `peek(pool, i)` | `slots[i]`を返す | `i < n` |
+| `slot(pool, i, s)` | `slots[i] := s` | `i < n` |
+| `meta(pool)` | `m`を返す | なし |
+| `setMeta(pool, m')` | `m := m'` | なし |
 
-IxPoolの形成は`Storable(State)`と`Storable(T)`を要求する。IxPoolのcopyは同じState、capacity、slotを持つidentityを共有する。
+IxPoolの形成は`Storable(Meta)`と`Storable(V)`を要求する。IxPoolのcopyは同じidentityを共有し、Meta、`n`、slotへの変更を
+すべてのaliasが観測する。`n`はPool自身の構造であり、containerが選ぶ値を置くMetaとは別に持つ。MetaとslotはどちらもIxPool
+identityの中のplaceであり、Metaは常に`Meta`の値を、slotは常に`Slot<V>`の値を持つ。
+slotだけがVacantを取り得るのは、`grow`が値を渡さずにplaceを作るためである（[slotモデル](slot-model.md#metaとslot)）。
 
-slotは`0`から`capacity - 1`までの`USize` coordinateで選び、coordinate空間は順序を持ち途中に抜けがない。この線形性により
-`[offset, offset + length)`という区間、つまりrunが意味を持つ。runの意味はstorageの物理配置に依存しないが、実装は
-`Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合Bufferのrunの操作はbulk copyになる。coordinate空間が
-線形でも、占有状態には穴があり得る。
+coordinate空間は順序を持ち途中に抜けがない。この線形性により`[offset, offset + length)`という区間、つまりrunが意味を持つ。
+runの意味はstorageの物理配置に依存しないが、実装は`Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合
+Bufferのrunの操作はbulk copyになる。coordinate空間が線形でも、Liveなslotの集合には穴があり得る。
+
+### 周辺
+
+周辺のoperationは、核の合成で意味を定める。一部は核にない未検査preconditionを加え、それを満たすcallでは核の合成と同じ結果を
+少ない費用で返す。
+
+```mal
+vacant<V> :: Unit -> Slot<V> := () -> [empty, full] => { empty(); };
+live<V> :: V -> Slot<V> := (value) -> [empty, full] => { full(value); };
+
+swap<Meta, V> :: (IxPool<Meta, V>, USize, Slot<V>) -> Slot<V>;
+isLive<Meta, V> :: (IxPool<Meta, V>, USize) -> Bool;
+getAt<Meta, V> :: (IxPool<Meta, V>, USize) -> V;
+initAt<Meta, V> :: (IxPool<Meta, V>, USize, V) -> Unit;
+takeAt<Meta, V> :: (IxPool<Meta, V>, USize) -> V;
+putAt<Meta, V> :: (IxPool<Meta, V>, USize, V) -> Unit;
+dropAt<Meta, V> :: (IxPool<Meta, V>, USize) -> Unit;
+moveAt<Meta, V> :: (IxPool<Meta, V>, USize, USize) -> Unit;
+```
+
+| operation | 区分 | 核による意味 | 追加のprecondition | primitiveにする理由 |
+|---|---|---|---|---|
+| `vacant`、`live` | 派生 | `Slot<V>`の各項を作る | なし | — |
+| `swap(pool, i, s)` | 性能 | `r := peek(pool, i); slot(pool, i, s); r` | なし | 古い値をMoveで返し、`Share`も`Drop`もしない |
+| `isLive(pool, i)` | 性能 | `peek(pool, i)`がLiveか | なし | payloadを`Share`しない |
+| `getAt(pool, i)` | 性能 | `peek(pool, i)`のLiveの値 | Live | tagの分岐を省く |
+| `initAt(pool, i, v)` | 性能 | `slot(pool, i, live(v))` | Vacant | 古い値の`Drop`の判定を省く |
+| `takeAt(pool, i)` | 性能 | `swap(pool, i, vacant())`のLiveの値 | Live | tagの分岐を省く |
+| `putAt(pool, i, v)` | 性能 | `slot(pool, i, live(v))` | Live | tagの分岐を省く |
+| `dropAt(pool, i)` | 派生 | `slot(pool, i, vacant())` | なし | — |
+| `moveAt(pool, a, b)` | 派生 | `initAt(pool, b, takeAt(pool, a))` | `a`がLive、`b`がVacant | — |
+
+全operationは核と同じ`i < n`も要求する。核だけを使うcontainerは、LiveとVacantの一致を`Slot<V>`の除去で扱い、範囲以外の
+preconditionを持たない。
 
 ## IxPoolとBufferの責務
 
@@ -59,7 +94,7 @@ memory操作は、抽象する単位で三つの語彙に分かれ、IxPoolとBu
 
 | 語彙 | 抽象する単位 | 操作 | 持つ型 |
 |---|---|---|---|
-| slot | 一つのcoordinateのLiveまたはVacant | `initAt`、`takeAt`、`getAt`、`reserve`、State | IxPool |
+| slot | 一つのcoordinateのplace | `peek`、`slot`、`grow`、Meta | IxPool |
 | sequence | 一つのLiveなrun `[0, count)` | `make`、`new`、`get`、`put`、`#`、growth policy | Buffer |
 | run | 連続した要素範囲の一括の転送 | `fill`、`copy`、`from`、`into`、`*` | Buffer |
 
@@ -85,7 +120,7 @@ Bufferは言語の組み込み型ではなく、IxPool上のpreludeのopaque型�
 | `*symbol`（`Symbol`から`Buffer<UInt8>`） | 性能 | `symbol # index`のloopでも書ける。byte列へ特化した`thaw`に当たる |
 | `fill`、`copy` | 派生 | 参照実装はslot操作のloopであり、runtimeは同じ結果になる一括処理で実装してよい |
 
-runtimeはこれらをBufferのrepresentation、つまりIxPoolとState=countの上で実装する。`*`はbyte IxPoolのstorageを`Symbol`と
+runtimeはこれらをBufferのrepresentation、つまりIxPoolとMeta=countの上で実装する。`*`はbyte IxPoolのstorageを`Symbol`と
 共有してよく、書き込みはcopy-on-writeにする（[representation](runtime.md#runtime-representation)）。
 
 containerが現行runtimeと同じoverflow trapをmalで起こすには、[primitive `trap`案](../primitive-trap.md)の
@@ -93,27 +128,32 @@ containerが現行runtimeと同じoverflow trapをmalで起こすには、[primi
 
 ## ImPool
 
-`ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
-primitiveはIxPoolと同じ名前を使う。読み出しはIxPoolと同じ意味を持ち、preconditionは同じ名前のIxPool primitiveと同じである。
+`ImPool<Meta, V>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
+状態はIxPoolと同じ`(m, n, slots)`を値として持ち、核と周辺はIxPoolと同じ名前、意味、preconditionを持つ。違いは、IxPoolで
+`Unit`を返す更新がsuccessorを返し、値を返す更新がsuccessorとの組を返すことだけである。
 
 ```mal
-ImPool<State, T>
+ImPool<Meta, V>
 
-makeImPool<State, T> :: (State, USize) -> ImPool<State, T>;
-state<State, T> :: ImPool<State, T> -> State;
-capacity<State, T> :: ImPool<State, T> -> USize;
-isLive<State, T> :: (ImPool<State, T>, USize) -> Bool;
-getAt<State, T> :: (ImPool<State, T>, USize) -> T;
-setState<State, T> :: (ImPool<State, T>, State) -> ImPool<State, T>;
-reserve<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
-initAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
-putAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
-dropAt<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
+pool<Meta, V> :: Meta -> ImPool<Meta, V>;
+grow<Meta, V> :: (ImPool<Meta, V>, USize) -> ImPool<Meta, V>;
+capacity<Meta, V> :: ImPool<Meta, V> -> USize;
+peek<Meta, V> :: (ImPool<Meta, V>, USize) -> Slot<V>;
+slot<Meta, V> :: (ImPool<Meta, V>, USize, Slot<V>) -> ImPool<Meta, V>;
+meta<Meta, V> :: ImPool<Meta, V> -> Meta;
+setMeta<Meta, V> :: (ImPool<Meta, V>, Meta) -> ImPool<Meta, V>;
+
+swap<Meta, V> :: (ImPool<Meta, V>, USize, Slot<V>) -> (ImPool<Meta, V>, Slot<V>);
+takeAt<Meta, V> :: (ImPool<Meta, V>, USize) -> (ImPool<Meta, V>, V);
 ```
 
+`isLive`、`getAt`はIxPoolと同じ型で読み、`initAt`、`putAt`、`dropAt`、`moveAt`は`ImPool<Meta, V>`を返す。
+ImPoolのMetaは、意味の上では`(Meta, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
+IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。
+
 各更新はinputを`Store`で受け取り、内部で[writable successor](runtime.md#writable-successor)を作ってから変更して返す。inputが唯一の
-responsibilityならstorageを再利用し、共有中ならcopyする。この判断は参照数に依存し、malの他の操作では表せないため、更新は
-すべて必須のprimitiveである。
+responsibilityならstorageを再利用し、共有中ならcopyする。この判断は参照数に依存し、malの他の操作では表せないため、核の
+更新`grow`、`slot`、`setMeta`は必須のprimitiveである。
 
 - 更新前のvalueをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
 - 同じvalueを別のslotへ保存したoperandはShareされてuniquenessが成り立たず、以後の更新はcopyへfallbackする。
@@ -122,32 +162,33 @@ responsibilityならstorageを再利用し、共有中ならcopyする。この�
 別のvalueの変更として現れる。更新自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装のinvariantへ依存させない。
 
 `Symbol`は意味の上ではImPoolの上のbyte列のrunに、`#`、`+`、`/`、`%`、`==`を加えたものである。ImPoolで再定義はせず、
-storageを共有するsliceのview、static storageのliteral、占有metadataのないdenseなbyte列という専用の表現を保つ。BufferとIxPoolの
+storageを共有するsliceのview、static storageのliteral、占有tagのないdenseなbyte列という専用の表現を保つ。BufferとIxPoolの
 関係と同じく、意味はImPoolの上で説明し、実装は同じ結果になる限り専用でよい。
 
 ## freezeとthaw
 
 ```mal
-freeze<State, T> :: IxPool<State, T> -> ImPool<State, T>;
-thaw<State, T> :: ImPool<State, T> -> IxPool<State, T>;
+freeze<Meta, V> :: IxPool<Meta, V> -> ImPool<Meta, V>;
+thaw<Meta, V> :: ImPool<Meta, V> -> IxPool<Meta, V>;
 ```
 
-- `freeze(pool)`は、呼び出し時点のStateとslotを持つImPoolを返す。元のIxPoolはidentityを保ったまま使い続けられ、以後の変更は
-  返した値から観測されない。
-- `thaw(value)`は、同じStateとslotを持つ新しいidentityのIxPoolを返す。返したIxPoolへの変更は、元の値からも、同じ値から
+- `freeze(pool)`は、呼び出し時点のMeta、`n`、slotを持つImPoolを返す。元のIxPoolはidentityを保ったまま使い続けられ、以後の
+  変更は返した値から観測されない。
+- `thaw(value)`は、同じMeta、`n`、slotを持つ新しいidentityのIxPoolを返す。返したIxPoolへの変更は、元の値からも、同じ値から
   thawした別のIxPoolからも観測されない。
 
-可変なIxPoolで効率よく組み立ててから値として公開すること、値から編集用の可変なcopyを作ることに使う。意味は要素を一つずつ
-copyするloopで定まるため、区分は性能である。primitiveにするのはstorageを共有するためであり、`freeze`はIxPoolのstorageを
+可変なIxPoolで効率よく組み立ててから値として公開すること、値から編集用の可変なcopyを作ることに使う。意味は核の`peek`と`slot`
+のloopで定まるため、区分は性能である。primitiveにするのはstorageを共有するためであり、`freeze`はIxPoolのstorageを
 ImPoolと共有して、IxPool側への後の書き込みでcopyする。`thaw`は入力が唯一のresponsibilityならstorageを移し、共有中なら
 書き込みでcopyする。共有を許すと、IxPoolへの書き込みのたびにstorageが共有中かの確認が一回入る。現在のBufferも`Symbol`と
 byte ownerを共有するため同じ確認を持つが、全要素型のIxPoolへ広げるか、`freeze`を常にcopyにして確認を省くかは未決定である。
 
 ## 測定後の候補
 
-次の操作は意味をslot操作のloopで書ける。loopのcostが測定で問題になった場合に追加を検討する。
+次の操作は意味を核のloopで書ける。loopのcostが測定で問題になった場合に追加を検討する。
 
 - IxPoolの`moveRange`：範囲の`takeAt`と`initAt`を一括で行い、`Share`も`Drop`もしない。Dequeの成長、Mapのrehash、詰め直しが使う。
+- `swapMeta`：新しいMetaをMoveで入れ、古いMetaをMoveで返す。木のfree listのようにmanagedな値をMetaに持つcontainerが使う。
 - IxPoolとhostの直接の交換：Bufferを経由する一段のcopyを省く。ring bufferのように大量のI/Oを自前で行うcontainerが使う。
   hostのdataがmalのstorageへ入る入口が`from`の外にも増える。
 - ImPoolの範囲の写し：immutable arrayのsliceと連結。`Symbol`の`+`、`/`、`%`をbyte列以外へ広げたものに当たる。

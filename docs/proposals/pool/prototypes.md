@@ -11,7 +11,7 @@ Status: Exploratory support document
 - C host試作：占有状態を検査するC hostがIxPoolのstorageを持ち、operation familyが要素型ごとにhostを呼ぶ。preconditionへの違反は
   trapになる。要素はhostへ渡せる型に限られ、IxPoolの寿命はないため明示的に解放する。`Symbol`もextern境界を通らないため、
   同じoperationを持つhost側のtextで代用した。
-- Buffer上のemulation：現在の言語だけで、`Buffer<S>`のStateと`Buffer<[Unit, T]>`のslotとしてIxPool APIを実装した。Vacantは
+- Buffer上のemulation：現在の言語だけで、`Buffer<M>`のMetaと`Buffer<[Unit, T]>`のslotとしてIxPool APIを実装した。Vacantは
   `Unit`のvariantで表し、preconditionへの違反は戻らない。
 
 どちらでも、stack、binary heap、Map、Deque、SlotMap、木の同じsourceが変更なしに動いた。containerはIxPool APIにしか依存せず、
@@ -37,10 +37,10 @@ Buffer上のemulationで、[immutable array](collection-examples.md#immutable-ar
 
 ## slot遷移とcontainer
 
-- 要素型ごとの実装は`initAt`、`takeAt`、Stateだけで足り、`putAt`、`dropAt`、`moveAt`は通常のgeneric関数として書けた。
+- 要素型ごとの実装は`initAt`、`takeAt`、Metaだけで足り、`putAt`、`dropAt`、`moveAt`は通常のgeneric関数として書けた。
 - `takeAt`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開、heapの穴を動かすsift、木とSlotMapの
   slot再利用を、要素をcopyせずに書けた。
-- C host試作の検査は、containerの`reserve`忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはIxPoolのpreconditionを
+- C host試作の検査は、containerのcapacity拡張忘れと利用者のprecondition違反の両方をtrapへ変えた。messageはIxPoolのpreconditionを
   示し、container operationを示さない。
 - Buffer上のemulationで`Symbol`を要素にしたMap、Deque、heap、SlotMapを動かし、valgrindで全allocationの解放とerror 0を
   確かめた。`takeAt`と`initAt`による移動は、managed valueのresponsibilityを一つに保った。
@@ -63,7 +63,7 @@ ropeはIxPool上の別containerとして持つ方が合う。
 ## IxPoolとBufferの非対称
 
 IxPoolはBufferの上に、BufferはIxPoolの上に、どちらも意味の上では書ける。Buffer上のIxPoolはslotごとのsum tagと、`takeAt`ごとの
-`Share`と`Drop`を払うが、IxPool上のBufferが払うのは占有metadataの更新とIxPool終了時の走査だけである。IxPoolをprimitiveに
+`Share`と`Drop`を払うが、IxPool上のBufferが払うのは占有tagの更新とIxPool終了時の走査だけである。IxPoolをprimitiveに
 するのはこの非対称のためである。
 Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形とは意味が同じであり、残る差はこれらのcostだけである。
 その大きさは測っていない。
