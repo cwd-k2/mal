@@ -42,13 +42,13 @@ Metaとslotは同じ規則のplaceであり、違いは持つ値の型だけで�
 
 ## 最小核の導出
 
-核は`pool`、`grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である。意味論の最小と、primitiveとして持つ操作の最小は
-一致しない。
+核は`pool`、`grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である。核は、他の操作で表せない意味論の核と、
+他の操作で書けるが書くと計算量が変わる計算量の核に分かれる（[区分](primitives.md#区分)）。
 
-| place | 意味論の最小 | 操作の最小 | 派生 |
+| place | 意味論の核 | 計算量の核 | 派生 |
 |---|---|---|---|
-| slot | `swap` | `peek`、`swap` | `slot` |
-| Meta | `meta`と`swapMeta` | `meta`、`swapMeta` | `setMeta` |
+| slot | `swap` | `peek` | `slot` |
+| Meta | `meta`、`swapMeta` | — | `setMeta` |
 
 ### slot
 
@@ -60,10 +60,12 @@ slot(i, s)     = swap(i, s)の結果を捨てる
 peek(i)        = r := swap(i, vacant()); _ := swap(i, r); r
 ```
 
-`peek`の分解で`r`を二回使えるのは、malの値が再利用できるからである。それでも`peek`を核に置くのは、読み出しを書き込みに
-しないためである。分解すると読み出しが二回の書き込みになり、[freeze](primitives.md#freezeとthaw)で共有したstorageをcopyし、
-費用も一回のreadから二回のwriteに増える。逆に`slot`は核に置かない。`swap`の結果を呼び出し側でDropしても、primitive内で
-旧値をDropしても費用は同じであり、`slot`だけでは値をMoveで取り出せない。
+`peek`の分解で`r`を二回使えるのは、malの値が再利用できるからである。それでも`peek`を計算量の核に置くのは、読み出しを
+書き込みにしないためである。分解すると読み出しが二回の書き込みになり、共有中のImPoolや[freeze](primitives.md#freezeとthaw)で
+共有したstorageを読むたびにO(n)のcopyが起きる。ImPoolでは読み出しがsuccessorを返す更新になる。
+
+逆に`slot`は核に置かない。`swap`の結果を呼び出し側でDropしても、primitive内で旧値をDropしても費用は同じであり、`slot`だけ
+では値をMoveで取り出せない。
 
 他のslot operationは`peek`と`swap`の合成である。Liveかどうかは結果の除去で分かる。
 
