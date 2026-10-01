@@ -6,6 +6,7 @@ use crate::resolve::ast::TypeId;
 use mal_syntax::{diagnostic::Diagnostic, source::Span};
 
 use super::super::ast::{Kind, Type};
+use super::super::types::term::kinds_unify;
 
 mod scheme;
 mod substitution;
@@ -159,7 +160,7 @@ pub(super) fn constrain(
                 kind: right_kind,
                 ..
             },
-        ) if left_kind == right_kind => {
+        ) if kinds_unify(left_kind, right_kind, span) => {
             constrain(
                 left_constructor,
                 right_constructor,

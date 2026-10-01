@@ -115,3 +115,9 @@ pub(in crate::check) fn check_kind_requirements(
     }
     Ok(())
 }
+
+/// Whether two kinds can be made equal. Kinds of the same type term may differ in how they spell kind
+/// variables, for example when a body uses a parameter at a kind its signature leaves open.
+pub(in crate::check) fn kinds_unify(left: &Kind, right: &Kind, span: Span) -> bool {
+    left == right || kind::unify(left, right, &mut HashMap::new(), span).is_ok()
+}

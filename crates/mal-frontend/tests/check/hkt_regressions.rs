@@ -190,3 +190,15 @@ fn checks_a_body_kind_requirement_when_the_instance_is_concrete() {
     let primary = error.primary.expect("kind requirement diagnostic");
     assert!(primary.message.contains("needs kind `Type`"));
 }
+
+#[test]
+fn infers_value_arguments_beside_a_constructor_at_a_narrower_kind() {
+    // `isLive` leaves the kind of `V` open while `peek` needs kind `Type`; naming only `F` must still infer
+    // `M` and `V` from the operand.
+    check_ok(
+        "peek<F, M, V> :: (F<M, V>, USize) -> [Unit, V];\n\
+         isLive<F, M, V> :: (F<M, V>, USize) -> Bool := (pool, index) ->\n\
+             peek<F>(pool, index)[() -> false, (_) -> true];\n\
+         main :: Unit -> Int32 := () -> 0;",
+    );
+}

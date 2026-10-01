@@ -113,4 +113,6 @@ pub(in crate::check::types) fn freshen_kind_variables(
 pub(super) use kind::name as kind_name;
 
 pub(super) use argument_kinds::normalize_argument_kinds;
-pub(in crate::check) use argument_kinds::{check_kind_requirements, instantiate_kinds};
+pub(in crate::check) use argument_kinds::{
+    check_kind_requirements, instantiate_kinds, kinds_unify,
+};
