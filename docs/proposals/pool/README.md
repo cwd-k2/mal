@@ -39,9 +39,10 @@ byte列に特化して既に実装したものに当たる。
 
 対の間は`freeze`と`thaw`で変換し、byte列ではこれが`Buffer<UInt8>`と`Symbol`の間の`*`に当たる。
 
-ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照数で決まり、malは参照数をsourceへ見せないためである。BufferはIxPoolの
-上に追加のcostなしに書けるが、逆はslotごとのsum tagと移動ごとの`Share`と`Drop`を払う（[試作](prototypes.md#ixpoolとbufferの非対称)）。
-このため、仕組みの層ではIxPoolがBufferより基本的である。
+ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照数で決まり、malは参照数をsourceへ見せないためである。IxPoolとBufferは
+互いの上に書けるが、Buffer上のIxPoolがslotごとのsum tagと移動ごとの`Share`と`Drop`を払うのに対し、IxPool上のBufferが払うのは
+占有metadataの更新と終了時の走査である（[試作](prototypes.md#ixpoolとbufferの非対称)）。後者が小さいと見込んで、仕組みの層では
+IxPoolをBufferより基本的なものとする。この差はまだ測っていない。
 
 ## 設計の軸
 
@@ -76,7 +77,7 @@ containerが要求する。
 - [runtime contract](runtime.md)：representation、所有権の遷移、未検査precondition、compilerとruntimeの分担、検証の段階
 - [IxPool上のcontainer](containers.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
 - [Buffer実装](buffer-implementation.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
-- [collection例](collection-examples.md)：stack、binary heap、open addressing Map、SlotMap、木、immutable array
+- [collection例](collection-examples.md)：stack、Deque、binary heap、open addressing Map、SlotMap、木、immutable array
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
 
 ## 非目標
@@ -89,7 +90,9 @@ containerが要求する。
 
 ## 未決定事項
 
-- primitiveの名前と、それらをpreludeと`require`のどちらで導入するか。
+- primitiveの名前と導入方法。preludeへ常に置くか、`builtin "ixpool";`、`builtin "impool";`、`builtin "buffer";`のように
+  宣言したfileだけへ導入するか。後者は名前空間を汚さない一方、組み込みmoduleの提供という仕組みを[program](../../spec/programs.md)へ
+  新たに持ち込む。
 - [ImPool](primitives.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
 - [freezeとthaw](primitives.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
 - [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。

@@ -47,8 +47,8 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 
 | 判定 | 問い | 要求される場所 |
 |---|---|---|
-| `Storable` | malのstorageに保持できるか | Buffer、IxPool、ImPoolの要素、IxPoolのState |
-| `Stable` | 保持した値の意味が後から変わらないか | ImPoolの要素とState、Mapのkeyのように値の意味を前提にする場所 |
+| `Storable` | malのstorageに保持できるか | Bufferの要素、IxPoolの要素とState |
+| `Stable` | 保持した値の意味が後から変わらないか | ImPoolの要素とState、`freeze`するIxPoolの要素とState、Mapのkeyのように値の意味を前提にする場所 |
 | `Representable` | hostとcopyできるcanonical layoutを持つか | `from`、`into`、canonical memory helper |
 | `HostMappable` | extern境界をそのまま渡れるか | externのparameterとresult |
 
@@ -56,13 +56,14 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 |---|---|---|---|---|---|
 | `Unit`、numeric scalar、`ByteSize`、`USize`、`Address` | ○ | ○ | ○ | ○ | ○ |
 | `Symbol` | ○ | ○ | ○ | × | × |
-| `ImPool<S, T>` | ― | `S`と`T`がStorableなら○ | `S`と`T`がStableなら○ | × | × |
+| `ImPool<S, T>` | ― | ○ | ○ | × | × |
 | `Buffer<A>` | × | `A`がStorableなら○ | × | × | × |
 | `IxPool<S, T>` | ― | ○ | × | × | × |
 | external opaque | × | × | × | × | ○ |
 | function | × | × | × | × | × |
 
-productとsumは要素から、file-local opaque型はhidden representationから導く。案では`Representable`⊂`Stable`⊂`Storable`となり、
+IxPoolの形成は`Storable(S)`と`Storable(T)`を、ImPoolの形成は`Stable(S)`と`Stable(T)`を要求するため、形成できるIxPoolと
+ImPoolは表の値を無条件に持つ。productとsumは要素から、file-local opaque型はhidden representationから導く。案では`Representable`⊂`Stable`⊂`Storable`となり、
 `Stable`は現在の`Storable`に`ImPool`を加えたものになる。`Address`は背後のものを指すが値そのものは変わらないため、
 `Stable`である。external opaqueは値が変わるからではなく、寿命がEngramの回収と結びつかないため
 `Storable`の外に残る。

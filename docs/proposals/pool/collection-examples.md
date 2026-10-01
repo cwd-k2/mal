@@ -2,7 +2,7 @@
 
 Status: Exploratory example
 
-この文書は、[IxPool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、SlotMap、木と、ImPool上の
+この文書は、[IxPool上のcontainer](containers.md)で比べたstack、Deque、binary heap、open addressing Map、SlotMap、木と、ImPool上の
 immutable arrayを、試作で動かしたcodeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
 試作そのものは[試作で確かめたこと](prototypes.md)を正とする。例は未採択の擬似codeである。
 
@@ -34,6 +34,53 @@ pop<T> :: Stack<T> -> [Unit, T] := (stack) -> [empty, found] => {
 ```
 
 `takeAt`は値のresponsibilityを呼び出し元へ移し、slotをVacantへ戻す。現在のBufferでは、取り出した値は上書きするまでstorageに残る。
+
+## Deque
+
+Stateを`(head, count)`とし、`head`から`count`個のcoordinateをcapacityで折り返してLiveに保つring bufferである。
+
+```mal
+opaque Deque<T> :: IxPool<(USize, USize), T>;
+
+_slot<T> :: (Deque<T>, USize, USize) -> USize := (deque, head, offset) ->
+    (head + offset) % capacity(deque);
+
+// A full ring holds its tail in `[0, head)`. After doubling, that tail moves to follow the old end.
+_unwrap<T> :: (Deque<T>, USize, USize, USize) -> Unit :=
+    (deque, index, head, previous) -> [return] => {
+        when (index == head) return(());
+        moveAt(deque, index, previous + index);
+        return(_unwrap(deque, index + 1usize, head, previous));
+    };
+
+_ensureRoom<T> :: Deque<T> -> Unit := (deque) -> {
+    (head, count) := state(deque);
+    current := capacity(deque);
+    when (count == current) {
+        reserve(deque, if (current == 0usize) then 4usize else current * 2usize);
+        _unwrap(deque, 0usize, head, current);
+    };
+};
+
+pushFront<T> :: (Deque<T>, T) -> Unit := (deque, value) -> {
+    _ensureRoom(deque);
+    (head, count) := state(deque);
+    front := _slot(deque, head, capacity(deque) - 1usize);
+    initAt(deque, front, value);
+    setState(deque, (front, count + 1usize));
+};
+
+popBack<T> :: Deque<T> -> [Unit, T] := (deque) -> [empty, found] => {
+    (head, count) := state(deque);
+    when (count == 0usize) empty();
+    value := takeAt(deque, _slot(deque, head, count - 1usize));
+    setState(deque, (head, count - 1usize));
+    found(value);
+};
+```
+
+成長は`reserve`でcoordinateを保ったままcapacityを倍にし、折り返していた`[0, head)`を`moveAt`で旧capacityの後ろへ移す。
+移動は`Share`も`Drop`も起こさない。`pushBack`と`popFront`も同じ形で書ける。
 
 ## binary heap
 
@@ -226,9 +273,10 @@ chunk単位のCOWやpersistent vectorは共有時のcopy量を減らせる一方
 
 ## 試作での確認
 
-試作では、五つの例を次の条件で動かし、全IxPoolの解放まで確認した。
+試作では、六つの例を次の条件で動かし、全IxPoolの解放まで確認した。
 
 - stack：2000個をpushし、逆順にpopする。
+- Deque：両端へpushして折り返しを作り、両端からpopした後、折り返したまま成長させても順序が保たれることを確かめる。
 - binary heap：擬似乱数の2000個をpushし、popの結果が減少しないことと個数を確かめる。
 - SlotMap：2000個を挿入し、3個に1個を削除した後、同数を挿入し直す。削除した`SlotKey<T>`はmissingになり、残した`SlotKey<T>`と新しい`SlotKey<T>`は
   値を返す。

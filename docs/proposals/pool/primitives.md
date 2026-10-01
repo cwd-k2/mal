@@ -32,6 +32,7 @@ takeAt<State, T> :: (IxPool<State, T>, USize) -> T;
 getAt<State, T> :: (IxPool<State, T>, USize) -> T;
 putAt<State, T> :: (IxPool<State, T>, USize, T) -> Unit;
 dropAt<State, T> :: (IxPool<State, T>, USize) -> Unit;
+moveAt<State, T> :: (IxPool<State, T>, USize, USize) -> Unit;
 ```
 
 | primitive | 区分 | 役割 |
@@ -43,6 +44,7 @@ dropAt<State, T> :: (IxPool<State, T>, USize) -> Unit;
 | `initAt`、`takeAt` | 核 | Vacant → Live、Live → Vacant |
 | `getAt` | 維持 | Liveなslotの値を`Share`する |
 | `putAt`、`dropAt` | 派生 | `takeAt`して`initAt`、`takeAt`して結果を捨てる |
+| `moveAt(pool, source, destination)` | 派生 | `source`を`takeAt`して`destination`へ`initAt`する |
 
 IxPoolの形成は`Storable(State)`と`Storable(T)`を要求する。IxPoolのcopyは同じState、capacity、slotを持つidentityを共有する。
 
@@ -92,7 +94,7 @@ containerが現行runtimeと同じoverflow trapをmalで起こすには、[primi
 ## ImPool
 
 `ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
-読み出しはIxPoolと同じ意味を持ち、preconditionは同名のIxPool primitiveと同じである。
+読み出しはIxPoolと同じ意味を持ち、preconditionは対応するIxPool primitive、例えば`imGetAt`なら`getAt`と同じである。
 
 ```mal
 ImPool<State, T>

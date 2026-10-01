@@ -64,7 +64,8 @@ ropeはIxPool上の別containerとして持つ方が合う。
 ## IxPoolとBufferの非対称
 
 IxPoolはBufferの上に、BufferはIxPoolの上に、どちらも意味の上では書ける。Buffer上のIxPoolはslotごとのsum tagと、`takeAt`ごとの
-`Share`と`Drop`を払うが、IxPool上のBufferは追加のcostを持たない。IxPoolをprimitiveにするのはこの非対称のためである。
+`Share`と`Drop`を払うが、IxPool上のBufferが払うのは占有metadataの更新とIxPool終了時の走査だけである。IxPoolをprimitiveに
+するのはこの非対称のためである。
 Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形とは意味が同じであり、残る差はこれらのcostだけである。
 その大きさは測っていない。
 

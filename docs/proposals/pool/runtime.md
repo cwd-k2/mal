@@ -53,6 +53,7 @@ ownershipが、operandを後で使うなら`Share`し、last useなら`Consume`�
 get(place)          = v := take(place); init(place, v); v      // vを二度使うのでinitのoperandはShare
 put(place, value)   = old := take(place); init(place, value); drop(old)
 drop(place)         = drop(take(place))
+move(source, dest)  = init(dest, take(source))
 state(pool)         = get(pool.state)
 setState(pool, s)   = put(pool.state, s)
 ```
@@ -62,7 +63,7 @@ setState(pool, s)   = put(pool.state, s)
 
 | operation | 分解 | primitive内のshare | primitive内のdrop |
 |---|---|---|---|
-| `initAt`、`takeAt` | `init`、`take` | なし | なし |
+| `initAt`、`takeAt`、`moveAt` | `init`、`take`、`move` | なし | なし |
 | `getAt`、`state` | `get` | 1 | なし |
 | `putAt`、`setState` | `put` | なし | 旧value 1 |
 | `dropAt` | `drop` | なし | 1 |
@@ -72,6 +73,10 @@ setState(pool, s)   = put(pool.state, s)
 Bufferの`fill`と`copy`は[参照実装](buffer-implementation.md#range-operation)のloopがこれらの遷移を呼ぶため、回数はその分解から
 決まり、runtimeが一括処理で実装しても同じ回数にする。`from`、`into`、`*`は`Representable`な型か`UInt8`だけを扱い、`share`と
 `drop`はno-opなので所有権解析へ入力を持たない。
+
+この表はIxPoolのstorageが共有されていない場合の回数である。[freeze](primitives.md#freezeとthaw)がstorageをImPoolと共有する案を
+採ると、共有中のIxPoolへの最初の書き込み、つまり`getAt`、`isLive`、`capacity`、`state`以外のoperationは、先にwritable
+successorと同じ複製を行い、Stateと各Live slotを一回ずつ`Share`する。
 
 ### writable successor
 
@@ -89,6 +94,7 @@ runtimeはこれらを検査せず、違反時の実行結果を保証せず、t
 | `isLive(pool, index)` | `index < capacity(pool)` |
 | `initAt(pool, index, value)` | `index < capacity(pool)`かつslotがVacant |
 | `getAt`、`putAt`、`takeAt`、`dropAt` | `index < capacity(pool)`かつslotがLive |
+| `moveAt(pool, source, destination)` | 両方が`capacity(pool)`未満、`source`がLive、`destination`がVacant |
 
 `makeIxPool`、`state`、`setState`、`capacity`、`reserve`はpreconditionを持たない。
 
@@ -104,8 +110,9 @@ IxPool preconditionへの違反は、Vacant carrierのread、同じresponsibilit
 実装はtestやdebug buildで占有状態を検査してよいが、その検査結果をsemanticsにしない。
 
 複数primitiveからなるcontainer operationはtransactionではなく、invariantはreturn時に回復すればよい。lifecycle glueはmal codeを
-実行せず、`hash`や`equal`のようなoperation requirementは`Storable`な引数しか受け取らず、top-level initializerはIxPoolを作れない
-ため、これらから変更中のcontainerへ到達できない。caller-suppliedなclosureを受け取るoperationはclosureが同じcontainerのaliasを
+実行しない。`hash`や`equal`のようなoperation requirementは要素型の値しか受け取らず、malは再帰型を持たないため要素型の値は
+それを要素とするcontainerを含めない。top-level initializerはIxPoolを作れない。したがってこれらから変更中のcontainerへ到達
+できない。この議論は[`Storable`と`Stable`の分割案](identity.md#判定の分割案)でIxPoolを要素にできるようになっても変わらない。caller-suppliedなclosureを受け取るoperationはclosureが同じcontainerのaliasを
 captureし得るため、呼び出し前にinvariantを回復する。
 
 ## compilerとruntimeの分担
@@ -113,7 +120,7 @@ captureし得るため、呼び出し前にinvariantを回復する。
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
 - `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`と`put`のvalue、`makeIxPool`と`setState`のState、
-  writable successorのinputが該当する。
+  writable successorのinputとstorageを移し得る`thaw`のinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。[D083](../../history/decisions/active/D083.md)の保持解析は、`Store`へ渡る
   parameterをreturnやcaptureと同じく保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
 - IxPool handle、index、lengthは`Borrow`である。resultは全てownedである。
@@ -122,7 +129,7 @@ compilerのexecution ownershipに新しく要るのは、operand effectの`Store
 当たり、`Store`を導入するとlast useのvalueを`Consume`してruntime内のretainとcall site側のreleaseを省ける。
 
 runtimeが型ごとに必要とするglueは、上の表で「primitive内」に数えたものだけである。`share<T>`は`get`、一括処理の`fill`と`copy`、
-共有時のwritable successorが、`drop<T>`は`put`の旧value、`drop`、IxPoolの終了が使う。relocationと`init`、`take`はcarrierを
+共有時のwritable successorとIxPoolの複製が、`drop<T>`は`put`の旧value、`drop`、IxPoolの終了が使う。relocationと`init`、`take`はcarrierを
 移動するだけでglueを呼ばない。glueは失敗せず、I/O、host resourceの`close`、別IxPoolの更新など観測可能な作用を持たず、IxPool
 終了時のdrop順はsourceから観測できない。
 
