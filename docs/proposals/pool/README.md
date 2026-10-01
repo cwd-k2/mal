@@ -87,8 +87,9 @@ containerが要求する。
 
 - primitiveの名前と導入方法。preludeへ常に置くか、`builtin "ixpool";`、`builtin "impool";`、`builtin "buffer";`のように
   宣言したfileだけへ導入するか。後者は名前空間を汚さない一方、組み込みmoduleの提供という仕組みを[program](../../spec/programs.md)へ
-  新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書くが、`slot`や`setMeta`のようにresultの型が異なり一つの
-  [operation family](../../spec/operation-families.md)には収まらないため、名前の重複をどう解くかもここで決める。
+  新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書く。
+  [試作](prototypes.md#二つの試作)では、更新がpoolを返す形にsignatureを揃え、constructorをkeyに持つ
+  [operation family](../../spec/operation-families.md)で一つの名前にまとめられた。この形を採るかもここで決める。
 - [Meta](slot-model.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。

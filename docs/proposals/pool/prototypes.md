@@ -15,11 +15,17 @@ Status: Exploratory support document
   `freeze`と`thaw`、`Host<A>`もここに置き、preconditionへの違反は戻らない。
 
 二つの試作は、周辺のoperationとstack、binary heap、Map、Deque、SlotMap、木を一つのsourceで共有して動く。containerはIxPoolの
-核と周辺にしか依存せず、二つの試作は一つの意味の二つの実装である。ImPoolの核と周辺は名前に`im`を付けて区別した。一つのmalの名前に、
-`Unit`を返すIxPoolのsignatureとsuccessorを返すsignatureを両方持たせられないためである。[検証の段階](runtime.md#検証の段階)のstep 5と7の一部に当たる。
+核と周辺にしか依存せず、二つの試作は一つの意味の二つの実装である。[検証の段階](runtime.md#検証の段階)のstep 5と7の一部に当たる。
 
 ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
 知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。
+
+核はpoolのconstructor `F`をkeyに持つoperation familyとして書き、IxPoolとImPoolで一つの名前を共有した。更新はどれもpoolを
+返し、IxPoolは同じidentityを、ImPoolはsuccessorを返す。周辺は`F`の上に一度だけ書け、IxPool上のcontainerとImPool上の
+immutable arrayが同じ周辺を使った。呼び出しは`meta<IxPool>(map)`のようにconstructorを明示し、これはopaqueのどの層として見るかの
+指定も兼ねる。更新がpoolを返すため、更新で終わる`Unit`のblockには末尾の`()`が要った。この形を書く過程で、kind多相な型parameterを
+扱うcompilerの不具合を四つ見つけて直し、本体が求めるkindをspecializationで検査する規則を
+[D093](../../history/decisions/active/D093.md)として決めた。
 
 ## Bufferの参照実装
 
