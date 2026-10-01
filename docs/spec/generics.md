@@ -83,6 +83,19 @@ generic aliasはdefinitionのresult type、generic value bindingは明示signatu
 全requirementを検査する。generic本体内のapplicationでは、代入後のrequirementがcaller bindingのrequirementから導けることを検査する。
 満たさないapplicationはspecialization前のcompile-time errorである。
 
+kindの条件だけは本体から型parameterへ伝える。kindはsignatureだけから推論するため、constructorの引数としてだけ現れる型parameterは
+kind多相になり、本体がそれをkind `Type`を求める位置へ渡すことがある。このときtype applicationが得たkind等式をbindingの
+kind requirementとして保持し、本体の検査では型parameterのkindを変えない。設計理由は[D093](../history/decisions/active/D093.md)に
+記録する。
+
+```mal
+peek<F, M, V> :: (F<M, V>, USize) -> [Unit, V];
+isLive<F, M, V> :: (F<M, V>, USize) -> Bool :=
+    (pool, index) -> peek<F, M, V>(pool, index)[() -> false, (_) -> true];
+```
+
+`isLive`の`V`はkind多相だが、`peek`は`V`にkind `Type`を求める。この等式は`isLive`のkind requirementになる。
+
 `from<A>`と`buffer.into`は`Representable(A)`を要求する。opaqueな型parameterはrepresentableと仮定できないので、generic本体は
 型parameterの要素にこれらを使えない。callerがconcrete type argumentで`from`をspecializeすると、copy primitiveがstatic
 representationを選ぶ。
@@ -104,7 +117,8 @@ type checking後、compilerはentry pointから到達する、明示または推
 specialization keyはgeneric binding identityとalias展開後のclosed canonical type argument列であり、kind `Type`以外のconstructor termも
 含む。同じkeyはfileを跨いで共有する。
 file-local opaque typeはhidden representationへ展開せず、declaration identityとcanonical type argumentをkeyに残す。
-各nodeはgeneric typed bodyへ型argumentを代入して単相typed coreを一度生成し、到達するgeneric applicationをgraphへ加える。
+各nodeは型argumentのkindでkind requirementを検査し、満たさなければ等式を生んだ本体のapplicationを示すcompile-time errorに
+する。次にgeneric typed bodyへ型argumentを代入して単相typed coreを一度生成し、到達するgeneric applicationをgraphへ加える。
 本体内で型parameterをargumentに使ったapplicationも、この代入後にはconcreteなkeyになる。self recursionは同じkeyへのedgeとして閉じる。
 異なる型argumentで自分を呼ぶbindingはdeclarationで拒否する。
 

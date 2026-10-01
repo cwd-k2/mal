@@ -150,3 +150,43 @@ fn forwards_a_binary_constructor_parameter_with_kind_polymorphic_arguments() {
 
     check::specialize(program).expect("forward a binary constructor parameter");
 }
+
+#[test]
+fn checks_a_body_kind_requirement_when_the_instance_is_concrete() {
+    // `V` only reaches `F`, so its kind is open in the signature, while the body passes it where kind
+    // `Type` is needed. The body checks, and each instance is checked when it is specialized.
+    let body = "peek<F, M, V> :: (F<M, V>, USize) -> [Unit, V];\n\
+                live<F, M, V> :: (F<M, V>, USize) -> Bool := (pool, index) ->\n\
+                    peek<F, M, V>(pool, index)[() -> false, (_) -> true];\n";
+    let accepted = check_ok(&format!(
+        "opaque Ix<M, V> :: (Buffer<M>, Buffer<V>);\n\
+         {body}\
+         peek<Ix, M, V> :: (Ix<M, V>, USize) -> [Unit, V] :=\n\
+             ((_, values), index) -> [empty, full] => full(values.get(index));\n\
+         main :: Unit -> Int32 := () -> {{\n\
+             meta :: Buffer<USize> := make(1usize);\n\
+             values :: Buffer<UInt64> := make(0usize);\n\
+             pool :: Ix<USize, UInt64> := (meta, values);\n\
+             if (live<Ix>(pool, 0usize)) then 1 else 0;\n\
+         }};"
+    ));
+    check::specialize(accepted).expect("an instance that gives `V` kind Type");
+
+    let rejected = check_ok(&format!(
+        "opaque Holder<M, G> :: (Buffer<M>, G<UInt64>);\n\
+         {body}\
+         main :: Unit -> Int32 := () -> {{\n\
+             meta :: Buffer<USize> := make(1usize);\n\
+             values :: Buffer<UInt64> := make(0usize);\n\
+             holder :: Holder<USize, Buffer> := (meta, values);\n\
+             if (live<Holder, USize, Buffer>(holder, 0usize)) then 1 else 0;\n\
+         }};"
+    ));
+    let error = check::specialize(rejected).expect_err("an instance that gives `V` a constructor");
+    assert_eq!(
+        error.message,
+        "generic instance violates a kind requirement"
+    );
+    let primary = error.primary.expect("kind requirement diagnostic");
+    assert!(primary.message.contains("needs kind `Type`"));
+}

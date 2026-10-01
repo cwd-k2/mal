@@ -5,7 +5,7 @@ concrete type argument list.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | entry point, worklist of requested instances, identity of the instance bindings |
+| `mod` | entry point, worklist of requested instances, kind requirement checks of each instance, identity of the instance bindings |
 | `expression` | substitution and instance requests over value expressions, lambdas, and result blocks |
 | `structure` | the same walk over blocks, bodies, continuations, and abrupt completions |
 | `substitution` | type substitution over patterns and completions |

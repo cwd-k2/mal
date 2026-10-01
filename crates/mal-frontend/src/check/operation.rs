@@ -76,7 +76,7 @@ impl Checker {
         let substitutions = std::sync::Arc::new(
             parameters
                 .iter()
-                .zip(parameter_kinds)
+                .zip(parameter_kinds.iter().cloned())
                 .map(|(parameter, kind)| {
                     (
                         parameter.id,
@@ -93,6 +93,7 @@ impl Checker {
         let previous_generic = self.active_generic.take();
         let previous_operations = std::mem::take(&mut self.active_operations);
         let previous_requirements = std::mem::take(&mut self.active_requirements);
+        let previous_kinds = std::mem::take(&mut self.active_kinds);
         let result = (|| {
             let mut arguments = arguments
                 .iter()
@@ -102,7 +103,7 @@ impl Checker {
                 .generic_signatures
                 .get(&family.id)
                 .expect("an implementation refers to a checked operation family");
-            types::require_type_argument_kinds(
+            let key_kinds = types::require_type_argument_kinds(
                 &signature.parameter_kinds,
                 &mut arguments,
                 family.name.span,
@@ -201,6 +202,14 @@ impl Checker {
                     }
                 }
             }
+            let mut kinds = key_kinds;
+            for requirement in std::mem::take(&mut self.active_kinds) {
+                if !kinds.iter().any(|existing| {
+                    existing.left == requirement.left && existing.right == requirement.right
+                }) {
+                    kinds.push(requirement);
+                }
+            }
             self.operation_keys.push((family.id, arguments.clone()));
             Ok(ast::OperationImplementation {
                 family: family.clone(),
@@ -209,6 +218,8 @@ impl Checker {
                 ty: expected,
                 value: checked_value,
                 operations,
+                parameter_kinds,
+                kinds,
                 span,
             })
         })();
@@ -216,6 +227,7 @@ impl Checker {
         self.active_generic = previous_generic;
         self.active_operations = previous_operations;
         self.active_requirements = previous_requirements;
+        self.active_kinds = previous_kinds;
         result
     }
 }

@@ -57,11 +57,12 @@ impl Checker {
                 )
                 .into());
         }
-        super::types::require_type_argument_kinds(
+        let kinds = super::types::require_type_argument_kinds(
             &signature.parameter_kinds,
             &mut arguments,
             reference.name.span,
         )?;
+        self.record_kinds(kinds);
         if self
             .active_generic
             .as_ref()
@@ -207,17 +208,21 @@ impl Checker {
             .iter()
             .map(|argument| self.expand_type_term(argument))
             .collect::<Result<Vec<_>, _>>()?;
-        super::types::require_type_argument_kinds(
+        let kinds = super::types::require_type_argument_kinds(
             &signature.parameter_kinds[..explicit.len()],
             &mut explicit,
             reference.name.span,
         )?;
-        (signature.parameter_kinds, signature.ty) = super::types::instantiate_signature_kinds(
-            &signature.parameter_kinds,
-            &explicit,
-            &signature.ty,
-            reference.name.span,
-        )?;
+        self.record_kinds(kinds);
+        let kinds;
+        (signature.parameter_kinds, signature.ty, kinds) =
+            super::types::instantiate_signature_kinds(
+                &signature.parameter_kinds,
+                &explicit,
+                &signature.ty,
+                reference.name.span,
+            )?;
+        self.record_kinds(kinds);
         let mut substitutions = signature
             .parameters
             .iter()
@@ -342,11 +347,12 @@ impl Checker {
                     .into());
             }
         }
-        super::types::require_type_argument_kinds(
+        let kinds = super::types::require_type_argument_kinds(
             &signature.parameter_kinds[..explicit.len()],
             &mut explicit,
             reference.name.span,
         )?;
+        self.record_kinds(kinds);
         self.check_inferred_generic_call_with_expectations(
             reference,
             &explicit,
@@ -380,12 +386,15 @@ impl Checker {
         expected: GenericCallExpectation<'_>,
     ) -> CheckResult<Expression> {
         let mut signature = self.generic_signatures[&reference.id].clone();
-        (signature.parameter_kinds, signature.ty) = super::types::instantiate_signature_kinds(
-            &signature.parameter_kinds,
-            explicit,
-            &signature.ty,
-            reference.name.span,
-        )?;
+        let kinds;
+        (signature.parameter_kinds, signature.ty, kinds) =
+            super::types::instantiate_signature_kinds(
+                &signature.parameter_kinds,
+                explicit,
+                &signature.ty,
+                reference.name.span,
+            )?;
+        self.record_kinds(kinds);
         let mut substitutions = signature
             .parameters
             .iter()

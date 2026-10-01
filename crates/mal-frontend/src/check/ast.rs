@@ -474,6 +474,10 @@ pub struct GenericBinding {
     pub value: Expression,
     /// Operation-family goals required by the generic body.
     pub operations: Vec<OperationRequirement>,
+    /// Principal kinds of `parameters`, over which `kinds` is written.
+    pub parameter_kinds: Vec<Kind>,
+    /// Kind equations required by the generic body.
+    pub kinds: Vec<KindRequirement>,
     /// The complete definition span.
     pub span: Span,
 }
@@ -506,7 +510,24 @@ pub struct OperationImplementation {
     pub value: Expression,
     /// Operation goals required after matching this implementation.
     pub operations: Vec<OperationRequirement>,
+    /// Principal kinds of `parameters`, over which `kinds` is written.
+    pub parameter_kinds: Vec<Kind>,
+    /// Kind equations required by the implementation body.
+    pub kinds: Vec<KindRequirement>,
     /// The complete implementation span.
+    pub span: Span,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// A kind equation that a generic body needs from the enclosing binding's kind-polymorphic parameters. Kinds are
+/// inferred from signatures alone, so the body may use a parameter at a kind its signature leaves open; the
+/// equation is checked when specialization makes the parameters concrete.
+pub struct KindRequirement {
+    /// A kind over the enclosing binding's kind variables.
+    pub left: Kind,
+    /// The kind it must equal.
+    pub right: Kind,
+    /// The type application in the body that needs the equation.
     pub span: Span,
 }
 

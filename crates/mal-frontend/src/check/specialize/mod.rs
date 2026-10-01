@@ -99,6 +99,12 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
                 .definitions
                 .get(&generic)
                 .expect("checked generic reference has a definition");
+            super::types::term::check_kind_requirements(
+                &definition.parameter_kinds,
+                &arguments,
+                &definition.kinds,
+                binding.name.span,
+            )?;
             let substitutions = definition
                 .parameters
                 .iter()
@@ -133,6 +139,17 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             specializer.pending_operations[operation_cursor].clone();
         operation_cursor += 1;
         let implementation = &specializer.implementations[implementation];
+        let pattern_arguments = implementation
+            .parameters
+            .iter()
+            .map(|parameter| substitutions[&parameter.id].clone())
+            .collect::<Vec<_>>();
+        super::types::term::check_kind_requirements(
+            &implementation.parameter_kinds,
+            &pattern_arguments,
+            &implementation.kinds,
+            binding.name.span,
+        )?;
         let family = implementation.family.id;
         let mut value = implementation.value.clone();
         let implementation_ty = runtime_type(&substitute_type(

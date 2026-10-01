@@ -70,7 +70,8 @@ same<A> :: (A, A) -> Bool := (left, right) -> equal(left, right);
 ## Selection
 
 specializationはconcreteになったfamily referenceごとに、一意にmatchするexactまたはgeneric keyを検索する。generic keyがmatchした
-場合はpattern binderへのconcrete substitutionをimplementationのannotation、body、requirementへ適用する。到達したkeyに
+場合はpattern binderへのconcrete substitutionをimplementationのannotation、body、requirementへ適用する。implementationのkind requirementも
+このsubstitutionで検査する（[parametric polymorphism](generics.md#requirements)）。到達したkeyに
 implementationがなければcompile-time errorにする。未到達のkeyへimplementationがなくてもerrorにしない。選択したimplementationは
 通常のmonomorphic bindingへ変換し、同じconcrete keyを参照する箇所で共有する。
 

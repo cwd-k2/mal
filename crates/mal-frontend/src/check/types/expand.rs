@@ -9,14 +9,14 @@ use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
-use super::super::{Checker, ast::Kind, ast::Type};
+use super::super::{Checker, ast::Kind, ast::KindRequirement, ast::Type};
 use super::{ensure_representable, term};
 
 pub(in crate::check) fn require_type_argument_kinds(
     parameters: &[Kind],
     arguments: &mut [Type],
     span: Span,
-) -> Result<(), Diagnostic> {
+) -> Result<Vec<KindRequirement>, Diagnostic> {
     term::normalize_argument_kinds(parameters, arguments, span)
 }
 
@@ -25,7 +25,7 @@ pub(in crate::check) fn instantiate_signature_kinds(
     arguments: &[Type],
     ty: &Type,
     span: Span,
-) -> Result<(Vec<Kind>, Type), Diagnostic> {
+) -> Result<(Vec<Kind>, Type, Vec<KindRequirement>), Diagnostic> {
     term::instantiate_kinds(parameters, arguments, ty, span)
 }
 

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::resolve::ast::{self as resolved, ValueId};
 use mal_syntax::ast::Node;
 
-use super::super::ast::{Expression, OperationRequirement, Type};
+use super::super::ast::{Expression, KindRequirement, OperationRequirement, Type};
 use super::super::{CheckResult, Checker};
 
 /// Checked outcomes of the direct arguments of one generic call.
@@ -43,6 +43,7 @@ struct Outcome {
 /// Checker state a probe changed and that a reused outcome must replay.
 struct Effects {
     operations: Vec<OperationRequirement>,
+    kinds: Vec<KindRequirement>,
     used_result_targets: Vec<ValueId>,
 }
 
@@ -88,11 +89,13 @@ impl Checker {
 
     fn recorded_transaction<T>(&mut self, check: impl FnOnce(&mut Self) -> T) -> (T, Effects) {
         let operations = self.active_operations.len();
+        let kinds = self.active_kinds.len();
         let used_result_targets = self.used_result_targets.clone();
         let expanding = self.expanding.clone();
         let result = check(self);
         let effects = Effects {
             operations: self.active_operations.split_off(operations),
+            kinds: self.active_kinds.split_off(kinds),
             used_result_targets: self
                 .used_result_targets
                 .difference(&used_result_targets)
@@ -146,12 +149,14 @@ impl Checker {
             .find(argument, &Expectation::from_expected(expected))?;
         let result = entry.result.clone();
         let operations = entry.effects.operations.clone();
+        let kinds = entry.effects.kinds.clone();
         let used = entry.effects.used_result_targets.clone();
         for operation in operations {
             if !self.active_operations.contains(&operation) {
                 self.active_operations.push(operation);
             }
         }
+        self.record_kinds(kinds);
         self.used_result_targets.extend(used);
         Some(result)
     }

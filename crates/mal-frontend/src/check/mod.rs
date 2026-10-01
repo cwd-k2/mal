@@ -117,6 +117,8 @@ struct Checker {
     operation_families: HashSet<ValueId>,
     operation_keys: Vec<(ValueId, Vec<Type>)>,
     active_operations: Vec<ast::OperationRequirement>,
+    /// Kind equations the active generic body needs from its parameters.
+    active_kinds: Vec<ast::KindRequirement>,
     external_values: HashSet<ValueId>,
     externals: HashMap<resolved::ExternalOperationId, ExternalSignature>,
     result_targets: HashMap<ValueId, ResultTarget>,
@@ -164,6 +166,7 @@ impl Checker {
             operation_families: HashSet::new(),
             operation_keys: Vec::new(),
             active_operations: Vec::new(),
+            active_kinds: Vec::new(),
             external_values: HashSet::new(),
             externals: HashMap::new(),
             result_targets: HashMap::new(),
@@ -356,6 +359,7 @@ impl Checker {
         let previous_requirements = std::mem::take(&mut self.active_requirements);
         let previous_generic = self.active_generic.take();
         let previous_operations = std::mem::take(&mut self.active_operations);
+        let previous_kinds = std::mem::take(&mut self.active_kinds);
         let result = (|| {
             let ty = self.expand_type(annotation)?;
             let requirements = types::storable_requirements(&ty);
@@ -382,12 +386,15 @@ impl Checker {
                 .get_mut(&binding.id)
                 .expect("active generic signature is registered")
                 .operations = operations.clone();
+            let kinds = std::mem::take(&mut self.active_kinds);
             Ok(ast::GenericBinding {
                 binding: binding.clone(),
                 parameters: parameters.to_vec(),
                 ty,
                 value: checked_value,
                 operations,
+                parameter_kinds: self.generic_signatures[&binding.id].parameter_kinds.clone(),
+                kinds,
                 span,
             })
         })();
@@ -395,7 +402,22 @@ impl Checker {
         self.active_requirements = previous_requirements;
         self.active_generic = previous_generic;
         self.active_operations = previous_operations;
+        self.active_kinds = previous_kinds;
         result
+    }
+
+    /// Keeps the kind equations of a type application for the active generic body to check at specialization.
+    fn record_kinds(&mut self, requirements: Vec<ast::KindRequirement>) {
+        if self.active_generic.is_none() {
+            return;
+        }
+        for requirement in requirements {
+            if !self.active_kinds.iter().any(|existing| {
+                existing.left == requirement.left && existing.right == requirement.right
+            }) {
+                self.active_kinds.push(requirement);
+            }
+        }
     }
 
     fn value_type(&self, reference: &resolved::ValueReference) -> Result<Type, Diagnostic> {
