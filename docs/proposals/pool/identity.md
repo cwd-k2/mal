@@ -87,6 +87,23 @@ inputが唯一のresponsibilityならstorageを再利用し、共有中ならcop
 違反は別のvalueの変更として現れる。更新operation自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装の
 invariantへ依存させない。uniqueness検査は更新ごとに一回の比較であり、last useを`Consume`できるcallではstorageを再利用する。
 
+## freezeとthaw
+
+IxPoolとImPoolの間は、次の二つの変換で行き来する。
+
+- `freeze(pool)`は、呼び出し時点のStateとslotを持つImPoolを返す。元のIxPoolはidentityを保ったまま使い続けられ、以後の変更は
+  返した値から観測されない。
+- `thaw(value)`は、同じStateとslotを持つ新しいidentityのIxPoolを返す。返したIxPoolへの変更は、元の値からも、同じ値から
+  thawした別のIxPoolからも観測されない。
+
+可変なIxPoolで効率よく組み立ててから値として公開すること、値から編集用の可変なcopyを作ることに使う。`Buffer<UInt8>`と
+`Symbol`の`*`は、この対をbyte列へ特化した変換に当たる。
+
+意味は要素を一つずつcopyするloopで定まる。primitiveにするのはstorageを共有するためであり、`freeze`はIxPoolのstorageを
+ImPoolと共有して、IxPool側への後の書き込みでcopyする。`thaw`は入力が唯一のresponsibilityならstorageを移し、共有中なら
+書き込みでcopyする。共有を許すと、IxPoolへの書き込みのたびにstorageが共有中かの確認が一回入る。現在のBufferも`Symbol`と
+byte ownerを共有するため同じ確認を持つが、全要素型のIxPoolへ広げるか、`freeze`を常にcopyにして確認を省くかは未決定である。
+
 ## Idとの合成
 
 `Id<T>`とwritable successorを同じ型へ合成しない。storageを再利用したかcopyしたかが`Id<T>`の有効性として観測され、

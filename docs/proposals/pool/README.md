@@ -166,6 +166,7 @@ compilerを変えない二つの試作が、step 4と6の一部を先取りし�
 - [`Storable`を保持の可否に絞り、値の意味が変わらないことを`Stable`へ分ける案](identity.md#判定の分割案)。採ると
   `Buffer<Buffer<T>>`を書け、Arenaが不要になる。[D075](../../history/decisions/active/D075.md)の見直しを伴う。
 - [ImPool](identity.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
+- [freezeとthaw](identity.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

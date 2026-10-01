@@ -63,8 +63,8 @@ identityの重なるrunでも開始時点のsourceを写す。`load`と`store`�
 
 ## `*`
 
-`Buffer<UInt8>`と`Symbol`の変換`*`はrun protocolに含めず、`Buffer<UInt8>`だけの操作とする。byte列に限った変換であり、
-他のcontainerへ一般化する実例がないためである。実装はbyte IxPoolのstorageを`Symbol`と共有する
+`Buffer<UInt8>`と`Symbol`の変換`*`はrun protocolに含めず、`Buffer<UInt8>`だけの操作とする。runを写す操作ではなく、
+IxPoolとImPoolの間の[freezeとthaw](identity.md#freezeとthaw)をbyte列へ特化した変換だからである。実装はbyte IxPoolのstorageを`Symbol`と共有する
 [representation](lifecycle-contract.md#runtime-representation)を使う。
 
 ## 他のcontainer

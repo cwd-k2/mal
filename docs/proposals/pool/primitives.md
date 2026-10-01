@@ -25,6 +25,18 @@ Pool案のmemoryは次の層からなる。
 IxPool、ImPool、containerはどれもEngramであり、寿命の管理に差はない。Bufferが自動で管理するのは、slotの占有状態と
 capacityである。
 
+IxPoolとImPoolの対は、一つのLiveなrunへ特化した型と、byte列へ特化した既存の型でも同じ形を取る。
+
+| | identityを共有する | 値 |
+|---|---|---|
+| primitive | IxPool | ImPool |
+| 一つのLiveなrun | Buffer（`[0, count)`） | Array（`[0, length)`） |
+| byte列 | `Buffer<UInt8>` | `Symbol` |
+
+`Symbol`は意味の上ではImPoolの上のbyte列のrunに、`#`、`+`、`/`、`%`、`==`を加えたものである。ImPoolで再定義はせず、
+storageを共有するsliceのview、static storageのliteral、占有metadataのないdenseなbyte列という専用の表現を保つ。BufferとIxPoolの
+関係と同じく、意味はImPoolの上で説明し、実装は同じ結果になる限り専用でよい。
+
 ## coordinateの線形性
 
 IxPoolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、coordinate空間は順序を持ち途中に抜けがない。この線形性により
@@ -115,7 +127,8 @@ copyRange<State, T> :: (IxPool<State, T>, USize, IxPool<State, T>, USize, USize)
 
 ## Symbol primitive
 
-byte IxPoolと`Symbol`の変換は、`Buffer<UInt8>`の`*`の実装に使う。
+byte IxPoolと`Symbol`の変換は、`Buffer<UInt8>`の`*`の実装に使う。`symbol`はLiveなrunの`freeze`を、`loadSymbol`は
+既存のrunへの`thaw`をbyte列へ特化したものに当たる。
 
 ```mal
 symbol<State> :: (IxPool<State, UInt8>, USize, USize) -> Symbol;
@@ -161,6 +174,18 @@ imDropAt<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
 
 更新ごとの再利用かcopyかの判断は参照数に依存するため、malの他の操作では表せず、更新はすべて必須のprimitiveである。
 preconditionは同名のIxPool primitiveと同じであり、`Storable`と`Stable`の扱いは[判定の分割](identity.md#判定の分割案)で扱う。
+
+対の間の変換として次を置く。意味は[identity](identity.md#freezeとthaw)が所有する。
+
+```mal
+freeze<State, T> :: IxPool<State, T> -> ImPool<State, T>;
+thaw<State, T> :: ImPool<State, T> -> IxPool<State, T>;
+```
+
+| primitive | 区分 | 役割 |
+|---|---|---|
+| `freeze` | 性能 | IxPoolの今のStateとslotを値にする。slotを一つずつcopyするloopでも書けるが、storageをO(1)で共有する |
+| `thaw` | 性能 | ImPoolと同じ中身を持つ新しいidentityのIxPoolを作る。loopでも書けるが、一意ならstorageを移す |
 
 ## primitiveでないもの
 
