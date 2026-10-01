@@ -94,7 +94,7 @@ Stateに持つ。各fileは、`reserve`とslot遷移だけを提供するIxPool�
 
 Bufferは組み込み型ではなく、IxPool上のpreludeのopaque型になる。仕様上のBufferは[Buffer実装](buffer-implementation.md)の参照実装で
 意味を定め、実装は同じ結果になる限り専用runtimeを使ってよい。Bufferが提供する語彙とIxPoolとの責務分担は
-[primitive一覧](primitives.md#poolとbufferの責務)が所有する。
+[primitive一覧](primitives.md#ixpoolとbufferの責務)が所有する。
 
 element equality、hash、orderingはIxPoolやpluginへ埋め込まず、通常のfunction引数または
 [operation family](../../spec/operation-families.md)のrequirementとして上位algorithmが要求する。standard Bufferのcore operationを
@@ -158,7 +158,7 @@ compilerを変えない二つの試作が、step 4と6の一部を先取りし�
 - [run protocol](run-protocol.md#未決定事項)が必要とする`Representable`のrequirement伝播。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - 任意coordinateのVacantを持つIxPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形の比較。意味は同じであり
-  （[試作](prototypes.md#poolとbufferの非対称)）、占有metadataとIxPool終了時の走査に対する、slotごとのsum tagと移動ごとの
+  （[試作](prototypes.md#ixpoolとbufferの非対称)）、占有metadataとIxPool終了時の走査に対する、slotごとのsum tagと移動ごとの
   `Share`と`Drop`のcostは測っていない。
 - IxPoolを使えるfileを、どのfileにも開くか、標準libraryとtrustedなcodeだけに限るか。後者では利用者はBuffer、IdPool、標準の
   containerだけを見る。

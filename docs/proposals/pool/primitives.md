@@ -4,7 +4,7 @@ Status: Exploratory support document
 
 この文書は、IxPoolとBufferの責務分担と、Pool案が仮定するprimitiveの一覧を管理する。slot primitiveのpreconditionは
 [lifecycle contract](lifecycle-contract.md#未検査precondition)、run primitiveのpreconditionと意味は
-[run protocol](run-protocol.md#poolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。
+[run protocol](run-protocol.md#ixpoolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。
 名前は仮のものであり、IxPoolの名前を`require`したfileだけへ導入する規則と合わせて決める。
 
 ## 層

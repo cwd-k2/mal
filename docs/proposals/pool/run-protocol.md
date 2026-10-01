@@ -7,7 +7,7 @@ Status: Exploratory support document
 [Buffer実装](buffer-implementation.md)を正とする。
 
 run protocolは、IxPoolの仕組みとcontainerごとのinvariantをつなぐrunの語彙である。slot、run、sequenceの三つの語彙と
-IxPoolとBufferの責務分担は[primitive一覧](primitives.md#poolとbufferの責務)が所有する。
+IxPoolとBufferの責務分担は[primitive一覧](primitives.md#ixpoolとbufferの責務)が所有する。
 
 ## family
 
