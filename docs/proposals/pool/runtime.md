@@ -36,13 +36,13 @@ C runtime contextと同じくthread-confinedであり、物理relocation中の�
 IxPoolのMetaと各slotはplaceであり、常に値を一つ持つ。値のresponsibilityはplaceが持ち、Vacantの`Unit`はresponsibilityを
 持たない。これは[local slot](../../implementation/ownership.md#slotとoperation)のinitialize、vacate、replaceと同じ状態であり、違いは
 placeがIxPool identityの中にあり、実行時のcoordinateで選ばれることだけである。placeに対する操作は次の三つの規則で動き、
-Metaとslotで同じである。
+Metaとslotで同じである。核はreadとswapであり、writeはswapから導く。
 
 | 規則 | place | responsibility |
 |---|---|---|
 | read | 変わらない | placeの値を`Share`してresultにする |
-| write | operandの値になる | operandのresponsibilityをplaceへ移し、旧値をDropする |
 | swap | operandの値になる | operandのresponsibilityをplaceへ移し、旧値のresponsibilityをresultへ移す |
+| write | operandの値になる | swapの結果をDropする。operandのresponsibilityをplaceへ移し、旧値をDropする |
 
 swapはresponsibilityを移すだけで、型別の`share`も`drop`も呼ばない。writeはswapの結果をDropしたものであり、新しい値をplaceへ
 置いてから旧値をDropする順序を持つ。同じmanaged valueを読み出して書き戻しても、旧値のDropが新しい値のreferentを解放しない。
@@ -57,7 +57,7 @@ swapのresultは通常のowned resultであり、使われなくなった時点�
 | `slot`、`dropAt` | slotのwrite | なし | 旧値がLiveなら1 |
 | `initAt` | 旧値がVacantのwrite | なし | なし |
 | `putAt`、`setMeta` | 旧値が値を持つwrite | なし | 1 |
-| `swap`、`takeAt`、`moveAt` | swap | なし | なし |
+| `swap`、`swapMeta`、`takeAt`、`moveAt` | swap | なし | なし |
 | `grow` | 遷移なし。全carrierを移動するだけ | なし | なし |
 | IxPoolの終了 | Metaと全Live slotのDrop | なし | 1とLive slot数 |
 
@@ -88,7 +88,7 @@ LiveかVacantかを加える。
 | `getAt`、`putAt`、`takeAt` | `index < capacity(pool)`かつslotがLive |
 | `moveAt(pool, source, destination)` | 両方が`capacity(pool)`未満、`source`がLive、`destination`がVacant |
 
-`pool`、`grow`、`capacity`、`meta`、`setMeta`はpreconditionを持たない。
+`pool`、`grow`、`capacity`、`meta`、`swapMeta`、`setMeta`はpreconditionを持たない。
 
 preconditionの責任は二段に分かれる。container利用者はcontainerが公開するprecondition、例えばBufferの`index < #buffer`を満たす。
 container実装は、公開preconditionを満たすcallから到達する全IxPool callがIxPool preconditionを満たすことをfile-local invariantで
@@ -111,8 +111,8 @@ caller-suppliedなclosureを受け取るoperationはclosureが同じcontainerの
 
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
-- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`slot`、`swap`、`initAt`、`putAt`のvalue、`pool`と`setMeta`のMeta、
-  writable successorのinputとstorageを移し得る`thaw`のinputが該当する。
+- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`swap`、`slot`、`initAt`、`putAt`のvalue、`pool`、`swapMeta`、
+  `setMeta`のMeta、writable successorのinputとstorageを移し得る`thaw`のinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。[D083](../../history/decisions/active/D083.md)の保持解析は、`Store`へ渡る
   parameterをreturnやcaptureと同じく保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
 - IxPool handle、index、lengthは`Borrow`である。resultは全てownedである。

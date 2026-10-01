@@ -22,7 +22,7 @@ responsibilityはMetaとslotというplaceの値の入れ替えで動かす。
 
 1. storageのprimitiveは、変更の扱いが異なる対である。`IxPool<Meta, V>`はidentityを共有してその場で書き換え、Metaと、coordinateで
    引く`Slot<V> :: [Unit, V]`の線形空間を持つ。`ImPool<Meta, V>`は同じ状態を値として持ち、更新のたびにsuccessorを返す。核は`pool`、
-   `grow`、`capacity`、`peek`、`slot`、`meta`、`setMeta`である（[slotモデル](slot-model.md)）。
+   `grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である（[slotモデル](slot-model.md)）。
 2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
    hostと`Symbol`との交換だけを自分のprimitiveとして持つ。Map、Deque、heap、木もIxPool上に、immutable arrayはImPool上に置く。
 3. 核の未検査preconditionはcoordinateの範囲だけであり、LiveかVacantかを仮定する周辺operationがそれを加える。どちらもBufferと
@@ -89,7 +89,8 @@ containerが要求する。
   新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書くが、`slot`や`setMeta`のようにresultの型が異なり一つの
   [operation family](../../spec/operation-families.md)には収まらないため、名前の重複をどう解くかもここで決める。
 - [Meta](slot-model.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
-- `setMeta`の名前と、`swapMeta`を足すか。周辺operationのうちどれを費用primitiveとして持つか。
+- 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
+  `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
 - [ImPool](primitives.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
 - [freezeとthaw](primitives.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
 - [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。

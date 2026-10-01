@@ -42,21 +42,55 @@ Metaとslotは同じ規則のplaceであり、違いは持つ値の型だけで�
 
 ## 最小核の導出
 
-核は`pool`、`grow`、`capacity`、`peek`、`slot`、`meta`、`setMeta`である。
+核は`pool`、`grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である。意味論の最小と、primitiveとして持つ操作の最小は
+一致しない。
 
-slotへの書き込みは`slot(pool, i, s)`一つで足りる。`Slot<V>`の値を書くことで、Vacant → Live、Live → Vacant、Live → Liveの
-全遷移を表せる。読み出しは`peek`一つで足り、Liveかどうかは結果の除去で分かる。
+| place | 意味論の最小 | 操作の最小 | 派生 |
+|---|---|---|---|
+| slot | `swap` | `peek`、`swap` | `slot` |
+| Meta | `meta`と`swapMeta` | `meta`、`swapMeta` | `setMeta` |
+
+### slot
+
+意味の上では、slotは`swap`だけで閉じる。`swap`はplaceの値を入れ替えて古い値を返し、Vacantという値があるため、交換の間に
+置いておく値に困らない。
+
+```text
+slot(i, s)     = swap(i, s)の結果を捨てる
+peek(i)        = r := swap(i, vacant()); _ := swap(i, r); r
+```
+
+`peek`の分解で`r`を二回使えるのは、malの値が再利用できるからである。それでも`peek`を核に置くのは、読み出しを書き込みに
+しないためである。分解すると読み出しが二回の書き込みになり、[freeze](primitives.md#freezeとthaw)で共有したstorageをcopyし、
+費用も一回のreadから二回のwriteに増える。逆に`slot`は核に置かない。`swap`の結果を呼び出し側でDropしても、primitive内で
+旧値をDropしても費用は同じであり、`slot`だけでは値をMoveで取り出せない。
+
+他のslot operationは`peek`と`swap`の合成である。Liveかどうかは結果の除去で分かる。
 
 ```text
 isLive(i)      = peek(i)[() -> false, (_) -> true]
 initAt(i, v)   = slot(i, live(v))
 putAt(i, v)    = slot(i, live(v))
 dropAt(i)      = slot(i, vacant())
-takeAt(i)      = r := peek(i); slot(i, vacant()); r のLiveの値
-moveAt(a, b)   = slot(b, peek(a)); slot(a, vacant())
+takeAt(i)      = swap(i, vacant())のLiveの値
+moveAt(a, b)   = slot(b, swap(a, vacant()))
 ```
 
-`capacity`は`n`を読む。`n`はPool自身の構造であり、`peek`と`slot`のpreconditionが参照する。
+### Meta
+
+Metaの型には、任意の型について用意できる値がない。交換の間に置いておく値がないため、`meta`は`swapMeta`から導けず、
+読み出しと交換の二つが意味論の最小になる。
+
+```text
+setMeta(m)     = swapMeta(m)の結果を捨てる
+swapMeta(m)    = r := meta(); setMeta(m); r
+```
+
+containerがMetaを`[Unit, X]`のような直和にすれば、Metaも`swapMeta`だけで閉じる。これはcontainerの選択である。
+
+### 構造の操作
+
+`capacity`は`n`を読む。`n`はPool自身の構造であり、`peek`と`swap`のpreconditionが参照する。
 
 `grow`は、identityを保ったままcoordinate空間を広げる唯一のoperationである。新しいPoolを作って要素を移すと、古いPoolの
 aliasは新しいPoolを追えない。identityを共有するというIxPoolの性質を成長の後も保つために`grow`が要る。
@@ -73,8 +107,8 @@ copyされるため、変更をaliasが観測できない。Metaはどこかのi
 ```text
 IxPool<Meta, V>  ≅  (IxPool<Unit, Meta>, IxPool<Unit, V>)    二つが同じidentityを共有し、第一Poolのslot 0は常にLive
 
-meta(pool)        = peek(metaPool, 0)のLiveの値
-setMeta(pool, m)  = slot(metaPool, 0, live(m))
+meta(pool)         = peek(metaPool, 0)のLiveの値
+swapMeta(pool, m)  = swap(metaPool, 0, live(m))のLiveの値
 ```
 
 融合すると、分離した形でcontainerのinvariantだった「slot 0は常にLive」を型が保証する。Metaは`Slot`で包まず、preconditionも
@@ -91,11 +125,10 @@ identityを共有するIxPoolだけである。
 stateDiagram-v2
   direction LR
   [*] --> Vacant : grow
-  Vacant --> Live : slot(i, live(v))、initAt
-  Live --> Vacant : slot(i, vacant())、dropAt
-  Live --> Vacant : swap(i, vacant())、takeAt
+  Vacant --> Live : swap(i, live(v))、initAt
+  Live --> Vacant : swap(i, vacant())、takeAt、dropAt
   Live --> Live : peek、getAt
-  Live --> Live : slot(i, live(v))、putAt
+  Live --> Live : swap(i, live(v))、putAt
 ```
 
 | slotの遷移 | 値を返す | 値を返さない |
@@ -104,7 +137,7 @@ stateDiagram-v2
 | Live → Live | `peek`、`getAt`（Share） | `putAt`（Move、Drop） |
 | Vacant → Live | — | `initAt`（Move） |
 
-核の`slot`は表のどの書き込みにもなり、`swap`は`slot`が古い値を返す形である。
+核の`swap`は表のどの書き込みにもなり、古い値を返すか捨てるかで値を返す列と返さない列に分かれる。
 
 ## responsibilityの動き
 
@@ -117,12 +150,13 @@ Move    x●   →  x●         持ち主だけが変わる。参照数 1 → 1
 Drop    x●   →  (なし)     responsibilityを一つ消す。最後の一つなら解放する
 ```
 
-placeに対する操作は三つの規則で動き、Metaとslotで同じである。
+placeに対する操作は読み出しと入れ替えの二つの規則で動き、Metaとslotで同じである。書き込みは入れ替えの結果を捨てたもの
+である。
 
 ```text
-peek(i)、meta          読む       placeの値をShareして返す
-slot(i, s)、setMeta    書く       sをplaceへMoveし、古い値をDropする
-swap(i, s)             入れ替え   sをplaceへMoveし、古い値を結果へMoveする
+peek(i)、meta             読む       placeの値をShareして返す
+swap(i, s)、swapMeta      入れ替え   sをplaceへMoveし、古い値を結果へMoveする
+slot(i, s)、setMeta       書く       入れ替えた古い値をDropする
 ```
 
 周辺のoperationは、この規則を特定のslotの値に当てはめたものである。
@@ -165,7 +199,7 @@ peekの後にslot(i, vacant())    [ v● ]  →  [ v● ]  v●  →  [ · ]  v�
 swap(i, vacant())               [ v● ]  →  [ · ]  v●                    0回
 ```
 
-`swap`、`takeAt`、`moveAt`をprimitiveにする理由はこの差であり、意味論ではない。`putAt`の、新しい値を置いてから古い値を
+`peek`と`swap`を別々に核に置き、`takeAt`と`moveAt`を`swap`で書く理由はこの差であり、意味論ではない。`putAt`の、新しい値を置いてから古い値を
 Dropする順序も費用の層に属し、同じ値を書き戻したときに先に解放しないためにある。`getAt`、`initAt`、`putAt`、`takeAt`は
 さらにLiveかVacantかを未検査preconditionとして仮定し、tagの分岐を省く。
 
