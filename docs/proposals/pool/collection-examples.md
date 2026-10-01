@@ -217,7 +217,7 @@ _Node :: (UInt64, UInt64, UInt64, UInt64);
 opaque Tree :: (IxPool<(USize, USize), _Node>, IxPool<USize, UInt64>);
 
 _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
-    _ := takeAt(nodes, link.usize);
+    takeAt(nodes, link.usize);
     (root, size) := meta(nodes);
     setMeta(nodes, (root, size - 1usize));
     vacated := meta(free);
