@@ -7,6 +7,7 @@ with a `Value` or `Abrupt` completion for every expression.
 |---|---|
 | `mod` | program order, value environment, and result targets |
 | `binding`, `entry` | bindings, patterns, and reachability of body items; the entry identity and its parameter form |
+| `generic` | generic value bindings: principal parameter kinds, one check of the body under rigid parameters, and the operation and kind requirements left for specialization |
 | `control` | `if`, `when`, direct blocks, and direct result blocks with their completion and local result targets |
 | `expression` | expression dispatch, references, literals, and products checked against the expected type |
 | `expression/application` | ordinary, receiver-first, and continuation application, result transfer, and empty elimination |
@@ -14,7 +15,7 @@ with a `Value` or `Abrupt` completion for every expression.
 | `expression/elimination` | sum elimination continuations (function values, branches of the enclosing invocation, and result binder names) and their completion join |
 | `lambda` | parameters and body completion against the expected function type |
 | `operator` | numeric, logical, and Symbol operator rules and left-associative operator chains |
-| `operation` | operation-family signatures, implementation coherence, and structural termination |
+| [`operation`](operation/README.md) | operation-family signatures, implementation coherence, and structural termination |
 | `integer`, `product` | integer literals and operands against the expected type with fixed-width ranges, and product expressions against an expected product |
 | `memory` | `Buffer` access, Symbol snapshot conversion, and C host copy typing; logical operands are distinct from source products |
 | [`types`](types/README.md) | kind inference, canonical type-level terms, source expansion, type properties, and runtime-type admission |

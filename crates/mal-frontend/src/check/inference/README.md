@@ -6,7 +6,8 @@ a non-constructor type, may be inferred from expected and operand types.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | generic-reference admission, explicit prefixes, call checking, and finalized specialization keys |
+| `mod` | explicit prefixes, call checking, and finalized specialization keys |
+| `reference` | a generic reference with known type arguments: arity and kinds, self recursion, and the Storable, operation, and kind requirements it passes to the enclosing generic body |
 | `arguments` | argument-template selection, flexible parameter sets, and complete kind-checked inferred argument lists |
 | `probe` | operand and direct lambda-result probes against partially instantiated templates |
 | `memo` | probe transactions that roll back requirement and result-target effects, and the per-call memo through which later probes and the final argument check reuse a probe outcome, failures included |

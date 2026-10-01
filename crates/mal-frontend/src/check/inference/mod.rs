@@ -7,8 +7,8 @@ use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
 
-use super::ast::{Expression, Type};
-use super::{CheckResult, Checker};
+use super::ast::{self, Expression, Type};
+use super::{CheckResult, Checker, types};
 
 enum GenericCallExpectation<'a> {
     Result(Option<&'a Type>),
@@ -21,147 +21,14 @@ mod constraint;
 mod constraint_tests;
 mod memo;
 mod probe;
+mod reference;
 
 pub(super) use memo::ArgumentMemo;
 
 use arguments::{argument_templates, inferred_arguments, parameter_ids};
 use constraint::constrain;
 
-/// Only a family reference that still names a rigid type parameter is a requirement of the enclosing generic body;
-/// a closed reference is selected directly during specialization.
-fn is_open_requirement(arguments: &[Type]) -> bool {
-    arguments.iter().any(super::operation::contains_parameter)
-}
-
 impl Checker {
-    pub(super) fn check_generic_reference(
-        &mut self,
-        reference: &resolved::ValueReference,
-        mut arguments: Vec<Type>,
-        span: Span,
-    ) -> CheckResult<Expression> {
-        let signature = self
-            .generic_signatures
-            .get(&reference.id)
-            .expect("generic reference has a collected signature")
-            .clone();
-        if arguments.len() != signature.parameters.len() {
-            return Err(Diagnostic::error("generic value argument arity mismatch")
-                .with_primary(
-                    reference.name.span,
-                    format!(
-                        "expected {} arguments but found {}",
-                        signature.parameters.len(),
-                        arguments.len()
-                    ),
-                )
-                .into());
-        }
-        let kinds = super::types::require_type_argument_kinds(
-            &signature.parameter_kinds,
-            &mut arguments,
-            reference.name.span,
-        )?;
-        self.record_kinds(kinds);
-        if self
-            .active_generic
-            .as_ref()
-            .is_some_and(|(id, _)| *id == reference.id)
-            && !self.operation_families.contains(&reference.id)
-        {
-            let (_, parameters) = self.active_generic.as_ref().unwrap();
-            let same_key = arguments.iter().zip(parameters).all(|(argument, parameter)| {
-                matches!(argument, Type::Parameter { id, .. } if id == parameter)
-            });
-            if !same_key {
-                return Err(Diagnostic::error("polymorphic recursion is not supported")
-                    .with_primary(
-                        reference.name.span,
-                        "self recursion must preserve the type argument list",
-                    )
-                    .into());
-            }
-        }
-        let substitutions = signature
-            .parameters
-            .iter()
-            .map(|parameter| parameter.id)
-            .zip(arguments.iter().cloned())
-            .collect();
-        for required in &signature.requirements {
-            let required =
-                super::types::substitute_type(required, &substitutions, reference.name.span)?;
-            if !super::types::satisfies_storable_requirement(&required, &self.active_requirements) {
-                return Err(
-                    Diagnostic::error("generic application lacks a Storable requirement")
-                        .with_primary(
-                            reference.name.span,
-                            format!(
-                                "type argument `{}` is not known to be storable",
-                                super::types::type_name(&required)
-                            ),
-                        )
-                        .into(),
-                );
-            }
-        }
-        let kind = if self.operation_families.contains(&reference.id) {
-            if self.active_generic.is_some()
-                && is_open_requirement(&arguments)
-                && !self.active_operations.iter().any(|requirement| {
-                    requirement.family.id == reference.id && requirement.arguments == arguments
-                })
-            {
-                self.active_operations
-                    .push(super::ast::OperationRequirement {
-                        family: reference.clone(),
-                        arguments: arguments.clone(),
-                    });
-            }
-            super::ast::ExpressionKind::OperationReference {
-                family: reference.clone(),
-                arguments,
-            }
-        } else {
-            if self.active_generic.is_some() {
-                for requirement in &signature.operations {
-                    let requirement_arguments = requirement
-                        .arguments
-                        .iter()
-                        .map(|argument| {
-                            super::types::substitute_type(
-                                argument,
-                                &substitutions,
-                                reference.name.span,
-                            )
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    if is_open_requirement(&requirement_arguments)
-                        && !self.active_operations.iter().any(|existing| {
-                            existing.family.id == requirement.family.id
-                                && existing.arguments == requirement_arguments
-                        })
-                    {
-                        self.active_operations
-                            .push(super::ast::OperationRequirement {
-                                family: requirement.family.clone(),
-                                arguments: requirement_arguments,
-                            });
-                    }
-                }
-            }
-            super::ast::ExpressionKind::GenericReference {
-                reference: reference.clone(),
-                arguments,
-            }
-        };
-        Ok(Expression {
-            kind,
-            ty: super::types::substitute_type(&signature.ty, &substitutions, reference.name.span)?,
-            span,
-        })
-    }
-
     pub(super) fn check_inferred_generic_reference(
         &mut self,
         reference: &resolved::ValueReference,
@@ -208,20 +75,19 @@ impl Checker {
             .iter()
             .map(|argument| self.expand_type_term(argument))
             .collect::<Result<Vec<_>, _>>()?;
-        let kinds = super::types::require_type_argument_kinds(
+        let kinds = types::require_type_argument_kinds(
             &signature.parameter_kinds[..explicit.len()],
             &mut explicit,
             reference.name.span,
         )?;
         self.record_kinds(kinds);
         let kinds;
-        (signature.parameter_kinds, signature.ty, kinds) =
-            super::types::instantiate_signature_kinds(
-                &signature.parameter_kinds,
-                &explicit,
-                &signature.ty,
-                reference.name.span,
-            )?;
+        (signature.parameter_kinds, signature.ty, kinds) = types::instantiate_signature_kinds(
+            &signature.parameter_kinds,
+            &explicit,
+            &signature.ty,
+            reference.name.span,
+        )?;
         self.record_kinds(kinds);
         let mut substitutions = signature
             .parameters
@@ -231,7 +97,7 @@ impl Checker {
             .collect::<HashMap<_, _>>();
         if let Some(expected) = expected {
             let instantiated =
-                super::types::substitute_type(&signature.ty, &substitutions, reference.name.span)?;
+                types::substitute_type(&signature.ty, &substitutions, reference.name.span)?;
             constrain(
                 &instantiated,
                 expected,
@@ -347,7 +213,7 @@ impl Checker {
                     .into());
             }
         }
-        let kinds = super::types::require_type_argument_kinds(
+        let kinds = types::require_type_argument_kinds(
             &signature.parameter_kinds[..explicit.len()],
             &mut explicit,
             reference.name.span,
@@ -387,13 +253,12 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let mut signature = self.generic_signatures[&reference.id].clone();
         let kinds;
-        (signature.parameter_kinds, signature.ty, kinds) =
-            super::types::instantiate_signature_kinds(
-                &signature.parameter_kinds,
-                explicit,
-                &signature.ty,
-                reference.name.span,
-            )?;
+        (signature.parameter_kinds, signature.ty, kinds) = types::instantiate_signature_kinds(
+            &signature.parameter_kinds,
+            explicit,
+            &signature.ty,
+            reference.name.span,
+        )?;
         self.record_kinds(kinds);
         let mut substitutions = signature
             .parameters
@@ -402,7 +267,7 @@ impl Checker {
             .map(|(parameter, argument)| (parameter.id, argument.clone()))
             .collect::<HashMap<_, _>>();
         let instantiated =
-            super::types::substitute_type(&signature.ty, &substitutions, reference.name.span)?;
+            types::substitute_type(&signature.ty, &substitutions, reference.name.span)?;
         let Type::Function { parameter, result } = &instantiated else {
             return Err(Diagnostic::error("cannot call a non-function value")
                 .with_primary(reference.name.span, "this generic value is not a function")
@@ -483,7 +348,7 @@ impl Checker {
         };
         Ok(Expression {
             ty: result.as_ref().clone(),
-            kind: super::ast::ExpressionKind::Call {
+            kind: ast::ExpressionKind::Call {
                 callee: Box::new(callee),
                 argument: Box::new(argument),
             },

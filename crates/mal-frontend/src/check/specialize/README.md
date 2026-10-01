@@ -11,3 +11,4 @@ concrete type argument list.
 | `substitution` | type substitution over patterns and completions |
 | `instance_identity` | fresh identities for the binders of one instance and the references that follow them |
 | `admission` | the specialization limit and the top-level binding index |
+| `selection` | the operation implementation whose key matches concrete family arguments, and its shared instance |
