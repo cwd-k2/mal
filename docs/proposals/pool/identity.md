@@ -48,7 +48,7 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 |---|---|---|
 | `Storable` | malのstorageに保持できるか | Bufferの要素、IxPoolの要素とMeta |
 | `Stable` | 保持した値の意味が後から変わらないか | ImPoolの要素とMeta、`freeze`するIxPoolの要素とMeta、Mapのkeyのように値の意味を前提にする場所 |
-| `Representable` | hostとcopyできるcanonical layoutを持つか | `from`、`into`、canonical memory helper |
+| `Representable` | hostとcopyできるcanonical layoutを持つか | `Host<A>`、canonical memory helper |
 | `HostMappable` | extern境界をそのまま渡れるか | externのparameterとresult |
 
 | 型 | Storable（現在） | Storable（案） | Stable | Representable | HostMappable |
@@ -56,6 +56,7 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 | `Unit`、numeric scalar、`ByteSize`、`USize`、`Address` | ○ | ○ | ○ | ○ | ○ |
 | `Symbol` | ○ | ○ | ○ | × | × |
 | `ImPool<M, V>` | ― | ○ | ○ | × | × |
+| `Host<A>` | ― | ○ | ○ | × | × |
 | `Buffer<A>` | × | `A`がStorableなら○ | × | × | × |
 | `IxPool<M, V>` | ― | ○ | × | × | × |
 | external opaque | × | × | × | × | ○ |

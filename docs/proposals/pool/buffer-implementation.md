@@ -2,15 +2,16 @@
 
 Status: Exploratory example
 
-この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`のoperationのうち、hostと`Symbol`との交換を除く全てを
-IxPoolの核と周辺operationで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの
-意味は[AddressとBuffer](../../spec/memory.md)を正とする。
+この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、IxPoolの核と周辺operation、
+`Host<A>`で実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの意味は
+[AddressとBuffer](../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 
 ## 使うprimitive
 
-[primitive一覧](primitives.md)のIxPoolの核と周辺operationと、現行runtimeと同じoverflow trapをmalで起こすための`trap`だけを使う。
+[primitive一覧](primitives.md)のIxPoolの核と周辺operation、`Host<A>`と、現行runtimeと同じoverflow trapをmalで起こすための
+`trap`だけを使う。
 
 ## 表現とinvariant
 
@@ -142,15 +143,41 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 
 ## Host境界とSymbol
 
-`from`、`into`、`*`の二方向はIxPoolの上に書けないため、[Bufferのprimitive](primitives.md#buffer)としてruntimeが持つ。
-型、意味、preconditionは現行の[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)と
-[Symbol conversion](../../spec/memory.md#symbol-conversion)のままである。runtimeはこのfileのrepresentation、つまりIxPoolと
-Meta=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`をLiveにしてcountを`length`にした新しいIxPoolを返す。
+hostと`Symbol`との交換は、[`Host<A>`](primitives.md#host)を経由して書く。型、意味、preconditionは現行の
+[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)と[Symbol conversion](../../spec/memory.md#symbol-conversion)のまま
+である。
+
+```mal
+_fromHost<A> :: (Buffer<A>, Host<A>, USize, USize) -> Unit :=
+    (buffer, source, index, length) -> [return] => {
+        when (index == length) return(());
+        initAt<USize, A>(buffer, index, source # index);
+        return(_fromHost<A>(buffer, source, index + 1usize, length));
+    };
+
+from<A> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
+    source := admit<A>(address, offset, length);
+    buffer := make<A>(length);
+    _fromHost<A>(buffer, source, 0usize, length);
+    setMeta<USize, A>(buffer, length);
+    buffer;
+};
+
+into<A> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
+    observe<A>(host<USize, A>(buffer, offset, length), address);
+
+_toSymbol :: Buffer<UInt8> -> Symbol := (buffer) ->
+    symbol(host<USize, UInt8>(buffer, 0usize, length<UInt8>(buffer)));
+```
+
+`into`の公開precondition `offset + length <= #buffer`は、invariantにより`host`の範囲が全てLiveであることを与える。`*buffer`は
+`_toSymbol`であり、`*symbol`は`symbol # index`を`new`で積むloopで書ける。`from`はhostから`Host<A>`へ、`Host<A>`からIxPoolへと
+二段のcopyを意味の上で行うが、組み込みlibraryとしてのBufferは同じ結果になる一段のcopyで実装してよい。
 
 ## 現行Bufferとの差分
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
-- growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPool primitiveと、`from`、`into`、`*`を持つ。
+- growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolと`Host<A>`のprimitiveを持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
   [canonical layout](runtime.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
@@ -165,7 +192,7 @@ Meta=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`を
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
-| `from`、`into`、`*` | runtimeのbulk copy | 変わらない |
+| `from`、`into`、`*` | runtimeのbulk copy | `Host<A>`を経由する。組み込みlibraryとしては一段のbulk copyで実装してよい |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
 
