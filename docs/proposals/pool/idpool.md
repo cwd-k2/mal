@@ -8,8 +8,9 @@ Status: Exploratory support document
 
 ## 位置づけ
 
-IxPoolはcoordinateで引くplaceの線形空間であり、その上にBufferとIdPoolがある。Bufferは位置で引く一つのrunを、IdPoolは要素の
-identityを抽象し、利用者の層で互いに補い合う。
+IdPoolはprimitiveではなく、IxPool上のcontainerの一つである。新しいprimitiveなしにIxPoolの上に書け、Map、Deque、heapと同じ層に
+ある。Bufferが位置で要素を引くのに対し、IdPoolは検査付きのhandleで引き、古い参照をmissingとして安全に扱える。この性質から、
+木、graph、entityのように外へ参照を返すcontainerの標準として置く価値がある。標準libraryに含めるかは未決定である。
 
 | 型 | 引き方 | precondition | 主な用途 |
 |---|---|---|---|

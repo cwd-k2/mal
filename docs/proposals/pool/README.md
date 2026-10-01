@@ -29,7 +29,7 @@ sparseな利用、growth、free list、ordering、hashing、snapshot policyをma
 |---|---|---|---|
 | 所有権 | 誰がresponsibilityを持つか | `init`と`take`、operand effect `Store` | [所有権primitive](ownership-primitives.md) |
 | lifecycle | carrierをいつ確保、移動、解放するか | `reserve`、IxPool終了、型別glue | [lifecycle contract](lifecycle-contract.md) |
-| identity | 変更を誰が観測し、何を`Storable`にできるか | 共有IxPool、`ImPool`、IdPoolと`Id<T>` | [identity](identity.md)、[IdPool](idpool.md) |
+| identity | 変更を誰が観測し、何を`Storable`にできるか | IxPoolとImPool、`Id<T>` | [identity](identity.md) |
 | 妥当性 | どのplaceがLiveで、誰がそれを保証するか | 未検査preconditionとcontainer invariant | [lifecycle contract](lifecycle-contract.md#未検査precondition) |
 | 権限 | 誰がIxPoolへ直接触れるか | file-local opaque型の宣言元file | 本書と[file-local opaque type](../../spec/types.md#file-local-opaque-type) |
 | 表現 | どのbitで保持し、hostとどう交換するか | runtime representationとdata primitive | [lifecycle contract](lifecycle-contract.md#runtime-representation) |
@@ -39,32 +39,38 @@ invariantでpreconditionを満たせるからである。
 
 ## 位置づけ
 
-本案のstorageは、引き方の異なる三つの型からなる。
+本案のstorageの中心は、変更の扱いが異なる二つのprimitiveの対である。
 
-- `IxPool<State, T>`：coordinateで引くplaceの線形空間と、明示的な占有状態を持つtrustedな最下層である。
-- `Buffer<T>`：IxPool上の、位置で引く一つのLiveなrunである。
-- `IdPool<T>`：IxPool上の、検査付きのhandle `Id<T>`で要素を引く所有者である。
+- `IxPool<State, T>`：identityを共有し、その場で書き換える。coordinateで引くplaceの線形空間と、明示的な占有状態を持つ。
+- `ImPool<State, T>`：identityを持たず、更新のたびにsuccessorを返す。入力が唯一のresponsibilityならstorageを再利用し、
+  共有中ならcopyする。
 
-BufferとIdPoolはどちらも追加のcostなしにIxPoolの上に書け、逆にその二つを組み合わせてもIxPoolは書けない。heapやopen addressing
-Mapのように位置で引きながら空きを持つ構造は、IxPoolだけが直接表せる。したがって仕組みの層ではIxPoolがBufferより基本的であり、
-利用者の層ではBufferとIdPoolが位置とidentityという重ならない役割で補い合う。未検査のpreconditionはIxPoolだけが持ち、Bufferと
-IdPoolの利用者はそれに触れない。
+ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照数で決まり、malは参照数をsourceへ見せないためである。また、
+その場で書き換えるAPIを持たない別の型でなければ、保持した値が変わらないことを型で保証できない。現在のruntimeのBufferと
+`Symbol`は、この対をbyte列に特化した形に当たる。Bufferは共有されるidentityであり、`Symbol`の連結は一意なownerならその場で
+伸ばし、共有中ならcopyする。
+
+containerは、この対の上にmalで定義する。Buffer、Map、Deque、heap、[IdPool](idpool.md)などはIxPool上に、immutable arrayは
+ImPool上に置き、各containerが引き方と占有状態の形を決める。BufferはIxPoolの上に追加のcostなしに書けるが、逆はslotごとの
+sum tagと移動ごとの`Share`と`Drop`を払う。heapやopen addressing Mapのように位置で引きながら空きを持つ構造はIxPoolだけが
+直接表すため、仕組みの層ではIxPoolがBufferより基本的である。未検査のpreconditionはIxPoolだけが持ち、containerの利用者は
+それに触れない。
 
 ## 文書の構成
 
-API、語彙、containerは次の文書が所有する。
+API、語彙、contractは次の文書が所有する。
 
 - [primitive一覧](primitives.md)：memoryの層、coordinateの線形性、slot、run、sequenceの語彙、IxPoolとBufferの責務、全primitive
-- [IdPool](idpool.md)：identityで要素を引くIdPool、`Id<T>`の照合、IxPoolを要素にするArena
 - [run protocol](run-protocol.md)：`from`、`into`、`copy`、`fill`のfamilyとrun primitiveの意味
 - [IxPool上のcontainer](containers.md)：代表的なcontainerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
 
-次の文書は、規則を具体的なcodeで確かめる例と結果である。
+次の文書は、個別のcontainerの設計、規則を確かめる例、試作の結果である。
 
+- [IdPool](idpool.md)：検査付きのhandle `Id<T>`を返すIxPool上のcontainerと、IxPoolを要素にするArena
 - [Buffer実装](buffer-implementation.md)：現行Bufferの全operationをIxPoolとcompiler primitiveで書いた形
 - [collection例](collection-examples.md)：stack、binary heap、open addressing Map、IdPool、木
 - [既存exampleとの差分](current-examples.md)：`examples/`をIxPool上へ移したときのsource、precondition、costの変化
-- [array ownership](array-ownership.md)：mutable arrayとcopy-on-write immutable arrayの比較
+- [array ownership](array-ownership.md)：IxPool上のmutable arrayとImPool上のimmutable arrayの比較
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
 
 ## file-local opaque型
@@ -132,7 +138,7 @@ Engram回収へ結合せず、従来どおり明示したhost operationが所有
 2. backend内部にIxPoolのVacant/Live遷移を置き、unmanaged Stateとelementで`init`、`take`とその派生operationを実行する。
 3. `Symbol`とmanaged aggregateでshare/drop回数、relocation、同じvalueの書き戻し、IxPool終了時のlive allocation 0を検査する。
 4. IxPool上に実験的なdense containerをmalで実装し、現在のBufferとalias、range、overlap、trap semanticsを比較する。
-5. keyを持たないimmutable arrayでwritable successorを検証し、shared時のcopyとlast-use時のstorage再利用を別々に測る。
+5. ImPool上のimmutable arrayで更新を検証し、shared時のcopyとlast-use時のstorage再利用を別々に測る。
 6. IdPoolまたはtreeをcoordinateで実装し、`Id<T>`のidentity、generation、古い`Id<T>`と別のIdPoolの`Id<T>`の拒否を独立して検査する。
 7. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換とtrusted crate境界を別々に判断する。
 
@@ -156,10 +162,10 @@ compilerを変えない二つの試作が、step 4と6の一部を先取りし�
   `Share`と`Drop`のcostは測っていない。
 - IxPoolを使えるfileを、どのfileにも開くか、標準libraryとtrustedなcodeだけに限るか。後者では利用者はBuffer、IdPool、標準の
   containerだけを見る。
-- [IdPool](idpool.md#未決定事項)のgeneration幅、要素の列挙、`Id<T>`のequality、Arena State。
+- [IdPool](idpool.md#未決定事項)を標準libraryに含めるか。generation幅、要素の列挙、`Id<T>`のequality、Arena State。
 - [`Storable`を保持の可否に絞り、値の意味が変わらないことを`Stable`へ分ける案](identity.md#判定の分割案)。採ると
   `Buffer<Buffer<T>>`を書け、Arenaが不要になる。[D075](../../history/decisions/active/D075.md)の見直しを伴う。
-- immutableな`Array<T>`の表現として[`ImPool<State, T>`](identity.md#impool)を、identityを共有するIxPoolと別の型として持つか。
+- [ImPool](identity.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

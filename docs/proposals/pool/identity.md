@@ -74,15 +74,8 @@ productとsumは要素から、file-local opaque型はhidden representationか�
 
 ## ImPool
 
-`ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolである。位置で引く点はIxPoolと同じである。
-
-```mal
-ImPool<State, T>
-
-imPutAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
-imInitAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
-imReserve<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
-```
+`ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
+位置で引く点はIxPoolと同じであり、APIは[primitive一覧](primitives.md#impool-primitive候補)に置く。
 
 各更新operationはinputを`Store`で受け取り、内部で[writable successor](ownership-primitives.md#拡張operation)を作ってから変更して返す。
 inputが唯一のresponsibilityならstorageを再利用し、共有中ならcopyする。

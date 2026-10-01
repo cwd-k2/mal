@@ -11,16 +11,18 @@ Status: Exploratory support document
 
 Pool案のmemoryは次の層からなる。
 
-- Engram lifecycle：`Share`、`Consume`、`Drop`と回収により、すべてのmanaged valueの寿命を自動で管理する。IxPoolを使わない
+- Engram lifecycle：`Share`、`Consume`、`Drop`と回収により、すべてのmanaged valueの寿命を自動で管理する。Poolを使わない
   `Symbol`、closure environment、productとsumもここに属する。
-- IxPool：malが所有する可変storageのmodelである。identity、State、slotを持ち、各slotのLiveとVacantは使う側が管理する。
+- IxPoolとImPool：malが所有するstorageのprimitiveの対である。IxPoolはidentityを共有してその場で書き換え、ImPoolは
+  identityを持たず更新のたびにsuccessorを返す。どちらもState、slot、各slotのLiveとVacantを持つ。
 - run protocol：連続したcoordinate範囲をまとめて扱う語彙である。
-- Buffer：IxPool上の、占有状態とcapacityを自動で管理するsequenceであり、一つのLiveなrun `[0, count)`だけを持つ。
-- IdPool：IxPool上の、検査付きのhandle `Id<T>`で要素を引く所有者であり、Bufferと位置とidentityの役割で補い合う。
-- `Symbol`：不変のrunであり、`Buffer<UInt8>`とstorageを共有して相互に変換できる。
+- container：IxPoolまたはImPoolの上にmalで定義する。BufferはIxPool上の、占有状態とcapacityを自動で管理するsequenceであり、
+  一つのLiveなrun `[0, count)`だけを持つ。Map、Deque、heap、[IdPool](idpool.md)も同じくIxPool上にあり、immutable arrayは
+  ImPool上にある。
+- `Symbol`：不変のrunであり、ImPoolをbyte列に特化した既存の値に当たる。`Buffer<UInt8>`とstorageを共有して相互に変換できる。
 - `Address`：hostのstorageであり、run protocolを通してだけ交換する。
 
-IxPool、Buffer、IdPoolはどれもEngramであり、寿命の管理に差はない。BufferとIdPoolが自動で管理するのは、slotの占有状態と
+IxPool、ImPool、containerはどれもEngramであり、寿命の管理に差はない。Bufferが自動で管理するのは、slotの占有状態と
 capacityである。
 
 ## coordinateの線形性
@@ -137,9 +139,30 @@ trap :: Symbol -> [];
 [primitive `trap`案](../primitive-trap.md)のprimitiveであり、Bufferなどのcontainerが現行runtimeと同じoverflow trapをmalで
 起こすのに使う。Pool案はこの採択に依存する。
 
-## core外の拡張
+## ImPool primitive（候補）
 
-次はcore IxPool APIに含めず、所有する文書で扱う。
+ImPoolはIxPoolと対になるprimitiveの候補であり、意味は[identity](identity.md#impool)が所有する。読み出しはIxPoolと同じ意味を持ち、
+更新は入力を`Store`で受け取ってsuccessorを返す。
 
-- `writableSuccessor`と`ImPool`の更新操作：[identity](identity.md#impool)
-- `IdPool`、`Id<T>`、`Arena`：[IdPool](idpool.md)
+```mal
+ImPool<State, T>
+
+makeImPool<State, T> :: (State, USize) -> ImPool<State, T>;
+imState<State, T> :: ImPool<State, T> -> State;
+imCapacity<State, T> :: ImPool<State, T> -> USize;
+imIsLive<State, T> :: (ImPool<State, T>, USize) -> Bool;
+imGetAt<State, T> :: (ImPool<State, T>, USize) -> T;
+imSetState<State, T> :: (ImPool<State, T>, State) -> ImPool<State, T>;
+imReserve<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
+imInitAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
+imPutAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
+imDropAt<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
+```
+
+更新ごとの再利用かcopyかの判断は参照数に依存するため、malの他の操作では表せず、更新はすべて必須のprimitiveである。
+preconditionは同名のIxPool primitiveと同じであり、`Storable`と`Stable`の扱いは[判定の分割](identity.md#判定の分割案)で扱う。
+
+## primitiveでないもの
+
+[IdPool](idpool.md)と`Id<T>`、`Arena`はprimitiveではなく、IxPool上のcontainerとして扱う。IdPoolの実装がgenerationや
+free listをVacantなslotの中へ置く最適化をtrusted layerで行ってもよいが、意味はIxPoolの上で定義できる。

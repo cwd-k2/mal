@@ -63,11 +63,11 @@ setState(pool, s)   = put(pool.state, s)
 
 ## 拡張operation
 
-writable successor、IdPool、Arena、`Id<T>`も同じ語彙で表せる。
+ImPool、IdPool、Arena、`Id<T>`も同じ語彙で表せる。
 
-- `writableSuccessor(pool)`は、inputが唯一のresponsibilityならそのidentityをresultへ移す。共有中なら新しいIxPoolを作り、
-  Stateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。
-- `ImPool`の更新はwritable successorの後に`put`または`init`を行い、successorを返す。
+- ImPoolの各更新は、まずinputのwritable successorを作る。inputが唯一のresponsibilityならstorageをresultへ移し、共有中なら
+  新しいstorageを作ってStateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。その後successorへ`put`または
+  `init`を行って返す。
 - IdPoolの`idInsert`は要素を空いた場所へ`init`し、`idRemove`は`take`し、`idGet`は`get`する。
 - `arenaAdd`は新しいIxPoolをentryへ`init`し、`arenaRemove`はentryを`drop`し、`arenaGet`はentryを`get`してIxPoolを`Share`する。
 - `Id<T>`は所有権を持たないdataであり、どの遷移も起こさない。

@@ -1,35 +1,26 @@
-# IxPoolによるmutable arrayとimmutable array
+# IxPoolとImPoolによるmutable arrayとimmutable array
 
 Status: Exploratory example
 
-この文書は[primitive一覧](primitives.md)の`IxPool<State, T>`を使い、共有mutable identityと
-copy-on-write immutable valueの参照管理を比較する。構文は未採択の擬似codeである。indexは公開precondition`index < length`に従い、
-[Buffer](buffer-implementation.md#表現とinvariant)と同じinvariantでIxPool preconditionへ移るため、範囲検査を書かない。
+この文書は、[primitive一覧](primitives.md)の対になる二つのprimitiveで同じ配列を書き、共有mutable identityと
+copy-on-write immutable valueの参照管理を比較する。mutable arrayは`IxPool<State, T>`、immutable arrayは`ImPool<State, T>`を
+representationにする。構文は未採択の擬似codeである。indexは公開precondition`index < length`に従い、
+[Buffer](buffer-implementation.md#表現とinvariant)と同じinvariantでpool preconditionへ移るため、範囲検査を書かない。
 
-どちらもStateをlogical lengthとし、`[0, length)`だけがLiveであるdense slot invariantを持つ。違いは同じIxPool identityへの更新を
-公開するか、更新前に独立したIxPool responsibilityを得るかにある。
-
-この例だけがcore外のtrusted operation `writableSuccessor`を仮定する。resultはcall開始時のState、logical capacity、全slotと
-同じ値を持ち、その後resultを更新してもcall前から残る強いIxPool aliasの値を変えない。inputからresultへのowner-successor effectを持つが、
-unique token、reference count、raw mutable carrierをsourceへ返さない。
+どちらもStateをlogical lengthとし、`[0, length)`だけがLiveであるdense slot invariantを持つ。違いは、同じidentityへの更新を
+公開するか、更新のたびに独立した値を返すかにある。
 
 ```mal
-writableSuccessor<State, T> :: IxPool<State, T> -> IxPool<State, T>;
-
 _reserveArraySlot<T> :: (IxPool<USize, T>, USize) -> Unit :=
     (pool, required) -> {
-        current := capacity<USize, T>(pool);
-        if (required <= current)
-        then ()
-        else {
-            doubled := if (current == 0usize) then 1usize else current * 2usize;
-            next := if (doubled < required) then required else doubled;
-            reserve<USize, T>(pool, next);
+        current := capacity(pool);
+        when (required > current) {
+            reserve(pool, if (current == 0usize) then 1usize else current * 2usize);
         };
     };
 ```
 
-`_reserveArraySlot`のoverflow処理は省略している。IxPoolはauto-growせず、mutable版とimmutable版が同じgeometric growth policyを選ぶ。
+`_reserveArraySlot`のoverflow処理は省略している。どちらのarrayも同じgeometric growth policyを選ぶ。
 
 ## Mutable array
 
@@ -77,80 +68,67 @@ a2 ─┘
 `mutableSet`はIxPoolをBorrowし、new valueをslotへShareまたはConsumeする。array handleのretain/releaseとelementのretain/releaseは
 IxPool lifecycleが行い、array implementationは参照数を観測しない。
 
-## Immutable array with copy-on-write extension
+## Immutable array
 
-immutable arrayは破壊的な公開operationを持たず、更新後の値を返す。
+immutable arrayは破壊的な公開operationを持たず、更新後の値を返す。ImPoolの更新primitiveがそのままsuccessorを返す。
 
 ```mal
-opaque Array<T> :: IxPool<USize, T>;
+opaque Array<T> :: ImPool<USize, T>;
 
-makeArray<T> :: USize -> Array<T> := (capacity) ->
-    makeIxPool<USize, T>(0usize, capacity);
+makeArray<T> :: USize -> Array<T> := (capacity) -> makeImPool(0usize, capacity);
 
-arrayLength<T> :: Array<T> -> USize := (array) ->
-    state<USize, T>(array);
+arrayLength<T> :: Array<T> -> USize := (array) -> imState(array);
 
-arrayGet<T> :: (Array<T>, USize) -> T := (array, index) ->
-    getAt<USize, T>(array, index);
+arrayGet<T> :: (Array<T>, USize) -> T := (array, index) -> imGetAt(array, index);
 
-arraySet<T> :: (Array<T>, USize, T) -> Array<T> :=
-    (array, index, value) -> {
-        writable := writableSuccessor<USize, T>(array);
-        putAt<USize, T>(writable, index, value);
-        writable;
-    };
+arraySet<T> :: (Array<T>, USize, T) -> Array<T> := (array, index, value) ->
+    imPutAt(array, index, value);
 
 arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
-    length := state<USize, T>(array);
-    writable := writableSuccessor<USize, T>(array);
-    _reserveArraySlot<T>(writable, length + 1usize);
-    initAt<USize, T>(writable, length, value);
-    setState<USize, T>(writable, length + 1usize);
-    writable;
+    length := imState(array);
+    current := imCapacity(array);
+    grown := if (length < current)
+        then array
+        else imReserve(array, if (current == 0usize) then 1usize else current * 2usize);
+    imSetState(imInitAt(grown, length, value), length + 1usize);
 };
 ```
 
-`writableSuccessor`はinput IxPool responsibilityを受け取り、call前から残る強いaliasとは独立して更新できるIxPoolを返す。参照数や
-一意性をsourceへ返さず、次の二つを同じobservable semanticsとして選べる。
+ImPoolの各更新は入力のresponsibilityを`Store`で受け取り、内部でwritable successorを作ってから変更する。参照数や一意性を
+sourceへ返さず、次の二つを同じobservable semanticsとして選ぶ。
 
 ```text
-inputが唯一:       Array A ── IxPool P ── update in place ── Array B
+inputが唯一:       Array A ── storage P ── update in place ── Array B
 
-inputにaliasあり:  Array A ── IxPool P  = [A, B, C]
+inputにaliasあり:  Array A ── storage P  = [A, B, C]
                                   share live elements
-                   Array B ── IxPool P' = [A, X, C]
+                   Array B ── storage P' = [A, X, C]
 ```
 
-callerが旧Arrayを後でも使う場合、ownership planはcallに渡すresponsibilityをShareする。そのためIxPoolにはaliasが残り、successorは
-新しいIxPoolを作る。[D083](../../history/decisions/active/D083.md)のowned native entryへwritable-successorのowner effectを伝播できるcallで
-旧Arrayがlast useなら、inputを`Consume`でき、他の強いaliasがなければ同じIxPoolを再利用できる。現在の保持解析はreturn、capture、
-保持calleeへの転送だけを追うため、このprimitive-derived relationはIxPool導入時の追加事項である。borrowedまたはpinnedなcall経路では
-calleeがowned responsibilityをShareしてcopyへfallbackしてよく、correctnessはcall conventionや再利用へ依存しない。
+callerが旧Arrayを後でも使う場合、ownership planはcallに渡すresponsibilityをShareする。そのためstorageにはaliasが残り、更新は
+新しいstorageを作る。[D083](../../history/decisions/active/D083.md)のowned native entryへ`Store`を伝播できるcallで旧Arrayが
+last useなら、inputを`Consume`でき、他の強いaliasがなければ同じstorageを再利用できる。`arrayAppend`のように更新を続けると、
+最初の更新が一意なsuccessorを作るため、以後の更新はその場で行われる。borrowedまたはpinnedなcall経路ではcalleeが
+owned responsibilityをShareしてcopyへfallbackしてよく、correctnessはcall conventionや再利用へ依存しない。
 
-共有時のsuccessorはStateと各Live elementをShareする。managed `T`のpayloadをdeep copyせず、flatなslot carrierと占有metadataだけを
+共有時の更新はStateと各Live elementをShareする。managed `T`のpayloadをdeep copyせず、flatなslot carrierと占有metadataだけを
 複製するが、処理量はO(length)である。chunk単位のCOWやpersistent treeはこのcopy量を減らせる一方、複数storageのownershipと
 使われなくなったnodeの回収を追加で定める必要がある。
 
-このprofileは`Id<T>`を発行しない。理由と合成の選択肢は[identity](identity.md#idとの合成)で扱う。
+ImPoolは`Id<T>`を発行しない。理由と合成の選択肢は[identity](identity.md#idとの合成)で扱う。`Array<T>`は`ImPool<USize, T>`から
+型形成条件を導き、`T`が`Storable`なら`Storable`になるため、`Array<Array<T>>`やMapのvalueにできる。
 
-現在のruntimeにも同じ構造がある。immutableな`Symbol`のappendはbyte ownerのreference countが1ならallocationを再利用し、共有中なら
+現在のruntimeにも同じ構造がある。immutableな`Symbol`の連結はbyte ownerのreference countが1ならallocationを再利用し、共有中なら
 新しいownerへcopyする。現在の`Buffer`は逆に一つのbuffer objectをaliasが共有し、managed element用のretain/release callbackを持つ。
-Pool案はこの二つの既存mechanismを、mutable identityとoptionalなwritable successorとして分離して一般化する。
+Pool案はこの二つの既存mechanismを、IxPoolとImPoolとして一般化する。
 
 外部のCOWとpersistent vectorとの対応、およびweak handleとの相互作用は
-[IxPool storageの関連事例](../../research/pool-storage-prior-art.md)にまとめる。
+[Pool storageの関連事例](../../research/pool-storage-prior-art.md)にまとめる。
 
 ## 必要な境界
 
-- IxPool handleのcopyと終了を、それぞれEngram leafのShareとDropへlowerする。
-- `writableSuccessor`はowned inputをConsumeでき、残る強いaliasがなければstorageを再利用できる。
-- 共有時のsuccessorはState、全Live slot、Vacant metadataを保存する。allocation failureはtrapであり、inputの保存を要求しない。
+- IxPoolとImPoolのhandleのcopyと終了を、それぞれEngram leafのShareとDropへlowerする。
+- ImPoolの更新はowned inputをConsumeでき、残る強いaliasがなければstorageを再利用できる。
+- 共有時の更新はState、全Live slot、Vacant metadataを保存する。allocation failureはtrapであり、inputの保存を要求しない。
 - reference countやcompilerが作る一時responsibilityをsourceから観測させない。
-- `Id<T>`を同じprofileから発行せず、copyか再利用かを`Id<T>`の有効性から観測させない。
 - immutableなのはArrayの構造であり、elementが運ぶExtern referentまでimmutableにはしない。
-
-## Storableなimmutable array
-
-`Array<T>`の型形成条件はhidden representationの`IxPool<USize, T>`から導かれるため、`Array<T>`は値としてimmutableでも
-`Storable`にならない。更新がsuccessorを返す`ImPool`をrepresentationにすれば`Storable`にでき、その条件は
-[identity](identity.md#impool)で扱う。
