@@ -3,7 +3,7 @@
 Status: Exploratory example
 
 この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`のoperationのうち、hostと`Symbol`との交換を除く全てを
-core IxPool APIで実装した擬似codeを示す。IxPool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、Bufferの各operationの
+core IxPool APIで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの
 意味は[AddressとBuffer](../../spec/memory.md)を正とする。
 
 predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
@@ -138,7 +138,7 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 
 ## Host境界とSymbol
 
-`from`、`into`、`*`の二方向はIxPoolの上に書けないため、[Bufferのprimitive](primitives.md#buffer-primitive)としてruntimeが持つ。
+`from`、`into`、`*`の二方向はIxPoolの上に書けないため、[Bufferのprimitive](primitives.md#buffer)としてruntimeが持つ。
 型、意味、preconditionは現行の[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)と
 [Symbol conversion](../../spec/memory.md#symbol-conversion)のままである。runtimeはこのfileのrepresentation、つまりIxPoolと
 State=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`をLiveにしてcountを`length`にした新しいIxPoolを返す。
@@ -148,7 +148,22 @@ State=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`�
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPool primitiveと、`from`、`into`、`*`を持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<State, UInt8>`は
-  [canonical layout](lifecycle-contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
+  [canonical layout](runtime.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
   representation選択とState=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
+
+公開operationと未検査preconditionを保つため、`managed-bytes`、`canonical-memory`、`indexed-graph`など`Buffer`を使う
+[`examples/`](../../../examples/)のsourceは変わらない。変わるのは各operationの実装場所とcostである。
+
+| operation | 現行Buffer | IxPool上の実装 |
+|---|---|---|
+| `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
+| `new` | runtimeがgrowthを決める | Buffer fileが`reserve`とgrowth policyを呼ぶ |
+| `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
+| `from`、`into`、`*` | runtimeのbulk copy | 変わらない |
+| managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
+| 破棄 | `[0, count)`をrelease | 占有metadataを走査してLive slotをDrop |
+
+`indexed-graph`のDijkstraが`fill`で初期化する距離表のように、unmanagedな要素の`fill`はIxPool callのloopにすると要素数だけcallが
+増える。現行runtimeのloopと同等にするには、runtime representationとcanonical layoutが一致する型の一括処理が要る。

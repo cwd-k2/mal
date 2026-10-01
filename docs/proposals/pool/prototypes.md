@@ -2,7 +2,7 @@
 
 Status: Exploratory support document
 
-この文書は、compilerを変えずにPool案を動かした二つの試作と、その結果を管理する（2026-09-30）。試作のsourceはrepositoryに含めず、
+この文書は、compilerを変えずにPool案を動かした二つの試作と、その結果を管理する（2026-09-30から10-01）。試作のsourceはrepositoryに含めず、
 結論と、その結論が依拠する条件だけを記録する。IxPool APIは[primitive一覧](primitives.md)、試作から抜き出したcodeは
 [collection例](collection-examples.md)を正とする。
 
@@ -15,7 +15,7 @@ Status: Exploratory support document
   `Unit`のvariantで表し、preconditionへの違反は戻らない。
 
 どちらでも、stack、binary heap、Map、Deque、SlotMap、木の同じsourceが変更なしに動いた。containerはIxPool APIにしか依存せず、
-二つの試作は一つの意味の二つの実装である。[段階的な検証](README.md#段階的な検証)のstep 4と6の一部に当たり、`Store`による
+二つの試作は一つの意味の二つの実装である。[検証の段階](runtime.md#検証の段階)のstep 5と7の一部に当たり、`Store`による
 所有権の効果と性能は対象外である。
 
 ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
@@ -31,7 +31,7 @@ loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、�
 
 ## ImPoolとfreezeとthaw
 
-Buffer上のemulationで、[array ownership](array-ownership.md)の`Array<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
+Buffer上のemulationで、[immutable array](collection-examples.md#immutable-array)の`Array<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
 後のIxPoolへの書き込みも、`thaw`したIxPoolへの書き込みも、値と他のIxPoolから観測されないことを確かめた。`Symbol`を要素に
 しても、valgrindで全allocationの解放とerror 0を確かめた。emulationのImPoolはBufferを含むため`Storable`にならず、
 `Array<Array<T>>`は確かめていない。
@@ -52,7 +52,7 @@ C host試作ではbyte IxPoolのstorageを`Symbol`相当のtextと共有した�
 逆向きの変換は、textが一つの葉ならstorageを貸し、それ以外は一度だけflattenした。
 
 `getAt`を`takeAt`と`initAt`で派生させると、読むだけで`initAt`が書き込みとして共有storageのcopyを起こし、探索ごとのhost callも
-倍になった。[primitive一覧](primitives.md#slot-primitive)が`getAt`をprimitiveに残すのはこのためである。
+倍になった。[primitive一覧](primitives.md#ixpool)が`getAt`をprimitiveに残すのはこのためである。
 
 ## ropeとflatな`Symbol`
 

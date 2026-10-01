@@ -1,9 +1,10 @@
-# IxPool identityとStorable
+# identityとStorable
 
 Status: Exploratory support document
 
 この文書は、Pool案のidentity軸、すなわち値の変更を誰が観測するかと、それによって決まる`Storable`の可否を管理する。
-所有権の遷移は[所有権primitive](ownership-primitives.md)、copy-on-writeの動作例は[array ownership](array-ownership.md)を正とする。現行の`Storable` judgmentは
+所有権の遷移は[runtime contract](runtime.md#所有権)、ImPoolの意味は[primitive一覧](primitives.md#impool)、copy-on-writeの動作例は
+[immutable array](collection-examples.md#immutable-array)を正とする。現行の`Storable` judgmentは
 [AddressとBuffer](../../spec/memory.md#storable)に定める。
 
 ## 所有権とidentity
@@ -69,38 +70,6 @@ productとsumは要素から、file-local opaque型はhidden representationか�
 案を採ると`Buffer<Buffer<T>>`、`HashMap<K, Buffer<V>>`、IxPoolを要素にするIxPoolを書ける。代わりに、
 `fill`で同じ内側のBufferをすべての位置へ置くとそれらがaliasになり、`copy`は浅くなる。値の意味が要る場所は`Stable`を要求して、
 このaliasを型で排除する。
-
-## ImPool
-
-`ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
-位置で引く点はIxPoolと同じであり、APIは[primitive一覧](primitives.md#impool-primitive候補)に置く。
-
-各更新operationはinputを`Store`で受け取り、内部で[writable successor](ownership-primitives.md#拡張operation)を作ってから変更して返す。
-inputが唯一のresponsibilityならstorageを再利用し、共有中ならcopyする。
-
-- 更新前のvalueをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
-- 同じvalueを別のslotへ保存したoperandはShareされてuniquenessが成り立たず、以後の更新はcopyへfallbackする。
-
-更新を`Unit`を返すIxPool操作とsuccessor取得の二つへ分けると、Shareしたsuccessorを更新しないことが未検査preconditionになり、
-違反は別のvalueの変更として現れる。更新operation自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装の
-invariantへ依存させない。uniqueness検査は更新ごとに一回の比較であり、last useを`Consume`できるcallではstorageを再利用する。
-
-## freezeとthaw
-
-IxPoolとImPoolの間は、次の二つの変換で行き来する。
-
-- `freeze(pool)`は、呼び出し時点のStateとslotを持つImPoolを返す。元のIxPoolはidentityを保ったまま使い続けられ、以後の変更は
-  返した値から観測されない。
-- `thaw(value)`は、同じStateとslotを持つ新しいidentityのIxPoolを返す。返したIxPoolへの変更は、元の値からも、同じ値から
-  thawした別のIxPoolからも観測されない。
-
-可変なIxPoolで効率よく組み立ててから値として公開すること、値から編集用の可変なcopyを作ることに使う。`Buffer<UInt8>`と
-`Symbol`の`*`は、この対をbyte列へ特化した変換に当たる。
-
-意味は要素を一つずつcopyするloopで定まる。primitiveにするのはstorageを共有するためであり、`freeze`はIxPoolのstorageを
-ImPoolと共有して、IxPool側への後の書き込みでcopyする。`thaw`は入力が唯一のresponsibilityならstorageを移し、共有中なら
-書き込みでcopyする。共有を許すと、IxPoolへの書き込みのたびにstorageが共有中かの確認が一回入る。現在のBufferも`Symbol`と
-byte ownerを共有するため同じ確認を持つが、全要素型のIxPoolへ広げるか、`freeze`を常にcopyにして確認を省くかは未決定である。
 
 ## 入れ子構造の選び方
 

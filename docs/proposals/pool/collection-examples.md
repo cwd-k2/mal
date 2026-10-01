@@ -1,9 +1,9 @@
-# IxPool上のcollection例
+# collection例
 
 Status: Exploratory example
 
-この文書は、[IxPool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、SlotMap、木を、試作で動かした
-codeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
+この文書は、[IxPool上のcontainer](containers.md)で比べたstack、binary heap、open addressing Map、SlotMap、木と、ImPool上の
+immutable arrayを、試作で動かしたcodeから要点を抜き出して示す。primitiveの名前と区分は[primitive一覧](primitives.md)、Bufferは[Buffer実装](buffer-implementation.md)、
 試作そのものは[試作で確かめたこと](prototypes.md)を正とする。例は未採択の擬似codeである。
 
 各例は共通の補助として、capacityを4以上の倍増で確保する`reserveAtLeast(pool, required)`を使う。これはprimitiveではなく、
@@ -185,6 +185,45 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
 `_release`する。親の子linkを書き換えるときは`putAt`で節点全体を置き換える。削除したkeyを入れ直すと、空いたcoordinateを
 再利用するためcapacityは増えない。
 
+## immutable array
+
+ImPoolの上で、更新のたびに新しい値を返す配列である。Stateは長さで、`[0, length)`だけがLiveである。mutable arrayに当たる
+ものはBufferであり、同じinvariantをIxPoolの上に置く。
+
+```mal
+opaque Array<T> :: ImPool<USize, T>;
+
+arraySet<T> :: (Array<T>, USize, T) -> Array<T> := (array, index, value) ->
+    imPutAt(array, index, value);
+
+arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
+    length := imState(array);
+    current := imCapacity(array);
+    grown := if (length < current)
+        then array
+        else imReserve(array, if (current == 0usize) then 1usize else current * 2usize);
+    imSetState(imInitAt(grown, length, value), length + 1usize);
+};
+```
+
+ImPoolの更新は参照数や一意性をsourceへ返さず、次の二つを同じ意味として選ぶ。
+
+```text
+inputが唯一:       Array A ── storage P ── update in place ── Array B
+
+inputにaliasあり:  Array A ── storage P  = [A, B, C]
+                                  share live elements
+                   Array B ── storage P' = [A, X, C]
+```
+
+callerが旧Arrayを後でも使う場合、call siteは渡すresponsibilityをShareするため、更新は新しいstorageを作る。旧Arrayがlast useなら
+inputを`Consume`でき、他のaliasがなければ同じstorageを再利用する。`arrayAppend`のように更新を続けると、最初の更新が一意な
+successorを作るため、以後の更新はその場で行われる。borrowedなcall経路ではcopyへfallbackしてよく、意味はcall conventionに
+依存しない。`Array<T>`は`T`が`Storable`なら`Storable`になるため、`Array<Array<T>>`やMapのvalueにできる。
+
+chunk単位のCOWやpersistent vectorは共有時のcopy量を減らせる一方、複数storageの所有と使われなくなったnodeの回収を別途定める
+必要がある。外部の事例は[Pool storageの関連事例](../../research/pool-storage-prior-art.md)にまとめる。
+
 ## 試作での確認
 
 試作では、五つの例を次の条件で動かし、全IxPoolの解放まで確認した。
@@ -198,4 +237,4 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
   入れ直してもcapacityは増えない。
 
 C host上の試作ではword IxPoolの`getAt`を`takeAt`と`initAt`で実装しているため、heapと木の比較や走査がhost callを倍にする。これは
-[primitive一覧](primitives.md#slot-primitive)が`getAt`をprimitiveに残す理由の一つである。
+[primitive一覧](primitives.md#ixpool)が`getAt`をprimitiveに残す理由の一つである。
