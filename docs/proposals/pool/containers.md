@@ -73,14 +73,18 @@ Status: Exploratory support document
 [primitive `trap`](../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのIxPool実装や
 IxPoolの明示的な解放が必要だったのはC hostを経由したためであり、IxPoolの性質ではない。
 
-## runの語彙を使えるcontainer
+## runの語彙
 
-runの操作は、読むrunが全てLiveであることを要求する。Liveな集合が区間になるcontainerだけが、その区間をrunとして公開できる。
+`fill`、`copy`、`from`、`into`、`*`というrunの語彙は、Bufferだけが持つ（[責務](primitives.md#ixpoolとbufferの責務)）。
+他のcontainerがrunを必要とする場面は少なく、必要な場合もslot操作かBufferの経由で足りる。
 
-- Bufferとstackは`[0, count)`をそのままrunにでき、[run protocol](run-protocol.md)を実装する。
-- Dequeの論理的なrunは最大二つの区間に分かれ、`into`などを二回のrun primitiveで実装する。
-- binary heapは`[0, count)`がLiveだが、coordinateの順は要素の順序ではないため、runとして公開する意味は薄い。
-- Map、IdPool、木のLiveな集合は区間にならず、runを公開しない。rehashや複製では内部でslot遷移を使う。
+- stackは`[0, count)`がLiveなので、まとめたpushやpopもslot操作のloopで書ける。
+- Dequeの論理的な列は最大二つの区間に分かれる。hostとの交換はBufferを経由し、成長時に折り返した部分を動かす操作は値を写す
+  `copy`ではなく、`takeAt`と`initAt`で移す。
+- binary heapは`[0, count)`がLiveだが、coordinateの順は要素の順序ではない。範囲を使うのは配列からの一括構築くらいである。
+- Map、IdPool、木のLiveな集合は区間にならない。rehashや複製は内部でslot遷移を使う。
+
+移す操作を一括にする`moveRange`と、IxPoolとhostの直接の交換は[測定後の候補](primitives.md#測定後の候補)に置く。
 
 ## Vacantが値を持たないこと
 

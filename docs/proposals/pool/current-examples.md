@@ -25,9 +25,9 @@ bytes.into(address, 0usize, #bytes);
 - `alias.put(0usize, 'M')`はBuffer fileの`put`から`putAt`になる。利用者は現行どおり`0 < #alias`を満たし、Buffer実装は
   live prefix invariantでslotがLiveであることを導く。
 - `alias.copy(#alias, ...)`は現在のcountを越えるrangeを書く。Buffer実装は`reserve`してから、Liveなslotを置換しVacantなslotを
-  initするrun primitiveを呼び、最後にStateのcountを更新する。primitiveがなければIxPool callのloopになる。
+  initするloopを回し、最後にStateのcountを更新する。runtimeはこれを一括処理にしてよい。
 - `from`、`*bytes`、`*"!"`、`into`はAddressやSymbolのbytesとIxPool slotの間の一括copyであり、core IxPool APIだけでは書けない。
-  必要なprimitiveと、それを使った各operationは[IxPool上のBuffer実装](buffer-implementation.md)に示す。
+  これらは現行どおり[Bufferのprimitive](primitives.md#buffer-primitive)としてruntimeが持つ。
 
 `main`の`Buffer<Symbol>`はC runtimeが`mal_runtime_buffer_from_arguments`でentry前に構築する。Bufferをmalで実装しても、
 このruntime関数はIxPool representationと、Buffer fileが選んだStateの意味（count）を知る必要がある。entry ABIが
@@ -142,8 +142,8 @@ capacity 0の早期returnは剰余のpreconditionのためにも必要であり�
 |---|---|---|
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`reserve`とgrowth policyを呼ぶ |
-| `fill`、`copy` | runtimeのloopとretain callback | run primitiveのloopとshare callback、またはIxPool callのloop |
-| `from`、`into`、`*` | runtimeのbulk copy | host境界とSymbol用のcompiler primitive |
+| `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
+| `from`、`into`、`*` | runtimeのbulk copy | 変わらない |
 | HashMapの構築 | capacity個のempty entryを`fill` | 占有metadataの初期化 |
 | managed elementの挿入 | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有metadataを走査してLive slotをDrop |

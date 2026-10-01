@@ -2,17 +2,16 @@
 
 Status: Exploratory example
 
-この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、core IxPool APIと少数のcompiler primitiveで
-実装した擬似codeを示す。IxPool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、`from`、`into`、`copy`、`fill`の
-familyと意味は[run protocol](run-protocol.md)を正とする。
+この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`のoperationのうち、hostと`Symbol`との交換を除く全てを
+core IxPool APIで実装した擬似codeを示す。IxPool primitiveの規則は[lifecycle contract](lifecycle-contract.md)、Bufferの各operationの
+意味は[AddressとBuffer](../../spec/memory.md)を正とする。
 
 predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
 以下はそのfileがpreludeとしてこれらの名前を定義できると仮定する。
 
 ## 使うprimitive
 
-[primitive一覧](primitives.md)のslot、run、Symbol、制御primitiveを使う。`trap`は現行runtimeと同じoverflow trapを
-malで起こすため、`symbol`と`loadSymbol`は`Buffer<UInt8>`の`*`のために使う。
+[primitive一覧](primitives.md)のslot primitiveと、現行runtimeと同じoverflow trapをmalで起こすための`trap`だけを使う。
 
 ## 表現とinvariant
 
@@ -77,80 +76,79 @@ Vacantであり、`_ensureCapacity`の後はcapacity内にある。
 
 ## Range operation
 
-Bufferは[run protocol](run-protocol.md)のfamilyを実装する。runの公開preconditionはcountを単位とし、書いたrunの末尾までcountを延ばす。
+`fill`と`copy`の意味は、slot操作のloopで定める。runtimeは同じ結果になる一括処理で実装してよい。公開preconditionはcountを単位とし、
+書いたrunの末尾までcountを延ばす。
 
 ```mal
-fill<Buffer<E>, E> :: (Buffer<E>, USize, USize, E) -> Unit := (buffer, offset, length, value) -> {
+_write<A> :: (Buffer<A>, USize, USize, A) -> Unit := (buffer, count, index, value) ->
+    if (index < count)
+    then putAt<USize, A>(buffer, index, value)
+    else initAt<USize, A>(buffer, index, value);
+
+_fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
+    (buffer, count, index, end, value) -> [return] => {
+        when (index == end) return(());
+        _write<A>(buffer, count, index, value);
+        return(_fillFrom<A>(buffer, count, index + 1usize, end, value));
+    };
+
+fill<A> :: (Buffer<A>, USize, USize, A) -> Unit := (buffer, offset, length, value) -> {
     end := _rangeEnd(offset, length);
-    _ensureCapacity<E>(buffer, end);
-    writeRange<USize, E>(buffer, offset, length, value);
-    _extendCount<E>(buffer, end);
+    _ensureCapacity<A>(buffer, end);
+    _fillFrom<A>(buffer, state<USize, A>(buffer), offset, end, value);
+    _extendCount<A>(buffer, end);
 };
 
-copy<Buffer<A>> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
+_copyUp<A> :: (Buffer<A>, USize, USize, Buffer<A>, USize, USize, USize) -> Unit :=
+    (destination, count, destinationOffset, source, sourceOffset, index, length) -> [return] => {
+        when (index == length) return(());
+        value := getAt<USize, A>(source, sourceOffset + index);
+        _write<A>(destination, count, destinationOffset + index, value);
+        return(_copyUp<A>(destination, count, destinationOffset, source, sourceOffset, index + 1usize, length));
+    };
+
+_copyDown<A> :: (Buffer<A>, USize, USize, Buffer<A>, USize, USize) -> Unit :=
+    (destination, count, destinationOffset, source, sourceOffset, remaining) -> [return] => {
+        when (remaining == 0usize) return(());
+        index := remaining - 1usize;
+        value := getAt<USize, A>(source, sourceOffset + index);
+        _write<A>(destination, count, destinationOffset + index, value);
+        return(_copyDown<A>(destination, count, destinationOffset, source, sourceOffset, index));
+    };
+
+copy<A> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
     (destination, destinationOffset, source, sourceOffset, length) -> {
         end := _rangeEnd(destinationOffset, length);
         _ensureCapacity<A>(destination, end);
-        copyRange<USize, A>(destination, destinationOffset, source, sourceOffset, length);
+        count := state<USize, A>(destination);
+        if (destinationOffset <= sourceOffset)
+        then _copyUp<A>(destination, count, destinationOffset, source, sourceOffset, 0usize, length)
+        else _copyDown<A>(destination, count, destinationOffset, source, sourceOffset, length);
         _extendCount<A>(destination, end);
     };
 ```
 
 公開preconditionの`offset <= #buffer`により、destination rangeはLiveな部分とそれに続くVacantな部分からなり、穴を作らない。
 `copy`の`sourceOffset + length <= #source`はsource rangeが全てLiveであることを与える。`_ensureCapacity`がsourceと同じIxPoolを
-relocateしてもcoordinateは変わらない。countの更新はprimitiveの後に行い、その間にmal codeは走らない。
+relocateしてもcoordinateは変わらない。countの更新はloopの後に行い、その間に利用者のcodeは走らない。
 
-`writeRange`が性能だけのためのprimitiveであることは、同じ遷移をIxPool callで書けることで分かる。
-
-```mal
-_fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
-    (buffer, count, index, end, value) -> [return] => {
-        when (index == end) return(());
-        if (index < count)
-        then putAt<USize, A>(buffer, index, value)
-        else initAt<USize, A>(buffer, index, value);
-        return(_fillFrom<A>(buffer, count, index + 1usize, end, value));
-    };
-```
-
-どちらもslotごとにvalueを一回`Share`するので、lifecycle上の差はない。差はcall回数と、占有状態の分岐をloopの外へ出せるかである。
+malはsourceとdestinationが同じidentityかを知れないため、`copy`はoffsetの大小だけでloopの向きを選ぶ。destinationが前にあれば
+昇順、後ろにあれば降順に写すと、同じBufferで範囲が重なっても、まだ読んでいないsourceの要素を先に上書きしない。別のBufferなら
+どちらの向きでも結果は同じである。どちらのoperationもslotごとに値を一回`Share`し、置き換えたLiveな値を一回`Drop`する。
 
 ## Host境界とSymbol
 
-```mal
-from<Buffer<A>> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
-    buffer := makeIxPool<USize, A>(0usize, length);
-    load<USize, A>(buffer, 0usize, address, offset, length);
-    setState<USize, A>(buffer, length);
-    buffer;
-};
-
-into<Buffer<A>> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
-    store<USize, A>(buffer, offset, length, address);
-
-snapshot :: Buffer<UInt8> -> Symbol := (buffer) ->
-    symbol<USize>(buffer, 0usize, state<USize, UInt8>(buffer));
-
-bytes :: Symbol -> Buffer<UInt8> := (symbol) -> {
-    buffer := makeIxPool<USize, UInt8>(0usize, #symbol);
-    loadSymbol<USize>(buffer, 0usize, symbol);
-    setState<USize, UInt8>(buffer, #symbol);
-    buffer;
-};
-```
-
-`from`と`into`はgeneric implementationで`Representable(A)`を要求するため、それをrequirementとして伝播させる規則が要る
-（[run protocol](run-protocol.md#未決定事項)）。`snapshot`と`bytes`はprefix `*`の二方向に当たり、run protocolに含めない
-`Buffer<UInt8>`だけの操作である。
+`from`、`into`、`*`の二方向はIxPoolの上に書けないため、[Bufferのprimitive](primitives.md#buffer-primitive)としてruntimeが持つ。
+型、意味、preconditionは現行の[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)と
+[Symbol conversion](../../spec/memory.md#symbol-conversion)のままである。runtimeはこのfileのrepresentation、つまりIxPoolと
+State=countの上でこれらを実装し、`from`と`*symbol`は`[0, length)`をLiveにしてcountを`length`にした新しいIxPoolを返す。
 
 ## 現行Bufferとの差分
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
-- growth policy、count、invariantはruntimeからこのfileへ移り、runtimeはIxPool primitiveとrun primitiveだけを持つ。
+- growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPool primitiveと、`from`、`into`、`*`を持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<State, UInt8>`は
   [canonical layout](lifecycle-contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
-- C runtimeの`mal_runtime_buffer_from_arguments`は、`main`へ渡す`Buffer<Symbol>`をIxPool representationとState=countで構築する。
-  これはentry ABIがこのfileのrepresentation選択へ依存することを意味する。
+- `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
+  representation選択とState=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
-- `from`はcontainer型をkeyとするfamilyになるため、`from<UInt8>(...)`の明示形は`from<Buffer<UInt8>>(...)`になる。期待result型が
-  `Buffer<UInt8>`なら現行どおり型argumentを省ける。

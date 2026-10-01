@@ -2,7 +2,7 @@
 
 Status: Exploratory support document
 
-この文書は、IxPool、Arena、`ImPool`、run primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
+この文書は、IxPool、Arena、`ImPool`、Buffer primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
 operand effectへ分解する。storage、precondition、failureは[lifecycle contract](lifecycle-contract.md)、local slotとcall conventionの
 現行規則は[managed valueのownership](../../implementation/ownership.md)を正とする。
 
@@ -52,14 +52,11 @@ setState(pool, s)   = put(pool.state, s)
 | `getAt`、`state` | `get` | 1 | なし |
 | `putAt`、`setState` | `put` | なし | 旧value 1 |
 | `dropAt` | `drop` | なし | 1 |
-| `writeRange`（n slot） | slotごとに`init`または`put` | n − 1 | Liveだったslot数 |
-| `copyRange`（n slot） | sourceのn回の`get`の後、destinationへ`init`または`put` | n | Liveだったslot数 |
 | IxPoolの終了 | Stateと全Live slotの`drop` | なし | Live place数 |
 | `reserve` | 遷移なし。全carrierを移動するだけ | なし | なし |
 
-`writeRange`はcall siteから一つのresponsibilityを受け取り、残りのslotのためにruntimeが`share`する。n = 0なら
-受け取ったresponsibilityをruntimeが`drop`する。
-`copyRange`はsourceを全て`get`してから書くので、同じidentityで範囲が重なってもsourceの値を先に失わない。
+Bufferの`fill`と`copy`は[参照実装](buffer-implementation.md#range-operation)のloopがこれらの遷移を呼ぶため、shareとdropの回数は
+その分解から決まり、runtimeが一括処理で実装しても同じ回数にする。
 
 ## 拡張operation
 
@@ -76,7 +73,7 @@ ImPool、IdPool、Arena、`Id<T>`も同じ語彙で表せる。
 
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
-- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`、`writeRange`のvalue、`makeIxPool`と
+- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`のvalue、`makeIxPool`と
   `setState`のState、`arenaAdd`のIxPool、writable successorのinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。D083の保持解析は、`Store`へ渡るparameterをreturnやcaptureと同じく
   保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
@@ -87,7 +84,7 @@ compilerのexecution ownershipに新しく要るのは、operand effectの`Store
 
 runtimeが型ごとに必要とするglueは、上の表で「primitive内」に数えたものだけである。
 
-- `share<T>`は、primitiveが一つのresponsibilityから複数を作るときに使う。`get`、range operation、共有時のwritable successorが該当する。
+- `share<T>`は、primitiveが一つのresponsibilityから複数を作るときに使う。`get`、一括処理の`fill`と`copy`、共有時のwritable successorが該当する。
 - `drop<T>`は、primitive内で終わるresponsibilityに使う。`put`の旧value、`drop`、IxPoolの終了が該当する。
 - relocationと`init`、`take`はcarrierを移動するだけでglueを呼ばない。
 
@@ -97,12 +94,12 @@ sourceから観測できず、container algorithmはその順序へ依存しな�
 
 ## 所有権を持たないprimitive
 
-`reserve`、`capacity`、`isLive`はplaceの遷移を起こさない。[Buffer実装](buffer-implementation.md)の
-`load`、`store`、`symbol`、`loadSymbol`は、`Representable`な型か`UInt8`だけを扱う。これらの型は
+`reserve`、`capacity`、`isLive`はplaceの遷移を起こさない。[Buffer primitive](primitives.md#buffer-primitive)の
+`from`、`into`、`*`は、`Representable`な型か`UInt8`だけを扱う。これらの型は
 managed valueを含まないため、書き込みは形式上`init`または`put`でも`share`と`drop`はno-opであり、所有権解析へ入力を持たない。
 
 ## 検証
 
 - 分解を直接実行するtest用runtimeと比べ、各派生primitiveの`share`と`drop`の回数と順序が一致する。
 - `Store`へ渡るparameterを持つmal wrapperがowned native entryになり、last-use argumentを`Consume`する。
-- 同じvalueを`put`で書き戻す場合と、範囲が重なる`copyRange`で、Drop済みのreferentを読まない。
+- 同じvalueを`put`で書き戻す場合と、同じBufferで範囲が重なる`copy`で、Drop済みのreferentを読まない。

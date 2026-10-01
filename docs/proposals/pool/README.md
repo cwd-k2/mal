@@ -60,14 +60,13 @@ sum tagと移動ごとの`Share`と`Drop`を払う。heapやopen addressing Map�
 
 API、語彙、contractは次の文書が所有する。
 
-- [primitive一覧](primitives.md)：memoryの層、coordinateの線形性、slot、run、sequenceの語彙、IxPoolとBufferの責務、全primitive
-- [run protocol](run-protocol.md)：`from`、`into`、`copy`、`fill`のfamilyとrun primitiveの意味
+- [primitive一覧](primitives.md)：memoryの層、coordinateの線形性、slot、sequence、runの語彙、IxPoolとBufferの責務、全primitive
 - [IxPool上のcontainer](containers.md)：代表的なcontainerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
 
 次の文書は、個別のcontainerの設計、規則を確かめる例、試作の結果である。
 
 - [IdPool](idpool.md)：検査付きのhandle `Id<T>`を返すIxPool上のcontainerと、IxPoolを要素にするArena
-- [Buffer実装](buffer-implementation.md)：現行Bufferの全operationをIxPoolとcompiler primitiveで書いた形
+- [Buffer実装](buffer-implementation.md)：現行Bufferのhost交換以外のoperationをIxPoolの上に書いた参照実装
 - [collection例](collection-examples.md)：stack、binary heap、open addressing Map、IdPool、木
 - [既存exampleとの差分](current-examples.md)：`examples/`をIxPool上へ移したときのsource、precondition、costの変化
 - [array ownership](array-ownership.md)：IxPool上のmutable arrayとImPool上のimmutable arrayの比較
@@ -93,7 +92,8 @@ Stateに持つ。各fileは、`reserve`とslot遷移だけを提供するIxPool�
 ## Bufferと上位container
 
 Bufferは組み込み型ではなく、IxPool上のpreludeのopaque型になる。仕様上のBufferは[Buffer実装](buffer-implementation.md)の参照実装で
-意味を定め、実装は同じ結果になる限り専用runtimeを使ってよい。Bufferが提供する語彙とIxPoolとの責務分担は
+意味を定め、実装は同じ結果になる限り専用runtimeを使ってよい。hostと`Symbol`との交換はBufferだけが持つprimitiveとして残り、
+IxPoolはAddressに触れない。Bufferが提供する語彙とIxPoolとの責務分担は
 [primitive一覧](primitives.md#ixpoolとbufferの責務)が所有する。
 
 element equality、hash、orderingはIxPoolやpluginへ埋め込まず、通常のfunction引数または
@@ -155,7 +155,7 @@ compilerを変えない二つの試作が、step 4と6の一部を先取りし�
 ## 未決定事項
 
 - IxPool primitiveの名前と、IxPoolの名前を`require`したfileだけへ導入する規則。
-- [run protocol](run-protocol.md#未決定事項)が必要とする`Representable`のrequirement伝播。
+- [測定後の候補](primitives.md#測定後の候補)の`moveRange`、IxPoolとhostの直接の交換、ImPoolの範囲の写しを足すか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - 任意coordinateのVacantを持つIxPoolと、Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形の比較。意味は同じであり
   （[試作](prototypes.md#ixpoolとbufferの非対称)）、占有metadataとIxPool終了時の走査に対する、slotごとのsum tagと移動ごとの

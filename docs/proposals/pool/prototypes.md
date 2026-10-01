@@ -25,7 +25,9 @@ ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをho
 
 [Buffer実装](buffer-implementation.md)をBufferと別名の`Vec<T>`としてIxPoolの上に書き、predefinedな`Buffer<UInt64>`と比べた。
 同じ擬似乱数列で`new`、`put`、`fill`、重なる範囲の`copy`、別の値からの`copy`を1000回、aliasを通して両方へ適用し、各操作の後に
-長さと全要素が一致することを二つの試作で確かめた。overflowのtrapは`trap` primitiveがないため比べていない。
+長さと全要素が一致することを二つの試作で確かめた。`fill`と`copy`は参照実装と同じくslot操作のloopで書き、`copy`はoffsetの大小で
+loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、範囲の一括primitiveなしに現行Bufferと一致した。overflowのtrapは
+`trap` primitiveがないため比べていない。
 
 ## ImPoolとfreezeとthaw
 

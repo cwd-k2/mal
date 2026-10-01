@@ -49,7 +49,7 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 |---|---|---|
 | `Storable` | malのstorageに保持できるか | Buffer、IxPool、IdPool、ImPoolの要素、IxPoolのState |
 | `Stable` | 保持した値の意味が後から変わらないか | ImPoolの要素とState、Mapのkeyのように値の意味を前提にする場所 |
-| `Representable` | hostとcopyできるcanonical layoutを持つか | `from`、`into`、`load`、`store`、canonical memory helper |
+| `Representable` | hostとcopyできるcanonical layoutを持つか | `from`、`into`、canonical memory helper |
 | `HostMappable` | extern境界をそのまま渡れるか | externのparameterとresult |
 
 | 型 | Storable（現在） | Storable（案） | Stable | Representable | HostMappable |

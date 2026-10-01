@@ -3,8 +3,8 @@
 Status: Exploratory support document
 
 この文書は、IxPoolとBufferの責務分担と、Pool案が仮定するprimitiveの一覧を管理する。slot primitiveのpreconditionは
-[lifecycle contract](lifecycle-contract.md#未検査precondition)、run primitiveのpreconditionと意味は
-[run protocol](run-protocol.md#ixpoolのrun-primitive)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。
+[lifecycle contract](lifecycle-contract.md#未検査precondition)、Bufferのoperationの意味とpreconditionは
+[AddressとBuffer](../../spec/memory.md)、所有権の効果は[所有権primitive](ownership-primitives.md)を正とする。
 名前は仮のものであり、IxPoolの名前を`require`したfileだけへ導入する規則と合わせて決める。
 
 ## 層
@@ -15,12 +15,11 @@ Pool案のmemoryは次の層からなる。
   `Symbol`、closure environment、productとsumもここに属する。
 - IxPoolとImPool：malが所有するstorageのprimitiveの対である。IxPoolはidentityを共有してその場で書き換え、ImPoolは
   identityを持たず更新のたびにsuccessorを返す。どちらもState、slot、各slotのLiveとVacantを持つ。
-- run protocol：連続したcoordinate範囲をまとめて扱う語彙である。
 - container：IxPoolまたはImPoolの上にmalで定義する。BufferはIxPool上の、占有状態とcapacityを自動で管理するsequenceであり、
   一つのLiveなrun `[0, count)`だけを持つ。Map、Deque、heap、[IdPool](idpool.md)も同じくIxPool上にあり、immutable arrayは
   ImPool上にある。
 - `Symbol`：不変のrunであり、ImPoolをbyte列に特化した既存の値に当たる。`Buffer<UInt8>`とstorageを共有して相互に変換できる。
-- `Address`：hostのstorageであり、run protocolを通してだけ交換する。
+- `Address`：hostのstorageであり、Bufferの`from`と`into`を通してだけ交換する。
 
 IxPool、ImPool、containerはどれもEngramであり、寿命の管理に差はない。Bufferが自動で管理するのは、slotの占有状態と
 capacityである。
@@ -41,33 +40,34 @@ storageを共有するsliceのview、static storageのliteral、占有metadata�
 
 IxPoolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、coordinate空間は順序を持ち途中に抜けがない。この線形性により
 `[offset, offset + length)`という区間、つまりrunが意味を持つ。runの意味はIxPool storageの物理配置に依存しない。実装は
-`Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合runの操作はbulk copyになる。
+`Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合Bufferのrunの操作はbulk copyになる。
 
-coordinate空間が線形でも、占有状態には穴があり得る。runを読む操作が全coordinateのLiveを要求するのはそのためである。Bufferは
-Liveなcoordinateの集合が0から始まる一つの区間であることをinvariantにする。他のcontainerがこの線形空間をどう使うかは
+coordinate空間が線形でも、占有状態には穴があり得る。Bufferは、Liveなcoordinateの集合が0から始まる一つの区間であることを
+invariantにして、runの操作が占有状態を問わずに済むようにする。他のcontainerがこの線形空間をどう使うかは
 [IxPool上のcontainer](containers.md)で比較する。[IdPool](idpool.md)の`Id<T>`は順序ではなくidentityで要素を指すため、
 runを作らない。
 
 ## IxPoolとBufferの責務
 
-memory操作は、抽象する単位で三つの語彙に分かれる。
+memory操作は、抽象する単位で三つの語彙に分かれ、IxPoolとBufferが分け持つ。
 
-| 語彙 | 抽象する単位 | 操作 | 使える型 |
+| 語彙 | 抽象する単位 | 操作 | 持つ型 |
 |---|---|---|---|
-| slot | 一つのcoordinateのLiveまたはVacant | `initAt`、`takeAt`、`getAt`、`reserve`、State | IxPoolだけ |
-| run | 連続したcoordinate範囲 | `from`、`into`、`copy`、`fill` | run protocolを実装したcontainer |
-| sequence | 一つのLiveなrun `[0, count)` | `make`、`new`、`#`、growth policy | Bufferだけ |
+| slot | 一つのcoordinateのLiveまたはVacant | `initAt`、`takeAt`、`getAt`、`reserve`、State | IxPool |
+| sequence | 一つのLiveなrun `[0, count)` | `make`、`new`、`get`、`put`、`#`、growth policy | Buffer |
+| run | 連続した要素範囲の一括の転送 | `fill`、`copy`、`from`、`into`、`*` | Buffer |
 
-IxPoolはslotを、Bufferは一つのLiveなrunを抽象する。IxPoolはBufferの意味を定義できるが、一般の利用者へ見せる安全な語彙を持たず、
-Bufferはslotを空ける語彙を持たない。
+IxPoolはslotを抽象し、hostともrunとも関わらない。Bufferは一つのLiveなrunを抽象し、runの転送とhostとの交換を一手に引き受ける。
+IxPoolはslotを空ける語彙を、Bufferは占有状態を気にせずrunを扱う語彙を持ち、互いに相手の持たない語彙を補う。
 
-| | slotの語彙 | runの語彙 |
-|---|---|---|
-| IxPool | すべて使える | primitiveとして使え、runの状態は実装者が保証する |
-| Buffer | 使えない | run protocolとして使え、invariantが条件を保証する |
+IxPoolがrunの語彙を持たないのは、runを本当に必要とするcontainerがBufferだけだからである。Map、IdPool、木のLiveな集合は区間に
+ならず、Dequeが成長時に必要とするのは値を写す`copy`ではなく移す操作である（[container](containers.md#runの語彙)）。
+hostとの交換もBufferへ集めると、hostのdataがmalのstorageへ入る入口が`from`の一つになり、低い層のIxPoolがAddressの権限を
+持たずに済む。他のcontainerはBufferを経由してhostと交換する。
 
-Bufferは言語の組み込み型ではなく、IxPool上のpreludeのopaque型であり、sequenceの語彙とrun protocolの実装を持つ。
-`Buffer<UInt8>`と`Symbol`の`*`だけはBufferに固有の操作である。
+Bufferは言語の組み込み型ではなく、IxPool上のpreludeのopaque型である。sequenceの語彙と`fill`、`copy`は
+[Buffer実装](buffer-implementation.md)がIxPoolの上に書く参照実装で意味を定め、`from`、`into`、`*`はBufferのprimitiveとして
+runtimeが持つ。
 
 ## 区分
 
@@ -109,39 +109,21 @@ dropAt<State, T> :: (IxPool<State, T>, USize) -> Unit;
 
 IxPoolの形成は`Storable(State)`と`Storable(T)`を要求する。IxPoolのcopyは同じState、capacity、slotを持つidentityを共有する。
 
-## run primitive
+## Buffer primitive
 
-```mal
-load<State, T> :: (IxPool<State, T>, USize, Address, USize, USize) -> Unit;
-store<State, T> :: (IxPool<State, T>, USize, USize, Address) -> Unit;
-writeRange<State, T> :: (IxPool<State, T>, USize, USize, T) -> Unit;
-copyRange<State, T> :: (IxPool<State, T>, USize, IxPool<State, T>, USize, USize) -> Unit;
-```
+Bufferのoperationのうち、IxPoolの上に書けないものだけをruntimeのprimitiveとする。型、意味、preconditionは現行の
+[AddressとBuffer](../../spec/memory.md)のままであり、本案は変えない。
 
-| primitive | 引数 | 区分 | 理由 |
-|---|---|---|---|
-| `load` | `(pool, offset, address, hostOffset, length)` | 必須 | malはAddressを読めない |
-| `store` | `(pool, offset, length, address)` | 必須 | malはAddressへ書けない |
-| `writeRange` | `(pool, offset, length, value)` | 性能 | slot操作のloopで書ける |
-| `copyRange` | `(destination, destinationOffset, source, sourceOffset, length)` | 性能 | loopで書ける |
-
-## Symbol primitive
-
-byte IxPoolと`Symbol`の変換は、`Buffer<UInt8>`の`*`の実装に使う。`symbol`はLiveなrunの`freeze`を、`loadSymbol`は
-既存のrunへの`thaw`をbyte列へ特化したものに当たる。
-
-```mal
-symbol<State> :: (IxPool<State, UInt8>, USize, USize) -> Symbol;
-loadSymbol<State> :: (IxPool<State, UInt8>, USize, Symbol) -> Unit;
-```
-
-| primitive | 区分 | 役割 |
+| operation | 区分 | 理由 |
 |---|---|---|
-| `symbol` | 必須 | Liveなrunの`Symbol`を作る。bytes列から`Symbol`を作る操作がmalにない |
-| `loadSymbol` | 性能 | `offset + #symbol <= capacity`のrunへ`Symbol`のbytesを書く。`symbol # index`のloopでも書ける |
+| `from<A>(address, offset, length)` | 必須 | malはAddressを読めない |
+| `buffer.into(address, offset, length)` | 必須 | malはAddressへ書けない |
+| `*buffer`（`Buffer<UInt8>`から`Symbol`） | 必須 | bytes列から`Symbol`を作る操作がmalにない。byte列へ特化した`freeze`に当たる |
+| `*symbol`（`Symbol`から`Buffer<UInt8>`） | 性能 | `symbol # index`のloopでも書ける。byte列へ特化した`thaw`に当たる |
+| `fill`、`copy` | 派生 | 参照実装はslot操作のloopであり、runtimeは同じ結果になる一括処理で実装してよい |
 
-どちらもbyte IxPoolのstorageを`Symbol`と共有してよく、書き込みはcopy-on-writeにする
-（[representation](lifecycle-contract.md#runtime-representation)）。
+runtimeはこれらをBufferのrepresentation、つまりIxPoolとState=countの上で実装する。`*`はbyte IxPoolのstorageを`Symbol`と
+共有してよく、書き込みはcopy-on-writeにする（[representation](lifecycle-contract.md#runtime-representation)）。
 
 ## 制御
 
@@ -191,3 +173,12 @@ thaw<State, T> :: ImPool<State, T> -> IxPool<State, T>;
 
 [IdPool](idpool.md)と`Id<T>`、`Arena`はprimitiveではなく、IxPool上のcontainerとして扱う。IdPoolの実装がgenerationや
 free listをVacantなslotの中へ置く最適化をtrusted layerで行ってもよいが、意味はIxPoolの上で定義できる。
+
+## 測定後の候補
+
+次の操作は意味をslot操作のloopで書けるため、初期のprimitiveに含めない。loopのcostが測定で問題になった場合に追加を検討する。
+
+- IxPoolの`moveRange`：範囲の`takeAt`と`initAt`を一括で行い、`Share`も`Drop`もしない。Dequeの成長、Mapのrehash、詰め直しが使う。
+- IxPoolとhostの直接の交換：Bufferを経由する一段のcopyを省く。ring bufferのように大量のI/Oを自前で行うcontainerが使う。
+  hostの権限をIxPoolへ広げるため、IxPoolを開くfileの範囲と合わせて判断する。
+- ImPoolの範囲の写し：immutable arrayのsliceと連結。`Symbol`の`+`、`/`、`%`をbyte列以外へ広げたものに当たる。
