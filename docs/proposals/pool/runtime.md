@@ -107,7 +107,7 @@ container実装は、公開preconditionを満たすcallから到達する全IxPo
 IxPool preconditionへの違反は、Vacant carrierのread、同じresponsibilityの二重Drop、Live valueのleakを起こし得る。言語は
 これを防がず、IxPoolを直接呼ぶcodeがmanaged valueのmemory safetyを担う。containerはopaque型でrepresentationを隠すと、その責任を
 宣言元fileのinvariantへ集められる。
-実装はtestやdebug buildで占有状態を検査してよいが、その検査結果をsemanticsにしない。
+実装はtestやdebug buildで占有状態を検査してよい。
 
 複数primitiveからなるcontainer operationはtransactionではなく、invariantはreturn時に回復すればよい。lifecycle glueはmal codeを
 実行しない。`hash`や`equal`のようなoperation requirementは要素型の値しか受け取らず、malは再帰型を持たないため要素型の値は
@@ -134,8 +134,7 @@ runtimeが型ごとに必要とするglueは、上の表で「primitive内」に
 終了時のdrop順はsourceから観測できない。
 
 LLVM backendにはmanaged valueの型再帰的なretain/release、managed placeのinitialize/replace/vacate、Buffer elementごとの
-callback生成が既にある。IxPoolはこのloweringの新しい利用者になり、別の型再帰を持たない。frontendの`Storable`は現在も
-closed judgmentであり、IxPoolまたはplugin leafの導入時に暗黙に拡張しない。
+callback生成が既にある。IxPoolはこのloweringの新しい利用者になり、別の型再帰を持たない。
 
 ### Ordinary externとの境界
 
@@ -167,10 +166,9 @@ IxPoolをbuilt-in Engramとして先に実装し、`Storable(State)`と`Storable
 ただしunmanaged scalarだけのIxPoolでは重複削減を確認できないため、`Symbol`を含むelementを扱う段階までに、型別`share`と`drop`を
 通常値、IxPool callback、closure environment destructorから共有できる必要がある。
 
-pluginはcontainer algorithmの必須実装場所ではない。境界が安定した後、IxPool自体または新しいEngram leafをcompilerと同じversionへ
+境界が安定した後、IxPool自体または新しいEngram leafをcompilerと同じversionへ
 静的に結合するtrusted crateへ移せるかを評価する。leafの登録には、layout、valid valueの構築、runtime representation、`share`、
 `drop`、relocation、保持するchild Engram、runtime source選択と、operationごとの`Borrow`または`Store`と上の分解の宣言が要る。
-任意のsource codeをdestructorとして登録せず、pluginが提供するExtern resourceのlifetimeはEngram回収へ結合しない。
 
 ## 検証の段階
 

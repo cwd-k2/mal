@@ -176,8 +176,8 @@ IxPoolへ移し、元のIxPoolを`reserve`してから新しいprobe位置へ`in
 
 ## SlotMap
 
-generationで古い`SlotKey<T>`を検出するmapを、IxPoolの上に書いた形である。仕様の型ではなく、IxPoolで書けるcontainerの
-一例である。要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
+generationで古い`SlotKey<T>`を検出するmapを、IxPoolの上に書いた形である。要素の値、coordinateごとの
+generation、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
 free listをvalueのIxPoolへ置けない。
 
 ```mal

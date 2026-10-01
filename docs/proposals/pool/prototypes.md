@@ -15,8 +15,7 @@ Status: Exploratory support document
   `Unit`のvariantで表し、preconditionへの違反は戻らない。
 
 どちらでも、stack、binary heap、Map、Deque、SlotMap、木の同じsourceが変更なしに動いた。containerはIxPool APIにしか依存せず、
-二つの試作は一つの意味の二つの実装である。[検証の段階](runtime.md#検証の段階)のstep 5と7の一部に当たり、`Store`による
-所有権の効果と性能は対象外である。
+二つの試作は一つの意味の二つの実装である。[検証の段階](runtime.md#検証の段階)のstep 5と7の一部に当たる。
 
 ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
 知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。

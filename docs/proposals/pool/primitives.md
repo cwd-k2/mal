@@ -143,14 +143,9 @@ ImPoolと共有して、IxPool側への後の書き込みでcopyする。`thaw`�
 書き込みでcopyする。共有を許すと、IxPoolへの書き込みのたびにstorageが共有中かの確認が一回入る。現在のBufferも`Symbol`と
 byte ownerを共有するため同じ確認を持つが、全要素型のIxPoolへ広げるか、`freeze`を常にcopyにして確認を省くかは未決定である。
 
-## primitiveでないもの
-
-検査付きのkeyを返す[SlotMap](collection-examples.md#slotmap)は仕様に含めない。generationとfree listを含めて
-IxPoolの上に書けるため、必要なcontainerが自分で持つ。
-
 ## 測定後の候補
 
-次の操作は意味をslot操作のloopで書けるため、初期のprimitiveに含めない。loopのcostが測定で問題になった場合に追加を検討する。
+次の操作は意味をslot操作のloopで書ける。loopのcostが測定で問題になった場合に追加を検討する。
 
 - IxPoolの`moveRange`：範囲の`takeAt`と`initAt`を一括で行い、`Share`も`Drop`もしない。Dequeの成長、Mapのrehash、詰め直しが使う。
 - IxPoolとhostの直接の交換：Bufferを経由する一段のcopyを省く。ring bufferのように大量のI/Oを自前で行うcontainerが使う。

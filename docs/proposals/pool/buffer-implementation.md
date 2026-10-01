@@ -6,8 +6,7 @@ Status: Exploratory example
 core IxPool APIで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの
 意味は[AddressとBuffer](../../spec/memory.md)を正とする。
 
-predefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を通常のmal fileへ結ぶ規則は本書の対象外である。
-以下はそのfileがpreludeとしてこれらの名前を定義できると仮定する。
+以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 
 ## 使うprimitive
 

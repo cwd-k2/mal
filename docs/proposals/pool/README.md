@@ -4,8 +4,7 @@ Status: Exploratory
 
 この文書は、現在の`Buffer<T>`が一つの組み込み型として持つstorageの仕組みとsequenceの方針を分け、少数のtrustedなprimitiveの上で
 containerをmal sourceとして定義する案の要点を管理する。現行仕様は[AddressとBuffer](../../spec/memory.md)、managed responsibilityは
-[D055](../../history/decisions/active/D055.md)と[D083](../../history/decisions/active/D083.md)を正とする。本案はまだsource syntax、
-API、plugin ABIを定めない。
+[D055](../../history/decisions/active/D055.md)と[D083](../../history/decisions/active/D083.md)を正とする。
 
 ## 目的
 
@@ -14,8 +13,8 @@ API、plugin ABIを定めない。
 番兵値やtombstoneでcontainerの方針を押し込むことになる（[container](containers.md#bufferの前提を外すと変わること)）。
 
 本案は、malが所有するstorageの仕組みを少数のprimitiveとして切り出し、Bufferを含むcontainerをその上にmalで定義する。layout、
-lifecycle、allocation failureはtrusted layerに残し、State、growth、free list、順序、hashはcontainerが選ぶ。raw storageと
-未初期化の値は公開せず、responsibilityはslotのVacantとLiveの遷移でだけ動かす。
+lifecycle、allocation failureはtrusted layerに残し、State、growth、free list、順序、hashはcontainerが選ぶ。
+responsibilityはslotのVacantとLiveの遷移で動かす。
 
 ## 要点
 
@@ -25,8 +24,8 @@ lifecycle、allocation failureはtrusted layerに残し、State、growth、free 
    slotの線形空間と、slotごとのLiveとVacantを持つ。`ImPool<State, T>`はidentityを持たず、更新のたびにsuccessorを返す。
 2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
    hostと`Symbol`との交換だけを自分のprimitiveとして持つ。Map、Deque、heap、木もIxPool上に、immutable arrayはImPool上に置く。
-3. IxPoolとImPoolのslotに関する条件は、Bufferと同じ未検査のpreconditionである。primitiveはどのfileからも呼べ、言語は
-   違反時の安全性を保証しない。containerの実装がinvariantでその条件を満たし、利用者はcontainerの公開preconditionだけを見る。
+3. IxPoolとImPoolのslotに関する条件は、Bufferと同じ未検査のpreconditionである。primitiveはどのfileからも呼べる。
+   containerの実装がinvariantでその条件を満たし、利用者はcontainerの公開preconditionだけを見る。
 
 この対は、一つのLiveなrunへ特化した型と、byte列へ特化した既存の型でも同じ形を取る。現在のBufferと`Symbol`は、この対を
 byte列に特化して既に実装したものに当たる。
@@ -57,9 +56,9 @@ IxPoolをBufferより基本的なものとする。この差はまだ測って�
 | 権限 | 誰がIxPoolへ直接触れるか | どのfileも。opaque型はcontainerのinvariantを宣言元fileへ閉じる | 本書 |
 | 表現 | どのbitで保持し、hostとどう交換するか | runtime representationとBufferのprimitive | [runtime contract](runtime.md#runtime-representation) |
 
-IxPoolへの接近は制限しない。malは安全性の担保を目的とせず、IxPoolのpreconditionを未検査にするのは現行Bufferの未検査
-preconditionと同じ選択である。containerは[file-local opaque type](../../spec/types.md#file-local-opaque-type)でrepresentationを
-隠すことで、IxPool preconditionを満たす責任を宣言元fileのinvariantへ集め、利用者へ公開preconditionだけを見せられる。
+IxPoolはどのfileからも使え、そのpreconditionを未検査にするのは現行Bufferの未検査preconditionと同じ選択である。
+containerは[file-local opaque type](../../spec/types.md#file-local-opaque-type)でrepresentationを隠すことで、
+IxPool preconditionを満たす責任を宣言元fileのinvariantへ集め、利用者へ公開preconditionだけを見せられる。
 
 ```mal
 opaque Buffer<T> :: IxPool<USize, T>;
@@ -79,14 +78,6 @@ containerが要求する。
 - [Buffer実装](buffer-implementation.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
 - [collection例](collection-examples.md)：stack、Deque、binary heap、open addressing Map、SlotMap、木、immutable array
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
-
-## 非目標
-
-- raw allocation、pointer arithmetic、未初期化memory、任意の値への`drop`、`free`を一般mal codeへ公開しない。
-- IxPoolだけを理由にborrow checker、linear type、user-defined finalizer、tracing GCを導入しない。
-- `Representable(T)`やpublic C carrierを`Storable(T)`から自動的に導かない。
-- plugin ABI、dynamic loading、package system、friend fileをIxPoolの初期実装条件にしない。
-- 現在のBufferを、semantic parityと代表的なperformance測定なしに置き換えない。
 
 ## 未決定事項
 

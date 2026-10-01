@@ -35,9 +35,8 @@ IxPoolと`ImPool`の形成は、現在のclosed judgmentである`Storable(State
 representationの制約を迂回することはできない。したがって`opaque Array<T> :: IxPool<USize, T>`は`Storable`にならず、
 `opaque Array<T> :: ImPool<USize, T>`は`Storable(T)`のもとで`Storable`になる。
 
-将来plugin leafを`Storable`へ追加する場合も、layoutとdropだけから導かない。storage内のShareが安全であること、aliasが後の
-mal-owned mutationを観測しないこと、container edgeからowner cycleを作らないことを登録時に示す。shared mutableなIxPool、Buffer、
-function、external opaque valueを除外する現在の制約を、opaque wrapperやplugin registrationで迂回させない。
+将来plugin leafを`Storable`へ追加するには、storage内のShareが安全であること、aliasが後の
+mal-owned mutationを観測しないこと、container edgeからowner cycleを作らないことを登録時に示す。
 
 ## 判定の分割（案）
 
