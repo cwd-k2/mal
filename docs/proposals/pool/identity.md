@@ -14,7 +14,7 @@ copy-on-writeの動作例は[array ownership](array-ownership.md)を正とする
 
 | | identityを共有する | identityを持たない |
 |---|---|---|
-| 所有する | `IxPool<State, T>` | `ValuePool<State, T>` |
+| 所有する | `IxPool<State, T>` | `ImPool<State, T>` |
 | 所有しない | `Id<T>` | 通常のdata |
 
 `Storable`にできないのは、所有とidentity共有を両方持つ型である。identityを共有する値をstorageへ保存すると、その後のmutationを
@@ -25,30 +25,63 @@ owner cycleはこの除外の理由にならない。malは表現に寄与する
 owner edgeは常に真に小さい型の値を指す。`IxPool<S, IxPool<S, T>>`のように自身を要素にする型は書けず、owner cycleは型の上で
 生じない。
 
-`ValuePool`はidentityを捨て、`Id<T>`は所有を捨てることで、それぞれ`Storable`になる。`IxPool<State, T>`は`Storable`でも
+`ImPool`はidentityを捨て、`Id<T>`は所有を捨てることで、それぞれ`Storable`になる。`IxPool<State, T>`は`Storable`でも
 `Representable`でも`HostMappable`でもなく、`IxPool<State, IxPool<...>>`のような入れ子も認めない。
 
 ## 型形成条件
 
-IxPoolと`ValuePool`の形成は、現在のclosed judgmentである`Storable(State)`と`Storable(T)`を要求する。opaque型の`Storable`、
+IxPoolと`ImPool`の形成は、現在のclosed judgmentである`Storable(State)`と`Storable(T)`を要求する。opaque型の`Storable`、
 `Representable`、lifecycleはcompilerがhidden representationから導き、opaque型がこれらのpropertyを新たに宣言して
 representationの制約を迂回することはできない。したがって`opaque Array<T> :: IxPool<USize, T>`は`Storable`にならず、
-`opaque Array<T> :: ValuePool<USize, T>`は`Storable(T)`のもとで`Storable`になる。
+`opaque Array<T> :: ImPool<USize, T>`は`Storable(T)`のもとで`Storable`になる。
 
 将来plugin leafを`Storable`へ追加する場合も、layoutとdropだけから導かない。storage内のShareが安全であること、aliasが後の
 mal-owned mutationを観測しないこと、container edgeからowner cycleを作らないことを登録時に示す。shared mutableなIxPool、Buffer、
 function、external opaque valueを除外する現在の制約を、opaque wrapperやplugin registrationで迂回させない。
 
-## ValuePool
+## 判定の分割（案）
 
-`ValuePool<State, T>`は、更新するたびにsuccessorを返すIxPoolである。
+現在の`Storable`は、storageに保持できることと、保持した値の意味が後から変わらないことの二つを一つの判定で表している。
+owner cycleが型の上で生じない以上、前者だけならBufferやIxPoolも保持できる。そこで次の案を検討する。この案は
+[D075](../../history/decisions/active/D075.md)の見直しを伴い、採択していない。
+
+| 判定 | 問い | 要求される場所 |
+|---|---|---|
+| `Storable` | malのstorageに保持できるか | Buffer、IxPool、IdPool、ImPoolの要素、IxPoolのState |
+| `Stable` | 保持した値の意味が後から変わらないか | ImPoolの要素とState、Mapのkeyのように値の意味を前提にする場所 |
+| `Representable` | hostとcopyできるcanonical layoutを持つか | `from`、`into`、`load`、`store`、canonical memory helper |
+| `HostMappable` | extern境界をそのまま渡れるか | externのparameterとresult |
+
+| 型 | Storable（現在） | Storable（案） | Stable | Representable | HostMappable |
+|---|---|---|---|---|---|
+| `Unit`、numeric scalar、`ByteSize`、`USize`、`Address` | ○ | ○ | ○ | ○ | ○ |
+| `Symbol` | ○ | ○ | ○ | × | × |
+| `Id<T>` | ― | ○ | ○ | × | × |
+| `ImPool<S, T>` | ― | `S`と`T`がStorableなら○ | `S`と`T`がStableなら○ | × | × |
+| `Buffer<A>` | × | `A`がStorableなら○ | × | × | × |
+| `IxPool<S, T>`、`IdPool<T>` | ― | ○ | × | × | × |
+| external opaque | × | × | × | × | ○ |
+| function | × | × | × | × | × |
+
+productとsumは要素から、file-local opaque型はhidden representationから導く。案では`Representable`⊂`Stable`⊂`Storable`となり、
+`Stable`は現在の`Storable`に`Id<T>`と`ImPool`を加えたものになる。`Address`と`Id<T>`はどちらも背後のものを指すが値そのものは
+変わらないため、同じく`Stable`である。external opaqueは値が変わるからではなく、寿命がEngramの回収と結びつかないため
+`Storable`の外に残る。
+
+案を採ると`Buffer<Buffer<T>>`や`HashMap<K, Buffer<V>>`を書け、IxPoolを要素にするためのArenaも不要になる。代わりに、
+`fill`で同じ内側のBufferをすべての位置へ置くとそれらがaliasになり、`copy`は浅くなる。値の意味が要る場所は`Stable`を要求して、
+このaliasを型で排除する。
+
+## ImPool
+
+`ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolである。位置で引く点はIxPoolと同じである。
 
 ```mal
-ValuePool<State, T>
+ImPool<State, T>
 
-valuePoolPutAt<State, T> :: (ValuePool<State, T>, USize, T) -> ValuePool<State, T>;
-valuePoolInitAt<State, T> :: (ValuePool<State, T>, USize, T) -> ValuePool<State, T>;
-valuePoolReserve<State, T> :: (ValuePool<State, T>, USize) -> ValuePool<State, T>;
+imPutAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
+imInitAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
+imReserve<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
 ```
 
 各更新operationはinputを`Store`で受け取り、内部で[writable successor](ownership-primitives.md#拡張operation)を作ってから変更して返す。
@@ -64,7 +97,7 @@ invariantへ依存させない。uniqueness検査は更新ごとに一回の比�
 ## Idとの合成
 
 `Id<T>`とwritable successorを同じ型へ合成しない。storageを再利用したかcopyしたかが`Id<T>`の有効性として観測され、
-reference countをsourceへ漏らすためである。`ValuePool`は`Id<T>`を発行せず、`Id<T>`はidentityを共有するIdPoolとArenaだけが
+reference countをsourceへ漏らすためである。`ImPool`は`Id<T>`を発行せず、`Id<T>`はidentityを共有するIdPoolとArenaだけが
 発行する。合成が必要になった場合は、常に新identityを作るか、`Id<T>`をsuccessorから切り離すか、`Id<T>`の存在を再利用条件へ
 含めるかを別途決める。
 
@@ -72,7 +105,7 @@ reference countをsourceへ漏らすためである。`ValuePool`は`Id<T>`を�
 
 `Array<Array<T>>`に相当する構造は、identity軸のどちらを選ぶかで作り方が分かれる。
 
-- `ValuePool`を入れ子にする。値として振る舞い、到達できなくなった内側の配列は自動で回収される。cycleは作れない。
+- `ImPool`を入れ子にする。値として振る舞い、到達できなくなった内側の配列は自動で回収される。cycleは作れない。
 - [Arena](idpool.md#ixpoolを要素にする場合)へ内側のIxPoolを置き、外側のslotへ`Id<IxPool<S, T>>`を保存する。identityを共有し、cycleを作れるが、
   回収は`arenaRemove`かArenaの破棄による。
 

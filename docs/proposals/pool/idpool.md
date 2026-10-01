@@ -78,7 +78,7 @@ arenaRemove<S, T> :: (Arena<S, T>, Id<IxPool<S, T>>) -> Unit;
 
 Arena自身は`Storable`でなく、ArenaのIxPoolがArenaやIxPoolを要素に持つこともできないため、owner edgeは深さ1で終わる。
 `arenaGet`は所有しているIxPoolを`Share`して返す。取り出したIxPoolがlocalやclosureに残っていれば、`arenaRemove`の後も通常の
-lifecycleで生き続ける。`ValuePool`の入れ子との使い分けは[identity](identity.md#入れ子構造の選び方)で扱う。
+lifecycleで生き続ける。`ImPool`の入れ子との使い分けは[identity](identity.md#入れ子構造の選び方)で扱う。
 
 ## 未決定事項
 

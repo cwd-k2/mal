@@ -141,5 +141,5 @@ trap :: Symbol -> [];
 
 次はcore IxPool APIに含めず、所有する文書で扱う。
 
-- `writableSuccessor`と`ValuePool`の更新操作：[identity](identity.md#valuepool)
+- `writableSuccessor`と`ImPool`の更新操作：[identity](identity.md#impool)
 - `IdPool`、`Id<T>`、`Arena`：[IdPool](idpool.md)

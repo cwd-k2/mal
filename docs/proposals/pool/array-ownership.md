@@ -152,5 +152,5 @@ Pool案はこの二つの既存mechanismを、mutable identityとoptionalなwrit
 ## Storableなimmutable array
 
 `Array<T>`の型形成条件はhidden representationの`IxPool<USize, T>`から導かれるため、`Array<T>`は値としてimmutableでも
-`Storable`にならない。更新がsuccessorを返す`ValuePool`をrepresentationにすれば`Storable`にでき、その条件は
-[identity](identity.md#valuepool)で扱う。
+`Storable`にならない。更新がsuccessorを返す`ImPool`をrepresentationにすれば`Storable`にでき、その条件は
+[identity](identity.md#impool)で扱う。

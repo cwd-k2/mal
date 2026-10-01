@@ -2,7 +2,7 @@
 
 Status: Exploratory support document
 
-この文書は、IxPool、Arena、`ValuePool`、run primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
+この文書は、IxPool、Arena、`ImPool`、run primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
 operand effectへ分解する。storage、precondition、failureは[lifecycle contract](lifecycle-contract.md)、local slotとcall conventionの
 現行規則は[managed valueのownership](../../implementation/ownership.md)を正とする。
 
@@ -67,7 +67,7 @@ writable successor、IdPool、Arena、`Id<T>`も同じ語彙で表せる。
 
 - `writableSuccessor(pool)`は、inputが唯一のresponsibilityならそのidentityをresultへ移す。共有中なら新しいIxPoolを作り、
   Stateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。
-- `ValuePool`の更新はwritable successorの後に`put`または`init`を行い、successorを返す。
+- `ImPool`の更新はwritable successorの後に`put`または`init`を行い、successorを返す。
 - IdPoolの`idInsert`は要素を空いた場所へ`init`し、`idRemove`は`take`し、`idGet`は`get`する。
 - `arenaAdd`は新しいIxPoolをentryへ`init`し、`arenaRemove`はentryを`drop`し、`arenaGet`はentryを`get`してIxPoolを`Share`する。
 - `Id<T>`は所有権を持たないdataであり、どの遷移も起こさない。
