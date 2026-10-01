@@ -18,6 +18,22 @@ Status: Exploratory support document
 二つの試作は一つの意味の二つの実装である。[段階的な検証](README.md#段階的な検証)のstep 4と6の一部に当たり、`Store`による
 所有権の効果と性能は対象外である。
 
+ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
+知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。
+
+## Bufferの参照実装
+
+[Buffer実装](buffer-implementation.md)をBufferと別名の`Vec<T>`としてIxPoolの上に書き、predefinedな`Buffer<UInt64>`と比べた。
+同じ擬似乱数列で`new`、`put`、`fill`、重なる範囲の`copy`、別の値からの`copy`を1000回、aliasを通して両方へ適用し、各操作の後に
+長さと全要素が一致することを二つの試作で確かめた。overflowのtrapは`trap` primitiveがないため比べていない。
+
+## ImPoolとfreezeとthaw
+
+Buffer上のemulationで、[array ownership](array-ownership.md)の`Array<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
+後のIxPoolへの書き込みも、`thaw`したIxPoolへの書き込みも、値と他のIxPoolから観測されないことを確かめた。`Symbol`を要素に
+しても、valgrindで全allocationの解放とerror 0を確かめた。emulationのImPoolはBufferを含むため`Storable`にならず、
+`Array<Array<T>>`は確かめていない。
+
 ## slot遷移とcontainer
 
 - 要素型ごとの実装は`initAt`、`takeAt`、Stateだけで足り、`putAt`、`dropAt`、`moveAt`は通常のgeneric関数として書けた。
