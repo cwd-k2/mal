@@ -106,15 +106,22 @@ pub(super) fn normalize_argument_kinds(
     arguments: &mut [Type],
     span: Span,
 ) -> Result<(), Diagnostic> {
+    let rigid = kind_variables::collect_parameters(arguments.iter());
     let mut substitutions = HashMap::new();
     for (parameter, argument) in parameters.iter().zip(arguments.iter()) {
-        kind::unify(parameter, &argument.kind(), &mut substitutions, span)?;
+        kind::unify_retaining(
+            parameter,
+            &argument.kind(),
+            &rigid,
+            &mut substitutions,
+            span,
+        )?;
     }
     let mut budget = normalization::Budget::new(span);
     for argument in arguments.iter_mut() {
         *argument = kind_substitution::rewrite(argument, &substitutions, &mut budget, 0)?;
     }
-    kind_substitution::canonicalize_variables(arguments, &mut budget)?;
+    kind_substitution::canonicalize_variables(arguments, &rigid, &mut budget)?;
     Ok(())
 }
 
@@ -124,9 +131,16 @@ pub(in crate::check) fn instantiate_kinds(
     ty: &Type,
     span: Span,
 ) -> Result<(Vec<Kind>, Type), Diagnostic> {
+    let rigid = kind_variables::collect_parameters(arguments.iter());
     let mut substitutions = HashMap::new();
     for (parameter, argument) in parameters.iter().zip(arguments) {
-        kind::unify(parameter, &argument.kind(), &mut substitutions, span)?;
+        kind::unify_retaining(
+            parameter,
+            &argument.kind(),
+            &rigid,
+            &mut substitutions,
+            span,
+        )?;
     }
     let mut budget = normalization::Budget::new(span);
     Ok((

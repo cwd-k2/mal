@@ -11,13 +11,30 @@ pub(super) fn unify(
     substitutions: &mut HashMap<u32, Kind>,
     span: Span,
 ) -> Result<(), Diagnostic> {
+    unify_retaining(expected, actual, &HashSet::new(), substitutions, span)
+}
+
+/// Unifies like `unify`, but when two variables meet, a variable in `rigid` is the one retained.
+pub(super) fn unify_retaining(
+    expected: &Kind,
+    actual: &Kind,
+    rigid: &HashSet<u32>,
+    substitutions: &mut HashMap<u32, Kind>,
+    span: Span,
+) -> Result<(), Diagnostic> {
     match (
         resolve(expected, substitutions),
         resolve(actual, substitutions),
     ) {
         (Kind::Variable(left), Kind::Variable(right)) if left == right => Ok(()),
         (Kind::Variable(left), Kind::Variable(right)) => {
-            let (retained, replaced) = if left < right {
+            let (retained, replaced) = if rigid.contains(&left) != rigid.contains(&right) {
+                if rigid.contains(&left) {
+                    (left, right)
+                } else {
+                    (right, left)
+                }
+            } else if left < right {
                 (left, right)
             } else {
                 (right, left)
@@ -44,8 +61,14 @@ pub(super) fn unify(
                 result: right_result,
             },
         ) => {
-            unify(&left_parameter, &right_parameter, substitutions, span)?;
-            unify(&left_result, &right_result, substitutions, span)
+            unify_retaining(
+                &left_parameter,
+                &right_parameter,
+                rigid,
+                substitutions,
+                span,
+            )?;
+            unify_retaining(&left_result, &right_result, rigid, substitutions, span)
         }
         (expected, actual) => Err(Diagnostic::error("type kind mismatch").with_primary(
             span,

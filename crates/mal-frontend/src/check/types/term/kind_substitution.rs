@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use mal_syntax::diagnostic::Diagnostic;
 
@@ -99,10 +99,12 @@ fn rewrite_all(
 
 pub(super) fn canonicalize_variables(
     types: &mut [Type],
+    rigid: &HashSet<u32>,
     budget: &mut Budget,
 ) -> Result<(), Diagnostic> {
     let substitutions = kind_variables::collect(types.iter())
         .into_iter()
+        .filter(|id| !rigid.contains(id))
         .enumerate()
         .filter_map(|(index, id)| {
             let canonical = u32::MAX - index as u32;

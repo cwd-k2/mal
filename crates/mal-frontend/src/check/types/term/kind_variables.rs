@@ -52,6 +52,43 @@ pub(super) fn collect<'a>(types: impl IntoIterator<Item = &'a Type>) -> Vec<u32>
     variables
 }
 
+/// Kind variables of the type parameters that the terms mention. Inside a generic body these belong to the
+/// enclosing binding's principal kinds, so rewriting them would make one parameter carry two kinds.
+pub(super) fn collect_parameters<'a>(types: impl IntoIterator<Item = &'a Type>) -> HashSet<u32> {
+    let mut variables = Vec::new();
+    let mut visited = HashSet::new();
+    let mut pending = types.into_iter().collect::<Vec<_>>();
+    while let Some(ty) = pending.pop() {
+        match ty {
+            Type::Parameter { kind, .. } => collect_kind(kind, &mut variables, &mut visited),
+            Type::Application {
+                constructor,
+                argument,
+                ..
+            } => {
+                pending.push(argument);
+                pending.push(constructor);
+            }
+            Type::Abstraction { body, .. } | Type::Buffer(body) => pending.push(body),
+            Type::Opaque {
+                arguments,
+                representation,
+                ..
+            } => {
+                pending.push(representation);
+                pending.extend(arguments.iter());
+            }
+            Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
+            Type::Function { parameter, result } => {
+                pending.push(result);
+                pending.push(parameter);
+            }
+            _ => {}
+        }
+    }
+    variables.into_iter().collect()
+}
+
 fn collect_kind(kind: &Kind, variables: &mut Vec<u32>, visited: &mut HashSet<KindIdentity>) {
     if !visited.insert(KindIdentity::of(kind)) {
         return;

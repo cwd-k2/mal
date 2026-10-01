@@ -123,3 +123,30 @@ fn forwards_rigid_arguments_to_an_operation_requirement() {
 
     check::specialize(program).expect("forward a constructor operation requirement");
 }
+
+#[test]
+fn forwards_a_binary_constructor_parameter_with_kind_polymorphic_arguments() {
+    // `M` and `V` only reach `F`, so their kinds are variables. Normalizing the explicit arguments of
+    // `swap<F, M, V>` must keep the caller's kind variables, or the caller's `F<M>` would differ from
+    // itself. Supplying only `F` must still infer `M` and `V` from the operand.
+    let program = check_ok(
+        "opaque Ix<M, V> :: (Buffer<M>, Buffer<V>);\n\
+         swap<F, M, V> :: (F<M, V>, M) -> (F<M, V>, M);\n\
+         swap<Ix, M, V> :: (Ix<M, V>, M) -> (Ix<M, V>, M) := (pool, next) -> (pool, next);\n\
+         explicit<F, M, V> :: (F<M, V>, M) -> F<M, V> := (pool, value) -> {\n\
+             (next, _) := swap<F, M, V>(pool, value);\n\
+             next;\n\
+         };\n\
+         inferred<F, M, V> :: F<M, V> -> F<M, V> := (pool) -> pool;\n\
+         forwarded<F, M, V> :: F<M, V> -> F<M, V> := (pool) -> inferred<F>(pool);\n\
+         main :: Unit -> Int32 := () -> {\n\
+             meta :: Buffer<USize> := make(1usize);\n\
+             values :: Buffer<UInt64> := make(0usize);\n\
+             pool :: Ix<USize, UInt64> := (meta, values);\n\
+             _ := forwarded<Ix>(explicit<Ix>(pool, 1usize));\n\
+             0;\n\
+         };",
+    );
+
+    check::specialize(program).expect("forward a binary constructor parameter");
+}
