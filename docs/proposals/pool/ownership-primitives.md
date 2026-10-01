@@ -2,13 +2,13 @@
 
 Status: Exploratory support document
 
-この文書は、IxPool、Arena、`ImPool`、Buffer primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
+この文書は、IxPool、`ImPool`、Buffer primitiveの所有権上の意味を、placeに対する二つの遷移とexecution ownershipの
 operand effectへ分解する。storage、precondition、failureは[lifecycle contract](lifecycle-contract.md)、local slotとcall conventionの
 現行規則は[managed valueのownership](../../implementation/ownership.md)を正とする。
 
 ## place
 
-IxPoolのslot、IxPoolのState、Arenaのentryは、どれも`Vacant`または`Live`のplaceである。Liveなplaceはちょうど一つの
+IxPoolのslotとStateは、どちらも`Vacant`または`Live`のplaceである。Liveなplaceはちょうど一つの
 responsibilityを持つ。これは[local slot](../../implementation/ownership.md#slotとoperation)のinitialize、vacate、replaceと同じ状態であり、
 違いはplaceがIxPool identityの中にあり、実行時のcoordinateで選ばれることだけである。
 
@@ -60,21 +60,16 @@ Bufferの`fill`と`copy`は[参照実装](buffer-implementation.md#range-operati
 
 ## 拡張operation
 
-ImPool、IdPool、Arena、`Id<T>`も同じ語彙で表せる。
-
-- ImPoolの各更新は、まずinputのwritable successorを作る。inputが唯一のresponsibilityならstorageをresultへ移し、共有中なら
-  新しいstorageを作ってStateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。その後successorへ`put`または
-  `init`を行って返す。
-- IdPoolの`idInsert`は要素を空いた場所へ`init`し、`idRemove`は`take`し、`idGet`は`get`する。
-- `arenaAdd`は新しいIxPoolをentryへ`init`し、`arenaRemove`はentryを`drop`し、`arenaGet`はentryを`get`してIxPoolを`Share`する。
-- `Id<T>`は所有権を持たないdataであり、どの遷移も起こさない。
+ImPoolも同じ語彙で表せる。ImPoolの各更新は、まずinputのwritable successorを作る。inputが唯一のresponsibilityならstorageをresultへ移し、共有中なら
+新しいstorageを作ってStateと各Live slotを`get`して`init`し、inputのresponsibilityをDropする。その後successorへ`put`または
+`init`を行って返す。
 
 ## compilerとruntimeの分担
 
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
 - `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`init`、`put`のvalue、`makeIxPool`と
-  `setState`のState、`arenaAdd`のIxPool、writable successorのinputが該当する。
+  `setState`のState、writable successorのinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。D083の保持解析は、`Store`へ渡るparameterをreturnやcaptureと同じく
   保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
 - IxPool handle、index、lengthは`Borrow`である。resultは全てownedであり、これは現行のprimitive resultと変わらない。

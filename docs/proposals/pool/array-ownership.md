@@ -115,7 +115,7 @@ owned responsibilityをShareしてcopyへfallbackしてよく、correctnessはca
 複製するが、処理量はO(length)である。chunk単位のCOWやpersistent treeはこのcopy量を減らせる一方、複数storageのownershipと
 使われなくなったnodeの回収を追加で定める必要がある。
 
-ImPoolは`Id<T>`を発行しない。理由と合成の選択肢は[identity](identity.md#idとの合成)で扱う。`Array<T>`は`ImPool<USize, T>`から
+`Array<T>`は`ImPool<USize, T>`から
 型形成条件を導き、`T`が`Storable`なら`Storable`になるため、`Array<Array<T>>`やMapのvalueにできる。
 
 現在のruntimeにも同じ構造がある。immutableな`Symbol`の連結はbyte ownerのreference countが1ならallocationを再利用し、共有中なら

@@ -129,7 +129,8 @@ IxPoolへ移し、元のIxPoolを`reserve`してから新しいprobe位置へ`in
 
 ## IdPool
 
-[IdPool](idpool.md)をIxPoolの上に書いた形である。要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
+generationで古いhandle `Id<T>`を検出するslot mapを、IxPoolの上に書いた形である。仕様の型ではなく、IxPoolで書けるcontainerの
+一例である。要素の値、coordinateごとのgeneration、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは値を持たないため、generationと
 free listをvalueのIxPoolへ置けない。
 
 ```mal
@@ -158,7 +159,7 @@ idRemove<T> :: (IdPool<T>, Id<T>) -> [Unit, T] := (pool, id) -> [missing, found]
 
 挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`Id<T>`の照合は利用者が古い`Id<T>`を持ち
 続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`Id<T>`にIdPoolのidentityを含めないため、別の
-IdPoolの`Id<T>`を区別しない。[IdPool](idpool.md#照合)の照合はそれも区別する。
+IdPoolの`Id<T>`を区別しない。区別が要るなら、IdPoolごとの番号をStateに持って`Id<T>`へ含める。
 
 ## 木
 

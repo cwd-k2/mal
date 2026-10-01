@@ -3,8 +3,7 @@
 Status: Exploratory support document
 
 この文書は、Pool案のidentity軸、すなわち値の変更を誰が観測するかと、それによって決まる`Storable`の可否を管理する。
-所有権の遷移は[所有権primitive](ownership-primitives.md)、`Id<T>`の照合とArenaは[IdPool](idpool.md)、
-copy-on-writeの動作例は[array ownership](array-ownership.md)を正とする。現行の`Storable` judgmentは
+所有権の遷移は[所有権primitive](ownership-primitives.md)、copy-on-writeの動作例は[array ownership](array-ownership.md)を正とする。現行の`Storable` judgmentは
 [AddressとBuffer](../../spec/memory.md#storable)に定める。
 
 ## 所有権とidentity
@@ -15,7 +14,7 @@ copy-on-writeの動作例は[array ownership](array-ownership.md)を正とする
 | | identityを共有する | identityを持たない |
 |---|---|---|
 | 所有する | `IxPool<State, T>` | `ImPool<State, T>` |
-| 所有しない | `Id<T>` | 通常のdata |
+| 所有しない | `Address`、coordinateやhandleのような参照 | 通常のdata |
 
 `Storable`にできないのは、所有とidentity共有を両方持つ型である。identityを共有する値をstorageへ保存すると、その後のmutationを
 storage内のaliasから観測できるためである。これは[D075](../../history/decisions/active/D075.md)がBufferの要素を値に限った理由と
@@ -25,7 +24,7 @@ owner cycleはこの除外の理由にならない。malは表現に寄与する
 owner edgeは常に真に小さい型の値を指す。`IxPool<S, IxPool<S, T>>`のように自身を要素にする型は書けず、owner cycleは型の上で
 生じない。
 
-`ImPool`はidentityを捨て、`Id<T>`は所有を捨てることで、それぞれ`Storable`になる。`IxPool<State, T>`は`Storable`でも
+`ImPool`はidentityを捨て、参照は所有を捨てることで、それぞれ`Storable`になる。`IxPool<State, T>`は`Storable`でも
 `Representable`でも`HostMappable`でもなく、`IxPool<State, IxPool<...>>`のような入れ子も認めない。
 
 ## 型形成条件
@@ -47,7 +46,7 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 
 | 判定 | 問い | 要求される場所 |
 |---|---|---|
-| `Storable` | malのstorageに保持できるか | Buffer、IxPool、IdPool、ImPoolの要素、IxPoolのState |
+| `Storable` | malのstorageに保持できるか | Buffer、IxPool、ImPoolの要素、IxPoolのState |
 | `Stable` | 保持した値の意味が後から変わらないか | ImPoolの要素とState、Mapのkeyのように値の意味を前提にする場所 |
 | `Representable` | hostとcopyできるcanonical layoutを持つか | `from`、`into`、canonical memory helper |
 | `HostMappable` | extern境界をそのまま渡れるか | externのparameterとresult |
@@ -56,19 +55,18 @@ owner cycleが型の上で生じない以上、前者だけならBufferやIxPool
 |---|---|---|---|---|---|
 | `Unit`、numeric scalar、`ByteSize`、`USize`、`Address` | ○ | ○ | ○ | ○ | ○ |
 | `Symbol` | ○ | ○ | ○ | × | × |
-| `Id<T>` | ― | ○ | ○ | × | × |
 | `ImPool<S, T>` | ― | `S`と`T`がStorableなら○ | `S`と`T`がStableなら○ | × | × |
 | `Buffer<A>` | × | `A`がStorableなら○ | × | × | × |
-| `IxPool<S, T>`、`IdPool<T>` | ― | ○ | × | × | × |
+| `IxPool<S, T>` | ― | ○ | × | × | × |
 | external opaque | × | × | × | × | ○ |
 | function | × | × | × | × | × |
 
 productとsumは要素から、file-local opaque型はhidden representationから導く。案では`Representable`⊂`Stable`⊂`Storable`となり、
-`Stable`は現在の`Storable`に`Id<T>`と`ImPool`を加えたものになる。`Address`と`Id<T>`はどちらも背後のものを指すが値そのものは
-変わらないため、同じく`Stable`である。external opaqueは値が変わるからではなく、寿命がEngramの回収と結びつかないため
+`Stable`は現在の`Storable`に`ImPool`を加えたものになる。`Address`は背後のものを指すが値そのものは変わらないため、
+`Stable`である。external opaqueは値が変わるからではなく、寿命がEngramの回収と結びつかないため
 `Storable`の外に残る。
 
-案を採ると`Buffer<Buffer<T>>`や`HashMap<K, Buffer<V>>`を書け、IxPoolを要素にするためのArenaも不要になる。代わりに、
+案を採ると`Buffer<Buffer<T>>`、`HashMap<K, Buffer<V>>`、IxPoolを要素にするIxPoolを書ける。代わりに、
 `fill`で同じ内側のBufferをすべての位置へ置くとそれらがaliasになり、`copy`は浅くなる。値の意味が要る場所は`Stable`を要求して、
 このaliasを型で排除する。
 
@@ -104,19 +102,12 @@ ImPoolと共有して、IxPool側への後の書き込みでcopyする。`thaw`�
 書き込みでcopyする。共有を許すと、IxPoolへの書き込みのたびにstorageが共有中かの確認が一回入る。現在のBufferも`Symbol`と
 byte ownerを共有するため同じ確認を持つが、全要素型のIxPoolへ広げるか、`freeze`を常にcopyにして確認を省くかは未決定である。
 
-## Idとの合成
-
-`Id<T>`とwritable successorを同じ型へ合成しない。storageを再利用したかcopyしたかが`Id<T>`の有効性として観測され、
-reference countをsourceへ漏らすためである。`ImPool`は`Id<T>`を発行せず、`Id<T>`はidentityを共有するIdPoolとArenaだけが
-発行する。合成が必要になった場合は、常に新identityを作るか、`Id<T>`をsuccessorから切り離すか、`Id<T>`の存在を再利用条件へ
-含めるかを別途決める。
-
 ## 入れ子構造の選び方
 
 `Array<Array<T>>`に相当する構造は、identity軸のどちらを選ぶかで作り方が分かれる。
 
 - `ImPool`を入れ子にする。値として振る舞い、到達できなくなった内側の配列は自動で回収される。cycleは作れない。
-- [Arena](idpool.md#ixpoolを要素にする場合)へ内側のIxPoolを置き、外側のslotへ`Id<IxPool<S, T>>`を保存する。identityを共有し、cycleを作れるが、
-  回収は`arenaRemove`かArenaの破棄による。
+- 内側の要素を一つのIxPoolへまとめ、外側にはcoordinateを保存する。identityを共有し、cycleを作れるが、使わなくなった
+  coordinateの回収はcontainerが行う。[判定の分割案](#判定の分割案)を採れば、IxPoolを直接要素にもできる。
 
-tree、graph、IdPoolのように外部やelementからidentityを参照する構造は後者、immutable arrayやsnapshotのような値は前者を使う。
+treeやgraphのように外部やelementからidentityを参照する構造は後者、immutable arrayやsnapshotのような値は前者を使う。

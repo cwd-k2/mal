@@ -16,7 +16,7 @@ Pool案のmemoryは次の層からなる。
 - IxPoolとImPool：malが所有するstorageのprimitiveの対である。IxPoolはidentityを共有してその場で書き換え、ImPoolは
   identityを持たず更新のたびにsuccessorを返す。どちらもState、slot、各slotのLiveとVacantを持つ。
 - container：IxPoolまたはImPoolの上にmalで定義する。BufferはIxPool上の、占有状態とcapacityを自動で管理するsequenceであり、
-  一つのLiveなrun `[0, count)`だけを持つ。Map、Deque、heap、[IdPool](idpool.md)も同じくIxPool上にあり、immutable arrayは
+  一つのLiveなrun `[0, count)`だけを持つ。Map、Deque、heap、木も同じくIxPool上にあり、immutable arrayは
   ImPool上にある。
 - `Symbol`：不変のrunであり、ImPoolをbyte列に特化した既存の値に当たる。`Buffer<UInt8>`とstorageを共有して相互に変換できる。
 - `Address`：hostのstorageであり、Bufferの`from`と`into`を通してだけ交換する。
@@ -44,8 +44,7 @@ IxPoolのslotは`0`から`capacity - 1`までの`USize` coordinateで選び、co
 
 coordinate空間が線形でも、占有状態には穴があり得る。Bufferは、Liveなcoordinateの集合が0から始まる一つの区間であることを
 invariantにして、runの操作が占有状態を問わずに済むようにする。他のcontainerがこの線形空間をどう使うかは
-[IxPool上のcontainer](containers.md)で比較する。[IdPool](idpool.md)の`Id<T>`は順序ではなくidentityで要素を指すため、
-runを作らない。
+[IxPool上のcontainer](containers.md)で比較する。
 
 ## IxPoolとBufferの責務
 
@@ -60,7 +59,7 @@ memory操作は、抽象する単位で三つの語彙に分かれ、IxPoolとBu
 IxPoolはslotを抽象し、hostともrunとも関わらない。Bufferは一つのLiveなrunを抽象し、runの転送とhostとの交換を一手に引き受ける。
 IxPoolはslotを空ける語彙を、Bufferは占有状態を気にせずrunを扱う語彙を持ち、互いに相手の持たない語彙を補う。
 
-IxPoolがrunの語彙を持たないのは、runを本当に必要とするcontainerがBufferだけだからである。Map、IdPool、木のLiveな集合は区間に
+IxPoolがrunの語彙を持たないのは、runを本当に必要とするcontainerがBufferだけだからである。Map、木のLiveな集合は区間に
 ならず、Dequeが成長時に必要とするのは値を写す`copy`ではなく移す操作である（[container](containers.md#runの語彙)）。
 hostとの交換もBufferへ集めると、hostのdataがmalのstorageへ入る入口が`from`の一つになり、低い層のIxPoolがAddressの権限を
 持たずに済む。他のcontainerはBufferを経由してhostと交換する。
@@ -171,8 +170,8 @@ thaw<State, T> :: ImPool<State, T> -> IxPool<State, T>;
 
 ## primitiveでないもの
 
-[IdPool](idpool.md)と`Id<T>`、`Arena`はprimitiveではなく、IxPool上のcontainerとして扱う。IdPoolの実装がgenerationや
-free listをVacantなslotの中へ置く最適化をtrusted layerで行ってもよいが、意味はIxPoolの上で定義できる。
+検査付きのhandleを返すslot map（[IdPool](collection-examples.md#idpool)）は仕様に含めない。generationとfree listを含めて
+IxPoolの上に書けるため、必要なcontainerが自分で持つ。
 
 ## 測定後の候補
 

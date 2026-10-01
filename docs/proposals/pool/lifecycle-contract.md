@@ -23,8 +23,7 @@ Stateはruntime value representationで保持する。slot storageのlayoutは�
 sourceもhostも前提にしない。`IxPool<State, UInt8>`のslot storageはbyte列そのものになるため、`Symbol`のbyte ownerとstorageを
 共有する特殊化も実装の選択として取れる。
 
-`size<T> == 0`または`stride<T> == 0`でもslotは消滅しない。IxPoolはcoordinateごとの占有状態を持ち、[IdPool](idpool.md)を載せる場合はgenerationも
-別に保持する。element payloadのbyte数が0でも、capacity、`Live`/`Vacant`遷移、precondition、drop回数は通常の`T`と同じである。
+`size<T> == 0`または`stride<T> == 0`でもslotは消滅しない。IxPoolはcoordinateごとの占有状態を持つ。element payloadのbyte数が0でも、capacity、`Live`/`Vacant`遷移、precondition、drop回数は通常の`T`と同じである。
 占有状態は`isLive`の結果とIxPool終了時にDropするslotの決定に使い、slot operationごとの検査には使わない。
 
 ## Primitive transitionとcontainer invariant
