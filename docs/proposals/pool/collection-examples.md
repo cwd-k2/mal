@@ -241,15 +241,15 @@ ImPoolの上で、更新のたびに新しい値を返す配列である。State
 opaque Array<T> :: ImPool<USize, T>;
 
 arraySet<T> :: (Array<T>, USize, T) -> Array<T> := (array, index, value) ->
-    imPutAt(array, index, value);
+    putAt(array, index, value);
 
 arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
-    length := imState(array);
-    current := imCapacity(array);
+    length := state(array);
+    current := capacity(array);
     grown := if (length < current)
         then array
-        else imReserve(array, if (current == 0usize) then 1usize else current * 2usize);
-    imSetState(imInitAt(grown, length, value), length + 1usize);
+        else reserve(array, if (current == 0usize) then 1usize else current * 2usize);
+    setState(initAt(grown, length, value), length + 1usize);
 };
 ```
 

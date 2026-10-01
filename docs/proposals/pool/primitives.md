@@ -94,21 +94,21 @@ containerが現行runtimeと同じoverflow trapをmalで起こすには、[primi
 ## ImPool
 
 `ImPool<State, T>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
-読み出しはIxPoolと同じ意味を持ち、preconditionは対応するIxPool primitive、例えば`imGetAt`なら`getAt`と同じである。
+primitiveはIxPoolと同じ名前を使う。読み出しはIxPoolと同じ意味を持ち、preconditionは同じ名前のIxPool primitiveと同じである。
 
 ```mal
 ImPool<State, T>
 
 makeImPool<State, T> :: (State, USize) -> ImPool<State, T>;
-imState<State, T> :: ImPool<State, T> -> State;
-imCapacity<State, T> :: ImPool<State, T> -> USize;
-imIsLive<State, T> :: (ImPool<State, T>, USize) -> Bool;
-imGetAt<State, T> :: (ImPool<State, T>, USize) -> T;
-imSetState<State, T> :: (ImPool<State, T>, State) -> ImPool<State, T>;
-imReserve<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
-imInitAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
-imPutAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
-imDropAt<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
+state<State, T> :: ImPool<State, T> -> State;
+capacity<State, T> :: ImPool<State, T> -> USize;
+isLive<State, T> :: (ImPool<State, T>, USize) -> Bool;
+getAt<State, T> :: (ImPool<State, T>, USize) -> T;
+setState<State, T> :: (ImPool<State, T>, State) -> ImPool<State, T>;
+reserve<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
+initAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
+putAt<State, T> :: (ImPool<State, T>, USize, T) -> ImPool<State, T>;
+dropAt<State, T> :: (ImPool<State, T>, USize) -> ImPool<State, T>;
 ```
 
 各更新はinputを`Store`で受け取り、内部で[writable successor](runtime.md#writable-successor)を作ってから変更して返す。inputが唯一の

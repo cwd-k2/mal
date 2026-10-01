@@ -92,7 +92,8 @@ containerが要求する。
 
 - primitiveの名前と導入方法。preludeへ常に置くか、`builtin "ixpool";`、`builtin "impool";`、`builtin "buffer";`のように
   宣言したfileだけへ導入するか。後者は名前空間を汚さない一方、組み込みmoduleの提供という仕組みを[program](../../spec/programs.md)へ
-  新たに持ち込む。
+  新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書くが、`setState`のようにresultの型が異なり一つの
+  [operation family](../../spec/operation-families.md)には収まらないため、名前の重複をどう解くかもここで決める。
 - [ImPool](primitives.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
 - [freezeとthaw](primitives.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
 - [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
