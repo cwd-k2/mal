@@ -110,7 +110,7 @@ memory操作は、抽象する単位で四つの語彙に分かれ、IxPool、Bu
 | slot | 一つのcoordinateのplace | `peek`、`swap`、`grow`、Meta | IxPool |
 | sequence | 一つのLiveなrun `[0, count)` | `make`、`new`、`get`、`put`、`#`、growth policy | Buffer |
 | run | 連続した要素範囲の一括の転送 | `fill`、`copy` | Buffer |
-| host境界 | hostとの値の交換 | `admit`、`observe`、IxPoolの範囲との変換、`Symbol`の構築 | `Host<A>` |
+| host境界 | hostとの値の交換 | `admit`、`observe`、ImPoolの範囲との変換、`Symbol`の構築 | `Host<A>` |
 
 IxPoolはslotを抽象し、hostともrunとも関わらない。Bufferは一つのLiveなrunを抽象し、runの転送を持つ。IxPoolはslotを空ける
 語彙を、Bufferは占有状態を気にせずrunを扱う語彙を持ち、互いに相手の持たない語彙を補う。
@@ -131,8 +131,8 @@ Bufferは言語の組み込み型ではなく、IxPoolの上のpreludeのopaque�
 | operation | 区分 | 参照実装 |
 |---|---|---|
 | `from<A>(address, offset, length)` | 定数倍の周辺 | `admit`した`Host<A>`の要素をIxPoolへ置く |
-| `buffer.into(address, offset, length)` | 派生 | Bufferの範囲から`Host<A>`を作って`observe`する |
-| `*buffer`（`Buffer<UInt8>`から`Symbol`） | 派生 | Bufferの全体から`Host<UInt8>`を作って`Symbol`にする |
+| `buffer.into(address, offset, length)` | 派生 | Bufferを`freeze`した値の範囲から`Host<A>`を作って`observe`する |
+| `*buffer`（`Buffer<UInt8>`から`Symbol`） | 派生 | Bufferを`freeze`した値の全体から`Host<UInt8>`を作って`Symbol`にする |
 | `*symbol`（`Symbol`から`Buffer<UInt8>`） | 定数倍の周辺 | `symbol # index`のloop |
 | `fill`、`copy` | 派生 | slot操作のloop |
 
@@ -146,33 +146,35 @@ containerが現行runtimeと同じoverflow trapをmalで起こすには、[primi
 ## Host
 
 `Host<A>`は、`Representable`な`A`の要素が`[0, n)`に密に並ぶ、canonical layoutの不変な値である。hostとの交換はこの型だけが
-持つ。意味の上では、全slotがLiveな`ImPool<Unit, A>`を`Representable`な要素とcanonical layoutに限ったものに当たる。
+持つ。`Host<A>`はhostの値を写した不変な値であり、Poolの値の側に属する。意味の上では、全slotがLiveな`ImPool<Unit, A>`を
+`Representable`な要素とcanonical layoutに限ったものに当たる。
 
 ```mal
 Host<A>
 
 admit<A> :: (Address, USize, USize) -> Host<A>;
 observe<A> :: (Host<A>, Address, USize) -> Unit;
-host<Meta, A> :: (IxPool<Meta, A>, USize, USize) -> Host<A>;
+host<Meta, A> :: (ImPool<Meta, A>, USize, USize) -> Host<A>;
 symbol :: Host<UInt8> -> Symbol;
 ```
 
 `#host`は要素数を、`host # index`は要素を返す。
 
 Addressは加減算も比較も持たないため、それ単独では位置を表さず、host storageというExternの所有するcarrierのoriginに当たる。
-位置はoffsetが表し、`(address, offset)`はIxPoolのhandleとcoordinateの組と同じ形を取る。`admit(address, offset, length)`と
-`host(pool, offset, length)`はどちらもcarrierの範囲から`Host<A>`を作り、`observe(host, address, offset)`は`Host<A>`をcarrierの
-範囲へ書く。二つのcarrierの違いは、所有がExternかEngramか、大きさと各位置の状態をmalが観測できるかにある。
+位置はoffsetが表し、`(address, offset)`はPoolとcoordinateの組と同じ形を取る。`admit(address, offset, length)`と
+`host(value, offset, length)`はどちらもcarrierの範囲を写した`Host<A>`を作り、`observe(host, address, offset)`は`Host<A>`を
+host storageの範囲へ書く。host storageとImPoolの違いは、所有がExternかEngramか、host storageが可変か、大きさと各位置の状態を
+malが観測できるかにある。IxPoolの範囲は、`freeze`して値にしてから`host`へ渡す。
 
 | operation | 区分 | 意味 | precondition |
 |---|---|---|---|
 | `admit(address, offset, length)` | 意味論の核 | host storageの`[offset, offset + length)`をcopyした値を返す | 対象rangeがreadable、初期化済みで、各要素がvalid canonical representationを持つ |
 | `observe(host, address, offset)` | 意味論の核 | 全要素をhost storageの`[offset, offset + #host)`へcopyする | 対象rangeが`#host`要素分writable |
-| `host(pool, offset, length)` | 意味論の核 | IxPoolの`[offset, offset + length)`の値を持つ`Host<A>`を返す | 範囲が`n`以内で全slotがLive |
+| `host(value, offset, length)` | 意味論の核 | ImPoolの`[offset, offset + length)`の値を持つ`Host<A>`を返す | 範囲が`n`以内で全slotがLive |
 | `#host`、`host # index` | 意味論の核 | 要素数と要素を読む | `index < #host` |
 | `symbol(host)` | 意味論の核 | 同じbyte列の`Symbol`を返す | なし |
 
-`Host<A>`からIxPoolへの変換は`host # index`と`swap`のloopで書けるため、定数倍の周辺である。`admit`と`observe`のhost側の条件、
+`Host<A>`からImPoolやIxPoolへの変換は`host # index`と`swap`のloopで書けるため、定数倍の周辺である。`admit`と`observe`のhost側の条件、
 offsetとlengthの加算やallocation sizeを表現できない場合のtrapは、現行の[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)
 と同じである。`Symbol`は意味の上では`Host<UInt8>`と同じ密で不変なbyte列であり、`symbol`は表現を`Symbol`の専用の形へ移す。
 

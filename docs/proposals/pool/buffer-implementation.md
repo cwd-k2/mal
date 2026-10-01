@@ -164,16 +164,18 @@ from<A> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> 
 };
 
 into<A> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
-    observe<A>(host<USize, A>(buffer, offset, length), address, 0usize);
+    observe<A>(host<USize, A>(freeze<USize, A>(buffer), offset, length), address, 0usize);
 
 _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) ->
-    symbol(host<USize, UInt8>(buffer, 0usize, length<UInt8>(buffer)));
+    symbol(host<USize, UInt8>(freeze<USize, UInt8>(buffer), 0usize, length<UInt8>(buffer)));
 ```
 
 `into`の公開precondition `offset + length <= #buffer`は、invariantにより`host`の範囲が全てLiveであることを与える。現行の
-`into`はhost storageの先頭へ書くため、`observe`のoffsetに`0usize`を渡す。`*buffer`は
-`_toSymbol`であり、`*symbol`は`symbol # index`を`new`で積むloopで書ける。`from`はhostから`Host<A>`へ、`Host<A>`からIxPoolへと
-二段のcopyを意味の上で行うが、組み込みlibraryとしてのBufferは同じ結果になる一段のcopyで実装してよい。
+`into`はhost storageの先頭へ書くため、`observe`のoffsetに`0usize`を渡す。`*buffer`は`_toSymbol`であり、`*symbol`は
+`symbol # index`を`new`で積むloopで書ける。
+
+`Host<A>`は値の側に属するため、`into`と`*buffer`はBufferを`freeze`した値から作る。`from`はhostから`Host<A>`へ、`Host<A>`から
+IxPoolへと二段のcopyを意味の上で行う。組み込みlibraryとしてのBufferは、同じ結果になる一段のcopyで実装してよい。
 
 ## 現行Bufferとの差分
 
