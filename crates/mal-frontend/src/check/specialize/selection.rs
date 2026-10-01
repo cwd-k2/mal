@@ -5,8 +5,10 @@ use std::collections::{HashMap, HashSet};
 
 use crate::resolve::ast::{ValueBinding, ValueReference};
 use mal_syntax::diagnostic::Diagnostic;
+use mal_syntax::source::Span;
 
 use super::super::ast::*;
+use super::super::types::term::kinds_unify;
 use super::super::types::type_name;
 use super::Specializer;
 use super::admission::admit_specialization;
@@ -37,7 +39,7 @@ impl Specializer {
             .enumerate()
             .filter(|(_, implementation)| implementation.family.id == family.id)
             .find_map(|(index, implementation)| {
-                match_operation_pattern(implementation, arguments)
+                match_operation_pattern(implementation, arguments, family.name.span)
                     .map(|substitutions| (index, substitutions))
             })
             .ok_or_else(|| {
@@ -76,6 +78,7 @@ impl Specializer {
 fn match_operation_pattern(
     implementation: &OperationImplementation,
     arguments: &[Type],
+    span: Span,
 ) -> Option<HashMap<crate::resolve::ast::TypeId, Type>> {
     if implementation.arguments.len() != arguments.len() {
         return None;
@@ -87,18 +90,21 @@ fn match_operation_pattern(
         .collect::<HashSet<_>>();
     let mut substitutions = HashMap::new();
     for (pattern, argument) in implementation.arguments.iter().zip(arguments) {
-        if !match_operation_type(pattern, argument, &parameters, &mut substitutions) {
+        if !match_operation_type(pattern, argument, &parameters, &mut substitutions, span) {
             return None;
         }
     }
     Some(substitutions)
 }
 
+/// Matches an implementation key pattern against a concrete argument. Constructor terms may spell their kind
+/// variables differently on the two sides, so abstraction kinds only need to unify.
 fn match_operation_type(
     pattern: &Type,
     argument: &Type,
     parameters: &HashSet<crate::resolve::ast::TypeId>,
     substitutions: &mut HashMap<crate::resolve::ast::TypeId, Type>,
+    span: Span,
 ) -> bool {
     if let Type::Parameter { id, .. } = pattern
         && parameters.contains(id)
@@ -113,7 +119,7 @@ fn match_operation_type(
     }
     match (pattern, argument) {
         (Type::Buffer(pattern), Type::Buffer(argument)) => {
-            match_operation_type(pattern, argument, parameters, substitutions)
+            match_operation_type(pattern, argument, parameters, substitutions, span)
         }
         (
             Type::Opaque {
@@ -130,7 +136,7 @@ fn match_operation_type(
             .iter()
             .zip(argument.iter())
             .all(|(pattern, argument)| {
-                match_operation_type(pattern, argument, parameters, substitutions)
+                match_operation_type(pattern, argument, parameters, substitutions, span)
             }),
         (Type::Product(pattern), Type::Product(argument))
         | (Type::Sum(pattern), Type::Sum(argument))
@@ -140,7 +146,7 @@ fn match_operation_type(
                 .iter()
                 .zip(argument.iter())
                 .all(|(pattern, argument)| {
-                    match_operation_type(pattern, argument, parameters, substitutions)
+                    match_operation_type(pattern, argument, parameters, substitutions, span)
                 })
         }
         (
@@ -158,8 +164,33 @@ fn match_operation_type(
                 argument_parameter,
                 parameters,
                 substitutions,
-            ) && match_operation_type(pattern_result, argument_result, parameters, substitutions)
+                span,
+            ) && match_operation_type(
+                pattern_result,
+                argument_result,
+                parameters,
+                substitutions,
+                span,
+            )
         }
+        (
+            Type::Abstraction {
+                parameter_kind: pattern_kind,
+                body: pattern_body,
+            },
+            Type::Abstraction {
+                parameter_kind: argument_kind,
+                body: argument_body,
+            },
+        ) if kinds_unify(pattern_kind, argument_kind, span) => {
+            match_operation_type(pattern_body, argument_body, parameters, substitutions, span)
+        }
+        (
+            Type::Bound { index: pattern, .. },
+            Type::Bound {
+                index: argument, ..
+            },
+        ) => pattern == argument,
         _ => pattern == argument,
     }
 }

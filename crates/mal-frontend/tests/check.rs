@@ -40,6 +40,8 @@ fn completion_value(completion: &check::ast::Completion) -> &check::ast::Express
     value
 }
 
+#[path = "check/constructor_parameters.rs"]
+mod constructor_parameters;
 #[path = "check/continuations.rs"]
 mod continuations;
 #[path = "check/control.rs"]
