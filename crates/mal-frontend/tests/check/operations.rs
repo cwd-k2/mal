@@ -40,7 +40,7 @@ fn selects_closed_higher_kinded_operation_keys() {
              first<F, Int32> :: F<Int32> -> Int32 := (value) -> 0;"
         )
         .message,
-        "operation constructor key must be closed"
+        "operation constructor key needs a nominal head"
     );
 }
 

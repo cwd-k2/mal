@@ -52,6 +52,8 @@ mod declarations;
 mod functions;
 #[path = "check/hkt_regressions.rs"]
 mod hkt_regressions;
+#[path = "check/key_patterns.rs"]
+mod key_patterns;
 #[path = "check/memory.rs"]
 mod memory;
 #[path = "check/numeric.rs"]

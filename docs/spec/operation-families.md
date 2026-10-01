@@ -14,10 +14,10 @@ equal<A> :: (A, A) -> Bool;
 zero<A> :: A;
 ```
 
-既にfamilyとして宣言された同名headerへinitializerを置くとimplementationになる。closed canonical type argumentだけからなるheaderは
-exact implementationである。familyの型parameter名を含むheaderはgeneric implementation patternであり、key内に現れる名前だけを
-family declarationの同名型parameterからbinderとして再利用する。新しい型parameter名は導入できず、再利用したbinderはkey内で
-束縛しなければならない。残るfamily parameter位置はclosed canonical typeで固定できる。
+既にfamilyとして宣言された同名headerへinitializerを置くとimplementationになる。implementationのheader項はkeyであり、型の
+patternとして読む。型application `X<...>`の先頭以外に現れ、見える型名に解決しない名前はpattern変数であり、値のpatternが名前を束縛するのと
+同じくそのimplementationのbinderになる。見える型名に解決する名前はその型を指す。pattern変数を含まないkeyはexact
+implementation、含むkeyはgeneric implementation patternである。family declarationの型parameter名を再利用する必要はない。
 
 ```mal
 equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;
@@ -28,14 +28,21 @@ equal<Buffer<A>> :: (Buffer<A>, Buffer<A>) -> Bool :=
 implementation annotationはfamily signatureへkeyを代入した型と一致しなければならない。patternはalias展開後のcanonical typeで
 比較する。file-local opaque typeはrepresentationへ展開せず、declaration identityと型argumentをpatternへ残す。
 
-family signatureはconstructor kindのparameterを持てる。implementation keyのconstructor-kind位置はclosed canonical constructor
-termだけを認め、constructor pattern variableを拒否する。kind `Type`の位置には従来のexact keyとgeneric patternを認める。
+family signatureはconstructor kindのparameterを持てる。implementation keyのconstructor-kind位置には、closed canonical constructor
+termか、opaque typeまたは`Buffer`をpattern変数を含む引数へ部分適用したtermを置ける。後者は先頭のdeclaration identityで
+一次に照合し、pattern変数は引数の位置にだけ現れる。constructor自体をpattern変数にするkeyと、transparent aliasを先頭に持つ
+pattern変数入りのkeyは拒否する。aliasはidentityを持たず、展開後のtermから先頭を一意に決められないためである。kind `Type`の
+位置には従来のexact keyとgeneric patternを認める。設計理由は[D094](../history/decisions/active/D094.md)に記録する。
 
 ```mal
 Pair<A> :: (A, A);
+opaque Either<E, A> :: [E, A];
 first<F, A> :: F<A> -> A;
 first<Pair, Int32> :: Pair<Int32> -> Int32 := (left, _) -> left;
 first<Buffer, A> :: Buffer<A> -> A := (values) -> values.get(0usize);
+
+pure<F, A> :: A -> F<A>;
+pure<Either<E>, A> :: A -> Either<E, A> := (value) -> [failure, success] => success(value);
 ```
 
 declarationとimplementationはsource orderに従う。implementationは同じfileで先に宣言されたfamily、またはそのfileが直接

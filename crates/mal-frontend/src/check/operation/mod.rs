@@ -5,10 +5,12 @@ use mal_syntax::{ast::Node, diagnostic::Diagnostic, source::Span};
 
 use super::{CheckResult, Checker, GenericSignature, ast, ast::Type, types};
 
+mod overlap;
 mod pattern;
 
+use overlap::operation_patterns_overlap;
 pub(super) use pattern::contains_parameter;
-use pattern::{contains_parameter_id, operation_patterns_overlap, operation_requirement_decreases};
+use pattern::{contains_parameter_id, has_nominal_head, operation_requirement_decreases};
 
 impl Checker {
     pub(super) fn check_operation_family(
@@ -116,14 +118,16 @@ impl Checker {
                 .iter()
                 .zip(&arguments)
                 .any(|(kind, argument)| {
-                    matches!(kind, ast::Kind::Function { .. }) && contains_parameter(argument)
+                    matches!(kind, ast::Kind::Function { .. })
+                        && contains_parameter(argument)
+                        && !has_nominal_head(argument)
                 })
             {
                 return Err(
-                    Diagnostic::error("operation constructor key must be closed")
+                    Diagnostic::error("operation constructor key needs a nominal head")
                         .with_primary(
                             family.name.span,
-                            "replace the constructor parameter with a declared type constructor",
+                            "apply an opaque type or Buffer here; only its arguments may be type variables",
                         )
                         .into(),
                 );

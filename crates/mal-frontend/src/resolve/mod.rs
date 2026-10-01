@@ -9,6 +9,7 @@ pub mod ast;
 mod continuation;
 mod expression;
 mod files;
+mod key;
 mod predefined;
 mod scope;
 
@@ -54,7 +55,6 @@ struct Resolver {
     types: HashMap<String, TypeBinding>,
     externals: HashMap<String, ExternalBinding>,
     operation_families: HashSet<ValueId>,
-    operation_parameters: HashMap<ValueId, Vec<mal_syntax::ast::Name>>,
     value_scopes: Vec<HashMap<String, ValueBinding>>,
     current_lambda: Option<LambdaId>,
     lambda_frames: Vec<LambdaFrame>,
@@ -71,7 +71,6 @@ impl Resolver {
             types: HashMap::new(),
             externals: HashMap::new(),
             operation_families: HashSet::new(),
-            operation_parameters: HashMap::new(),
             value_scopes: vec![HashMap::new()],
             current_lambda: None,
             lambda_frames: Vec::new(),
@@ -105,7 +104,6 @@ impl Resolver {
         self.types.clear();
         self.externals.clear();
         self.operation_families.clear();
-        self.operation_parameters.clear();
         self.value_scopes.clear();
         self.value_scopes.push(HashMap::new());
         self.current_lambda = None;
@@ -185,8 +183,6 @@ impl Resolver {
                     let parameters = generic_parameter_names(arguments)?;
                     let binding = self.declare_value(name, ValueOwner::TopLevel)?;
                     self.operation_families.insert(binding.id);
-                    self.operation_parameters
-                        .insert(binding.id, parameters.clone());
                     let parameter_bindings = self.push_type_parameters(&parameters)?;
                     let annotation = self.resolve_type(annotation);
                     self.pop_type_parameters(&parameter_bindings);
@@ -198,15 +194,8 @@ impl Resolver {
                 } else if let Some(family) = existing
                     && self.operation_families.contains(&family.id)
                 {
-                    let family_parameters = self.operation_parameters[&family.id].clone();
-                    let parameter_names = family_parameters
-                        .into_iter()
-                        .filter(|parameter| {
-                            arguments
-                                .iter()
-                                .any(|argument| type_mentions(argument, &parameter.text))
-                        })
-                        .collect::<Vec<_>>();
+                    let parameter_names =
+                        key::key_binders(arguments, |name| self.types.contains_key(name));
                     let parameter_bindings = self.push_type_parameters(&parameter_names)?;
                     let resolved = (|| {
                         let arguments = arguments
@@ -409,30 +398,6 @@ impl Resolver {
                 .with_primary(span, "this binding has no owning lambda")
         })
     }
-}
-
-fn type_mentions(
-    ty: &mal_syntax::ast::Node<mal_syntax::ast::TypeExpression>,
-    expected: &str,
-) -> bool {
-    let mut pending = vec![ty];
-    while let Some(ty) = pending.pop() {
-        match &ty.kind {
-            mal_syntax::ast::TypeExpression::Named(name) if name.text == expected => {
-                return true;
-            }
-            mal_syntax::ast::TypeExpression::Application { arguments, .. }
-            | mal_syntax::ast::TypeExpression::Product(arguments)
-            | mal_syntax::ast::TypeExpression::Sum(arguments) => pending.extend(arguments),
-            mal_syntax::ast::TypeExpression::Parenthesized(inner) => pending.push(inner),
-            mal_syntax::ast::TypeExpression::Function { parameter, result } => {
-                pending.push(parameter);
-                pending.push(result);
-            }
-            _ => {}
-        }
-    }
-    false
 }
 
 fn generic_parameter_names(

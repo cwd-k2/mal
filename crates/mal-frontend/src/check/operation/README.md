@@ -6,4 +6,5 @@ implementation per concrete key and expand requirements in finitely many steps.
 | Module | Responsibility |
 |---|---|
 | `mod` | family signatures, implementation keys and bodies, and the requirements an implementation leaves for specialization |
-| `pattern` | parameter occurrence in key patterns, overlap between two keys, and the structural decrease of requirement keys |
+| `pattern` | parameter occurrence in key patterns, nominal heads of constructor keys, and the structural decrease of requirement keys |
+| `overlap` | overlap between two keys, by unifying their patterns with each side's variables kept apart |
