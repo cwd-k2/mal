@@ -10,7 +10,7 @@ containerをmal sourceとして定義する案の要点を管理する。現行�
 
 現在の`Buffer<T>`は、mal-owned storage、共有mutable identity、denseな`[0, count)`、append、index access、growth、range operationを
 一つの組み込み型として持つ。Map、Deque、heap、木を書くには、Bufferの全slotが値を持ちcountが増えるだけという前提へ、空きを表す
-番兵値やtombstoneでcontainerの方針を押し込むことになる（[container](containers.md#bufferの前提を外すと変わること)）。
+番兵値やtombstoneでcontainerの方針を押し込むことになる（[container](containers/overview.md#bufferの前提を外すと変わること)）。
 
 本案は、malが所有するstorageの仕組みを少数のprimitiveとして切り出し、Bufferを含むcontainerをその上にmalで定義する。layout、
 lifecycle、allocation failureはtrusted layerに残し、Meta、growth、free list、順序、hashはcontainerが選ぶ。
@@ -22,7 +22,7 @@ responsibilityはMetaとslotというplaceの値の入れ替えで動かす。
 
 1. storageのprimitiveは、変更の扱いが異なる対である。`IxPool<Meta, V>`はidentityを共有してその場で書き換え、Metaと、coordinateで
    引く`Slot<V> :: [Unit, V]`の線形空間を持つ。`ImPool<Meta, V>`は同じ状態を値として持ち、更新のたびにsuccessorを返す。核は`pool`、
-   `grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である（[slotモデル](slot-model.md)）。
+   `grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である（[Poolの意味論](model/semantics.md)）。
 2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
    自分のprimitiveを持たない。hostとの交換は不変な値の型`Host<A>`だけが持ち、Bufferはそれを経由して書く。Map、Deque、
    heap、木もIxPool上に、immutable arrayはImPool上に置く。
@@ -52,12 +52,12 @@ IxPoolをBufferより基本的なものとする。この差はまだ測って�
 
 | 軸 | 問い | 本案の答え | 所有する文書 |
 |---|---|---|---|
-| 所有権 | 誰がresponsibilityを持つか | placeのread、write、swap、operand effect `Store` | [runtime contract](runtime.md#所有権) |
-| lifecycle | carrierをいつ確保、移動、解放するか | `grow`、IxPool終了、型別glue | [runtime contract](runtime.md#runtime-representation) |
-| identity | 変更を誰が観測し、何を`Storable`にできるか | IxPoolとImPool | [identity](identity.md) |
-| 妥当性 | どのslotがLiveで、誰がそれを保証するか | `Slot<V>`の除去、または周辺operationの未検査preconditionとcontainer invariant | [runtime contract](runtime.md#未検査precondition) |
+| 所有権 | 誰がresponsibilityを持つか | placeのread、write、swap、operand effect `Store` | [runtime contract](runtime/contract.md#所有権) |
+| lifecycle | carrierをいつ確保、移動、解放するか | `grow`、IxPool終了、型別glue | [runtime contract](runtime/contract.md#runtime-representation) |
+| identity | 変更を誰が観測し、何を`Storable`にできるか | IxPoolとImPool | [identity](model/identity.md) |
+| 妥当性 | どのslotがLiveで、誰がそれを保証するか | `Slot<V>`の除去、または周辺operationの未検査preconditionとcontainer invariant | [runtime contract](runtime/contract.md#未検査precondition) |
 | 権限 | 誰がIxPoolへ直接触れるか | どのfileも。opaque型はcontainerのinvariantを宣言元fileへ閉じる | 本書 |
-| 表現 | どのbitで保持し、hostとどう交換するか | runtime representationと`Host<A>` | [runtime contract](runtime.md#runtime-representation) |
+| 表現 | どのbitで保持し、hostとどう交換するか | runtime representationと`Host<A>` | [runtime contract](runtime/contract.md#runtime-representation) |
 
 IxPoolはどのfileからも使え、そのpreconditionを未検査にするのは現行Bufferの未検査preconditionと同じ選択である。
 containerは[file-local opaque type](../../spec/types.md#file-local-opaque-type)でrepresentationを隠すことで、
@@ -74,13 +74,23 @@ containerが要求する。
 
 ## 文書の構成
 
-- [primitive一覧](primitives.md)：区分、IxPoolの核と周辺、語彙の分担、Buffer、`Host<A>`、ImPool、`freeze`と`thaw`
-- [slotモデル](slot-model.md)：placeと値、最小核の導出、Metaの位置づけ、slotの遷移とresponsibilityの動きの図、malの設計方針との対応
-- [identity](identity.md)：所有権とidentityの関係、`Storable`の条件、`Storable`と`Stable`の分割案
-- [runtime contract](runtime.md)：representation、所有権の遷移、未検査precondition、compilerとruntimeの分担、検証の段階
-- [IxPool上のcontainer](containers.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
-- [Buffer実装](buffer-implementation.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
-- [collection例](collection-examples.md)：stack、Deque、binary heap、open addressing Map、SlotMap、木、immutable array
+文書は読む目的ごとにdirectoryへ分ける。
+
+- `model/`：Poolが何を意味するか
+  - [Poolの意味論](model/semantics.md)：三つの層、placeと値、最小核の導出、Metaの位置づけ、malの設計方針との対応
+  - [responsibilityの図](model/responsibility.md)：slotの状態遷移、responsibilityの動き、費用が違うoperation、ImPoolの更新
+  - [identity](model/identity.md)：所有権とidentityの関係、`Storable`の条件、`Storable`と`Stable`の分割案
+- `api/`：primitive
+  - [Pool primitive](api/pool.md)：区分、IxPoolの核と周辺、ImPool、`freeze`と`thaw`、測定後の候補
+  - [BufferとHost](api/buffer-host.md)：語彙の分担、Buffer、`Host<A>`
+- `runtime/`：trusted layerの契約と実装
+  - [runtime contract](runtime/contract.md)：representation、所有権の遷移、未検査precondition
+  - [compilerとruntimeの実装](runtime/implementation.md)：compilerとruntimeの分担、検証の段階
+- `containers/`：Poolの上のcontainer
+  - [IxPool上のcontainer](containers/overview.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
+  - [Buffer実装](containers/buffer.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
+  - [列のcontainer](containers/sequences.md)：stack、Deque、binary heap、immutable array
+  - [keyで引くcontainer](containers/keyed.md)：open addressing Map、SlotMap、木
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
 
 ## 未決定事項
@@ -90,15 +100,15 @@ containerが要求する。
   新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書く。
   [試作](prototypes.md#二つの試作)では、更新がpoolを返す形にsignatureを揃え、constructorをkeyに持つ
   [operation family](../../spec/operation-families.md)で一つの名前にまとめられた。この形を採るかもここで決める。
-- [Meta](slot-model.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
+- [Meta](model/semantics.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
-- [ImPool](primitives.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
-- [freezeとthaw](primitives.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
-- [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
+- [ImPool](api/pool.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
+- [freezeとthaw](api/pool.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
+- [`Storable`と`Stable`の分割案](model/identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
   [D075](../../history/decisions/active/D075.md)の見直しを伴う。
-- [測定後の候補](primitives.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- [`Host<A>`](primitives.md#host)の名前と、`Symbol`を`Host<UInt8>`とどこまで同一視するか。
+- [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
+- [`Host<A>`](api/buffer-host.md#host)の名前と、`Symbol`を`Host<UInt8>`とどこまで同一視するか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形との比較。意味は同じであり、占有tagとIxPool終了時の
   走査に対する、slotごとのsum tagと移動ごとの`Share`と`Drop`のcostは測っていない。

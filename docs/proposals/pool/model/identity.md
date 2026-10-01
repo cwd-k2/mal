@@ -3,9 +3,9 @@
 Status: Exploratory support document
 
 この文書は、Pool案のidentity軸、すなわち値の変更を誰が観測するかと、それによって決まる`Storable`の可否を管理する。
-所有権の遷移は[runtime contract](runtime.md#所有権)、ImPoolの意味は[primitive一覧](primitives.md#impool)、copy-on-writeの動作例は
-[immutable array](collection-examples.md#immutable-array)を正とする。現行の`Storable` judgmentは
-[AddressとBuffer](../../spec/memory.md#storable)に定める。
+所有権の遷移は[runtime contract](../runtime/contract.md#所有権)、ImPoolの意味は[Pool primitive](../api/pool.md#impool)、copy-on-writeの動作例は
+[immutable array](../containers/sequences.md#immutable-array)を正とする。現行の`Storable` judgmentは
+[AddressとBuffer](../../../spec/memory.md#storable)に定める。
 
 ## 所有権とidentity
 
@@ -18,7 +18,7 @@ Status: Exploratory support document
 | 所有しない | `Address`、coordinateやhandleのような参照 | 通常のdata |
 
 `Storable`にできないのは、所有とidentity共有を両方持つ型である。identityを共有する値をstorageへ保存すると、その後のmutationを
-storage内のaliasから観測できるためである。これは[D075](../../history/decisions/active/D075.md)がBufferの要素を値に限った理由と
+storage内のaliasから観測できるためである。これは[D075](../../../history/decisions/active/D075.md)がBufferの要素を値に限った理由と
 同じであり、安全性ではなく言語の意味の選択である。
 
 owner cycleはこの除外の理由にならない。malは表現に寄与する再帰型を持たず、functionは`Storable`でないため、storageの要素から出る
@@ -42,7 +42,7 @@ mal-owned mutationを観測しないこと、container edgeからowner cycleを�
 
 現在の`Storable`は、storageに保持できることと、保持した値の意味が後から変わらないことの二つを一つの判定で表している。
 owner cycleが型の上で生じない以上、前者だけならBufferやIxPoolも保持できる。そこで次の案を検討する。この案は
-[D075](../../history/decisions/active/D075.md)の見直しを伴い、採択していない。
+[D075](../../../history/decisions/active/D075.md)の見直しを伴い、採択していない。
 
 | 判定 | 問い | 要求される場所 |
 |---|---|---|

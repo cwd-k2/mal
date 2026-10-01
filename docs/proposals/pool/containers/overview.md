@@ -3,8 +3,8 @@
 Status: Exploratory support document
 
 この文書は、IxPool上に構成する代表的なcontainerを並べ、各containerが共通に使うものと自分で決めるものから、IxPoolが何を
-抽象するかを示す。primitiveの一覧は[primitive一覧](primitives.md)、code sketchはBufferを[Buffer実装](buffer-implementation.md)、
-その他のcontainerを[collection例](collection-examples.md)が正とする。
+抽象するかを示す。primitiveの一覧は[Pool primitive](../api/pool.md)、code sketchはBufferを[Buffer実装](buffer.md)、
+その他のcontainerを[列のcontainer](sequences.md)と[keyで引くcontainer](keyed.md)が正とする。
 
 ## containerの比較
 
@@ -30,7 +30,7 @@ Status: Exploratory support document
 
 ## Bufferの前提を外すと変わること
 
-現在のBufferでもMapやheapは書ける。[`generic-map`](../../../examples/generic-map/map.mal)は、空きを表す`[Unit, (K, V)]`で
+現在のBufferでもMapやheapは書ける。[`generic-map`](../../../../examples/generic-map/map.mal)は、空きを表す`[Unit, (K, V)]`で
 全bucketを`fill`してopen addressingを実装している。違いは、Bufferの前提がcontainerにどんなcostを課すかにある。
 
 | Bufferの前提 | Bufferで書くcontainerが払うもの | IxPoolで変わること |
@@ -51,13 +51,13 @@ Status: Exploratory support document
 - IxPoolのpreconditionを自分のinvariantで満たす責任を負う。違反はmanaged valueの二重破棄や未初期化carrierの読み出しになり得る。
 - growth policy、free list、要素の列挙を自分で書く。
 
-したがって、要素を末尾へ追加していくだけの列、[indexed-graph](../../../examples/indexed-graph/graph.mal)のように一度作って読むだけの
+したがって、要素を末尾へ追加していくだけの列、[indexed-graph](../../../../examples/indexed-graph/graph.mal)のように一度作って読むだけの
 表、snapshotを取って比べる用途ではBufferで足り、その方が単純である。途中を空ける、値を取り出す、要素を動かす、空きを値なしで
 持つ必要があるcontainerで、IxPoolの前提が効く。
 
 ## 書く側から見た比較
 
-[collection例](collection-examples.md)をC host上で書いた経験では、削除、取り出し、移動、可変のmetadataを持つcontainerはBufferより
+[列のcontainer](sequences.md)と[keyで引くcontainer](keyed.md)の例をC host上で書いた経験では、削除、取り出し、移動、可変のmetadataを持つcontainerはBufferより
 書きやすかった。最も効いたのはMetaである。malには可変のbindingがないため、Buffer上のDequeや木は`head`、`count`、`root`の置き場として
 別の`Buffer<USize>`を用意するか、要素の一つへ埋め込む必要がある。IxPoolでは`(head, count) := meta(deque)`のようにstorageと
 同じidentityから読める。番兵値を置かず要素型をそのままslotに置けることと、`takeAt`、`initAt`、`moveAt`でアルゴリズムどおりに
@@ -70,12 +70,12 @@ Status: Exploratory support document
 - SlotMapのgenerationや木のfree listのように、Vacantなslotに関する情報の置き場を最初に設計する。
 
 この負担は、よく使う対を`ensureCapacity`のような補助関数へまとめること、占有状態を検査するruntimeでcontainerをtestすること、
-[primitive `trap`](../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのIxPool実装や
+[primitive `trap`](../../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのIxPool実装や
 IxPoolの明示的な解放が必要だったのはC hostを経由したためであり、IxPoolの性質ではない。
 
 ## runの語彙
 
-`fill`と`copy`というrunの語彙はBufferだけが持ち、hostとの交換は`Host<A>`が持つ（[語彙の分担](primitives.md#語彙の分担)）。
+`fill`と`copy`というrunの語彙はBufferだけが持ち、hostとの交換は`Host<A>`が持つ（[語彙の分担](../api/buffer-host.md#語彙の分担)）。
 他のcontainerがrunを必要とする場面は少なく、必要な場合もslot操作かBufferの経由で足りる。
 
 - stackは`[0, count)`がLiveなので、まとめたpushやpopもslot操作のloopで書ける。
@@ -84,7 +84,7 @@ IxPoolの明示的な解放が必要だったのはC hostを経由したため�
 - binary heapは`[0, count)`がLiveだが、coordinateの順は要素の順序ではない。範囲を使うのは配列からの一括構築くらいである。
 - Map、SlotMap、木のLiveな集合は区間にならない。rehashや複製は内部でslot遷移を使う。
 
-移す操作を一括にする`moveRange`は[測定後の候補](primitives.md#測定後の候補)に置く。
+移す操作を一括にする`moveRange`は[測定後の候補](../api/pool.md#測定後の候補)に置く。
 
 ## Vacantが`Unit`だけを持つこと
 
@@ -93,7 +93,7 @@ Vacantなslotは`Unit`しか持たない。IxPoolの上にmalで書くSlotMapと
 空きslotに情報を置く必要があるcontainerは、要素を`[USize, T]`のような直和にして、Liveなslotの第一項で空きと次の空きcoordinateを表す。
 
 Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の全要素を訪れるには`peek`でcapacity全体を走査するか、container自身が
-要素の並びを持つ。live slot iterationをどの層が持つかは[README](README.md#未決定事項)の未決定事項である。
+要素の並びを持つ。live slot iterationをどの層が持つかは[README](../README.md#未決定事項)の未決定事項である。
 
 ## IxPoolの輪郭
 

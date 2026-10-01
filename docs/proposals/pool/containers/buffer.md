@@ -2,15 +2,15 @@
 
 Status: Exploratory example
 
-この文書は、[AddressとBuffer](../../spec/memory.md)が定める`Buffer<A>`の全operationを、IxPoolの核と周辺operation、
-`Host<A>`で実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](runtime.md)、Bufferの各operationの意味は
-[AddressとBuffer](../../spec/memory.md)を正とする。
+この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`の全operationを、IxPoolの核と周辺operation、
+`Host<A>`で実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は
+[AddressとBuffer](../../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 
 ## 使うprimitive
 
-[primitive一覧](primitives.md)のIxPoolの核と周辺operation、`Host<A>`と、現行runtimeと同じoverflow trapをmalで起こすための
+[Pool primitive](../api/pool.md)のIxPoolの核と周辺operation、`Host<A>`と、現行runtimeと同じoverflow trapをmalで起こすための
 `trap`だけを使う。
 
 ## 表現とinvariant
@@ -20,7 +20,7 @@ opaque Buffer<A> :: IxPool<USize, A>;
 ```
 
 Metaはcountである。`[0, count)`がLive、`[count, capacity)`がVacantであり、`count <= capacity`を保つ。
-公開operationは利用者がBufferの[未検査precondition](../../spec/memory.md#未検査precondition)を満たす限り、このinvariantから
+公開operationは利用者がBufferの[未検査precondition](../../../spec/memory.md#未検査precondition)を満たす限り、このinvariantから
 IxPool preconditionを導く。利用者が違反した場合はinvariantが壊れ得るが、結果を保証しない点は現行Bufferと同じである。
 
 ## 補助
@@ -143,8 +143,8 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 
 ## Host境界とSymbol
 
-hostと`Symbol`との交換は、[`Host<A>`](primitives.md#host)を経由して書く。型、意味、preconditionは現行の
-[C host copy boundary](../../spec/memory.md#c-host-copy-boundary)と[Symbol conversion](../../spec/memory.md#symbol-conversion)のまま
+hostと`Symbol`との交換は、[`Host<A>`](../api/buffer-host.md#host)を経由して書く。型、意味、preconditionは現行の
+[C host copy boundary](../../../spec/memory.md#c-host-copy-boundary)と[Symbol conversion](../../../spec/memory.md#symbol-conversion)のまま
 である。
 
 ```mal
@@ -182,13 +182,13 @@ IxPoolへと二段のcopyを意味の上で行う。組み込みlibraryとして
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolと`Host<A>`のprimitiveを持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
-  [canonical layout](runtime.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
+  [canonical layout](../runtime/contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
   representation選択とMeta=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
 
 公開operationと未検査preconditionを保つため、`managed-bytes`、`canonical-memory`、`indexed-graph`など`Buffer`を使う
-[`examples/`](../../../examples/)のsourceは変わらない。変わるのは各operationの実装場所とcostである。
+[`examples/`](../../../../examples)のsourceは変わらない。変わるのは各operationの実装場所とcostである。
 
 | operation | 現行Buffer | IxPool上の実装 |
 |---|---|---|
