@@ -72,6 +72,7 @@ containerが要求する。
 ## 文書の構成
 
 - [primitive一覧](primitives.md)：IxPoolとBufferの責務分担、IxPool、Buffer、ImPoolのprimitive、`freeze`と`thaw`
+- [slotモデル](slot-model.md)：slotの遷移とresponsibilityの動きの図、意味論の最小形、malの設計方針との対応、swap案
 - [identity](identity.md)：所有権とidentityの関係、`Storable`の条件、`Storable`と`Stable`の分割案
 - [runtime contract](runtime.md)：representation、所有権の遷移、未検査precondition、compilerとruntimeの分担、検証の段階
 - [IxPool上のcontainer](containers.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
@@ -85,6 +86,8 @@ containerが要求する。
   宣言したfileだけへ導入するか。後者は名前空間を汚さない一方、組み込みmoduleの提供という仕組みを[program](../../spec/programs.md)へ
   新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書くが、`setState`のようにresultの型が異なり一つの
   [operation family](../../spec/operation-families.md)には収まらないため、名前の重複をどう解くかもここで決める。
+- slotの占有状態を、隠した状態として持つか、[swap案](slot-model.md#swap案)のように`[Unit, T]`として出すか。あわせて、Stateを
+  常にLiveなslotとみなして`swapState`へまとめるか、意味論の核とは別にどのoperationを費用primitiveにするかを決める。
 - [ImPool](primitives.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
 - [freezeとthaw](primitives.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
 - [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
