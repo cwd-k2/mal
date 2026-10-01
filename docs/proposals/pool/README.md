@@ -97,7 +97,7 @@ containerが要求する。
 - [`Storable`と`Stable`の分割案](identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
   [D075](../../history/decisions/active/D075.md)の見直しを伴う。
 - [測定後の候補](primitives.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- [`Host<A>`](primitives.md#host)の名前と形。`observe`が範囲を取るか、IxPoolとの変換をどちら向きに核へ置くか、`Symbol`を
+- [`Host<A>`](primitives.md#host)の名前と形。IxPoolとの変換をどちら向きに核へ置くか、ImPoolから直接作るか、`Symbol`を
   `Host<UInt8>`とどこまで同一視するか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形との比較。意味は同じであり、占有tagとIxPool終了時の

@@ -152,17 +152,22 @@ containerが現行runtimeと同じoverflow trapをmalで起こすには、[primi
 Host<A>
 
 admit<A> :: (Address, USize, USize) -> Host<A>;
-observe<A> :: (Host<A>, Address) -> Unit;
+observe<A> :: (Host<A>, Address, USize) -> Unit;
 host<Meta, A> :: (IxPool<Meta, A>, USize, USize) -> Host<A>;
 symbol :: Host<UInt8> -> Symbol;
 ```
 
 `#host`は要素数を、`host # index`は要素を返す。
 
+Addressは加減算も比較も持たないため、それ単独では位置を表さず、host storageというExternの所有するcarrierのoriginに当たる。
+位置はoffsetが表し、`(address, offset)`はIxPoolのhandleとcoordinateの組と同じ形を取る。`admit(address, offset, length)`と
+`host(pool, offset, length)`はどちらもcarrierの範囲から`Host<A>`を作り、`observe(host, address, offset)`は`Host<A>`をcarrierの
+範囲へ書く。二つのcarrierの違いは、所有がExternかEngramか、大きさと各位置の状態をmalが観測できるかにある。
+
 | operation | 区分 | 意味 | precondition |
 |---|---|---|---|
 | `admit(address, offset, length)` | 意味論の核 | host storageの`[offset, offset + length)`をcopyした値を返す | 対象rangeがreadable、初期化済みで、各要素がvalid canonical representationを持つ |
-| `observe(host, address)` | 意味論の核 | 全要素をhost storageの先頭へcopyする | destinationが`#host`要素分writable |
+| `observe(host, address, offset)` | 意味論の核 | 全要素をhost storageの`[offset, offset + #host)`へcopyする | 対象rangeが`#host`要素分writable |
 | `host(pool, offset, length)` | 意味論の核 | IxPoolの`[offset, offset + length)`の値を持つ`Host<A>`を返す | 範囲が`n`以内で全slotがLive |
 | `#host`、`host # index` | 意味論の核 | 要素数と要素を読む | `index < #host` |
 | `symbol(host)` | 意味論の核 | 同じbyte列の`Symbol`を返す | なし |
