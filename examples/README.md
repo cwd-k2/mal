@@ -9,7 +9,7 @@ larger programs combine earlier ideas without redefining them.
 | 1 | [`language-tour`](language-tour/) | How do values, control, HKT, numeric rules, and host calls compose? |
 | 2 | [`control-and-iteration`](control-and-iteration/) | How are early results and bounded-stack iteration expressed without mutable bindings? |
 | 3 | [`generic-map`](generic-map/) | How do opaque generic types and exact operation implementations form a reusable module? |
-| 4 | [`monads`](monads/) | How do operation families keyed by type constructors express abstractions such as monads? |
+| 4 | [`monads-and-comonads`](monads-and-comonads/) | How do operation families keyed by type constructors express monads, comonads, and similar abstractions? |
 | 5 | [`managed-bytes`](managed-bytes/) | What is shared by a `Buffer`, copied by a `Symbol`, and transferred through an `Address`? |
 | 6 | [`canonical-memory`](canonical-memory/) | How are typed values encoded in possibly unaligned external memory? |
 | 7 | [`indexed-graph`](indexed-graph/) | How can opaque columns and validation give indices domain meaning? |

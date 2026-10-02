@@ -1,0 +1,9 @@
+// A comonad is the dual pair: `extract` reads the value at the focus, and `extend` recomputes every
+// focus from the whole context around it.
+extract<W, A> :: W<A> -> A;
+extend<W, A, B> :: (W<A>, W<A> -> B) -> W<B>;
+
+duplicate<W, A> :: W<A> -> W<W<A>> := (context) -> extend<W>(context, (focused) -> focused);
+
+liftW<W, A, B> :: (W<A>, A -> B) -> W<B> := (context, function) ->
+    extend<W>(context, (focused) -> function(extract<W>(focused)));

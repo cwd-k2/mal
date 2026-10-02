@@ -34,7 +34,12 @@ fn run(name: &str) -> std::process::Output {
 
 #[test]
 fn focused_examples_build_and_run() {
-    for name in ["generic-map", "monads", "canonical-memory", "indexed-graph"] {
+    for name in [
+        "generic-map",
+        "monads-and-comonads",
+        "canonical-memory",
+        "indexed-graph",
+    ] {
         let output = run(name);
         assert!(output.status.success(), "{name}: {}", output.status);
         assert!(output.stdout.is_empty(), "{name}: unexpected stdout");

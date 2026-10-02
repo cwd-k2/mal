@@ -1,0 +1,135 @@
+require "./comonad.mal";
+
+// `Env<E>` pairs the focus with a read-only environment.
+opaque Env<E, A> :: (E, A);
+
+env<E, A> :: (E, A) -> Env<E, A> := (environment, value) -> (environment, value);
+
+ask<E, A> :: Env<E, A> -> E := ((environment, _)) -> environment;
+
+extract<Env<E>, A> :: Env<E, A> -> A := ((_, value)) -> value;
+
+extend<Env<E>, A, B> :: (Env<E, A>, Env<E, A> -> B) -> Env<E, B> := (context, rule) -> {
+    (environment, _) := context;
+    (environment, rule(context));
+};
+
+// `Store<S>` is a lookup with a current position. `extend` builds the next lookup from the rule applied
+// at every position of the previous one, without computing any position in advance.
+opaque Store<S, A> :: (S -> A, S);
+
+store<S, A> :: (S -> A, S) -> Store<S, A> := (lookup, at) -> (lookup, at);
+
+position<S, A> :: Store<S, A> -> S := ((_, at)) -> at;
+
+peekAt<S, A> :: (Store<S, A>, S) -> A := ((lookup, _), at) -> lookup(at);
+
+extract<Store<S>, A> :: Store<S, A> -> A := ((lookup, at)) -> lookup(at);
+
+extend<Store<S>, A, B> :: (Store<S, A>, Store<S, A> -> B) -> Store<S, B> := ((lookup, at), rule) ->
+    ((other) -> rule((lookup, other)), at);
+
+// `Focus` is a non-empty Buffer with a current index. `extend` applies the rule with the focus at every
+// index and collects the results into a new Buffer, so the original values stay unchanged.
+opaque Focus<A> :: (Buffer<A>, USize);
+
+focus<A> :: (Buffer<A>, USize) -> Focus<A> := (values, at) -> (values, at);
+
+focusIndex<A> :: Focus<A> -> USize := ((_, at)) -> at;
+
+focusLength<A> :: Focus<A> -> USize := ((values, _)) -> #values;
+
+// Precondition: `at < focusLength(context)`.
+focusAt<A> :: (Focus<A>, USize) -> A := ((values, _), at) -> values.get(at);
+
+_collect<A, B> :: (Buffer<A>, Focus<A> -> B, Buffer<B>, USize) -> Buffer<B> := (values, rule, results, at) -> [return] => {
+    when (at == #values) return(results);
+    results.new(rule((values, at)));
+    return(_collect(values, rule, results, at + 1usize));
+};
+
+extract<Focus, A> :: Focus<A> -> A := ((values, at)) -> values.get(at);
+
+extend<Focus, A, B> :: (Focus<A>, Focus<A> -> B) -> Focus<B> := ((values, at), rule) ->
+    (_collect(values, rule, make<B>(#values), 0usize), at);
+
+envScenario :: Unit -> Int32 := () -> [return] => {
+    priced := env(3i32, 14i32);
+    scaled := extend<Env<Int32>>(priced, (context) -> extract<Env<Int32>>(context) * ask(context));
+    when (extract<Env<Int32>>(scaled) != 42i32 || ask(scaled) != 3i32) return(11);
+    when (extract<Env<Int32>>(liftW<Env<Int32>>(priced, (value) -> value + 1i32)) != 15i32) return(12);
+    nested := duplicate<Env<Int32>>(priced);
+    when (extract<Env<Int32>>(extract<Env<Int32>>(nested)) != 14i32) return(13);
+    return(0);
+};
+
+width :: Int32 := 15i32;
+
+_wrap :: Int32 -> Int32 := (at) -> (at + width) % width;
+
+// Rule 90: a cell becomes the exclusive or of its two neighbours on the ring.
+_rule90 :: Store<Int32, Bool> -> Bool := (cells) ->
+    peekAt(cells, _wrap(position(cells) - 1i32)) != peekAt(cells, _wrap(position(cells) + 1i32));
+
+_generations :: (Store<Int32, Bool>, USize) -> Store<Int32, Bool> := (cells, left) -> [return] => {
+    when (left == 0usize) return(cells);
+    return(_generations(extend<Store<Int32>>(cells, _rule90), left - 1usize));
+};
+
+_matches :: (Store<Int32, Bool>, Int32) -> Bool := (cells, at) -> [return] => {
+    when (at == width) return(true);
+    expected := at == 4i32 || at == 6i32 || at == 8i32 || at == 10i32;
+    when (peekAt(cells, at) != expected) return(false);
+    return(_matches(cells, at + 1i32));
+};
+
+storeScenario :: Unit -> Int32 := () -> [return] => {
+    seed := store((at) -> at == 7i32, 0i32);
+    third := _generations(seed, 3usize);
+    when (!_matches(third, 0i32)) return(14);
+    nested := duplicate<Store<Int32>>(third);
+    when (peekAt(extract<Store<Int32>>(nested), 6i32) != true) return(15);
+    return(0);
+};
+
+_sum :: (Focus<Int32>, USize, USize, Int32) -> Int32 := (window, at, last, total) -> [return] => {
+    when (at > last) return(total);
+    return(_sum(window, at + 1usize, last, total + focusAt(window, at)));
+};
+
+// The mean of the focus and its existing neighbours.
+_average :: Focus<Int32> -> Int32 := (window) -> {
+    at := focusIndex(window);
+    first := if (at == 0usize)
+        then at
+        else at - 1usize;
+    last := if (at + 1usize == focusLength(window))
+        then at
+        else at + 1usize;
+    _sum(window, first, last, 0i32) / (last - first + 1usize).i32;
+};
+
+_averaged :: (Focus<Int32>, USize) -> Bool := (window, at) -> [return] => {
+    when (at == focusLength(window)) return(true);
+    expected := if (at == 0usize)
+        then 15i32
+        else if (at == 4usize)
+            then 45i32
+            else (at.i32 + 1i32) * 10i32;
+    when (focusAt(window, at) != expected) return(false);
+    return(_averaged(window, at + 1usize));
+};
+
+focusScenario :: Unit -> Int32 := () -> [return] => {
+    values :: Buffer<Int32> := make(5usize);
+    values.new(10i32);
+    values.new(20i32);
+    values.new(30i32);
+    values.new(40i32);
+    values.new(50i32);
+    readings := focus(values, 2usize);
+    smoothed := extend<Focus>(readings, _average);
+    when (!_averaged(smoothed, 0usize)) return(16);
+    when (extract<Focus>(smoothed) != 30i32 || focusAt(readings, 0usize) != 10i32) return(17);
+    return(0);
+};

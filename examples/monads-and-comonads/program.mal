@@ -1,87 +1,16 @@
-require "./monad.mal";
-
-// `Either<E>` leaves the error type as a key variable, so one pair of implementations serves every E.
-opaque Either<E, A> :: [E, A];
-
-pure<Either<E>, A> :: A -> Either<E, A> := (value) -> [failure, success] => success(value);
-
-bind<Either<E>, A, B> :: (Either<E, A>, A -> Either<E, B>) -> Either<E, B> := (value, next) ->
-    [failure, success] => value[failure, (element) -> next(element)[failure, success]];
-
-raise<E, A> :: E -> Either<E, A> := (error) -> [failure, success] => failure(error);
-
-opaque Option<A> :: [Unit, A];
-
-pure<Option, A> :: A -> Option<A> := (value) -> [none, some] => some(value);
-
-bind<Option, A, B> :: (Option<A>, A -> Option<B>) -> Option<B> := (value, next) ->
-    [none, some] => value[none, (element) -> next(element)[none, some]];
-
-// A state action is a function of the state; `State<S>` keys the instance by the state type.
-opaque State<S, A> :: S -> (S, A);
-
-pure<State<S>, A> :: A -> State<S, A> := (value) -> (state) -> (state, value);
-
-bind<State<S>, A, B> :: (State<S, A>, A -> State<S, B>) -> State<S, B> := (action, next) -> (state) -> {
-    (middle, value) := action(state);
-    following := next(value);
-    following(middle);
-};
-
-_digit :: (UInt32, UInt8) -> Either<Symbol, UInt32> := (total, byte) -> [return] => {
-    when (byte < 48u8 || byte > 57u8) return(raise("not a digit"));
-    return(pure<Either<Symbol>>(total * 10u32 + (byte - 48u8).u32));
-};
-
-parse :: Symbol -> Either<Symbol, UInt32> := (text) -> foldEach<Either<Symbol>>(*text, 0u32, _digit);
-
-_divide :: (Int32, Int32) -> Option<Int32> := (total, divisor) -> [none, some] => {
-    when (divisor == 0i32) none();
-    some(total / divisor);
-};
-
-// Returns the current label and advances the counter.
-fresh :: State<USize, USize> := (next) -> (next + 1usize, next);
-
-_label :: (USize, Symbol) -> State<USize, USize> := (sum, _) -> fmap<State<USize>>(fresh, (label) -> sum + label);
-
-eitherScenario :: Unit -> Int32 := () -> [return] => {
-    pair := both<Either<Symbol>>(parse("2026"), parse("42"));
-    when (pair[(_) -> true, ((year, answer)) -> year != 2026u32 || answer != 42u32]) return(1);
-    failed := both<Either<Symbol>>(parse("2026"), parse("4x"));
-    when (failed[(error) -> error != "not a digit", (_) -> true]) return(2);
-    return(0);
-};
-
-optionScenario :: Unit -> Int32 := () -> [return] => {
-    divisors :: Buffer<Int32> := make(3usize);
-    divisors.new(2i32);
-    divisors.new(5i32);
-    divisors.new(10i32);
-    when (foldEach<Option>(divisors, 1000i32, _divide)[() -> true, (total) -> total != 10i32]) return(3);
-    divisors.put(1usize, 0i32);
-    when (foldEach<Option>(divisors, 1000i32, _divide)[() -> false, (_) -> true]) return(4);
-    return(0);
-};
-
-stateScenario :: Unit -> Int32 := () -> [return] => {
-    labels := both<State<USize>>(fresh, fresh);
-    (after, (first, second)) := labels(5usize);
-    when (first != 5usize || second != 6usize || after != 7usize) return(5);
-    names :: Buffer<Symbol> := make(3usize);
-    names.new("a");
-    names.new("b");
-    names.new("c");
-    summed := foldEach<State<USize>>(names, 0usize, _label);
-    (final, sum) := summed(10usize);
-    when (final != 13usize || sum != 33usize) return(6);
-    return(0);
-};
+require "./effects.mal";
+require "./contexts.mal";
 
 main :: Unit -> Int32 := () -> [return] => {
     either := eitherScenario();
     when (either != 0i32) return(either);
     option := optionScenario();
     when (option != 0i32) return(option);
-    return(stateScenario());
+    state := stateScenario();
+    when (state != 0i32) return(state);
+    environment := envScenario();
+    when (environment != 0i32) return(environment);
+    automaton := storeScenario();
+    when (automaton != 0i32) return(automaton);
+    return(focusScenario());
 };

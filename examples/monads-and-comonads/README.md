@@ -1,27 +1,43 @@
-# Monads
+# Monads and comonads
 
-This example expresses a monad as two operation families keyed by a type constructor: `pure<F, A>`
-and `bind<F, A, B>`. `monad.mal` writes `fmap`, `both`, and a monadic fold once against those
-families. Each call names the constructor, and specialization produces a separate copy for each
-constructor. No dictionary is passed at run time and no type is inspected.
+This example expresses type classes as operation families keyed by a type constructor, using two
+dual pairs:
 
-`program.mal` supplies three instances:
+- `monad.mal` declares the monad pair, `pure<F, A>` and `bind<F, A, B>`.
+- `comonad.mal` declares the comonad pair, `extract<W, A>` and `extend<W, A, B>`.
+
+Each file writes its derived operations once against those families: `fmap`, `both`, and a monadic
+fold in `monad.mal`, and `duplicate` and `liftW` in `comonad.mal`. Each call names the constructor,
+and specialization produces a separate copy for each constructor. No dictionary is passed at run time
+and no type is inspected.
+
+`effects.mal` supplies three monads, which build a result step by step:
 
 - `Either<E>` stops at the first failure.
 - `Option` stops at the first missing value.
 - `State<S>` threads a counter through functions of the state.
 
-The `Either<E>` and `State<S>` keys partially apply a two-parameter constructor. Their remaining
-name (`E` or `S`) is a key variable, so one pair of implementations serves every error type or state
-type. Constructor keys need a nominal head. Here every constructor is a file-local opaque type, so
-callers see the monad operations but not the representation.
+`contexts.mal` supplies three comonads, which compute each position from its surroundings:
 
-The same `foldEach` parses digits until the first non-digit (`Either<Symbol>`), divides until a zero
-divisor (`Option`), and labels elements while advancing a counter (`State<USize>`).
+- `Env<E>` carries a read-only environment beside the focus.
+- `Store<S>` is a lookup with a current position. Repeated `extend` runs the rule 90 cellular
+  automaton on a ring.
+- `Focus` is a Buffer with a current index. `extend` computes a moving average into a new Buffer.
+
+The `Either<E>`, `State<S>`, `Env<E>`, and `Store<S>` keys partially apply a two-parameter
+constructor. Their remaining name is a key variable, so one pair of implementations serves every
+error, state, environment, or position type. Constructor keys need a nominal head. Here every
+constructor is a file-local opaque type, so `program.mal` sees the operations but not the
+representation.
+
+> [!NOTE]
+> `duplicate<Focus>` would put a `Focus` inside a Buffer, and `Focus` holds a Buffer, which is not
+> `Storable`. Specialization rejects that use. The example therefore applies `duplicate` only to `Env`
+> and `Store`.
 
 ```nu
-nix develop --command cargo run -p mal-compiler -- build examples/monads/program.mal --output /tmp/mal-monads
-/tmp/mal-monads
+nix develop --command cargo run -p mal-compiler -- build examples/monads-and-comonads/program.mal --output /tmp/mal-monads-and-comonads
+/tmp/mal-monads-and-comonads
 ```
 
 Success is silent and exits with status 0.
