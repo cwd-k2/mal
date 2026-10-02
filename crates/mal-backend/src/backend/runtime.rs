@@ -38,6 +38,10 @@ pub(crate) fn for_program(uses_byte_runtime: bool) -> Vec<RuntimeSource> {
                 contents: include_str!("../../runtime/c11/buffer_host.c"),
             },
             RuntimeSource {
+                name: "buffer_symbol.c",
+                contents: include_str!("../../runtime/c11/buffer_symbol.c"),
+            },
+            RuntimeSource {
                 name: "buffer_internal.h",
                 contents: include_str!("../../runtime/c11/buffer_internal.h"),
             },

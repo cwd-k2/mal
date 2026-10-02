@@ -30,7 +30,7 @@ authority境界の変更として先に検討する。
 
 execution ownership planではowner lifetimeのfactとresponsibilityの後継を構成し、唯一のowner successorへのhandoffを設定によらず
 `Consume`へ正規化する。LLVM backendはこのplanとstorage再利用のdecisionを分ける。dead responsibilityの`Drop`は設定によらず行い、
-`Symbol` operationが移されたresponsibilityのstorageをruntime representationとcapacityに基づいて再利用する選択だけをoptional
+`Symbol` operationとbyte `*`が移されたresponsibilityのstorageをruntime representationとcapacityに基づいて再利用する選択だけをoptional
 techniqueとする。通常のconstant propagation、instruction combination、dead-code elimination、inliningは独自実装せずpinned LLVMへ委ねる。
 
 ## technique追加contract

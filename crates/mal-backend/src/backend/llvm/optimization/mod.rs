@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
+mod byte_conversion;
 mod control_storage;
 mod control_top;
 mod self_tail_parameter;
@@ -16,6 +17,7 @@ pub(crate) enum Technique {
     LocalControlTop,
     SelfTailParameter,
     SymbolConcatReuse,
+    ByteConversionTransfer,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,6 +34,7 @@ impl OptimizationSet {
             .with(Technique::LocalControlTop)
             .with(Technique::SelfTailParameter)
             .with(Technique::SymbolConcatReuse)
+            .with(Technique::ByteConversionTransfer)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -49,6 +52,7 @@ pub(super) struct OptimizationPlan {
     local_control_top_functions: HashSet<FunctionId>,
     self_tail_parameters: HashSet<FunctionId>,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
+    byte_conversions: HashSet<(StateId, usize)>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -80,11 +84,17 @@ impl OptimizationPlan {
         } else {
             HashMap::new()
         };
+        let byte_conversions = if enabled.contains(Technique::ByteConversionTransfer) {
+            byte_conversion::plan(&execution.control, &execution.ownership)
+        } else {
+            HashSet::new()
+        };
         Self {
             local_control_storage_functions,
             local_control_top_functions,
             self_tail_parameters,
             symbol_concatenations,
+            byte_conversions,
         }
     }
 
@@ -101,6 +111,10 @@ impl OptimizationPlan {
             .get(&(site, binding))
             .copied()
             .unwrap_or(SymbolConcatMode::Borrow)
+    }
+
+    pub(super) fn transfers_byte_conversion(&self, site: StateId, binding: usize) -> bool {
+        self.byte_conversions.contains(&(site, binding))
     }
 
     pub(super) fn localizes_control_top(&self, function: FunctionId) -> bool {

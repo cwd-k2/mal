@@ -25,7 +25,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/frame` | frame layout, resume dispatch, owner transfer, and bounded native-recursion workers |
 | `body/aggregate` | product and sum construction, case dispatch, and payload extraction |
 | `body/value` | typed share/drop recursion, slot load/initialize/vacate transitions, pattern destinations, and dead-slot cleanup |
-| `body/memory` | dispatch for `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer snapshot conversion |
+| `body/memory` | dispatch for `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer conversion, which moves the byte owner at the operand's last use |
 | `body/memory/buffer` | Buffer construction, access, range operations, host-memory transfer, and managed-element callback emission |
 | `body/scalar` | integer and floating-point widths, literals, and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |

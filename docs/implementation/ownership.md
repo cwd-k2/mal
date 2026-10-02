@@ -12,7 +12,8 @@ Status: Current v0.6 implementation policy
 `execution::ownership`が一箇所で提供する。
 
 LLVM内の`Symbol`はowner pointer、active data address、byte countからなるviewであり、`Buffer<A>`はmanaged runtime objectへの
-pointerである。`Symbol`と`Buffer<UInt8>`の変換は独立したsemantic valueを作るsnapshot copyである。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
+pointerである。`Symbol`と`Buffer<UInt8>`の変換は独立したsemantic valueを作る。operandを他に持つものがなければbyte ownerを移し、それ以外は
+snapshot copyである。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
 再帰的に適用する。literalのstatic byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
 完成したbyte ownerのdataはownerのlifetime中不変である。view構築時にdataを確定し、index、slice、比較はowner representationを再解釈しない。
 storage再利用を判断するSymbol concatだけがownerに対するdataのoffsetを導出する。
@@ -69,6 +70,10 @@ releaseする。これはowner responsibilityの終了であり、optimization�
 reference countが1であるflat storageだけを再利用する。
 techniqueが無効ならborrowするconcat後に通常どおりreleaseする。両operandが同じbindingならmoveせず、後続pathにuseがあるownerをreference
 countから推測して消費しない。
+`backend/llvm/optimization/byte_conversion`が有効で、byte `*`のoperandがそのsiteでdeadなら、operandをslotから取り出して
+runtimeへmoveする。runtimeはBuffer identityとbyte ownerのreference countがどちらも1のとき、`*buffer`ではownerを`Symbol`のviewへ、
+`*symbol`ではviewがflat ownerの先頭から始まる場合にownerを新しいBufferへ移す。それ以外はcopyしてoperandをreleaseする。
+移したownerのcount以降のbyteは0とみなさない。techniqueが無効ならborrowする変換の後に通常どおりreleaseする。
 
 function returnではresultをowned handoffし、後継のないactivation-local responsibilityをreleaseする。tail transitionでも
 次argumentと次environmentの`Share`を完了し、`Consume`するsourceを失効させてから現在のlocalとenvironmentをreleaseする。

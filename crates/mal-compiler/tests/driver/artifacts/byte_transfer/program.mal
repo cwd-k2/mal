@@ -1,0 +1,75 @@
+_fill :: (Buffer<UInt8>, USize, USize) -> Unit := (buffer, index, count) -> [return] => {
+    when (index == count) return(());
+    buffer.new((index % 200usize + 1usize).u8);
+    return(_fill(buffer, index + 1usize, count));
+};
+
+_bytes :: USize -> Buffer<UInt8> := (count) -> {
+    buffer :: Buffer<UInt8> := make(4usize);
+    _fill(buffer, 0usize, count);
+    buffer;
+};
+
+// A Buffer with a live alias must be copied: the Symbol never sees later writes through the alias.
+aliasScenario :: Unit -> Int32 := () -> [return] => {
+    buffer := _bytes(40usize);
+    alias := buffer;
+    text := *buffer;
+    alias.put(0usize, 99u8);
+    when (text # 0usize != 1u8 || alias.get(0usize) != 99u8) return(1);
+    return(0);
+};
+
+// A Symbol whose owner is shared must be copied: the other holder never sees the Buffer's writes.
+sharedScenario :: Unit -> Int32 := () -> [return] => {
+    text := *_bytes(40usize);
+    kept := text;
+    buffer := *text;
+    buffer.put(1usize, 77u8);
+    when (kept # 1usize != 2u8 || buffer.get(1usize) != 77u8 || #buffer != 40usize) return(2);
+    return(0);
+};
+
+// A uniquely held prefix view is adopted with its own length; appended zero bytes are written, not assumed.
+prefixScenario :: Unit -> Int32 := () -> [return] => {
+    whole := *_bytes(40usize);
+    prefix := whole / 4usize;
+    buffer := *prefix;
+    buffer.new(0u8);
+    buffer.fill(5usize, 3usize, 0u8);
+    when (#buffer != 8usize || buffer.get(3usize) != 4u8) return(3);
+    when (buffer.get(4usize) != 0u8 || buffer.get(6usize) != 0u8 || buffer.get(7usize) != 0u8) return(4);
+    return(0);
+};
+
+// A literal stays static; the Buffer gets its own bytes.
+literalScenario :: Unit -> Int32 := () -> [return] => {
+    buffer := *"literal";
+    buffer.put(0usize, 76u8);
+    again := *"literal";
+    when (again.get(0usize) != 108u8 || buffer.get(0usize) != 76u8) return(5);
+    return(0);
+};
+
+// A transferred owner keeps working with consuming concatenation and growth.
+growthScenario :: Unit -> Int32 := () -> [return] => {
+    text := *_bytes(3usize);
+    longer := text + "abc";
+    buffer := *longer;
+    _fill(buffer, 0usize, 100usize);
+    back := *buffer;
+    when (#back != 106usize || back # 3usize != 97u8 || back # 105usize != 100u8) return(6);
+    return(0);
+};
+
+main :: Unit -> Int32 := () -> [return] => {
+    a := aliasScenario();
+    when (a != 0i32) return(a);
+    b := sharedScenario();
+    when (b != 0i32) return(b);
+    c := prefixScenario();
+    when (c != 0i32) return(c);
+    d := literalScenario();
+    when (d != 0i32) return(d);
+    return(growthScenario());
+};

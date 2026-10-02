@@ -132,6 +132,23 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     );
     add_declaration(
         module,
+        llvm_type!(ptr),
+        "mal_runtime_buffer_into_symbol",
+        [llvm_type!(ptr), llvm_type!(ptr)],
+    );
+    add_declaration(
+        module,
+        llvm_type!(ptr),
+        "mal_runtime_symbol_into_buffer",
+        [
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            llvm_type!(ptr),
+            index.clone(),
+        ],
+    );
+    add_declaration(
+        module,
         llvm_type!(void),
         "mal_runtime_buffer_into",
         [

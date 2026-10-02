@@ -54,7 +54,8 @@ hostとの交換を一括copyにできる。
 
 `freeze`と`thaw`はこの二つの表現の間でbyte ownerを受け渡す。inputがlast useで、Bufferのidentityとbyte ownerがどちらも一意な
 とき、`freeze`はownerをviewへ移し、`thaw`はviewが先頭から全体を覆うflatなownerを新しいBufferへ移す。それ以外はcopyする
-（[freezeとthaw](../api/pool.md#freezeとthaw)）。byte列の`*`の両方向がこの規則の最初の例であり、現行の`*`の意味を変えずに実装できる。
+（[freezeとthaw](../api/pool.md#freezeとthaw)）。byte列の`*`の両方向がこの規則の最初の例であり、現行runtimeは`*`の意味を変えずにこの形で実装している
+（[managed valueのownership](../../../implementation/ownership.md)）。
 
 ## 所有権
 

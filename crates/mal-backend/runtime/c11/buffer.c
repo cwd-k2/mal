@@ -111,6 +111,16 @@ void *mal_runtime_buffer_make_managed(
 }
 
 
+void *mal_buffer_adopt(MalContext *context, MalBytesFlat *flat, size_t count) {
+    MalBuffer *buffer = mal_buffer_allocate(context, 1, sizeof(MalBuffer), mal_buffer_destroy);
+    flat->header.length = (uint64_t)count;
+    buffer->owner = &flat->header;
+    buffer->data = flat->bytes;
+    buffer->count = count;
+    buffer->zeroed_until = count;
+    return buffer;
+}
+
 __attribute__((noinline))
 MalBytesFlat *mal_buffer_grow_unique(
     MalContext *context,

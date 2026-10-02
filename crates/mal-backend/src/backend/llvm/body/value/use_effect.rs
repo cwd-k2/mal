@@ -160,3 +160,27 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 }
+
+impl FunctionEmitter<'_> {
+    /// Moves the value of a binding that dies at this operation out of its slot. The slot is left vacant, so the
+    /// release that follows the operation does nothing and the caller owns the value.
+    pub(in crate::backend::llvm::body) fn take_binding(
+        &mut self,
+        atom: &Atom,
+        ty: &mal_frontend::check::ast::Type,
+    ) -> Option<EmittedValue> {
+        let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
+            return None;
+        };
+        let slot = self.slots.get(&id)?.clone();
+        if slot.ty != *ty {
+            return None;
+        }
+        let value = self.atom(atom)?;
+        self.vacate_slot(&slot)?;
+        Some(EmittedValue {
+            owned: true,
+            ..value
+        })
+    }
+}

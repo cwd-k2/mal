@@ -335,6 +335,12 @@ impl FunctionEmitter<'_> {
                 primitive,
                 operands,
             } => {
+                if let [operand] = operands.as_slice()
+                    && self.optimizations.transfers_byte_conversion(site, binding)
+                    && self.atom_has_slot(operand)
+                {
+                    return self.emit_byte_conversion_transfer(*primitive, operand, result_type?);
+                }
                 let effects = operands
                     .iter()
                     .enumerate()

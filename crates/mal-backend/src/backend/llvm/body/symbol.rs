@@ -214,24 +214,12 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    fn atom_has_slot(&self, atom: &Atom) -> bool {
+    pub(in crate::backend::llvm::body) fn atom_has_slot(&self, atom: &Atom) -> bool {
         matches!(atom.kind, AtomKind::Reference(Reference::Binding(id)) if self.slots.contains_key(&id))
     }
 
     fn take_symbol(&mut self, atom: &Atom) -> Option<EmittedValue> {
-        let AtomKind::Reference(Reference::Binding(id)) = atom.kind else {
-            return None;
-        };
-        let slot = self.slots.get(&id)?.clone();
-        if slot.ty != Type::Symbol {
-            return None;
-        }
-        let value = self.atom(atom)?;
-        self.vacate_slot(&slot)?;
-        Some(EmittedValue {
-            owned: true,
-            ..value
-        })
+        self.take_binding(atom, &Type::Symbol)
     }
 }
 

@@ -12,5 +12,6 @@ Program-specific behavior, such as frame layout, resume targets, and owner trans
 | `buffer.c`, `buffer_internal.h` | `Buffer` storage: allocation, growth, `new`, and element ownership callbacks for managed elements |
 | `buffer_range.c` | `fill` and `copy`, which extend the count and write a range, including overlapping managed copies |
 | `buffer_host.c` | C host copies (`from`, `into`) and the process argument `Buffer<Symbol>` |
+| `buffer_symbol.c` | byte `*` at the operand's last use, moving the byte owner between a Buffer and a Symbol when no one else holds it |
 | `symbol.c` | `Symbol` indexing, range views, equality, concatenation, and reuse of dead operand storage |
 | `runtime.h` | declarations shared by the runtime sources |

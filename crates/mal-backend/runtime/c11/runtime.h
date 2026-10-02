@@ -219,5 +219,9 @@ void mal_runtime_buffer_into(
     size_t count,
     size_t stride
 );
+/* Byte `*` at the operand's last use: each takes the caller's reference to its operand and moves the byte owner to the result
+ * when nothing else holds the operand or the owner, copying otherwise. */
+void *mal_runtime_buffer_into_symbol(MalContext *context, void *buffer);
+void *mal_runtime_symbol_into_buffer(MalContext *context, void *owner, const uint8_t *data, size_t length);
 
 #endif

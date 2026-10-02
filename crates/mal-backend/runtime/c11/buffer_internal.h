@@ -22,6 +22,8 @@ typedef struct {
 
 // The byte size of `count` elements of `stride` bytes; traps on overflow.
 size_t mal_buffer_bytes(MalContext *context, size_t count, size_t stride);
+// A byte Buffer of `count` elements whose storage is `flat`, which it now owns. Bytes past `count` are not assumed zero.
+void *mal_buffer_adopt(MalContext *context, MalBytesFlat *flat, size_t count);
 // Grows storage that only one buffer owns to hold `required` bytes and sets its length; `flat` may be NULL.
 MalBytesFlat *mal_buffer_grow_unique(MalContext *context, MalBytesFlat *flat, size_t required);
 
