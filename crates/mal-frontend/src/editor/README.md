@@ -9,7 +9,9 @@ Builds what editor queries need from the current text and, when analysis succeed
 | `index` | the declaration identity index that editor queries read |
 | `index/resolved_ast` | identities and declared types from the resolved program |
 | `index/resolved_ast/top` | identities introduced by top-level declarations |
-| `index/checked_ast` | checked types and the result binders control leaves to |
+| `index/checked_ast` | checked types of expressions and result binders |
+| `index/exits` | where control leaves a result block, and the binders it reaches |
+| `index/expression_display` | display types of expressions as the source spells them |
 | `index/aliases` | value identity aliases introduced by lambda captures |
 | `index/type_display` | source type names as written, so hover keeps aliases |
 | `index/predefined` | type details of predefined values |
