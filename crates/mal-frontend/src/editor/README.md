@@ -8,6 +8,7 @@ Builds what editor queries need from the current text and, when analysis succeed
 | `syntax/declaration` | conservative classification of top-level function declarations from tokens |
 | `index` | declaration identity index behind document symbols, completion, and file-local views |
 | `index/resolved_ast` | declaration and reference identities, explicit alias names, type references and declared types propagated through binding patterns, and result binders |
+| `index/resolved_ast/top` | identities introduced by top-level declarations, including implementation key binders recorded once at their first occurrence |
 | `index/checked_ast` | canonical types of checked expressions and result binders, and where control leaves its result block and to which binders |
 | `index/aliases` | value identity aliases introduced by lambda captures |
 | `index/type_display` | declared and contextually propagated source type names, so hover keeps aliases |
