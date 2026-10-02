@@ -339,3 +339,32 @@ fn inlay_hints_mark_where_control_leaves_the_block() {
         true
     );
 }
+
+#[test]
+fn renames_an_implementation_key_binder_once_per_occurrence() {
+    let text = "opaque Either<E, A> :: [E, A];\npure<F, A> :: A -> F<A>;\n\
+        pure<Either<E>, A> :: A -> Either<E, A> := (value) -> [failure, success] => success(value);\n";
+    let uri = "file:///key-binder.mal";
+    let mut server = open_document(uri, text);
+    let binder = text.find("pure<Either<E>").unwrap() + "pure<Either<".len();
+    let position = text_position(text, binder);
+
+    let references = server.handle(json!({
+        "jsonrpc": "2.0", "id": 30, "method": "textDocument/references",
+        "params": {"textDocument": {"uri": uri}, "position": position, "context": {"includeDeclaration": true}}
+    }));
+    assert_eq!(
+        references.messages[0]["result"].as_array().unwrap().len(),
+        2
+    );
+
+    let rename = server.handle(json!({
+        "jsonrpc": "2.0", "id": 31, "method": "textDocument/rename",
+        "params": {"textDocument": {"uri": uri}, "position": position, "newName": "Error"}
+    }));
+    let edits = rename.messages[0]["result"]["changes"][uri]
+        .as_array()
+        .unwrap();
+    assert_eq!(edits.len(), 2);
+    assert_ne!(edits[0]["range"], edits[1]["range"]);
+}

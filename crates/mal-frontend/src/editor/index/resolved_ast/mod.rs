@@ -171,9 +171,19 @@ impl Index {
                         None,
                     );
                 }
+                // A key binder is declared at its first occurrence in the key, so the key walk must not record
+                // that occurrence again as a reference.
+                let key = self.raw_occurrences.len();
                 for argument in arguments {
                     self.collect_resolved_type(argument);
                 }
+                let mut occurrences = self.raw_occurrences.split_off(key);
+                occurrences.retain(|occurrence| {
+                    !parameters
+                        .iter()
+                        .any(|parameter| parameter.name.span == occurrence.span)
+                });
+                self.raw_occurrences.extend(occurrences);
                 self.collect_resolved_type(annotation);
                 self.collect_resolved_expression_with_expected(value, Some(annotation));
             }
