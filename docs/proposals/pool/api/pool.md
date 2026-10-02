@@ -183,10 +183,12 @@ responsibilityならstorageを移し、共有中ならcopyする。`freeze`の�
 | storageを共有し、IxPool側の後の書き込みでcopyする | O(1) | 毎回、共有中かを確認する |
 | inputがlast useで他のaliasがなければstorageを移し、それ以外はcopyする | 移せればO(1)、それ以外はO(n) | 追加なし |
 
-二つ目は、全要素型のIxPoolの全書き込みに確認を課す。現在のBufferは`Symbol`とbyte ownerを共有するため同じ確認を持つが、
-IxPoolを安い可変primitiveとする前提と衝突する。三つ目は`thaw`と対称であり、組み立ててから公開する主な用途、例えばBufferを
-`*`で`Symbol`にして捨てる形ではcopyも確認も起きない。copyが残るのは、`freeze`した後もIxPoolを使い続ける場合である。そのとき
-二つ目はIxPoolへ次に書くまでcopyを遅らせ、書かなければcopyしない。本案は三つ目を採り、`freeze`のinputを`Store`で受け取る。
+二つ目は、全要素型のIxPoolの全書き込みに確認を課し、IxPoolを安い可変primitiveとする前提と衝突する。現在のBufferは
+`Symbol`と同じ形のbyte ownerにstorageを持つが、`*`の両方向でcopyし、共有しない。
+
+三つ目は`thaw`と対称であり、組み立ててから公開する主な用途、例えばBufferを`*`で`Symbol`にして
+捨てる形ではcopyも確認も起きない。copyが残るのは、`freeze`した後もIxPoolを使い続ける場合である。そのとき二つ目は
+IxPoolへ次に書くまでcopyを遅らせ、書かなければcopyしない。本案は三つ目を採り、`freeze`のinputを`Store`で受け取る。
 
 ## 測定後の候補
 
