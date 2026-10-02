@@ -1,7 +1,7 @@
 //! Typed LLVM instructions, admitted field by field when they are built.
 
 use super::Type;
-use super::function::{is_single_line, is_valid_name};
+use super::lexical::is_valid_name;
 
 mod operator;
 mod render;
@@ -9,13 +9,13 @@ mod render;
 mod tests;
 mod value;
 
+use super::lexical::{is_atom, is_value};
 use operator::comparison_is_valid;
 pub(in crate::backend) use operator::{
     BinaryOperator, CastOperator, ComparisonKind, ComparisonPredicate, UnaryOperator,
 };
 use value::local_name;
 pub(in crate::backend) use value::{Callee, TypedValue};
-pub(in crate::backend::llvm::syntax) use value::{is_atom, is_value};
 
 #[derive(Clone)]
 pub(in crate::backend) enum Instruction {

@@ -1,4 +1,4 @@
-use super::function::is_single_line;
+use super::lexical::is_single_line;
 use super::{BinaryOperator, CastOperator, Type, UnaryOperator};
 
 #[derive(Clone)]

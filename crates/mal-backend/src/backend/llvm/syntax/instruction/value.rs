@@ -58,14 +58,3 @@ impl TypedValue {
 pub(super) fn local_name(value: &str) -> Option<&str> {
     value.strip_prefix('%')
 }
-
-pub(in crate::backend::llvm::syntax) fn is_value(value: &str) -> bool {
-    is_single_line(value) && !value.contains([';', '\0'])
-}
-
-pub(in crate::backend::llvm::syntax) fn is_atom(value: &str) -> bool {
-    is_value(value)
-        && !value
-            .chars()
-            .any(|character| character.is_whitespace() || ",(){}[]=".contains(character))
-}

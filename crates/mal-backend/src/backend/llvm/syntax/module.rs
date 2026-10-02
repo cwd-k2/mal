@@ -1,4 +1,4 @@
-use super::function::is_valid_name;
+use super::lexical::is_valid_name;
 use super::{FunctionAttribute, FunctionDefinition, Parameter, Type};
 use std::collections::HashSet;
 

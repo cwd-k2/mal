@@ -3,6 +3,7 @@
 mod constant;
 mod function;
 mod instruction;
+mod lexical;
 mod macros;
 mod module;
 mod ty;
