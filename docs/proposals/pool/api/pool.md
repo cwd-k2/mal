@@ -2,9 +2,10 @@
 
 Status: Exploratory support document
 
-この文書は、IxPoolとImPoolのprimitiveを、意味と計算量を定める核と、核で意味を定めたうえで定数倍の費用のために持つ周辺に
-分けて管理する。核の導出は[Poolの意味論](../model/semantics.md#最小核の導出)、所有権の効果とpreconditionの責任は[runtime contract](../runtime/contract.md)、
-BufferとVectorは[語彙の分担](buffer-vector.md#語彙の分担)を正とする。名前は仮のものである。
+この文書は、共通のPool state algebraをIxPoolとImPoolのsource APIへ写し、意味と計算量を定める核と、定数倍の費用のために持つ
+周辺へ分ける。Poolの位置は[根本モデル](../model/foundations.md)、核の導出は[意味論](../model/semantics.md#最小核の導出)、
+responsibilityの効果とpreconditionの責任は[runtime contract](../runtime/contract.md)、BufferとVectorは
+[語彙の分担](buffer-vector.md#語彙の分担)を正とする。`Meta`を含む名前は仮であり、意味論では同じplaceをHeaderと呼ぶ。
 
 ## 区分
 
@@ -50,10 +51,10 @@ IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。`m`は`Meta`
 | `meta(pool)` | 意味論の核 | `m`を返す | なし |
 | `swapMeta(pool, m')` | 意味論の核 | `m := m'`とし、古い`m`を返す | なし |
 
-IxPoolの形成は`Storable(Meta)`と`Storable(V)`を要求する。IxPoolのcopyは同じidentityを共有し、Meta、`n`、slotへの変更を
-すべてのaliasが観測する。`n`はPool自身の構造であり、containerが選ぶ値を置くMetaとは別に持つ。MetaとslotはどちらもIxPool
+IxPoolの形成は`Storable(Meta)`と`Storable(V)`を要求する。IxPool handleを別bindingへ渡しても同じidentityを指し、Meta、`n`、slotへの変更を
+すべてのhandleが観測する。`n`はPool自身の構造であり、containerが選ぶ値を置くMetaとは別に持つ。MetaとslotはどちらもIxPool
 identityの中のplaceであり、Metaは常に`Meta`の値を、slotは常に`Slot<V>`の値を持つ。
-slotだけがVacantを取り得るのは、`grow`が値を渡さずにplaceを作るためである（[Poolの意味論](../model/semantics.md#metaとslot)）。
+slotだけがVacantを取り得るのは、`grow`が値を渡さずにplaceを作るためである（[Poolの意味論](../model/semantics.md#pool-state)）。
 
 各placeの核は、読み出しと交換の二つである。意味の上では、slotは`swap`だけで閉じ、`peek`も`swap`で書ける。`peek`を計算量の核に
 置くのは、読み出しを書き込みにしないためである。書き込みにすると、共有中のImPoolや`freeze`したstorageを読むたびにO(n)の
@@ -102,9 +103,10 @@ preconditionを持たない。
 
 ## ImPool
 
-`ImPool<Meta, V>`は、更新するたびにsuccessorを返す、identityを持たないPoolであり、IxPoolと対になるprimitiveの候補である。
-状態はIxPoolと同じ`(m, n, slots)`を値として持ち、核と周辺はIxPoolと同じ名前、意味、preconditionを持つ。違いは、IxPoolで
-`Unit`を返す更新がsuccessorを返し、値を返す更新がsuccessorとの組を返すことだけである。
+`ImPool<Meta, V>`はPool stateのsnapshot valueであり、更新するたびにsuccessor snapshotを返す。状態はIxPoolと同じ
+`(m, n, slots)`で、核と周辺はIxPoolと同じstate transition、名前、preconditionを持つ。IxPoolもsource valueだがshared identityへの
+handleである。IxPoolの更新はreferentのstateを変更するためsource resultとしてsuccessorを必要とせず、ImPoolはinput snapshotを
+変えないためsuccessorをresultにする。
 
 次の表は、IxPoolとImPoolのsignatureを対で並べる。`IxPool`、`ImPool`はそれぞれ`IxPool<Meta, V>`、`ImPool<Meta, V>`を略す。
 
@@ -129,36 +131,47 @@ preconditionを持たない。
 
 二つの型のoperationを同じ名前で書くには、constructorをkeyに持つ[operation family](../../../spec/operation-families.md)が要る。
 familyは一つのsignatureを持つため、表の形のままでは一つにまとまらない。[試作](../prototypes.md#二つの試作)は、IxPoolの更新も
-同じidentityを返す形に揃えて一つのfamilyにし、新しいidentityを作る`pool`だけはconstructorごとに分けた。どちらの形を採るかは
-[README](../README.md#未決定事項)の未決定事項である。
+同じidentityへのhandleを返す形に揃えて一つのfamilyにし、新しいidentityを作る`pool`だけはconstructorごとに分けた。
+
+これはstate algebraではなくsource APIとresponsibility costの選択である。successor返却へ揃えるとcontainerをconstructorについて
+一度だけ書けるが、IxPoolだけを使うcallにもmanaged resultが現れる。IxPoolのinput responsibilityをresultへ移せるcallでは追加costを
+持たない一方、元のbindingを後でも使うcallでは`Share`とresultの`Drop`が必要になり得る。Unitを返す形はIxPool固有のcallを小さくするが、
+Ix/Imのcontainer sourceを分ける。どちらを採るかは生成物のresponsibilityとcall costを測って決める
+（[README](../README.md#未決定事項)）。
 
 ImPoolのMetaは、意味の上では`(Meta, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
 IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。
 
-各更新はinputを`Store`で受け取り、内部で[writable successor](../runtime/contract.md#writable-successor)を作ってから変更して返す。inputが唯一の
-responsibilityならstorageを再利用し、共有中ならcopyする。この判断は参照数に依存し、malの他の操作では表せないため、核の
-更新`grow`、`swap`、`swapMeta`は意味論の核である。
+各更新はinputを`Store`で受け取り、内部で[writable successor](../runtime/contract.md#writable-successor)を作ってから変更して返す。
+`Store`はsource valueを消費済みにするannotationではなく、resultがinputのcarrierを保持し得ることをcompilerへ伝えるeffectである。
+sourceでは同じvalueをcall後にも使える。その場合は`Share`、last useなら`Consume`へlowerする。
 
-更新前のvalueをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
+更新前のsnapshotへの今後の観測と区別できなければstorageを再利用でき、区別できるreferenceがあればcopyする。inputを`Consume`できることは
+必要なpermissionであり、runtime representationに区別可能なreferenceがないことと合わせれば再利用の十分条件になる。この判断をsource
+operationで表せないため、核の更新`grow`、`swap`、`swapMeta`は意味論の核である。
 
-更新を`Unit`を返す操作とsuccessor取得の二つへ分けると、Shareしたsuccessorを更新しないことが未検査preconditionになり、違反は
-別のvalueの変更として現れる。更新自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装のinvariantへ依存させない。
+更新前のsnapshotをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
+
+更新を内部identityへの`Unit` mutationと別のsuccessor取得に分けると、旧snapshotを変えないための独立性がcontainer実装の
+未検査invariantになる。更新自体がsuccessorを返す形なら、runtimeがその独立性を確保でき、`Storable`の健全性をcontainer実装へ
+依存させない。
 
 ### 更新の費用
 
-ImPoolの更新がstorageを再利用するかは、inputが唯一のresponsibilityかで決まる。意味は変わらないが費用はO(1)とO(n)に分かれる
-ため、どこでcopyが起きるかを費用の約束として定める。copyの原因は次の三つである。
+ImPoolの更新がstorageを再利用するかは、更新前のsnapshotを区別して観測できるaliasが残るかで決まる。意味は変わらないが費用は
+O(1)とO(n)に分かれるため、どこでcopyが起きるかを費用の約束として定める。copyの原因は次の三つである。
 
 | 原因 | sourceからの見え方 | 扱い |
 |---|---|---|
-| 更新前の値を後で使う | 同じ関数の中で見える | 意味が求めるcopyであり、避けられない |
-| 同じ値を別のplaceにも保存している | 保存した場所が離れていると見えない | 入れ子の値は`takeAt`で取り出して更新し、戻す |
+| 更新前のsnapshotを後で使う | 同じ関数の中で見える | 意味が求めるcopyであり、避けられない |
+| 同じsnapshotを別のplaceにも保存している | 保存した場所が離れていると見えない | 入れ子のsnapshotは`takeAt`で取り出して更新し、戻す |
 | 呼び出し経路がresponsibilityを借りる | 見えない | `Store`をmal wrapperへ伝播して起こさない |
 
 三つ目を実装の自由として残すと、同じsourceの費用がcompilerの解析の精度で変わる。本案は、last useのinputを`Store`へ渡す
-呼び出しは`Consume`になることを約束し、`Store`へ渡るparameterを持つmal wrapperをowned native entryにする
+呼び出しは`Consume`になり、`Store`へ至るmal wrapperがcompiler都合の一時的な`Share`を残さないことを約束する。
+そのため`Store`へ渡るparameterを持つmal wrapperをowned native entryにする
 （[compilerとruntimeの分担](../runtime/implementation.md#compilerとruntimeの分担)）。残る非局所的なcopyは二つ目だけであり、
-入れ子の値を一意に保つ書き方は[Vector](../containers/sequences.md#vector)の`vectorUpdate`と同じ`takeAt`と`initAt`の組である。
+外側のplaceが作るaliasを残さない書き方は[Vector](../containers/sequences.md#vector)の`vectorUpdate`と同じ`takeAt`と`initAt`の組である。
 SwiftのArrayも同じ費用の約束を持つ（[関連事例](../../../research/pool-storage-prior-art.md)）。
 
 ## freezeとthaw
@@ -168,20 +181,21 @@ freeze<Meta, V> :: IxPool<Meta, V> -> ImPool<Meta, V>;
 thaw<Meta, V> :: ImPool<Meta, V> -> IxPool<Meta, V>;
 ```
 
-- `freeze(pool)`は、呼び出し時点のMeta、`n`、slotを持つImPoolを返す。元のIxPoolはidentityを保ったまま使い続けられ、以後の
-  変更は返した値から観測されない。
-- `thaw(value)`は、同じMeta、`n`、slotを持つ新しいidentityのIxPoolを返す。返したIxPoolへの変更は、元の値からも、同じ値から
-  thawした別のIxPoolからも観測されない。
+- `freeze(pool)`は、呼び出し時点のMeta、`n`、slotを持つImPool snapshotを返す。元のIxPool handleは同じidentityを指したまま
+  使い続けられ、以後の変更は返したsnapshotから観測されない。
+- `thaw(value)`は、同じMeta、`n`、slotを持つ新しいidentityへのIxPool handleを返す。返したIxPoolへの変更は、元のsnapshotからも、
+  同じsnapshotからthawした別のIxPoolからも観測されない。
 
-可変なIxPoolで効率よく組み立ててから値として公開すること、値から編集用の可変なcopyを作ることに使う。意味は核の`peek`と`swap`
-のloopで定まり、区分は計算量の核である。primitiveにするのはO(n)のcopyを避けられる場合があるためであり、`thaw`は入力が唯一の
-responsibilityならstorageを移し、共有中ならcopyする。`freeze`の実装には次の三つがある。
+IxPool handleで効率よく組み立ててからsnapshotとして公開すること、snapshotから編集用identityへのhandleを作ることに使う。どちらも
+常に上の独立性を満たすsnapshot operationであり、storage transferはその意味を満たすfast pathにすぎない。意味は核の`peek`と`swap`のloopで定まり、
+区分は計算量の核である。primitiveにするのはO(n)のcopyを避けられる場合があるためであり、`thaw`はinputを`Consume`でき、
+区別可能なaliasがなければstorageを移し、それ以外はcopyする。`freeze`の実装には次の三つがある。
 
 | 方式 | `freeze`の費用 | IxPoolへの書き込みの費用 |
 |---|---|---|
 | 常にcopyする | O(n) | 追加なし |
 | storageを共有し、IxPool側の後の書き込みでcopyする | O(1) | 毎回、共有中かを確認する |
-| inputがlast useで他のaliasがなければstorageを移し、それ以外はcopyする | 移せればO(1)、それ以外はO(n) | 追加なし |
+| inputがlast useで区別可能なaliasがなければstorageを移し、それ以外はcopyする | 移せればO(1)、それ以外はO(n) | 追加なし |
 
 二つ目は、全要素型のIxPoolの全書き込みに確認を課し、IxPoolを安い可変primitiveとする前提と衝突する。現在のBufferは
 `Symbol`と同じ形のbyte ownerにstorageを持つが、`*`の両方向でcopyし、共有しない。

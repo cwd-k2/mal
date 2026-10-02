@@ -141,7 +141,7 @@ vectorAppend<T> :: (Vector<T>, T) -> Vector<T> := (vector, value) -> {
     setMeta(initAt(grown, length, value), length + 1usize);
 };
 
-// Takes the element out so a nested value stays uniquely held while `update` rewrites it.
+// Moves the outer place's responsibility out before `update` rewrites the element.
 vectorUpdate<T> :: (Vector<T>, USize, T -> T) -> Vector<T> := (vector, index, update) -> {
     (emptied, element) := takeAt(vector, index);
     initAt(emptied, index, update(element));
@@ -158,21 +158,21 @@ slice<T> :: (Vector<T>, USize, USize) -> Vector<T> := (vector, offset, length) -
     _copyFrom(vector, setMeta(grow(pool(0usize), length), length), offset, 0usize, length);
 ```
 
-ImPoolの更新は参照数や一意性をsourceへ返さず、次の二つを同じ意味として選ぶ。
+ImPoolの更新はreference countや物理一意性をsourceへ返さず、次の二つを同じ意味として選ぶ。
 
 ```text
-inputが唯一:       Vector A ── storage P ── update in place ── Vector B
+aliasを区別できない: Vector A ── storage P ── update in place ── Vector B
 
-inputにaliasあり:  Vector A ── storage P  = [A, B, C]
+aliasを区別できる: Vector A ── storage P  = [A, B, C]
                                   share live elements
                    Vector B ── storage P' = [A, X, C]
 ```
 
 callerが旧Vectorを後でも使う場合、call siteは渡すresponsibilityをShareするため、更新は新しいstorageを作る。旧Vectorがlast useなら
-inputを`Consume`でき、他のaliasがなければ同じstorageを再利用する。`vectorAppend`のように更新を続けると、最初の更新が一意な
-successorを作るため、以後の更新はその場で行われる。どこでcopyが起きるかは[更新の費用](../api/pool.md#更新の費用)が定める。
+inputを`Consume`でき、runtimeが他のaliasなしと確認できれば同じstorageを再利用する。`vectorAppend`のような連続更新は、successorを
+途中で保存、capture、再利用しなければ最初のcopy後をその場で更新できる。`takeAt`は外側のplaceによるaliasを残さないが、内側の値に
+別のaliasがないことまでは保証しない。どこでcopyが起きるかは[更新の費用](../api/pool.md#更新の費用)が定める。
 `Vector<T>`は`T`が`Storable`なら`Storable`になるため、`Vector<Vector<T>>`やMapのvalueにできる。
 
 chunk単位のCOWやpersistent vectorは共有時のcopy量を減らせる一方、複数storageの所有と使われなくなったnodeの回収を別途定める
 必要がある。外部の事例は[Pool storageの関連事例](../../../research/pool-storage-prior-art.md)にまとめる。
-

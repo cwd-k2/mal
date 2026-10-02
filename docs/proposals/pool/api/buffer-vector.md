@@ -30,7 +30,7 @@ BufferはIxPoolとVectorの上に全operationを書ける。
 
 ## BufferとVectorの対
 
-BufferとVectorは、一つのLiveなrunを、identityを共有する側と値の側でそれぞれ表す。
+BufferとVectorは、一つのLiveなrunを、shared identityへのhandle valueとsnapshot valueでそれぞれ表す。
 
 ```mal
 opaque Buffer<A> :: IxPool<USize, A>;    // Metaはcount、[0, count)がLive
@@ -80,7 +80,8 @@ Bufferは言語の組み込み型ではなく、IxPoolの上のpreludeのopaque�
 hostとBufferの間の交換は、対応表のとおりVectorを経由し、現行仕様のBufferの`from`と`into`はこの形へ移る。`slice`はVectorの
 参照実装の範囲の写しである。
 
-現行runtimeと同じ費用はas-ifの実装で保つ。`*`は、Bufferがlast useならstorageを`Symbol`へ移せる
+現行runtimeと同じ費用はas-ifの実装で保つ。`*`は、Bufferがlast useでruntimeが区別可能なaliasなしと確認できればstorageを
+`Symbol`へ移せる
 （[freezeとthaw](pool.md#freezeとthaw)）。
 
 containerが現行runtimeと同じoverflow trapをmalで起こすには、[primitive `trap`案](../../primitive-trap.md)の

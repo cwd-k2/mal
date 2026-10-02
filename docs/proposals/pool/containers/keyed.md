@@ -67,7 +67,7 @@ IxPoolへ移し、元のIxPoolを`grow`してから新しいprobe位置へ`initA
 
 generationで古い`SlotKey<T>`を検出するmapを、IxPoolの上に書いた形である。要素の値、coordinateごとの
 generation、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは`Unit`しか持たないため、
-generationとfree listをvalueのIxPoolへ置けない。
+generationとfree listを要素用のIxPoolへ置けない。
 
 ```mal
 opaque SlotKey<T> :: (USize, UInt64); // coordinate、発行時のgeneration
@@ -120,4 +120,3 @@ _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
 削除は、子が一つ以下の節点をその子で置き換えて`_release`し、子が二つの節点には右部分木の最小の節点を移して、その節点を
 `_release`する。親の子linkを書き換えるときは`putAt`で節点全体を置き換える。削除したkeyを入れ直すと、空いたcoordinateを
 再利用するためcapacityは増えない。
-

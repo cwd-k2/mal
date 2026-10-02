@@ -2,9 +2,11 @@
 
 Status: Exploratory
 
-この文書は、現在の`Buffer<T>`が一つの組み込み型として持つstorageの仕組みとsequenceの方針を分け、少数のtrustedなprimitiveの上で
-containerをmal sourceとして定義する案の要点を管理する。現行仕様は[AddressとBuffer](../../spec/memory.md)、managed responsibilityは
-[D055](../../history/decisions/active/D055.md)と[D083](../../history/decisions/active/D083.md)を正とする。
+この文書は、現在の`Buffer<T>`が一つの組み込み型として持つEngram storageのauthorityとsequence policyを分け、少数のtrustedな
+primitiveの上でcontainerをmal sourceとして定義する案の入口である。Poolの言語全体での位置とminimalityは
+[位置付けと根本モデル](model/foundations.md)、状態とoperationの核は[意味論](model/semantics.md)を正とする。現行仕様は
+[AddressとBuffer](../../spec/memory.md)、managed responsibilityは[D055](../../history/decisions/active/D055.md)と
+[D083](../../history/decisions/active/D083.md)を正とする。
 
 ## 目的
 
@@ -12,28 +14,38 @@ containerをmal sourceとして定義する案の要点を管理する。現行�
 一つの組み込み型として持つ。Map、Deque、heap、木を書くには、Bufferの全slotが値を持ちcountが増えるだけという前提へ、空きを表す
 番兵値やtombstoneでcontainerの方針を押し込むことになる（[container](containers/overview.md#bufferの前提を外すと変わること)）。
 
-本案は、malが所有するstorageの仕組みを少数のprimitiveとして切り出し、Bufferを含むcontainerをその上にmalで定義する。layout、
-lifecycle、allocation failureはtrusted layerに残し、Meta、growth、free list、順序、hashはcontainerが選ぶ。
-responsibilityはMetaとslotというplaceの値の入れ替えで動かす。
+本案は、既存Bufferがすでに持つmal-ownedな共有identityを、有限個のtyped placeを持つPool stateとして一般化する。layout、物理的な
+allocation、relocationはtrusted implementationに残し、Liveなcoordinateの形、growth policy、free list、順序、hashはcontainerが
+選ぶ。responsibilityはHeaderとslotというplaceのreadとexchangeから導く。
 
 ## 要点
 
-本案は次の三つからなる。
+本案は次の四つからなる。
 
-1. storageのprimitiveは、変更の扱いが異なる対である。`IxPool<Meta, V>`はidentityを共有してその場で書き換え、Metaと、coordinateで
-   引く`Slot<V> :: [Unit, V]`の線形空間を持つ。`ImPool<Meta, V>`は同じ状態を値として持ち、更新のたびにsuccessorを返す。核は`pool`、
-   `grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である（[Poolの意味論](model/semantics.md)）。
-2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
+1. 根は`PoolState<Header, V> = (header, logical capacity, slots)`である。Headerと各slotはtyped placeであり、slotは
+   `Slot<V> :: [Unit, V]`を持つ。placeの核はreadとexchange、構造の核はconstruction、capacity observation、extensionである。
+2. `IxPool<Header, V>`と`ImPool<Header, V>`はどちらもsource valueであり、別々のstorage modelではない。IxPool valueはshared
+   identityへのhandleで、どのhandleからの更新も同じstateを変更する。ImPool valueはstateのsnapshotで、更新前のsnapshotを
+   変えずsuccessorを返す。
+3. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
    自分のprimitiveを持たない。hostとの交換は値の列であるVectorが持ち、Bufferはそれを経由して書く。Map、Deque、
    heap、木もIxPool上に、値の列であるVectorはImPool上に置く。
-3. 核の未検査preconditionはcoordinateの範囲だけであり、LiveかVacantかを仮定する周辺operationがそれを加える。どちらもBufferと
+4. 核の未検査preconditionはcoordinateの範囲だけであり、LiveかVacantかを仮定する周辺operationがそれを加える。どちらもBufferと
    同じ未検査のpreconditionであり、primitiveはどのfileからも呼べる。
    containerの実装がinvariantでその条件を満たし、利用者はcontainerの公開preconditionだけを見る。
+
+この四点を支える境界は、authority、responsibility、representationを分けることである。source valueは再利用可能なまま、compilerは
+実行時responsibilityをaffineに移し、runtimeは物理storageの一意性を観測不能な最適化に使う。Rustの`Box`に似た単一ownerはlowering上の
+状態として使えるが、IxPoolやImPoolに加える第三のsource authorityではない。
+
+利用者向けの語彙は三つに絞る。handleはshared identityを観測するsource value、snapshotは更新前のstateを保存するsource value、
+successorはsnapshotを変えずに更新後のstateを表す新しいsnapshotである。同じcarrierを別のbindingへ渡すことをcopyとは呼ばず、
+値またはstorageを実際に複製する場合だけcopyと呼ぶ。
 
 この対は、一つのLiveなrunへ特化した型と、byte列へ特化した既存の型でも同じ形を取る。現在のBufferと`Symbol`は、この対を
 byte列に特化して既に実装したものに当たる。
 
-| | identityを共有する | 値 |
+| | handle value | snapshot value |
 |---|---|---|
 | primitive | IxPool | ImPool |
 | 一つのLiveなrun | Buffer（`[0, count)`） | Vector（`[0, length)`） |
@@ -41,7 +53,8 @@ byte列に特化して既に実装したものに当たる。
 
 対の間は`freeze`と`thaw`で変換し、byte列ではこれが`Buffer<UInt8>`と`Symbol`の間の`*`に当たる。
 
-ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照数で決まり、malは参照数をsourceへ見せないためである。IxPoolとBufferは
+ImPoolのsnapshot semanticsは、更新ごとにstate全体を複製してsuccessorを作る形でも実装できるが、writable successorによるstorage
+再利用はruntimeだけが実装できる。再利用可能性をsourceへ返さず、更新前のsnapshotを変えないas-if ruleに閉じる。IxPoolとBufferは
 互いの上に書けるが、Buffer上のIxPoolがslotごとのsum tagと移動ごとの`Share`と`Drop`を払うのに対し、IxPool上のBufferが払うのは
 占有tagの更新と終了時の走査である（[試作](prototypes.md#ixpoolとbufferの非対称)）。そこで意味の層ではIxPoolをBufferより
 基本的なものとし、BufferとVectorはpreludeに置いて参照実装で意味を定め、as-ifで実装する（[BufferとVector](api/buffer-vector.md#bufferとvectorの対)）。
@@ -49,15 +62,23 @@ ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照�
 
 containerが現行runtimeと同じtrapをmalで起こすため、本案は[primitive `trap`](../primitive-trap.md)の導入を前提とする。
 
+## authorityとimplementationの境界
+
+PoolはEngramであり、public C ABIへ渡すExtern resourceではない。C runtimeのallocatorはPoolのbacking storageを実装するが、allocator、
+pointer、physical capacity、layoutをsourceへ公開しない。IxPoolのsemantic identity、managed runtime object、current backing allocation、
+coordinate、slot valueは互いに異なる。`grow`はsemantic identityと既存coordinateを保存するが、backing allocationとslot addressを
+保存しない（[位置付けと根本モデル](model/foundations.md#cとllvmとの境界)）。
+
 ## 設計の軸
 
-本案が決める事項は六つの軸に分かれる。
+本案が決める事項は七つの軸に分かれる。
 
 | 軸 | 問い | 本案の答え | 所有する文書 |
 |---|---|---|---|
-| 所有権 | 誰がresponsibilityを持つか | placeのread、write、swap、operand effect `Store` | [runtime contract](runtime/contract.md#所有権) |
+| authority | 同じcarrierを別bindingへ渡した後の更新を誰が観測するか | IxPool handleとImPool snapshot | [位置付けと根本モデル](model/foundations.md#authorityresponsibilityrepresentation) |
+| responsibility | 誰がcarrierを保持するか | placeのread、write、exchange、operand effect `Store` | [runtime contract](runtime/contract.md#responsibility) |
 | lifecycle | carrierをいつ確保、移動、解放するか | `grow`、IxPool終了、型別glue | [runtime contract](runtime/contract.md#runtime-representation) |
-| identity | 変更を誰が観測し、何を`Storable`にできるか | IxPoolとImPool | [identity](model/identity.md) |
+| 型形成 | どのcarrierをmanaged placeやhost境界へ置けるか | storageには現行`Storable`を使い、host境界は`Representable`と`HostMappable`を保ち、`Stable`は導入しない | [identity](model/identity.md) |
 | 妥当性 | どのslotがLiveで、誰がそれを保証するか | `Slot<V>`の除去、または周辺operationの未検査preconditionとcontainer invariant | [runtime contract](runtime/contract.md#未検査precondition) |
 | 権限 | 誰がIxPoolへ直接触れるか | どのfileも。opaque型はcontainerのinvariantを宣言元fileへ閉じる | 本書 |
 | 表現 | どのbitで保持し、hostとどう交換するか | runtime representationとVectorのprimitive | [runtime contract](runtime/contract.md#runtime-representation) |
@@ -80,15 +101,16 @@ containerが要求する。
 文書は読む目的ごとにdirectoryへ分ける。
 
 - `model/`：Poolが何を意味するか
-  - [Poolの意味論](model/semantics.md)：三つの層、placeと値、最小核の導出、Metaの位置づけ、malの設計方針との対応
+  - [位置付けと根本モデル](model/foundations.md)：authority、minimality、C/LLVM・Rust・Haskellとの比較、採択条件
+  - [Poolの意味論](model/semantics.md)：Pool state、place、source carrierの観測、operation law、最小核の導出
   - [responsibilityの図](model/responsibility.md)：slotの状態遷移、responsibilityの動き、費用が違うoperation、ImPoolの更新
-  - [identity](model/identity.md)：所有権とidentityの関係、`Storable`の条件、`Storable`と`Stable`の分割案
+  - [identity](model/identity.md)：authorityとidentityの関係、`Storable`の条件、`Storable`と`Stable`の分割案
 - `api/`：primitive
   - [Pool primitive](api/pool.md)：区分、IxPoolの核と周辺、ImPool、`freeze`と`thaw`、測定後の候補
   - [BufferとVector](api/buffer-vector.md)：語彙の分担、BufferとVectorの対、Buffer、Vectorとhostとの交換
 - `runtime/`：trusted layerの契約と実装
-  - [runtime contract](runtime/contract.md)：representation、所有権の遷移、未検査precondition
-  - [compilerとruntimeの実装](runtime/implementation.md)：compilerとruntimeの分担、検証の段階
+  - [runtime contract](runtime/contract.md)：authority boundary、semantic identityとallocation object、representation、responsibility、precondition
+  - [compilerとruntimeの実装](runtime/implementation.md)：compiler、LLVM、C runtimeの分担、検証の段階
 - `containers/`：Poolの上のcontainer
   - [IxPool上のcontainer](containers/overview.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
   - [Buffer実装](containers/buffer.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
@@ -102,14 +124,16 @@ containerが要求する。
   後者は組み込みmoduleの提供という仕組みを[program](../../spec/programs.md)へ新たに持ち込む。直接見せる場合、IxPoolとImPoolは
   containerを書く利用者のAPIになるため、名前、signatureの形、周辺operationの集合をAPIとして設計し直す。
   [試作](prototypes.md#二つの試作)では、更新がpoolを返す形にsignatureを揃え、constructorをkeyに持つ
-  [operation family](../../spec/operation-families.md)で一つの名前にまとめられ、containerを一度書けば値版も得られた
+  [operation family](../../spec/operation-families.md)で一つの名前にまとめられ、containerを一度書けばsnapshot版も得られた
   （[入れ子](model/identity.md#入れ子)）。ImPoolを見せる場合は、uniqueness検査をruntimeへ置く範囲も決める。
-- [Meta](model/semantics.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
+- [Header](model/semantics.md#headerをpoolに置く理由)をPoolに融合したまま持つか、別identityとの組へ分離するか。ImPoolのHeaderは
+  productで足りるが、Ix/Imで同じstate algebraとcontainer invariantを使う利点との比較になる。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
-- [`Storable`と`Stable`の分割案](model/identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
-  [D075](../../history/decisions/active/D075.md)の見直しを伴う。値の入れ子とcoordinateの入れ子で足りない
-  用途が見つかるまで採らずにおける（[入れ子](model/identity.md#入れ子)）。
+- [`Storable`と`Stable`の分割案](model/identity.md#storableとstableの分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書けるが、
+  generic requirement、specialization、diagnostic、plugin contractを増やし、[D075](../../history/decisions/active/D075.md)の見直しを伴う。
+  [minimality監査](model/identity.md#minimality監査)により、snapshotの入れ子とcoordinateの入れ子で足りる間は採らない
+  （[入れ子](model/identity.md#入れ子)）。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
 - `Symbol`を言語の上でも`Vector<UInt8>`とみなすか。表現の上では同じ形である（[BufferとVectorの表現](runtime/contract.md#bufferとvectorの表現)）。
   `*`による`Symbol`との変換も、`from`と`into`と同じくBufferからVectorへ寄せるか。

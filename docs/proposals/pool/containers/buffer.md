@@ -173,7 +173,7 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 | `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
 | `from`、`into` | runtimeのbulk copy | Vectorへ移る |
-| `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。Bufferがlast useならstorageを移す |
+| `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。Bufferがlast useで区別可能なaliasがなければstorageを移す |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
 

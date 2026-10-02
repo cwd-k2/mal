@@ -103,7 +103,7 @@ Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の�
 - coordinateごとの`Slot<V>`の値と、それを読み書きする`peek`、`slot`、`swap`
 - 同じidentityに置く共有mutableなMeta
 - 明示的な`grow`によるcapacityの拡張と、coordinateを保つrelocation
-- 要素型ごとの型付きstorageと、寿命と所有権の正しさ
+- 要素型ごとの型付きstorageと、lifetimeとresponsibilityの正しさ
 
 containerごとに異なり、IxPoolが決めないものは次である。
 

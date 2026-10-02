@@ -3,15 +3,21 @@
 Status: Exploratory support document
 
 この文書は、[runtime contract](contract.md#runtime-representation)をcompilerとruntimeがどう分担して実装するかと、検証の段階を
-管理する。
+管理する。Poolのsource semantics、C runtime object、LLVM allocation objectを分ける規則は
+[semantic identityとallocation object](contract.md#semantic-identityとallocation-object)を正とする。
 
 ## compilerとruntimeの分担
 
 compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
 
+source functionをaffineにするのではなく、type checking後のuse graphをresponsibility planへelaborateする。source valueは再利用でき、
+planだけが各edgeを`Borrow`、`Share`、`Consume`、`Drop`として扱う。したがってRustの`Box`に似たexclusive ownerが生成物に現れても、
+それはsource typeやPool authorityの追加ではない。
+
 - `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`swap`、`slot`、`initAt`、`putAt`のvalue、`pool`、`swapMeta`、
   `setMeta`のMeta、writable successorのinputとstorageを移し得る`freeze`と`thaw`のinputが該当する。
-- use planは`Store`を`Share`または`Consume`へlowerする。[D083](../../../history/decisions/active/D083.md)の保持解析は、`Store`へ渡る
+- use planは`Store`を`Share`または`Consume`へlowerする。`Store`はsource operandを必ず消費する意味ではなく、calleeまたはresultが
+  carrierを保持する可能性を示す。[D083](../../../history/decisions/active/D083.md)の保持解析は、`Store`へ渡る
   parameterをreturnやcaptureと同じく保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
 - IxPool handle、index、lengthは`Borrow`である。resultは全てownedである。
 
@@ -25,6 +31,84 @@ runtimeが型ごとに必要とするglueは、上の表で「primitive内」に
 
 LLVM backendにはmanaged valueの型再帰的なretain/release、managed placeのinitialize/replace/vacate、Buffer elementごとの
 callback生成が既にある。IxPoolはこのloweringの新しい利用者になり、別の型再帰を持たない。
+
+## lowering boundary
+
+Pool operationはsource primitive、LLVM instruction、C runtime functionを一対一に対応させない。各層は次を所有する。
+
+| 層 | 入力 | 所有する判断 | 出力 |
+|---|---|---|---|
+| type checking | concreteな`Meta`と`V` | 型形成、`Storable`、operation signature | checked Pool operation |
+| execution ownership | typed operandとcontrol | `Borrow`、`Share`、`Consume`、`Drop`、`Store` | responsibility plan |
+| LLVM source layout | concrete typeとtarget data layout | payloadのsize、alignment、stride | typed layout |
+| LLVM Pool lowering | operationとresponsibility plan | typed load/store、glue、runtime call、pointer再取得 | LLVM IR |
+| C runtime | layoutとprogram固有glueを伴うprivate ABI | allocation、growth、occupancy、reference count | backing mechanism |
+
+runtimeは`V`の意味を再解釈せず、compilerが渡したlayoutと`share`/`drop` glueだけを使う。LLVM backendはreference countやphysical
+capacityからsource上のLive set、container count、last useを推論しない。execution ownershipはphysical layoutやallocation strategyを
+知らない。つまりauthorityはtype checkingとoperation、responsibilityはexecution ownership、representation uniquenessはruntimeという
+一方向の境界を保つ。
+
+### C runtime object
+
+初期実装は概念上、stableなPool objectと交換可能なbacking storageを分ける。
+
+```text
+Pool object
+    managed reference count
+    logical capacity
+    physical capacity
+    Header carrier
+    occupancy representation
+    current payload pointer
+    payload layout and lifecycle glue
+```
+
+このfield一覧はprivate ABIの要求を示す模式であり、固定layoutではない。Header、occupancy、payloadを別allocationに分けても、
+zero-sized payloadをallocationなしで表してもよい。sourceから観測できるのは一つのsemantic identityとoperation lawだけである。
+
+growthは次のtransactionとして実装する。
+
+1. logical capacity、payload size、occupancy sizeのoverflowを判定する。
+2. 必要なら新しいbacking allocationを確保する。失敗は既存Engramと同じtrapにする。
+3. Live payload carrierとoccupancyを新storageへ移す。relocationは`share`と`drop`を呼ばない。
+4. Pool objectのcurrent pointerとphysical capacityをcommitする。
+5. 古いbacking allocationを解放する。
+6. logical capacityを更新し、新しいcoordinateをVacantとして観測可能にする。
+
+trapはterminalなので、allocation失敗時のrecoverable Pool stateをsourceへ定めない。runtime内部でcommit前のcleanupを行うことは
+implementation correctnessであり、source transaction semanticsを追加することではない。
+
+### LLVM lowering
+
+LLVM loweringはPool handleをmanaged Pool objectへのpointerとして運び、slot accessごとにcurrent payload pointerを取得する。
+同じbasic region内でpointerやcapacityをcacheしてよいが、次をclobber boundaryとする。
+
+- `grow`と、physical relocationを行い得るPool operation。
+- ImPoolのwritable successorを複製または移動し得るoperation。
+- callbackまたはnative Mal callが同じIxPool handleへ到達し得る境界。
+
+growth前に得たslot pointerへgrowth後に`getelementptr`、load、storeを行わない。Cの`realloc`が同じaddressを返しても、LLVM上は旧objectの
+pointerを新objectへ持ち越さない。既存Bufferがgrowth後にactive dataを再取得する規則と同じlowering helperを共有する。
+
+Slot payloadのinitialize、replace、vacateは既存managed place helperを使う。occupancy tagを先にLiveへして未初期化payloadを公開したり、
+payloadをDropした後もLiveとしてcallbackから観測できる順序にしない。lifecycle glueはmal codeを実行しないため、primitive内部の一時的な
+invariant破れはcallbackへ再入しない。
+
+LLVMの`llvm.lifetime.start/end`はPool slotのLive/Vacantへ対応させない。これらはallocation object、特にstack objectのoptimizer向け
+lifetimeであり、managed valueのvariant、responsibility、destructor boundaryを表さない。必要ならbackend内部のlocal temporaryにだけ
+通常の規則で使う。
+
+### backendを越えて保存するfact
+
+後段が表現から意味を逆推論しないよう、次のfactは所有stageから順方向に渡す。
+
+- type checkerからconcreteなPool constructor、Meta型、element型、周辺operationのprecondition。
+- executionから各operandのresponsibility effectとresultのowner destination。
+- source layoutからpayload layoutとzero-sizedかどうか。
+- Pool loweringからruntime call後に再取得すべきcached view。
+
+occupancy bitmapのbit、null pointer、physical capacity、reference countをsemantic factの代用にしない。
 
 ### Ordinary externとの境界
 
@@ -47,7 +131,7 @@ compilerまたはtrusted extensionが次を供給する。
 | file-local opaque identityとrepresentation view | frontendに閉じ、unmanaged representationだけならD055/D080に依存しない |
 | IxPoolのMetaとslot | [D080](../../../history/decisions/active/D080.md)の`initialize`、`replace`、`vacate`と同じcarrier invariantをruntime storageへ適用する |
 | operand effect `Store` | trusted metadataをuse planとD083のparameter保持解析へ接続する |
-| writable successorのstorage再利用 | `Store`をowned native entryへ伝播し、runtimeのuniqueness検査に依存する |
+| writable successorのstorage再利用 | `Store`をowned native entryへ伝播し、runtimeのrepresentation uniqueness検査に依存する |
 | managed Metaまたは`Symbol` element | D055の`Share`、`Consume`、`Drop`と、型別glueをruntime callbackへmaterializeする境界に依存する |
 | Bufferのmal実装 | IxPoolがmanaged elementを正しく扱えれば、Buffer固有のretain/release loweringには依存しない |
 | plugin-defined Engram leaf | representation、lifecycle、artifact dependencyを登録する安定したtrusted extension contractが要る |

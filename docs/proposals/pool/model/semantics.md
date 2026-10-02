@@ -2,143 +2,243 @@
 
 Status: Exploratory support document
 
-この文書は、Poolの意味論の核を導き、malの設計方針との対応を管理する。核と周辺の一覧と区分は
-[Pool primitive](../api/pool.md)、placeに対するresponsibilityの動きは[responsibilityの図](responsibility.md#responsibilityの動き)、各operationの
-`share`と`drop`の回数と順序は[runtime contract](../runtime/contract.md#所有権)を正とする。
+この文書は、Poolのstate、place、source carrierの観測則、operation lawを定める。言語全体での位置と採択理由は
+[位置付けと根本モデル](foundations.md)、source APIの区分は[Pool primitive](../api/pool.md)、responsibilityの効果は
+[runtime contract](../runtime/contract.md#responsibility)を正とする。
 
-## 三つの層
+## Pool state
 
-Poolの記述は三つの層に分かれる。sourceから観測できるのは意味論の層だけである。`Share`、`Consume`、`Drop`は
-[managed valueのownership](../../../implementation/ownership.md)の語彙であり、[仕様](../../../spec)には現れない。費用の層は、意味論が同じ
-operationの間の違いを実装へ約束する。
-
-```mermaid
-flowchart TB
-  S["意味論<br/>Pool = (m, n, slots)<br/>Slot&lt;V&gt; = [Unit, V]"]
-  P["precondition<br/>核は i &lt; n だけ<br/>周辺はLiveかVacantかを加える。未検査"]
-  C["費用と所有権<br/>Share、Move、Dropの回数と順序<br/>ImPoolのstorage再利用"]
-  S --> P --> C
-```
-
-## placeと値
-
-IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。Metaの`m`と各slotは、どちらも値をちょうど一つ持つplaceである。
+Poolの論理状態は次の三要素からなる。
 
 ```text
-place  meta       : Meta
-place  slot 0..n-1 : Slot<V>      Slot<V> :: [Unit, V]
+PoolState<H, V> = (h, n, slots)
+
+h     : H
+n     : USize
+slots : Fin(n) -> Slot<V>
+
+Slot<V> = Unit + V
 ```
 
-Vacantは値がない状態ではなく、`Slot<V>`の第一項という値である。Liveは第二項である。VacantとLiveという区別はmalの直和の
-variantとして現れ、Poolが別に持つ概念ではない。
+`h`をHeader、`n`をlogical capacity、`[0, n)`をcoordinate空間と呼ぶ。各coordinateは`Slot<V>`を一つ持つ。
+`Slot<V>`の第一項をVacant、第二項をLiveと呼ぶ。Vacantは値がない状態や未初期化の`V`ではなく、`Unit`を持つ正規のsum valueである。
 
-### Metaとslot
+Poolはcontainer上の意味を持たない。どのcoordinateがLiveか、coordinateが列の位置、heap node、hash bucket、またはobject identityの
+どれを表すかは、Poolを使うoperationとinvariantが決める。
 
-Metaとslotは同じ規則のplaceであり、違いは持つ値の型だけである。この違いはplaceを作るoperationから来る。
+## place
 
-- `pool(m)`はMetaの初期値を受け取るため、Metaは最初から`Meta`の値を持つ。
-- `grow(pool, k)`はk個のslotを値なしで作る。任意の`V`には既定値がないため、新しいslotには`Unit`を置き、slotの型は`Slot<V>`になる。
-- slotから値を取り出した後も、placeは何かの値を持つ必要があり、`Unit`を置く。
+Pool stateは、型の異なる二種類のplaceを持つ。
+
+```text
+Header              : H
+Slot(i), i in Fin(n) : Slot<V>
+```
+
+すべてのplaceは値をちょうど一つ持つ。placeに共通する意味論の核はreadとexchangeである。
+
+```text
+read(p)               = pの値を返し、pを変えない
+exchange(p, incoming) = pをincomingへ置き換え、以前の値を返す
+```
+
+ここで定めるのは、readがstateを保存し、exchangeが旧値と新値を入れ替えるというvalueとstateの規則までである。readを`Share`へ、
+exchangeをresponsibilityの移動へlowerする規則は[runtime contract](../runtime/contract.md#responsibility)が所有する。意味論と実装効果を
+分けても、HeaderとSlotが同じplace lawを持つことは変わらない。
+
+source APIが`meta`と`peek`、`swapMeta`と`swap`に分かれるのは、Headerが`H`、Slotが`Slot<V>`を持ち、malがplaceの型をresultへ
+依存させる型を持たないためである。別のlifecycle規則があるからではない。
+
+## source carrierと観測
+
+IxPoolとImPoolはどちらもsource valueであり、同じPool state lawを持つ。違いは同じcarrierを別bindingへ渡した後の更新をどう観測するかにある。
+
+```text
+IxPool<H, V> = handle value for identity i carrying PoolState<H, V>
+ImPool<H, V> = snapshot value representing PoolState<H, V>
+```
+
+### IxPool
+
+IxPool valueはidentityへのmanaged handleである。handleを別のbindingへ渡しても同じidentityを共有し、どのhandleからの更新も同じstateを変更する。
+IxPoolのstate transitionはidentityを保存する。source APIがsuccessor IxPoolを返す形を採る場合、そのresultはinputと同じidentityで
+あり、一意なstate tokenではない。別のIxPool handleはresultを受け取らなくても更新を観測する。
+
+### ImPool
+
+ImPool valueはPool stateのsnapshotを表す。更新はsuccessor snapshotを返し、inputが表すstateを変えない。
+
+```text
+update : State A -> State B
+observe State A after update = observe State A before update
+```
+
+実装はinputへの今後の観測と区別できない場合にstorageをsuccessorへ移してよい。区別できるaliasがあればstorageを複製する。
+この選択は物理的なcopy-on-writeであり、上のsnapshot semanticsを変えない。
+
+## 構造のoperation
+
+place operationだけではcoordinate空間を構成できないため、Poolはconstruction、capacity observation、extensionを持つ。
+
+```text
+pool(h)       = (h, 0, empty)
+capacity(P)   = P.n
+grow(P, k)    = P' where
+    P'.h = P.h
+    P'.n = P.n + k
+    P'.slots[i] = P.slots[i]  when i < P.n
+    P'.slots[i] = Vacant      when P.n <= i < P'.n
+```
+
+`grow`は既存coordinateを保存する。これはlogical placeの保存であり、payloadの物理address、backing allocation、strideの保存ではない。
+Poolはcapacityを縮めない。containerが要素を削除または回収するときはSlotをVacantへし、coordinateの再利用規則を自身のinvariantで
+定める。compactionや別Poolへの移動でcoordinateの意味が変わる場合は、container operationがremapを所有する。
+
+`n + k`または必要なstorage sizeをtargetで表現できない場合とallocation failureは、既存Engram allocationと同じくtrapする。
+このfailureはcallerがpreconditionとして事前に成立させられないため、未検査preconditionにはしない。
+
+## operation law
+
+operation lawはsource signatureより先に、Pool state間のtransitionとして定める。ここでは`P`と`P1`を更新前後のstateとする。
+
+```text
+pool       : H -> State<H, V>
+grow       : (State<H, V>, USize) -> State<H, V>
+capacity   : State<H, V> -> USize
+peek       : (State<H, V>, USize) -> Slot<V>
+swap       : (State<H, V>, USize, Slot<V>) -> (State<H, V>, Slot<V>)
+meta       : State<H, V> -> H
+swapMeta   : (State<H, V>, H) -> (State<H, V>, H)
+```
+
+IxPool APIはtransition後のstateを同じidentityへcommitするため、更新が`Unit`または旧値だけを返せる。ImPool APIはinput snapshotを
+変えないため、successor stateをresultへ含める。IxPoolも同じidentityへのhandleを返す形へ揃えるかはAPIとcostの選択であり、state lawには
+影響しない（[Pool primitive](../api/pool.md#impool)）。
+
+次のlawが両carrierに共通する。`P1`はoperationが返すsuccessorとする。
+
+```text
+capacity(pool(h)) = 0
+meta(pool(h)) = h
+
+capacity(grow(P, k)) = capacity(P) + k
+meta(grow(P, k)) = meta(P)
+peek(grow(P, k), i) = peek(P, i)                  when i < capacity(P)
+peek(grow(P, k), i) = Vacant                     when capacity(P) <= i
+
+(P1, old) = swap(P, i, incoming)
+peek(P1, i) = incoming
+old = peek(P, i)
+peek(P1, j) = peek(P, j)                         when i != j
+
+(P1, old) = swapMeta(P, incoming)
+meta(P1) = incoming
+old = meta(P)
+capacity(P1) = capacity(P)
+peek(P1, i) = peek(P, i)
+```
+
+IxPoolではtransitionをcommitする前のstateを`P`、commit後に同じidentityから観測するstateを`P1`と読む。ImPoolでは更新後も
+`P`を旧snapshot、`P1`をsuccessor snapshotとしてそれぞれ観測できる。
 
 ## 最小核の導出
 
-核は`pool`、`grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である。核は、他の操作で表せない意味論の核と、
-他の操作で書けるが書くと計算量が変わる計算量の核に分かれる（[区分](../api/pool.md#区分)）。
+核は、他のmal operationでは意味を表せない意味論の核と、意味は表せても計算量が変わる計算量の核に分かれる。
 
-| place | 意味論の核 | 計算量の核 | 派生 |
+| 対象 | 意味論の核 | 計算量の核 | 派生 |
 |---|---|---|---|
-| slot | `swap` | `peek` | `slot` |
-| Meta | `meta`、`swapMeta` | — | `setMeta` |
+| construction | `pool` | — | — |
+| coordinate空間 | `grow`、`capacity` | — | — |
+| Slot place | `swap` | `peek` | `slot` |
+| Header place | `meta`、`swapMeta` | — | `setMeta` |
 
-### slot
+### Slot place
 
-意味の上では、slotは`swap`だけで閉じる。`swap`はplaceの値を入れ替えて古い値を返し、Vacantという値があるため、交換の間に
-置いておく値に困らない。
-
-```text
-slot(i, s)     = swap(i, s)の結果を捨てる
-peek(i)        = r := swap(i, vacant()); swap(i, r); r
-```
-
-`peek`の分解で`r`を二回使えるのは、malの値が再利用できるからである。それでも`peek`を計算量の核に置くのは、読み出しを
-書き込みにしないためである。分解すると読み出しが二回の書き込みになり、共有中のImPoolや[freeze](../api/pool.md#freezeとthaw)で
-共有したstorageを読むたびにO(n)のcopyが起きる。ImPoolでは読み出しがsuccessorを返す更新になる。
-
-逆に`slot`は核に置かない。`swap`の結果を呼び出し側でDropしても、primitive内で旧値をDropしても費用は同じであり、`slot`だけ
-では値をMoveで取り出せない。
-
-他のslot operationは`peek`と`swap`の合成である。Liveかどうかは結果の除去で分かる。
+SlotにはVacantという任意の`V`について構成できる値があるため、意味だけならreadをexchangeから導ける。
 
 ```text
-isLive(i)      = peek(i)[() -> false, (_) -> true]
-initAt(i, v)   = slot(i, live(v))
-putAt(i, v)    = slot(i, live(v))
-dropAt(i)      = slot(i, vacant())
-takeAt(i)      = swap(i, vacant())のLiveの値
-moveAt(a, b)   = slot(b, swap(a, vacant()))
+(P1, old) = swap(P, i, Vacant)
+(P2, _)   = swap(P1, i, old)
+result    = (P2, old)
 ```
 
-### Meta
+しかしこの分解はreadを二回のwriteにする。ImPoolでは共有中のstorageを複製する。IxPoolでも観測しか行わないoperationをwriteとして
+backendへ見せる。このため`peek`は計算量の核である。
 
-Metaの型には、任意の型について用意できる値がない。交換の間に置いておく値がないため、`meta`は`swapMeta`から導けず、
-読み出しと交換の二つが意味論の最小になる。
+writeはexchangeの旧値を捨てるだけなので派生できる。
 
 ```text
-setMeta(m)     = swapMeta(m)の結果を捨てる
-swapMeta(m)    = r := meta(); setMeta(m); r
+slot(P, i, value) = first(swap(P, i, value))
 ```
 
-containerがMetaを`[Unit, X]`のような直和にすれば、Metaも`swapMeta`だけで閉じる。これはcontainerの選択である。
+### Header place
 
-### 構造の操作
-
-`capacity`は`n`を読む。`n`はPool自身の構造であり、`peek`と`swap`のpreconditionが参照する。
-
-`grow`は、identityを保ったままcoordinate空間を広げる唯一のoperationである。新しいPoolを作って要素を移すと、古いPoolの
-aliasは新しいPoolを追えない。identityを共有するというIxPoolの性質を成長の後も保つために`grow`が要る。
-
-`pool`は新しいidentityを作る唯一のoperationである。`n`を`0`で始め、大きさは`grow`で与える。
-
-### MetaをPoolに置く理由
-
-malには可変なbindingもproductのfieldをその場で書き換える手段もない。`(Meta, IxPool<Unit, V>)`というproductのMetaは値として
-copyされるため、変更をaliasが観測できない。Metaはどこかのidentityの中に置く必要がある。
-
-意味の上では、Metaは容量1のPoolのslot 0を同じidentityへ融合したものである。
+任意の`H`について一時的に置ける値はないため、`meta`を`swapMeta`だけから導けない。`swapMeta`も旧Headerを値として取り出す唯一の
+operationである。したがって両方が意味論の核になる。writeは旧Headerを捨てて導く。
 
 ```text
-IxPool<Meta, V>  ≅  (IxPool<Unit, Meta>, IxPool<Unit, V>)    二つが同じidentityを共有し、第一Poolのslot 0は常にLive
-
-meta(pool)         = peek(metaPool, 0)のLiveの値
-swapMeta(pool, m)  = swap(metaPool, 0, live(m))のLiveの値
+setMeta(P, value) = first(swapMeta(P, value))
 ```
 
-融合すると、分離した形でcontainerのinvariantだった「slot 0は常にLive」を型が保証する。Metaは`Slot`で包まず、preconditionも
-持たない。分離した形との違いは、identity、allocation、handleのcopyごとのretainが一つで済むことである。
+### coordinate空間
 
-`grow`しない`IxPool<Meta, V>`は、Metaだけを持つ可変なcellとして使える。
+範囲外accessは結果を持たないため、`capacity`を`peek`の反復や失敗から導けない。`grow`はIxPool handleのreferentまたはImPool
+snapshotのcoordinate空間を保存したまま広げる唯一のoperationである。新しいPoolへ要素を移すだけでは、IxPoolの既存handleが
+同じidentityを観測できない。
 
-ImPoolでは、Metaは`(Meta, ImPool<Unit, V>)`というproductと同じであり、productごと更新できる。MetaをPoolに置く必要があるのは
-identityを共有するIxPoolだけである。
+## HeaderをPoolに置く理由
 
-## malの設計方針との対応
+Headerはcontainer policyそのものではなく、Pool identityに属するdistinguished placeである。containerはcount、head、root、free listなど
+必要なstateを`H`として選び、その解釈を自身のinvariantで定める。
 
-[minimality](../../../design/minimality.md)、[表現と関係を分ける](../../../design/representation-and-relations.md)、
-[値、解釈、control](../../../design/value-interpretation-and-control.md)に照らすと、このモデルには次の性質がある。
+malには可変bindingもproduct fieldをその場で更新するoperationもない。`(H, IxPool<Unit, V>)`というproductでは`H`が別の
+product valueとして保持され、IxPool handleがHeaderの変更を共有できない。別の可変cellとIxPoolを組にすると、二つのidentityが常に対応するという
+同期規約、二つのallocation、二つのlifetimeが必要になる。
 
-意味論が新しく持ち込むのは、可変なidentityと、`n`を広げる`grow`だけである。slotの占有はmalの直和`[Unit, V]`で表し、Metaと
-slotは同じ規則のplaceである。IxPoolは、Metaと`Slot<V>`の有限列を持つ共有identityと言える。
-[Buffer上のemulation](../prototypes.md#二つの試作)が同じ意味を再現できたのは、Bufferが同じplaceの列を持つからである。
+概念上、Headerは同じidentityに融合した異型のplaceである。
 
-Moveは値の消費ではなく、placeの値の入れ替えとして現れる。malの値は再利用できるcarrierであり、affineなのはcontrolだけである。
-`swap`は値を消費せずplaceへ`Unit`を残すため、所有権の移動にlinear typeやborrow checkerを要しない。
+```text
+IxPool<H, V>
+  ~= HeaderPlace<H> + IndexedPlaces<Slot<V>>
+     under one identity and lifetime
+```
 
-IxPoolはcoordinateで引く有限carrierであり、Liveな集合の形とcoordinateの意味はcontainerのoperationとinvariantが与える。これは
-`finite carrier + relation operations + invariants = domain structure`の形にそのまま当てはまる。
+`grow`しない`IxPool<H, V>`はHeader placeだけを持つmutable cellとして使えるが、これは別のcell mechanismを追加したのではなく、
+capacity 0のPoolである。
 
-核の未検査preconditionは範囲`i < n`だけである。LiveとVacantの一致は核では直和の除去で扱われ、違反はmemory safetyではなく
-返る値に現れる。周辺の`getAt`、`initAt`、`putAt`、`takeAt`はこの一致を再び未検査preconditionにして費用を下げる。containerは
-核だけで書くか、invariantで一致を保証して周辺を使うかを選べる。
+ImPoolでは`(H, ImPool<Unit, V>)`というproductを更新してもsnapshot semanticsを保てるため、Header融合は意味論上必須ではない。
+それでも同じPool stateをIx/Imで共有することで、containerのoperation lawとinvariantを一度だけ記述できる。
 
-IxPoolと`Buffer<[Unit, V]>`の違いは、`swap`によるMoveと、tagをslotの外に置けるlayoutの二点に絞られる。どちらも費用の層であり、
-[論理構造とlayoutを分ける](../../../design/representation-and-relations.md#論理構造とlayout)方針の一例になる。
+## precondition
+
+核の未検査preconditionは`i < capacity(P)`だけである。範囲内ならSlotがVacantかLiveかにかかわらず`peek`と`swap`は定義される。
+LiveかVacantかを仮定する`getAt`、`initAt`、`takeAt`、`putAt`は周辺operationであり、追加preconditionによってtag分岐、`Share`、
+`Drop`を省く。
+
+この分担により、核はuninitializedな`V`を読まず、Live/Vacant違反を新しいprimitive semanticsにしない。containerは核だけを使って
+Slotを除去するか、自身のinvariantで状態を保証して周辺operationを使う。
+
+## 表現からの独立
+
+Pool stateは次を規定しない。
+
+- Header、occupancy、payloadが同じallocationにあるか。
+- occupancyがbyte tag、bitmap、container invariantからの導出のどれか。
+- payloadがcanonical memory layoutかruntime value layoutか。
+- physical capacityがlogical capacityより大きいか。
+- growthが`realloc`、allocate-and-move、chunk追加のどれか。
+- ImPoolがflat owner、view、または別の共有表現を使うか。
+
+sourceから観測できるのはoperation law、handleとsnapshotの観測則、precondition、trap、約束された計算量だけである。C/LLVM loweringが守る境界は
+[runtime contract](../runtime/contract.md#semantic-identityとallocation-object)に置く。
+
+## malの設計原則との対応
+
+Poolは[表現と関係を分ける](../../../design/representation-and-relations.md)のfinite carrierを提供する。Poolの型が保証するのはHeader、
+finite coordinate、Slot state、authorityだけであり、tree、Map、sequenceといったdomain relationはoperationとinvariantが与える。
+
+[authority](../../../design/authority.md)に対しては、PoolをEngramに閉じ、Extern resourceのpermissionやlifetimeを持ち込まない。
+allocatorとreference countはauthorityではなく実装mechanismである。
+
+[minimality](../../../design/minimality.md)に対しては、現行Bufferのshared identityを再利用し、vacancyをsum、移動をexchange、回収を既存の
+managed responsibilityから導く。新しく必要な根は、container policyを持たないindexed place stateだけである。

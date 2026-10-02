@@ -3,7 +3,7 @@
 Status: Exploratory support document
 
 この文書は、slotの状態遷移と、placeに対するresponsibilityの動きを図示する。意味論の核は
-[Poolの意味論](semantics.md#最小核の導出)、各operationの`share`と`drop`の回数と順序は[runtime contract](../runtime/contract.md#所有権)を正とする。
+[Poolの意味論](semantics.md#最小核の導出)、各operationの`share`と`drop`の回数と順序は[runtime contract](../runtime/contract.md#responsibility)を正とする。
 
 ## slotの状態遷移
 
@@ -31,10 +31,13 @@ stateDiagram-v2
 responsibilityを持たない。
 
 ```text
-Share   x●   →  x●  x●     responsibilityを一つ増やす。参照数 1 → 2
-Move    x●   →  x●         持ち主だけが変わる。参照数 1 → 1
-Drop    x●   →  (なし)     responsibilityを一つ消す。最後の一つなら解放する
+Share   x●   →  x●  x●     responsibilityを一つ増やす
+Move    x●   →  x●         responsibilityを増やさず持ち主を変える
+Drop    x●   →  (なし)     responsibilityを一つ終了する
 ```
+
+これはsource semanticsから導く実行上の台帳であり、丸一つがreference countの1とは限らない。reference countを使う表現ならShareと
+Dropがcountを増減し、最後のDropが解放を起こし得る。別の回収表現でも上のresponsibility lawは変わらない。
 
 placeに対する操作は読み出しと入れ替えの二つの規則で動き、Metaとslotで同じである。書き込みは入れ替えの結果を捨てたもの
 である。
@@ -91,29 +94,31 @@ Dropする順序も費用の層に属し、同じ値を書き戻したときに�
 
 ## ImPoolの更新
 
-handle `p`はstorage `S`へのresponsibilityを持つ。更新は[writable successor](../runtime/contract.md#writable-successor)を作ってから変更する。
+snapshot carrier `p`はstorage `S`へのresponsibilityを持つ。更新は
+[writable successor](../runtime/contract.md#writable-successor)を作ってから変更する。
 
 ```text
-入力が唯一
+区別可能なreferenceがなくstorageを移せる
   p●  ─▶ S  [ a● | v● | c● ]
   putAt(p, 1, x●)
   p'● ─▶ S  [ a● | x● | c● ]           SをMove、xをMove、vをDrop
 
-入力が共有
+区別可能なreferenceがありcopyが要る
   p● q● ─▶ S  [ a● | v● | c● ]
   putAt(p, 1, x●)
   q●  ─▶ S   [ a● | v● | c● ]           Sはqに残る
   p'● ─▶ S'  [ a● | x● | c● ]           aとcをShareしてS'へ写し、xをMove、pの●をDrop
 ```
 
-入れ子のImPoolは、外側から内側を`swap`で取り出せば内側のresponsibilityが一つのまま更新でき、その場で書き換えられる。
+入れ子のImPoolは、外側から内側を`swap`で取り出せば外側のplaceが持っていたresponsibilityをMoveできる。これは外側のplaceが作る
+referenceを残さないが、同じ内側のsnapshotへの別referenceがないことまでは保証しない。runtimeが区別可能なreferenceなしと
+確認できればstorageをその場で書き換え、referenceがあれば通常どおりwritable successorをcopyする。
 
 ```text
 outer●  ─▶ [ inner● ]
 swap    ─▶ [ · ]         inner●      Moveで取り出す
-更新                      inner'●     唯一なのでその場で書き換える
+更新                      inner'●     区別可能なreferenceがなければその場で書き換える
 slot    ─▶ [ inner'● ]
 ```
 
 `peek`の直後に外側を`slot(i, vacant())`しても同じ状態になるが、途中でShareとDropが一往復する。
-

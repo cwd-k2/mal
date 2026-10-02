@@ -2,14 +2,62 @@
 
 Status: Exploratory support document
 
-この文書は、Poolをtrusted layerがどう保持し、所有権をどう動かし、どの条件を誰が保証するかを管理する。primitiveの一覧は
-[Pool primitive](../api/pool.md)、型形成条件は[identity](../model/identity.md#型形成条件)、現在の規範は[AddressとBuffer](../../../spec/memory.md)、
+この文書は、Pool stateをtrusted layerがどう保持し、semantic identityを物理allocationからどう分け、responsibilityをどう動かし、
+どの条件を誰が保証するかを管理する。Poolのauthorityは[位置付けと根本モデル](../model/foundations.md)、operation lawは
+[意味論](../model/semantics.md#operation-law)、primitiveの一覧は[Pool primitive](../api/pool.md)、型形成条件は
+[identity](../model/identity.md#poolの最小案)、現在の規範は[AddressとBuffer](../../../spec/memory.md)、
 [実行意味論](../../../spec/execution.md)、[managed valueのownership](../../../implementation/ownership.md)を正とする。
+
+## authority boundary
+
+IxPoolとImPoolはmal-controlledなEngramであり、`HostMappable`ではない。runtimeがC allocatorを使うことはimplementation mechanismで
+あり、Pool constructionをextern operation、allocator capability、またはhost-owned resourceにしない。Poolのlifetimeはmanaged
+responsibilityが支配し、C pointerの保持や明示的な`free`をsource contractへ出さない。
+
+Poolはallocation policyを選ばない。recoverable allocation failure、program固有のarena、hostと共有するmutable storageが必要な場合は、
+Poolへallocator parameterを足すのではなく、そのauthorityを所有する別のextern contractとして検討する。現在のPool allocation failureと
+size overflowは既存Engram allocationと同じterminalなtrapである。
+
+## semantic identityとallocation object
+
+実装は次を別のものとして扱う。
+
+```text
+IxPool semantic identity
+managed Pool runtime object
+Header carrier
+occupancy storage
+payload backing allocation
+slot coordinate
+slotに保持したvalue
+```
+
+IxPool handleが共有するのはsemantic identityであり、payloadのaddressやC/LLVM allocation objectではない。初期実装はstableなmanaged
+Pool objectからcurrent backing allocationを指す。`grow`は同じsemantic identityと既存coordinateを保存しながらbacking allocationを
+置き換えてよい。
+
+LLVMが認識するallocation objectは大きさを変えない。Cの`realloc`またはallocate-and-moveを使う場合も、growth成功後のbacking
+storageは新しいallocation objectとして扱い、古いpointerを同じaddressへ再配置された場合にも再利用しない。backendとruntimeは次を守る。
+
+- slot payloadへのpointerをPool primitive invocationの外へ返さない。
+- growthし得るcallの後はactive backing pointerをmanaged Pool objectから再取得する。
+- cached pointer、capacity、occupancy viewをgrowthとwritable-successor copyで失効させる。
+- coordinate `i`は物理addressではなくPool identityに相対的な値として解釈する。
+- `llvm.lifetime.start`と`llvm.lifetime.end`をLive/Vacantの意味として使わない。
+
+Live/VacantはLLVM object lifetimeではなく`Slot<V>`のvariantである。runtimeはoccupancyとpayloadを別々に保持できるが、Vacant payloadを
+`V`としてloadせず、LiveからVacantになるときだけ保持していた`V`のresponsibilityを移動またはDropする。
 
 ## Runtime representation
 
-`IxPool<Meta, V>`は`Meta`のcarrier、`n`、`V`のslot storage、各slotの占有tagを一つのmanaged identityとして所有する。Metaは
-runtime value representationで保持する。`Slot<V>`のtagはslotの外の占有tagとして持ち、slot storageにはLiveの値だけを置く。
+`IxPool<Meta, V>`は`Meta`のcarrier、logical capacity `n`、`V`のslot storage、各slotの占有tagを一つのmanaged identityとして
+所有する。この「一つ」はsemantic identityとlifetimeを指し、単一のC allocationや連続layoutを要求しない。Metaはruntime value
+representationで保持する。`Slot<V>`のtagはslotの外の占有tagとして持ち、slot storageにはLiveの値だけを置く。
+
+`ImPool<Meta, V>`は同じ論理fieldをmanaged snapshot carrierとして持つ。runtime objectやbacking allocationに実装上のidentityがあっても、
+sourceへshared mutable identityを公開しない。複数のsnapshotが同じphysical storageを共有してよく、更新はwritable successorを介して
+以前のsnapshotから独立させる。
+
 slot storageのlayoutは要素型ごとに実装が選び、sourceとhostへ観測させない。初期実装は
 [現行Buffer](../../../implementation/ownership.md#bufferのelement)と同じく次を使い分ける。
 
@@ -25,7 +73,8 @@ sourceもhostも前提にしない。`IxPool<Meta, UInt8>`のslot storageはbyte
 precondition、drop回数は通常の`V`と同じである。占有tagは`peek`と`isLive`の結果、`slot`で旧値をDropするかの判定、IxPool終了時に
 Dropするslotの決定に使う。LiveかVacantかを仮定する周辺operationはtagを検査しない。
 
-`grow(pool, k)`はMetaと全slotを保存して`n`を`k`だけ広げ、増えたslotのtagをVacantにする。物理的なover-allocationは観測させない。
+`grow(pool, k)`はMetaと全slotを保存してlogical capacity `n`を`k`だけ広げ、増えたslotのtagをVacantにする。物理的な
+over-allocationとphysical capacityは観測させない。
 `n + k`またはstorage sizeをtargetで表現できない場合とallocationに失敗した場合は、既存Engram allocationと同じくtrapする。
 [trap](../../../spec/execution.md#trap)はterminalなので、失敗後のIxPool状態を公開する規則は要らない。IxPoolとmanaged valueは現在の
 C runtime contextと同じくthread-confinedであり、物理relocation中の一時状態は一つのprimitive内部へ閉じる。
@@ -52,12 +101,13 @@ Vectorはこれを要素型について一般化した`(owner, data, count)`で�
 static storageのliteralを加えたものである。`Representable`な要素のVectorは`[0, length)`をcanonical layoutの密な列として置き、
 hostとの交換を一括copyにできる。
 
-`freeze`と`thaw`はこの二つの表現の間でbyte ownerを受け渡す。inputがlast useで、Bufferのidentityとbyte ownerがどちらも一意な
+`freeze`と`thaw`はこの二つの表現の間でbyte ownerを受け渡す。inputがlast useで、Bufferのidentityとbyte ownerに区別可能なaliasが
+ないとruntimeが確認できる
 とき、`freeze`はownerをviewへ移し、`thaw`はviewが先頭から全体を覆うflatなownerを新しいBufferへ移す。それ以外はcopyする
 （[freezeとthaw](../api/pool.md#freezeとthaw)）。byte列の`*`の両方向がこの規則の最初の例であり、現行runtimeは`*`の意味を変えずにこの形で実装している
 （[managed valueのownership](../../../implementation/ownership.md)）。
 
-## 所有権
+## responsibility
 
 IxPoolのMetaと各slotはplaceであり、常に値を一つ持つ。値のresponsibilityはplaceが持ち、Vacantの`Unit`はresponsibilityを
 持たない。これは[local slot](../../../implementation/ownership.md#slotとoperation)のinitialize、vacate、replaceと同じ状態であり、違いは
@@ -84,22 +134,29 @@ swapのresultは通常のowned resultであり、使われなくなった時点�
 | `initAt` | 旧値がVacantのwrite | なし | なし |
 | `putAt`、`setMeta` | 旧値が値を持つwrite | なし | 1 |
 | `swap`、`swapMeta`、`takeAt`、`moveAt` | swap | なし | なし |
-| `grow` | 遷移なし。全carrierを移動するだけ | なし | なし |
+| `grow` | 既存carrierをrelocateし、新slotをVacantにする | なし | なし |
 | IxPoolの終了 | Metaと全Live slotのDrop | なし | 1とLive slot数 |
 
 Bufferの`fill`と`copy`は[参照実装](../containers/buffer.md#range-operation)のloopがこれらのoperationを呼ぶため、回数はその分解から
 決まり、runtimeが一括処理で実装しても同じ回数にする。Vectorの`from`、`into`、`symbol`は`Representable`な型か`UInt8`だけを扱い、`share`と
-`drop`はno-opなので所有権解析へ入力を持たない。
-
-この表はIxPoolのstorageが共有されていない場合の回数である。[freeze](../api/pool.md#freezeとthaw)がstorageをImPoolと共有する案を
-採ると、共有中のIxPoolへの最初の書き込み、つまり読み出し以外のoperationは、先にwritable successorと同じ複製を行い、Metaと
-各Live slotを一回ずつ`Share`する。
+`drop`はno-opなのでresponsibility解析へ入力を持たない。
 
 ### writable successor
 
-ImPoolの各更新は、まずinputのwritable successorを作る。inputが唯一のresponsibilityならstorageをresultへ移し、共有中なら新しい
-storageを作ってMetaと各Live slotをreadして置き、inputのresponsibilityをDropする。その後successorへ更新を行って返す。共有時の
-更新はflatなslot carrierと占有tagを複製し、managed `V`のpayloadをdeep copyしないが、処理量はO(n)である。
+ImPoolの各更新は、まずinputのwritable successorを作る。更新前のsnapshotに対する今後の観測と区別できない場合はstorageをresultへ
+移し、区別できるaliasがあれば新しいstorageを作ってMetaと各Live slotをreadして置く。その後successorへ更新を行って返す。
+共有時の更新はflatなslot carrierと占有tagを複製し、managed `V`のpayloadをdeep copyしないが、処理量はO(n)である。
+
+source valueは更新callの後にも再利用でき、その場合compilerはcallへ渡すresponsibilityを`Share`する。last useなら`Consume`できるが、
+これは物理storageの一意性を主張せず、inputのresponsibilityをsuccessorへ移してよいというpermissionだけを与える。
+
+`Consume`に加え、runtime representationへの区別可能なreferenceが一つであることはstorageを移せる十分条件である。reference countは
+このrepresentation uniquenessを確かめるwitnessの一つであり、source semanticsでも唯一の実装でもない。別の回収方式やより強い
+compiler proofを使ってもobservableなImPool snapshotとこのcopy boundを保てればよい。
+
+Rustの`Box<T>`に相当する単一のphysical ownerは、この層では現れ得るがsource authorityではない。backendはPool object、backing
+allocation、またはpayload carrierを一つのresponsibilityで保持できる。IxPool handleとImPool snapshotの観測則は、その時点の
+物理owner数から推論しない。
 
 ## 未検査precondition
 
@@ -130,6 +187,5 @@ testやdebug buildで範囲と占有tagを検査してよい。
 複数primitiveからなるcontainer operationはtransactionではなく、invariantはreturn時に回復すればよい。lifecycle glueはmal codeを
 実行しない。`hash`や`equal`のようなoperation requirementは要素型の値しか受け取らず、malは再帰型を持たないため要素型の値は
 それを要素とするcontainerを含めない。top-level initializerはIxPoolを作れない。したがってこれらから変更中のcontainerへ到達
-できない。この議論は[`Storable`と`Stable`の分割案](../model/identity.md#判定の分割案)でIxPoolを要素にできるようになっても変わらない。
+できない。この議論は[`Storable`と`Stable`の分割案](../model/identity.md#storableとstableの分割案)でIxPoolを要素にできるようになっても変わらない。
 caller-suppliedなclosureを受け取るoperationはclosureが同じcontainerのaliasをcaptureし得るため、呼び出し前にinvariantを回復する。
-

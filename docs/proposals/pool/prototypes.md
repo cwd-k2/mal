@@ -21,7 +21,7 @@ ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをho
 知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。
 
 核はpoolのconstructor `F`をkeyに持つoperation familyとして書き、IxPoolとImPoolで一つの名前を共有した。更新はどれもpoolを
-返し、IxPoolは同じidentityを、ImPoolはsuccessorを返す。周辺は`F`の上に一度だけ書け、IxPool上のcontainerとImPool上の
+返し、IxPoolは同じidentityへのhandleを、ImPoolはsuccessor snapshotを返す。周辺は`F`の上に一度だけ書け、IxPool上のcontainerとImPool上の
 Vectorが同じ周辺を使った。呼び出しは`meta<IxPool>(map)`のようにconstructorを明示し、これはopaqueのどの層として見るかの
 指定も兼ねる。更新がpoolを返すため、更新で終わる`Unit`のblockには末尾の`()`が要った。この形を書く過程で、kind多相な型parameterを
 扱うcompilerの不具合を四つ見つけて直し、本体が求めるkindをspecializationで検査する規則を
@@ -40,16 +40,16 @@ loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、�
 Buffer上のemulationで、[Vector](containers/sequences.md#vector)の`Vector<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
 後のIxPoolへの書き込みも、`thaw`したIxPoolへの書き込みも、値と他のIxPoolから観測されないことを確かめた。`Symbol`を要素に
 しても、valgrindで全allocationの解放とerror 0を確かめた。emulationのImPoolはBufferを含むため`Storable`にならず、
-`Vector<Vector<T>>`は確かめていない。要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、入れ子の値を一意に保ったまま
-更新する経路として動いた。
+`Vector<Vector<T>>`は確かめていない。要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、外側のplaceにaliasを残さず
+responsibilityを移す更新経路として動いた。内側への別aliasまで排除するものではない。
 
 ## constructorについてgenericなcontainer
 
 Buffer上のemulationで、binary heapを核と周辺の返すpoolを引き回す形でconstructor `F`について一度だけ書き、IxPoolとImPoolの
 両方で動かした。IxPool上では返り値を捨ててaliasから同じheapを観測でき、ImPool上では途中の値が後のpushとpopで変わらなかった。
-擬似乱数の300個をpushしてpopした結果は両方で減少せず、valgrindで全allocationの解放とerror 0を確かめた。identityのcontainerを
-値として入れ子にするために別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。emulationのImPoolは`Storable`にならない
-ため、値版のheapを実際に入れ子にすることは確かめていない。
+擬似乱数の300個をpushしてpopした結果は両方で減少せず、valgrindで全allocationの解放とerror 0を確かめた。handle版とsnapshot版の
+containerに別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。emulationのImPoolは`Storable`にならないため、snapshot版の
+heapを実際に入れ子にすることは確かめていない。
 
 ## slot遷移とcontainer
 
