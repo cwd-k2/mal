@@ -40,6 +40,8 @@ fn completion_value(completion: &check::ast::Completion) -> &check::ast::Express
     value
 }
 
+#[path = "check/aliases.rs"]
+mod aliases;
 #[path = "check/constructor_parameters.rs"]
 mod constructor_parameters;
 #[path = "check/continuations.rs"]
@@ -50,6 +52,8 @@ mod control;
 mod declarations;
 #[path = "check/functions.rs"]
 mod functions;
+#[path = "check/generic_values.rs"]
+mod generic_values;
 #[path = "check/hkt_regressions.rs"]
 mod hkt_regressions;
 #[path = "check/key_patterns.rs"]
@@ -58,6 +62,8 @@ mod key_patterns;
 mod memory;
 #[path = "check/numeric.rs"]
 mod numeric;
+#[path = "check/opaque_types.rs"]
+mod opaque_types;
 #[path = "check/operations.rs"]
 mod operations;
 #[path = "check/symbol.rs"]

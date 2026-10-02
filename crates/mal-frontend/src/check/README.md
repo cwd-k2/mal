@@ -6,6 +6,7 @@ with a `Value` or `Abrupt` completion for every expression.
 | Module | Responsibility |
 |---|---|
 | `mod` | program order, value environment, and result targets |
+| `ast` | the typed program representation that checking emits, split into type terms, program items, expressions, and primitive operators |
 | `binding`, `entry` | bindings, patterns, and reachability of body items; the entry identity and its parameter form |
 | `generic` | generic value bindings: principal parameter kinds, one check of the body under rigid parameters, the operation and kind requirements left for specialization, and the requirement state each declaration body starts from |
 | `control` | `if`, `when`, direct blocks, and direct result blocks with their completion and local result targets |

@@ -26,6 +26,8 @@ mod entry;
 mod frames;
 #[path = "artifacts/handoff.rs"]
 mod handoff;
+#[path = "artifacts/host_builds.rs"]
+mod host_builds;
 #[path = "artifacts/host_values.rs"]
 mod host_values;
 #[path = "artifacts/interface.rs"]
