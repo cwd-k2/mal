@@ -5,7 +5,9 @@ in-memory values and return generated text.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | `check` and the `emit` use cases, output writing, temporary directories, and error rendering |
+| `mod` | the `check` and `emit` use cases |
+| `files` | writing generated files, and the temporary directory a build uses when no artifact directory is given |
+| `error` | the single driver failure type, rendered once into the message `malc` prints |
 | `build` | one build use case: source graph, optimization mode, artifact directory, generated inputs, Clang, and the AtCoder carrier |
 | `toolchain` | queries the pinned Clang for the host target triple and data layout and compiles every artifact for that same target |
 | `toolchain/optimization` | Clang optimization arguments for `baseline` and `production`, independent of language semantics |

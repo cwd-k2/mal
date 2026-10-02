@@ -16,7 +16,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/types` | LLVM value types, target pointer size, and scalar and value ABI alignment |
 | `body/admission` | target-width literal, layout, and alignment checks before artifact generation |
 | `body/plan` | entry functions, reachable states, slots, and constant plans for closed top-level values |
-| `body/setup` | identity and frame-tag indexing, function emitter admission, prologue, and output order |
+| `body/setup` | one function emitter: admission and the order of emission; the states and slots it owns (`region`), its frame tags (`frames`), shared scratch storage (`scratch`), and the signature and entry block (`prologue`) |
 | `body/terminator` | control terminators as branches, calls, returns, and case dispatch |
 | `body/operation`, `body/bridge` | control operations, dispatched to the modules below, and external operation calls through the C bridge |
 | `body/symbol` | Symbol literals, length, byte access, range views, and concatenation |
