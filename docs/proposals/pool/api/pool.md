@@ -106,23 +106,27 @@ preconditionを持たない。
 状態はIxPoolと同じ`(m, n, slots)`を値として持ち、核と周辺はIxPoolと同じ名前、意味、preconditionを持つ。違いは、IxPoolで
 `Unit`を返す更新がsuccessorを返し、値を返す更新がsuccessorとの組を返すことだけである。
 
-```mal
-ImPool<Meta, V>
+次の表は、IxPoolとImPoolのsignatureを対で並べる。`IxPool`、`ImPool`はそれぞれ`IxPool<Meta, V>`、`ImPool<Meta, V>`を略す。
 
-pool<Meta, V> :: Meta -> ImPool<Meta, V>;
-grow<Meta, V> :: (ImPool<Meta, V>, USize) -> ImPool<Meta, V>;
-capacity<Meta, V> :: ImPool<Meta, V> -> USize;
-peek<Meta, V> :: (ImPool<Meta, V>, USize) -> Slot<V>;
-swap<Meta, V> :: (ImPool<Meta, V>, USize, Slot<V>) -> (ImPool<Meta, V>, Slot<V>);
-meta<Meta, V> :: ImPool<Meta, V> -> Meta;
-swapMeta<Meta, V> :: (ImPool<Meta, V>, Meta) -> (ImPool<Meta, V>, Meta);
+| operation | IxPool | ImPool |
+|---|---|---|
+| `pool` | `Meta -> IxPool` | `Meta -> ImPool` |
+| `grow` | `(IxPool, USize) -> Unit` | `(ImPool, USize) -> ImPool` |
+| `capacity` | `IxPool -> USize` | `ImPool -> USize` |
+| `peek` | `(IxPool, USize) -> Slot<V>` | `(ImPool, USize) -> Slot<V>` |
+| `swap` | `(IxPool, USize, Slot<V>) -> Slot<V>` | `(ImPool, USize, Slot<V>) -> (ImPool, Slot<V>)` |
+| `meta` | `IxPool -> Meta` | `ImPool -> Meta` |
+| `swapMeta` | `(IxPool, Meta) -> Meta` | `(ImPool, Meta) -> (ImPool, Meta)` |
+| `slot` | `(IxPool, USize, Slot<V>) -> Unit` | `(ImPool, USize, Slot<V>) -> ImPool` |
+| `setMeta` | `(IxPool, Meta) -> Unit` | `(ImPool, Meta) -> ImPool` |
+| `isLive` | `(IxPool, USize) -> Bool` | `(ImPool, USize) -> Bool` |
+| `getAt` | `(IxPool, USize) -> V` | `(ImPool, USize) -> V` |
+| `initAt` | `(IxPool, USize, V) -> Unit` | `(ImPool, USize, V) -> ImPool` |
+| `takeAt` | `(IxPool, USize) -> V` | `(ImPool, USize) -> (ImPool, V)` |
+| `putAt` | `(IxPool, USize, V) -> Unit` | `(ImPool, USize, V) -> ImPool` |
+| `dropAt` | `(IxPool, USize) -> Unit` | `(ImPool, USize) -> ImPool` |
+| `moveAt` | `(IxPool, USize, USize) -> Unit` | `(ImPool, USize, USize) -> ImPool` |
 
-slot<Meta, V> :: (ImPool<Meta, V>, USize, Slot<V>) -> ImPool<Meta, V>;
-setMeta<Meta, V> :: (ImPool<Meta, V>, Meta) -> ImPool<Meta, V>;
-takeAt<Meta, V> :: (ImPool<Meta, V>, USize) -> (ImPool<Meta, V>, V);
-```
-
-`isLive`、`getAt`はIxPoolと同じ型で読み、`initAt`、`putAt`、`dropAt`、`moveAt`は`ImPool<Meta, V>`を返す。
 ImPoolのMetaは、意味の上では`(Meta, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
 IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。
 

@@ -41,6 +41,24 @@ opaque Vector<A> :: ImPool<USize, A>;    // Metaはlength、[0, length)がLive
 Bufferは組み立てるための可変な列、Vectorは確定した値の列であり、byte列ではこの対が`Buffer<UInt8>`と`Symbol`に当たる。
 どちらも組み込みlibraryとして提供し、runtimeは参照実装と同じ結果になる一括処理で実装してよい。
 
+次の表は、BufferとVectorのoperationを対で並べる。Vectorの読み出しと長さの名前は仮であり、更新と追加をBufferと同じ`put`、`new`へ
+揃えるかは[primitiveの名前](../README.md#未決定事項)と合わせて決める。
+
+| 役割 | Buffer | Vector |
+|---|---|---|
+| 作る | `make<A>(capacity)` | 未定 |
+| 末尾に足す | `buffer.new(value)` | `vectorAppend(vector, value)` |
+| 読む | `buffer.get(index)` | `vector.get(index)`（仮） |
+| 書き換える | `buffer.put(index, value)` | `vectorSet(vector, index, value)` |
+| 長さ | `#buffer` | `#vector`（仮） |
+| 範囲を埋める | `buffer.fill(offset, count, value)` | なし |
+| 範囲を写す | `buffer.copy(offset, source, sourceOffset, count)`（既存のBufferへ書く） | `slice(vector, offset, length)`（新しいVectorを作る） |
+| hostから読む | `thaw(from(address, offset, length))` | `from<A>(address, offset, length)` |
+| hostへ書く | `slice(freeze(buffer), offset, length).into(address, destination)` | `vector.into(address, offset)` |
+| `Symbol`へ | `*buffer` | `symbol(vector)` |
+| `Symbol`から | `*symbol` | なし |
+| 相手への変換 | `freeze(buffer)` | `thaw(vector)` |
+
 ## Buffer
 
 Bufferは言語の組み込み型ではなく、IxPoolの上のpreludeのopaque型であり、全operationを[Buffer実装](../containers/buffer.md)の
