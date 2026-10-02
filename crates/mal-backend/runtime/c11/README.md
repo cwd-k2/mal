@@ -6,12 +6,12 @@ Program-specific behavior, such as frame layout, resume targets, and owner trans
 
 | File | Responsibility |
 |---|---|
-| `core.c` | closure environment allocation, retain and release dispatch, and the program-independent trap terminal |
-| `control.c` | growable control byte storage and the mapped-stack-aware bound for optional native recursion |
-| `bytes.c`, `bytes_internal.h` | byte owner storage policy, and the header layout shared with static owners emitted by LLVM |
-| `buffer.c`, `buffer_internal.h` | `Buffer` storage: allocation, growth, `new`, and element ownership callbacks for managed elements |
-| `buffer_range.c` | `fill` and `copy`, which extend the count and write a range, including overlapping managed copies |
-| `buffer_host.c` | C host copies (`from`, `into`) and the process argument `Buffer<Symbol>` |
-| `buffer_symbol.c` | byte `*` at the operand's last use, moving the byte owner between a Buffer and a Symbol when no one else holds it |
-| `symbol.c` | `Symbol` indexing, range views, equality, concatenation, and reuse of dead operand storage |
+| `core.c` | closure environments, reference counting, and the trap terminal |
+| `control.c` | growable control storage and the native recursion bound |
+| `bytes.c`, `bytes_internal.h` | byte owners, and the header layout static owners share with LLVM |
+| `buffer.c`, `buffer_internal.h` | `Buffer` storage and the ownership of managed elements |
+| `buffer_range.c` | `fill` and `copy` |
+| `buffer_host.c` | Buffers exchanged with the host: `from`, `into`, and the process arguments |
+| `buffer_symbol.c` | byte `*` at the operand's last use |
+| `symbol.c` | `Symbol` operations |
 | `runtime.h` | declarations shared by the runtime sources |

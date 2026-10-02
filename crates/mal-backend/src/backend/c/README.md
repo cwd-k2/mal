@@ -5,17 +5,17 @@ module lives in `backend/llvm/shim`.
 
 | Module | Responsibility |
 |---|---|
-| `header`, `header/prefix` | file-specific header layout, include guards, portability checks, runtime ABI prefix |
-| `header/common` | program-independent C ABI declarations, scalar helpers, and built-in return validation |
-| `header/common/templates` | aggregate conversion, canonical-memory, and public sum API templates |
+| `header`, `header/prefix` | the layout of one file's header, from include guards to the runtime ABI prefix |
+| `header/common` | the program-independent C ABI declarations every header includes |
+| `header/common/templates` | the C templates for aggregate conversion, canonical memory, and public sums |
 | `host_signature` | host operation signatures |
-| `types::TypeRegistry` | structural identity and C type mapping for the whole host interface |
-| `types/collect` | postorder collection of host-visible representations from `ProgramInterface` |
-| `types::HostTypes` | host-visible types reachable from externs and from aliases the checker admitted for canonical memory access |
+| `types` | the C type of every host-visible type, under one structural identity |
+| `types/collect` | the host-visible types a program interface reaches |
+| `types/declarations` | the C declarations of registered types and their representation descriptors |
 | `types/host` | constructors, observers, and projections of host-mappable aggregates |
-| `types/host/declaration` | type declarations needed by the host adapter and the public header |
-| `types/host/memory` | unaligned-safe C read and write helpers derived from the shared canonical layout plan |
-| `syntax` | typed C syntax nodes and their rendering, limited to the constructs the generated output uses |
+| `types/host/declaration` | the type declarations the host adapter and the public header need |
+| `types/host/memory` | unaligned-safe C access to the canonical layout |
+| `syntax` | typed C syntax nodes and their rendering |
 
 ## Construction boundary
 

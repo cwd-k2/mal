@@ -1,6 +1,6 @@
 //! Binders of an operation implementation key. A key is a type pattern: every name in an argument position
 //! that is not a visible type is a variable the pattern introduces, as a value pattern introduces the names it
-//! binds. Constructor positions always name types.
+//! binds. Constructor positions always name types. A binder spelled like a visible type is remembered for diagnostics.
 
 use std::collections::HashSet;
 

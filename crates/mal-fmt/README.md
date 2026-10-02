@@ -11,10 +11,10 @@ The layout rules are documented in `docs/development/formatting.md`. The crate d
 
 | Module | Responsibility |
 |---|---|
-| `layout` | block compactness, including blocks expanded because a control inside them expands, always-expanded `when` bodies, and top-level groups |
-| `control` | iterative pass over the AST that classifies block positions, `if` on right-hand sides, which controls expand, and where control expressions and `when` conditions end |
-| `token` | spacing between ordinary tokens, explicit line breaks inside expressions, and preserved blank lines between statements and top-level groups |
-| `token/control` | output state transitions for `if` and block delimiters |
-| `generic` | marks the `<` and `>` tokens that delimit generic parameter and argument lists so they are not spaced like operators |
-| `file` | reading a file, atomic replacement, and error messages |
-| `cli` | argument parsing and exit status |
+| `layout` | which blocks stay compact |
+| `control` | where control expressions start and end, and which of them expand |
+| `token` | spacing and line breaks between tokens |
+| `token/control` | output state for `if` and block delimiters |
+| `generic` | the angle brackets that delimit generic lists, so they are not spaced as operators |
+| `file` | reading a file and replacing it atomically |
+| `cli` | arguments and exit status |

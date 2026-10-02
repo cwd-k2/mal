@@ -6,13 +6,13 @@ mechanisms.
 
 | Module | Responsibility |
 |---|---|
-| `abi` | one internal bridge plan shared by LLVM and generated C |
-| `artifact` | generated artifact values and backend failure reporting |
-| `c` | public C headers, host stubs, host-visible types, and typed C syntax |
-| `llvm` | target admission, execution lowering, LLVM construction, host bridge, and process shim |
-| `runtime` | runtime-source selection from symbols referenced by the generated artifacts |
-| `source_layout` | canonical memory stride, alignment, and offsets shared by LLVM and C helpers |
-| `syntax_interpolation` | normalization used by the restricted C and LLVM construction macros |
+| `abi` | the internal bridge plan LLVM and generated C share |
+| `artifact` | generated artifacts and backend failures |
+| [`c`](c/README.md) | generated C: public headers, host stubs, and host-visible types |
+| [`llvm`](llvm/README.md) | the LLVM backend |
+| `runtime` | the runtime sources a program's artifacts reference |
+| `source_layout` | canonical memory layout shared by LLVM and C helpers |
+| `syntax_interpolation` | normalization for the C and LLVM construction macros |
 
 This directory does not read or write files and does not start Clang. `mal-backend::pipeline` returns text artifacts;
 `mal-compiler::driver` owns their paths, compilation, and linking.
