@@ -2,8 +2,9 @@
 
 Status: Exploratory example
 
-この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`のoperationのうち、Vectorへ移す`from`と`into`を
-除く全てを、IxPoolの核と周辺operation、Vectorで実装した擬似codeを示す。IxPool primitiveの規則は
+この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`のsequence operationを、IxPoolの核と周辺operation、
+Vectorで実装した擬似codeを示す。host operationはVectorを正規形として意味を分解できるが、現行Buffer APIから除くかは
+[BufferとVector](../api/buffer-vector.md#buffer)が別に管理する。IxPool primitiveの規則は
 [runtime contract](../runtime/contract.md)、Bufferの各operationの意味は[AddressとBuffer](../../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
@@ -143,8 +144,9 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 
 ## Symbolとの変換
 
-本案ではhostとの交換をVectorへ移すため、Bufferは`from`と`into`を持たない（[BufferとVector](../api/buffer-vector.md#buffer)）。
-`Symbol`との変換は、BufferとVectorを同じpreludeのfileで定義すると仮定し、`freeze`したIxPoolをそのままVectorとして扱って書く。
+hostとの交換はVectorを正規形として説明でき、現行Bufferの`from`と`into`はそのcompatibility operationとして実装できる
+（[BufferとVector](../api/buffer-vector.md#buffer)）。`Symbol`との変換は、BufferとVectorを同じpreludeのfileで定義すると仮定し、
+`freeze`したIxPoolをそのままVectorとして扱って書く。
 型、意味、preconditionは現行の[Symbol conversion](../../../spec/memory.md#symbol-conversion)のままである。
 
 ```mal
@@ -156,7 +158,11 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 
 ## 現行Bufferとの差分
 
-- `from`と`into`はVectorへ移る。他のoperationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
+- elementの型形成をplace lifecycleとしての`Storable`へ揃え、`Buffer<Buffer<T>>`、`Buffer<IxPool<M, V>>`、
+  `Buffer<ImPool<M, V>>`、external opaque carrierを認める。handle elementの`get`、`fill`、`copy`は同じidentityへのauthorityを保存する
+  shallowなcarrier operationである。functionはclosure cycleのため引き続き除外する。
+- `from`と`into`の意味はVectorのadmissionとobservationから導ける。既存名を残すかは互換性のdecisionとし、他のoperationの意味、
+  評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolとVectorのprimitiveを持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
   [canonical layout](../runtime/contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
@@ -172,7 +178,7 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
-| `from`、`into` | runtimeのbulk copy | Vectorへ移る |
+| `from`、`into` | runtimeのbulk copy | Vectorのadmissionとobservationに対応するcompatibility operation。中間snapshotを作らず一段にできる |
 | `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。Bufferがlast useで区別可能なaliasがなければstorageを移す |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |

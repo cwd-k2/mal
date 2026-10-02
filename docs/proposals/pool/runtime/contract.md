@@ -55,15 +55,15 @@ Live/VacantはLLVM object lifetimeではなく`Slot<V>`のvariantである。run
 representationで保持する。`Slot<V>`のtagはslotの外の占有tagとして持ち、slot storageにはLiveの値だけを置く。
 
 `ImPool<Meta, V>`は同じ論理fieldをmanaged snapshot carrierとして持つ。runtime objectやbacking allocationに実装上のidentityがあっても、
-sourceへshared mutable identityを公開しない。複数のsnapshotが同じphysical storageを共有してよく、更新はwritable successorを介して
-以前のsnapshotから独立させる。
+ImPool自身のshared mutable identityをsourceへ公開しない。複数のsnapshotが同じphysical storageを共有してよく、更新はwritable
+successorを介して以前のsnapshotのMeta、capacity、slot carrierから独立させる。保存したhandle carrierのreferentは共有してよい。
 
 slot storageのlayoutは要素型ごとに実装が選び、sourceとhostへ観測させない。初期実装は
 [現行Buffer](../../../implementation/ownership.md#bufferのelement)と同じく次を使い分ける。
 
 - `Representable`な`V`はcanonical memory layoutで置く。host境界のcopyはbulk copyになり、lifecycle glueを持たない。
-- `Symbol`を含む`V`はruntime value representationで置き、型別の`share`と`drop` glueを使う。plugin-defined Engram leafを含む
-  要素も同じ側に置き、同じlifecycle planを適用する。
+- `Symbol`、Buffer、Pool handleなどを含む非`Representable`な`V`はruntime value representationで置き、型別の`share`と`drop`
+  glueを使う。external opaque carrierのglueはno-opであり、plugin-defined Engram leafも自身のlifecycle planを適用する。
 
 この選択はcorrectness contractではない。canonical layoutはhostとの値交換の形式であり、IxPool storageがそれと一致することを
 sourceもhostも前提にしない。`IxPool<Meta, UInt8>`のslot storageはbyte列そのものになるため、`Symbol`のbyte ownerとstorageを
@@ -92,13 +92,13 @@ C runtime contextと同じくthread-confinedであり、物理relocation中の�
 | 終了時に`[0, count)`をrelease | IxPool終了時のLive slotのDrop。tagを走査しない |
 | `put`が新しい値をretainしてから旧値をrelease | placeのwrite |
 | `fill`、`copy`がcountを範囲末尾まで延ばす | 参照実装の`initAt`、`putAt`のloopとMetaの更新 |
-| `from`、`into` | Vectorの`from`の`thaw`と、`slice`の`into`を一段のcopyにまとめたもの |
+| `from`、`into` | Vector admission後の`thaw`と、`freeze`、`slice`後のobservationを一段のcopyにまとめたcompatibility operation |
 | `zeroed_until` | 0で確保した範囲へ0を書かない物理的な最適化 |
 
 Bufferのstorageは`Symbol`と同じ形のflatなbyte ownerである。`Symbol`は`(owner, data, length)`という不変のviewであり、
-Vectorはこれを要素型について一般化した`(owner, data, count)`で表せる。値は不変なので、`slice`はcopyせずviewとして作ってよい。
-その代わり、sliceは`Symbol`と同じく元のstorage全体を生かし続ける。表現の上では`Symbol`は`Vector<UInt8>`であり、text操作と
-static storageのliteralを加えたものである。`Representable`な要素のVectorは`[0, length)`をcanonical layoutの密な列として置き、
+Vectorも要素型について一般化した`(owner, data, count)`で表せる。element carrierの列は不変なので、`slice`はcopyせずviewとして作ってよい。
+その代わり、sliceは`Symbol`と同じく元のstorage全体を生かし続ける。実装上は`Symbol`と`Vector<UInt8>`でowner/view表現を共有できるが、
+source-levelの型同一性は要求しない。`Representable`な要素のVectorは`[0, length)`をcanonical layoutの密な列として置き、
 hostとの交換を一括copyにできる。
 
 `freeze`と`thaw`はこの二つの表現の間でbyte ownerを受け渡す。inputがlast useで、Bufferのidentityとbyte ownerに区別可能なaliasが
@@ -138,21 +138,22 @@ swapのresultは通常のowned resultであり、使われなくなった時点�
 | IxPoolの終了 | Metaと全Live slotのDrop | なし | 1とLive slot数 |
 
 Bufferの`fill`と`copy`は[参照実装](../containers/buffer.md#range-operation)のloopがこれらのoperationを呼ぶため、回数はその分解から
-決まり、runtimeが一括処理で実装しても同じ回数にする。Vectorの`from`、`into`、`symbol`は`Representable`な型か`UInt8`だけを扱い、`share`と
-`drop`はno-opなのでresponsibility解析へ入力を持たない。
+決まり、runtimeが一括処理で実装しても同じ回数にする。Vectorのhost admissionとobservationは`Representable`な型、`symbol`は
+`UInt8`だけを扱い、`share`と`drop`はno-opなのでresponsibility解析へ入力を持たない。
 
 ### writable successor
 
-ImPoolの各更新は、まずinputのwritable successorを作る。更新前のsnapshotに対する今後の観測と区別できない場合はstorageをresultへ
-移し、区別できるaliasがあれば新しいstorageを作ってMetaと各Live slotをreadして置く。その後successorへ更新を行って返す。
-共有時の更新はflatなslot carrierと占有tagを複製し、managed `V`のpayloadをdeep copyしないが、処理量はO(n)である。
+ImPoolの各更新は、まずinputのwritable successorを作る。更新前のsnapshotに対する今後の構造観測と区別できない場合はstorageを
+resultへ移し、区別できるreferenceがあれば新しいstorageを作ってMetaと各Live slotをreadして置く。その後successorへ更新を行って返す。
+共有時の更新はflatなslot carrierと占有tagを複製する。managed carrierはShareするだけでreferentをdeep copyしないが、処理量は
+O(n)である。
 
 source valueは更新callの後にも再利用でき、その場合compilerはcallへ渡すresponsibilityを`Share`する。last useなら`Consume`できるが、
 これは物理storageの一意性を主張せず、inputのresponsibilityをsuccessorへ移してよいというpermissionだけを与える。
 
 `Consume`に加え、runtime representationへの区別可能なreferenceが一つであることはstorageを移せる十分条件である。reference countは
 このrepresentation uniquenessを確かめるwitnessの一つであり、source semanticsでも唯一の実装でもない。別の回収方式やより強い
-compiler proofを使ってもobservableなImPool snapshotとこのcopy boundを保てればよい。
+compiler proofを使ってもobservableなImPool structural snapshotとこのcopy boundを保てればよい。
 
 Rustの`Box<T>`に相当する単一のphysical ownerは、この層では現れ得るがsource authorityではない。backendはPool object、backing
 allocation、またはpayload carrierを一つのresponsibilityで保持できる。IxPool handleとImPool snapshotの観測則は、その時点の
@@ -185,7 +186,8 @@ valueのmemory safetyを担う。containerはopaque型でrepresentationを隠す
 testやdebug buildで範囲と占有tagを検査してよい。
 
 複数primitiveからなるcontainer operationはtransactionではなく、invariantはreturn時に回復すればよい。lifecycle glueはmal codeを
-実行しない。`hash`や`equal`のようなoperation requirementは要素型の値しか受け取らず、malは再帰型を持たないため要素型の値は
-それを要素とするcontainerを含めない。top-level initializerはIxPoolを作れない。したがってこれらから変更中のcontainerへ到達
-できない。この議論は[`Storable`と`Stable`の分割案](../model/identity.md#storableとstableの分割案)でIxPoolを要素にできるようになっても変わらない。
-caller-suppliedなclosureを受け取るoperationはclosureが同じcontainerのaliasをcaptureし得るため、呼び出し前にinvariantを回復する。
+実行しないため、primitive内部の一時状態へ再入しない。handle nestingだけでも、表現に寄与する再帰型とfunction storageがないため、
+要素からそれを保持する同じcontainerへのowner back-edgeは作れない。ただし`hash`、`equal`、比較はhandle referentを変更して
+container固有のkey invariantを壊し得る。caller-supplied closureは同じcontainerをcaptureして再入し得るため、containerは呼び出す前に
+公開invariantを回復するか、operation contractで再入を禁止しなければならない。これらはStorable lifecycleでなくcontainer algorithmの
+callback boundaryである。

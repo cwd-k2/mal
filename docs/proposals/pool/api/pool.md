@@ -13,7 +13,7 @@ responsibilityの効果とpreconditionの責任は[runtime contract](../runtime/
 
 | 区分 | 判断の基準 | 例 |
 |---|---|---|
-| 意味論の核 | malの他の操作では表せない | `swap`、`meta`、`swapMeta`、`grow`、Vectorの`from` |
+| 意味論の核 | malの他の操作では表せない | `swap`、`meta`、`swapMeta`、`grow`、Vectorのhost admission |
 | 計算量の核 | 意味は他の操作で書けるが、書くと計算量が変わる | `peek`、`freeze`、`thaw` |
 | 定数倍の周辺 | 意味は他の操作で書け、差は`Share`、`Drop`、tagの分岐、call数 | `getAt`、`takeAt`、`initAt` |
 | 派生 | 費用も含めて他の操作と同じ | `slot`、`setMeta`、`moveAt` |
@@ -51,7 +51,8 @@ IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。`m`は`Meta`
 | `meta(pool)` | 意味論の核 | `m`を返す | なし |
 | `swapMeta(pool, m')` | 意味論の核 | `m := m'`とし、古い`m`を返す | なし |
 
-IxPoolの形成は`Storable(Meta)`と`Storable(V)`を要求する。IxPool handleを別bindingへ渡しても同じidentityを指し、Meta、`n`、slotへの変更を
+IxPoolの形成は[拡張後の`Storable`](../model/identity.md#storableの原理)について`Storable(Meta)`と`Storable(V)`を要求する。
+IxPool handleを別bindingへ渡しても同じidentityを指し、Meta、`n`、slotへの変更を
 すべてのhandleが観測する。`n`はPool自身の構造であり、containerが選ぶ値を置くMetaとは別に持つ。MetaとslotはどちらもIxPool
 identityの中のplaceであり、Metaは常に`Meta`の値を、slotは常に`Slot<V>`の値を持つ。
 slotだけがVacantを取り得るのは、`grow`が値を渡さずにplaceを作るためである（[Poolの意味論](../model/semantics.md#pool-state)）。
@@ -103,10 +104,13 @@ preconditionを持たない。
 
 ## ImPool
 
-`ImPool<Meta, V>`はPool stateのsnapshot valueであり、更新するたびにsuccessor snapshotを返す。状態はIxPoolと同じ
+`ImPool<Meta, V>`はPool stateのstructural snapshot valueであり、更新するたびにsuccessor snapshotを返す。状態はIxPoolと同じ
 `(m, n, slots)`で、核と周辺はIxPoolと同じstate transition、名前、preconditionを持つ。IxPoolもsource valueだがshared identityへの
 handleである。IxPoolの更新はreferentのstateを変更するためsource resultとしてsuccessorを必要とせず、ImPoolはinput snapshotを
 変えないためsuccessorをresultにする。
+
+ImPoolも`Storable(Meta)`と`Storable(V)`を要求し、MetaとslotへIxPoolやBufferのhandleを保存できる。successorは旧snapshotの
+carrierを置換しないが、保存したhandleのreferentをcloneまたはfreezeしない。外側のPool構造と内側のidentityは別のstateである。
 
 次の表は、IxPoolとImPoolのsignatureを対で並べる。`IxPool`、`ImPool`はそれぞれ`IxPool<Meta, V>`、`ImPool<Meta, V>`を略す。
 
@@ -146,11 +150,12 @@ IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの
 `Store`はsource valueを消費済みにするannotationではなく、resultがinputのcarrierを保持し得ることをcompilerへ伝えるeffectである。
 sourceでは同じvalueをcall後にも使える。その場合は`Share`、last useなら`Consume`へlowerする。
 
-更新前のsnapshotへの今後の観測と区別できなければstorageを再利用でき、区別できるreferenceがあればcopyする。inputを`Consume`できることは
-必要なpermissionであり、runtime representationに区別可能なreferenceがないことと合わせれば再利用の十分条件になる。この判断をsource
+更新前のsnapshotへの今後の構造観測と区別できなければstorageを再利用でき、区別できるreferenceがあればcopyする。inputを
+`Consume`できることは必要なpermissionであり、runtime representationに区別可能なreferenceがないことと合わせれば再利用の十分条件になる。この判断をsource
 operationで表せないため、核の更新`grow`、`swap`、`swapMeta`は意味論の核である。
 
-更新前のsnapshotをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
+更新前のsnapshotのMeta、capacity、slot carrierをsourceから変更する手段がないため、physical storageを共有してもsuccessorによる
+外側の構造変更を旧snapshotから観測しない。slot carrierがhandleなら、そのreferentの変更は通常どおり観測する。
 
 更新を内部identityへの`Unit` mutationと別のsuccessor取得に分けると、旧snapshotを変えないための独立性がcontainer実装の
 未検査invariantになる。更新自体がsuccessorを返す形なら、runtimeがその独立性を確保でき、`Storable`の健全性をcontainer実装へ
@@ -158,7 +163,7 @@ operationで表せないため、核の更新`grow`、`swap`、`swapMeta`は意�
 
 ### 更新の費用
 
-ImPoolの更新がstorageを再利用するかは、更新前のsnapshotを区別して観測できるaliasが残るかで決まる。意味は変わらないが費用は
+ImPoolの更新がstorageを再利用するかは、更新前のsnapshotを区別して構造観測できるreferenceが残るかで決まる。意味は変わらないが費用は
 O(1)とO(n)に分かれるため、どこでcopyが起きるかを費用の約束として定める。copyの原因は次の三つである。
 
 | 原因 | sourceからの見え方 | 扱い |
@@ -181,15 +186,20 @@ freeze<Meta, V> :: IxPool<Meta, V> -> ImPool<Meta, V>;
 thaw<Meta, V> :: ImPool<Meta, V> -> IxPool<Meta, V>;
 ```
 
-- `freeze(pool)`は、呼び出し時点のMeta、`n`、slotを持つImPool snapshotを返す。元のIxPool handleは同じidentityを指したまま
-  使い続けられ、以後の変更は返したsnapshotから観測されない。
-- `thaw(value)`は、同じMeta、`n`、slotを持つ新しいidentityへのIxPool handleを返す。返したIxPoolへの変更は、元のsnapshotからも、
-  同じsnapshotからthawした別のIxPoolからも観測されない。
+- `freeze(pool)`は、呼び出し時点のMeta、`n`、slot carrierを持つImPool snapshotを返す。元のIxPool handleは同じidentityを指したまま
+  使い続けられ、以後の外側のPool構造の変更は返したsnapshotから観測されない。
+- `thaw(value)`は、同じMeta、`n`、slot carrierを持つ新しいidentityへのIxPool handleを返す。返したIxPoolのMeta、capacity、slotへの
+  変更は、元のsnapshotからも、同じsnapshotからthawした別のIxPoolからも観測されない。
+
+どちらも保存したhandle carrierのreferentを複製しない。例えばslotにIxPool handleがあれば、変換前後の外側Poolは同じ内側identityへ
+到達し、その変更を共有観測する。
 
 IxPool handleで効率よく組み立ててからsnapshotとして公開すること、snapshotから編集用identityへのhandleを作ることに使う。どちらも
-常に上の独立性を満たすsnapshot operationであり、storage transferはその意味を満たすfast pathにすぎない。意味は核の`peek`と`swap`のloopで定まり、
+常に上の構造的な独立性を満たすsnapshot operationであり、storage transferはその意味を満たすfast pathにすぎない。意味は核の
+`peek`と`swap`のshallowなloopで定まり、
 区分は計算量の核である。primitiveにするのはO(n)のcopyを避けられる場合があるためであり、`thaw`はinputを`Consume`でき、
-区別可能なaliasがなければstorageを移し、それ以外はcopyする。`freeze`の実装には次の三つがある。
+区別可能なreferenceがなければstorageを移し、それ以外はcarrierをcopyする。managed carrierのcopyはShareであり、referentの
+deep copyではない。`freeze`の実装には次の三つがある。
 
 | 方式 | `freeze`の費用 | IxPoolへの書き込みの費用 |
 |---|---|---|

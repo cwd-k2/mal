@@ -110,6 +110,9 @@ snapshot carrier `p`はstorage `S`へのresponsibilityを持つ。更新は
   p'● ─▶ S'  [ a● | x● | c● ]           aとcをShareしてS'へ写し、xをMove、pの●をDrop
 ```
 
+`a`や`c`がhandle carrierなら、Shareは同じreferentへのresponsibilityを一つ増やす。referent自体はcopyしないため、`S`と`S'`から
+得たhandleは内側identityの変更を共有観測する。writable successorが分離するのは外側のMeta、occupancy、slot carrierである。
+
 入れ子のImPoolは、外側から内側を`swap`で取り出せば外側のplaceが持っていたresponsibilityをMoveできる。これは外側のplaceが作る
 referenceを残さないが、同じ内側のsnapshotへの別referenceがないことまでは保証しない。runtimeが区別可能なreferenceなしと
 確認できればstorageをその場で書き換え、referenceがあれば通常どおりwritable successorをcopyする。

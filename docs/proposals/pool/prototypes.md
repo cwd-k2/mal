@@ -15,7 +15,8 @@ Status: Exploratory support document
   `freeze`と`thaw`、Vectorとhostとの交換もここに置き、preconditionへの違反は戻らない。
 
 二つの試作は、周辺のoperationとstack、binary heap、Map、Deque、SlotMap、木を一つのsourceで共有して動く。containerはIxPoolの
-核と周辺にしか依存せず、二つの試作は一つの意味の二つの実装である。[検証の段階](runtime/implementation.md#検証の段階)のstep 5と7の一部に当たる。
+核と周辺にしか依存せず、二つの試作は一つの意味の二つの実装である。[検証の段階](runtime/implementation.md#検証の段階)の
+step 6から8の一部に当たる。
 
 ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
 知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。
@@ -39,8 +40,9 @@ loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、�
 
 Buffer上のemulationで、[Vector](containers/sequences.md#vector)の`Vector<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
 後のIxPoolへの書き込みも、`thaw`したIxPoolへの書き込みも、値と他のIxPoolから観測されないことを確かめた。`Symbol`を要素に
-しても、valgrindで全allocationの解放とerror 0を確かめた。emulationのImPoolはBufferを含むため`Storable`にならず、
-`Vector<Vector<T>>`は確かめていない。要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、外側のplaceにaliasを残さず
+しても、valgrindで全allocationの解放とerror 0を確かめた。現行仕様ではemulationのImPoolはBufferを含むため`Storable`にならず、
+`Vector<Vector<T>>`は確かめていない。proposalの[拡張後の`Storable`](model/identity.md#storableの原理)ではこの制限を外す。
+要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、外側のplaceにreferenceを残さず
 responsibilityを移す更新経路として動いた。内側への別aliasまで排除するものではない。
 
 ## constructorについてgenericなcontainer
@@ -48,8 +50,9 @@ responsibilityを移す更新経路として動いた。内側への別aliasま�
 Buffer上のemulationで、binary heapを核と周辺の返すpoolを引き回す形でconstructor `F`について一度だけ書き、IxPoolとImPoolの
 両方で動かした。IxPool上では返り値を捨ててaliasから同じheapを観測でき、ImPool上では途中の値が後のpushとpopで変わらなかった。
 擬似乱数の300個をpushしてpopした結果は両方で減少せず、valgrindで全allocationの解放とerror 0を確かめた。handle版とsnapshot版の
-containerに別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。emulationのImPoolは`Storable`にならないため、snapshot版の
-heapを実際に入れ子にすることは確かめていない。
+containerに別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。現行仕様ではemulationのImPoolが`Storable`にならないため、
+snapshot版のheapを実際に入れ子にすることは確かめていない。proposal採択時にはhandle elementのstructural snapshotと合わせて
+再検証する。
 
 ## slot遷移とcontainer
 
@@ -74,11 +77,11 @@ C host試作ではbyte IxPoolのstorageを`Symbol`相当のtextと共有した�
 
 ## Vectorとhostとの交換
 
-Buffer上のemulationで、hostとの交換をVectorの`from`と`into`として書き、host storageと`Symbol`についてpredefinedな
-Bufferと比べた。Bufferの`from`はVectorの`from`の`thaw`、`into`は`freeze`したBufの範囲を切り出したVectorの`into`、`*`は`freeze`した
-Bufの`symbol`として書いた。結果は一致し、Vectorと`Symbol`は作った後のBufへの書き込みを観測しなかった。
+Buffer上のemulationで、hostとの交換をVectorのadmissionとobservationとして書き、host storageと`Symbol`についてpredefinedな
+Bufferと比べた。Bufferの`from`はVector admission後の`thaw`、`into`は`freeze`したBufの範囲を切り出したVector observation、`*`は
+`freeze`したBufの`symbol`として書いた。結果は一致し、Vectorと`Symbol`は作った後のBufへの書き込みを観測しなかった。
 
-generic codeはmemory intrinsicへ届かないため、Vectorの`from`と`into`の中のcopyは要素型ごとのimplementationを持つoperation familyに
+generic codeはmemory intrinsicへ届かないため、Vectorのadmissionとobservationの中のcopyは要素型ごとのimplementationを持つoperation familyに
 なった。runtimeのprimitiveとして要素型ごとに実装するという位置づけと一致する。malはAddressをoffsetできないため、emulationの`into`は
 offsetより前の範囲を読み戻して書き直しており、本物のprimitiveには要らない追加のpreconditionを持つ。
 

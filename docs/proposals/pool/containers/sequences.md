@@ -122,9 +122,9 @@ heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
 ## Vector
 
 ImPoolの上で、更新のたびに新しい値を返す平らな列である。Metaは長さで、`[0, length)`だけがLiveである。Bufferが組み立てる
-ための可変な列であるのに対し、Vectorは確定した値の列であり、Bufferから`freeze`で作れる。byte列ではこの対が`Buffer<UInt8>`と
-`Symbol`に当たる。Clojure、ScalaのVectorのように木で構造を共有せず、共有中の更新はcopyする。hostとの交換と`Symbol`の構築は、組み込み
-libraryとしてのVectorが[primitive](../api/buffer-vector.md#vector)として持つ。
+ための可変な列であるのに対し、Vectorは確定したcarrier列であり、Bufferから`freeze`で作れる。byte列ではこの対が
+`Buffer<UInt8>`と`Symbol`のsnapshot変換に現れる。Clojure、ScalaのVectorのように木で構造を共有せず、共有中の更新はcopyする。
+hostとの交換と`Symbol`の構築は、組み込みlibraryとしてのVectorが[trusted operation](../api/buffer-vector.md#vector)として持つ。
 
 ```mal
 opaque Vector<T> :: ImPool<USize, T>;
@@ -172,7 +172,9 @@ callerが旧Vectorを後でも使う場合、call siteは渡すresponsibilityを
 inputを`Consume`でき、runtimeが他のaliasなしと確認できれば同じstorageを再利用する。`vectorAppend`のような連続更新は、successorを
 途中で保存、capture、再利用しなければ最初のcopy後をその場で更新できる。`takeAt`は外側のplaceによるaliasを残さないが、内側の値に
 別のaliasがないことまでは保証しない。どこでcopyが起きるかは[更新の費用](../api/pool.md#更新の費用)が定める。
-`Vector<T>`は`T`が`Storable`なら`Storable`になるため、`Vector<Vector<T>>`やMapのvalueにできる。
+`Vector<T>`は`T`が`Storable`なら`Storable`になるため、`Vector<Vector<T>>`、`Vector<Buffer<T>>`、Mapのvalueにできる。
+要素がhandleならVectorの更新が保存するのはhandle carrierであり、referentの変更はhandle間で共有される。`vectorUpdate`でhandleを
+別のhandleへ置換した場合だけ、旧Vectorとsuccessor Vectorの要素carrierが分かれる。
 
 chunk単位のCOWやpersistent vectorは共有時のcopy量を減らせる一方、複数storageの所有と使われなくなったnodeの回収を別途定める
 必要がある。外部の事例は[Pool storageの関連事例](../../../research/pool-storage-prior-art.md)にまとめる。

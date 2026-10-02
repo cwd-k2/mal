@@ -26,7 +26,8 @@ planだけが各edgeを`Borrow`、`Share`、`Consume`、`Drop`として扱う。
 
 runtimeが型ごとに必要とするglueは、上の表で「primitive内」に数えたものだけである。`share<V>`はread、一括処理の`fill`と`copy`、
 共有時のwritable successorとIxPoolの複製が、`drop<V>`はwriteの旧値とIxPoolの終了が使う。relocationとswapはcarrierを移動する
-だけでglueを呼ばない。glueは失敗せず、I/O、host resourceの`close`、別IxPoolの更新など観測可能な作用を持たず、IxPool
+だけでglueを呼ばない。BufferやPool handleを含む型も同じ再帰的なglueを使う。glueは失敗せず、I/O、host resourceの`close`、
+別IxPoolの更新など観測可能な作用を持たず、IxPool
 終了時のdrop順はsourceから観測できない。
 
 LLVM backendにはmanaged valueの型再帰的なretain/release、managed placeのinitialize/replace/vacate、Buffer elementごとの
@@ -65,7 +66,8 @@ Pool object
 ```
 
 このfield一覧はprivate ABIの要求を示す模式であり、固定layoutではない。Header、occupancy、payloadを別allocationに分けても、
-zero-sized payloadをallocationなしで表してもよい。sourceから観測できるのは一つのsemantic identityとoperation lawだけである。
+zero-sized payloadをallocationなしで表してもよい。sourceから観測できるのはIxPoolではsemantic identity、ImPoolではstructural stateと、
+両者に共通するoperation lawだけである。
 
 growthは次のtransactionとして実装する。
 
@@ -81,7 +83,7 @@ implementation correctnessであり、source transaction semanticsを追加す�
 
 ### LLVM lowering
 
-LLVM loweringはPool handleをmanaged Pool objectへのpointerとして運び、slot accessごとにcurrent payload pointerを取得する。
+LLVM loweringはPool carrierをmanaged Pool objectへのpointerとして運び、slot accessごとにcurrent payload pointerを取得する。
 同じbasic region内でpointerやcapacityをcacheしてよいが、次をclobber boundaryとする。
 
 - `grow`と、physical relocationを行い得るPool operation。
@@ -157,22 +159,27 @@ BufferとVectorはas-ifで実装するため（[BufferとVector](../api/buffer-v
 
 Buffer上の形は代わりに、slotごとのsum tag、構築時の`fill`、移動ごとの`Share`と`Drop`を払う。二つの試作はこの差を測れない。
 C host試作はoperationごとにextern callを挟み、Buffer上のemulationは意味の参照でありcopyを含むためである。測定には
-[検証の段階](#検証の段階)のstep 2の実装が要り、Map、Deque、heapを[`generic-map`](../../../../examples/generic-map/map.mal)のような
+[検証の段階](#検証の段階)のstep 3の実装が要り、Map、Deque、heapを[`generic-map`](../../../../examples/generic-map/map.mal)のような
 Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表現を見直す。
 
 ## 検証の段階
 
 1. opaque identity、file-local representation view、別fileからの構築と分解の拒否をfrontend testで固定する。
-2. backend内部にIxPoolの核と周辺operationを置き、unmanaged Metaとelementで実行する。
+2. `Lifecycle(T) = Trivial | Owned(share, drop)`を通常値、現行Bufferのelement callback、closure environment destructorで共有し、
+   `Buffer<Buffer<T>>`、managed aggregate、external opaque carrierを現行Buffer上で検証する。これは拡張`Storable`を採択仕様へ移す
+   独立decisionを必要とするが、Pool primitiveの実装には依存しない。
+3. backend内部にIxPoolの核と周辺operationを置き、unmanaged Metaとelementで実行する。
    zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
-3. `Symbol`とmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの
+4. `Symbol`、nested Buffer、nested Pool handleとmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの
    書き戻し、同じBufferで範囲が重なる`copy`でDrop済みのreferentを読まず、IxPool終了時のlive allocationは0になる。
-4. `Store`へ渡るparameterを持つmal wrapperがowned native entryになり、last-use argumentを`Consume`する。
-5. IxPool上のBufferを現在のBufferとalias、range、overlap、trap semanticsで比べ、範囲と占有tagを検査するtest用runtimeで公開
+5. `Store`へ渡るparameterを持つmal wrapperがowned native entryになり、last-use argumentを`Consume`する。
+6. IxPool上のBufferを現在のBufferとalias、range、overlap、trap semanticsで比べ、範囲と占有tagを検査するtest用runtimeで公開
    preconditionを満たすprogramがIxPool preconditionへ違反しないことを確かめる。canonical host copyはpaddingや非選択sum payloadへ
    依存せずround-tripする。これはas-ifで実装するBufferが参照実装と一致することの検査を兼ねる。
-6. ImPool上のVectorで、shared時のcopyとlast-use時のstorage再利用を別々に測る。
-7. 木やgeneration付きkeyのcontainerをcoordinateで実装し、coordinateの再利用と古いkeyの拒否を検査する。
-8. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換とtrusted crate境界を別々に判断する。
+7. ImPool上のVectorで、shared時のcopyとlast-use時のstorage再利用を別々に測る。handle elementを持つsnapshotでは外側の置換が
+   独立し、内側referentの変更が共有観測されることも検査する。
+8. 木やgeneration付きkeyのcontainerをcoordinateで実装し、coordinateの再利用と古いkeyの拒否を検査する。
+9. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換、Vectorのpublic採択、既存host operationの互換性、
+   trusted crate境界を別々に判断する。
 
-compilerを変えない二つの試作が、step 5から7の一部を先取りした。結果は[試作で確かめたこと](../prototypes.md)に置く。
+compilerを変えない二つの試作が、step 6から8の一部を先取りした。結果は[試作で確かめたこと](../prototypes.md)に置く。

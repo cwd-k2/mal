@@ -56,8 +56,12 @@ requirementであり、IxPoolはhash、equality、load factor、probe順序を�
 Mapの公開operationは利用者にpreconditionを課さないため、IxPoolのpreconditionはすべて実装が満たす。capacity 0では`_locate`が
 剰余を計算せずmissingを返し、以後のprobe coordinateは剰余で範囲内になる。`_find`と`_closeGap`は核の`peek`と`swap`の
 結果を除去してVacantを判定し、Live/Vacantのpreconditionを持つ周辺operationは、`mapRemove`の`takeAt`を`_locate`が見つけた
-coordinateにだけ、`initAt`を直前に`swap`でVacantにしたcoordinateにだけ呼ぶ。`hash`と`equal`は変更中のMapへ
-到達できないため、判定から呼び出しまでの間に状態は変わらない。
+coordinateにだけ、`initAt`を直前に`swap`でVacantにしたcoordinateにだけ呼ぶ。
+
+handle nestingだけでは、表現に寄与する再帰型とfunction storageがないため、keyからそれを保持する同じMapへのowner back-edgeは
+作れない。ただしmutable referentの内容をhashまたはequalityへ使うkeyは、格納後の変更でprobe invariantを壊す。
+`Storable(K)`はこれを防がないため、Map keyのrequirementはhashとequalityの時間的安定性を別に定める。caller-supplied closureを
+将来受け取るoperationは、同じMapをcaptureした再入を別途考慮する。
 
 insertはload factorが3/4を超える前にrehashする。別のIxPoolへ移し替えると既存のaliasが追随しないため、entryを`takeAt`で一時的な
 IxPoolへ移し、元のIxPoolを`grow`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も

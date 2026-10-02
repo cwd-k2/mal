@@ -3,153 +3,198 @@
 Status: Exploratory support document
 
 この文書は、共通の[Pool state](semantics.md#pool-state)に対するsource carrierの観測則と、Poolに関係する
-`Storable`、`Stable`、`Representable`、`HostMappable`の境界を管理する。Pool全体のauthorityは
+`Storable`、`Representable`、`HostMappable`の境界を管理する。Pool全体のauthorityは
 [根本モデル](foundations.md#authority)、responsibilityの遷移は
-[runtime contract](../runtime/contract.md#responsibility)、ImPoolのAPIは[Pool primitive](../api/pool.md#impool)、copy-on-writeの動作例は
-[Vector](../containers/sequences.md#vector)を正とする。現行の`Storable` judgmentは
-[AddressとBuffer](../../../spec/memory.md#storable)に定める。
+[runtime contract](../runtime/contract.md#responsibility)、ImPoolのAPIは[Pool primitive](../api/pool.md#impool)を正とする。
+現行仕様の`Storable`は[AddressとBuffer](../../../spec/memory.md#storable)に定める。本書の拡張案を採択する場合は、
+[D075](../../../history/decisions/active/D075.md)を後続decisionで置き換え、現行仕様を同じ変更で更新する。
 
-## 四つの判定が答える問い
+## 判定が答える問い
 
-ここで分類するのはsource authorityと境界の可否であり、compilerが移すresponsibilityやruntime allocationの物理的な一意性ではない。
-四つの判定は同じ強さを段階的に表すtype classではなく、異なる境界の問いに答える。
+型をplaceへ保存できること、保存後に変更を観測できないこと、hostと表現を交換できることは別の問いである。
 
-| 判定 | 問い | authorityまたはmechanism |
+| 判定または分類 | 問い | 所有する層 |
 |---|---|---|
-| `Storable(T)` | Mal-managedなtyped placeが`T`を保持し、lifecycleを完結できるか | Engram storage mechanism |
-| `Stable(T)`（案） | `T`からMal-ownedなshared mutable identityを観測できないか | source value authority |
-| `Representable(T)` | `T`にcanonical memory representationがあり、host storageと値をcopyできるか | admissionとobservation |
-| `HostMappable(T)` | `T`をpublic extern signatureに出すC carrierとbridge contractがあるか | extern boundary |
+| `Storable(T)` | typed Engram placeが`T`のcarrierを保持し、lifecycleを完結できるか | languageとstorage mechanism |
+| stability | `T`からMal-owned shared mutable identityの変更を観測できるか | source authority |
+| `Representable(T)` | canonical memory representationとの値copyが定義されるか | admissionとobservation |
+| `HostMappable(T)` | public extern signatureに使うC carrierとbridge contractがあるか | extern boundary |
+| lifecycle plan | carrierのShareとDropにglueが必要か | compilerとbackend |
 
-`HostMappable`は残る三つと直交する。external opaque typeは`HostMappable`だが、Malがlifecycleを支配しないので`Storable`ではなく、
-canonical memory copyの対象でもない。反対に`Symbol`はMal-managedな値だが`Representable`でも`HostMappable`でもない。
-`Representable`はruntime representationが存在するという意味ではなく、固定されたcanonical memory representationとの変換が
-存在するという狭い判定である。
+stabilityはこのproposalで新しいcompiler judgmentにしない。structural snapshot、Map key、serializationなど、何を安定させるかで
+必要な条件が異なるためである。将来、複数のAPIが同じ推移的条件を要求した時点で`Stable(T)`というjudgmentへまとめられる。
 
-`Address`は四判定を混同しやすい。copyableなcapability carrierとしてstorage、canonical memory、extern boundaryへ置けるが、
-referentのlifetimeと変更のauthorityはExternに残る。`Stable(Address)`が意味するのはAddressからMal-owned mutable identityを
-観測しないことであり、外部storageの内容が不変であることではない。
+`Representable`と`HostMappable`は`Storable`へ統合しない。external opaque typeはpublic C carrierを持つがcanonical memory copyの
+対象ではない。`Symbol`はEngram placeへ保存できるが、どちらのhost境界にも直接は出ない。`Address`は三つを満たせるが、referentの
+extent、permission、変更、lifetimeはExtern authorityに残る。
 
-## source carrierとidentity
+## handleもvalueである
 
-IxPool、ImPool、Address、scalarはすべてsource valueである。分類するのはvalueかどうかではなく、同じcarrierを別bindingへ渡した後にどの変更を
-観測できるかである。
+IxPool、ImPool、Address、scalarはすべてsource valueである。分類するのはvalueかどうかではなく、そのcarrierから何へ到達し、
+どの変更を観測できるかである。
 
-| source carrier | 到達先 | 別bindingへ渡した後の観測 |
+| source carrier | 到達先 | carrierを別bindingへ渡した後の観測 |
 |---|---|---|
-| IxPool handle value | Mal-owned shared identity | どのhandleからの更新も他のhandleから観測する |
-| ImPool snapshot value | Pool state snapshot | 更新はsuccessorを返し、以前のsnapshotは変わらない |
-| `Address` capability value | Extern-owned referent | referentの観測はextern contractに従い、carrierはlifetimeを延長しない |
+| IxPool handle | Mal-owned shared identity | どのhandleからの更新も他のhandleから観測する |
+| ImPool snapshot | 保存したPool state | 更新はsuccessorを返し、以前のMeta、capacity、slot carrierは変わらない |
+| `Address` capability | Extern-owned referent | referentの観測はextern contractに従い、carrierはlifetimeを延長しない |
 | plain data | carrier自身 | operationが返す新しいvalueだけが異なる |
 
-IxPool handleはreferentのlifetimeを支える。ImPool snapshotもmanaged carrierを持ち得るが、shared mutable identityをsourceへ公開しない。
-runtime allocation identityの有無はこの分類に関係しない。
+IxPool handleをplaceへ保存することは、handle carrierへのresponsibilityと、identityへ到達するauthorityを保存することである。
+同じhandleを複数のplaceへ保存すれば、それぞれのcarrier responsibilityが同じidentityを生かし、変更を共有観測する。exclusive
+authorityを移すのではない。
 
-現在の`Storable`はMal-managed placeへ保持できることに加え、Mal-ownedなshared mutable identityへ到達しないことも要求する。
-これは[D075](../../../history/decisions/active/D075.md)がBufferの要素を値に限った選択である。安全性だけから必要な制約ではなく、
-Buffer elementを後から変化しない値に限るsource semanticsでもある。
+```text
+place A ─┐
+place B ─┼─ handle ─▶ identity i
+local  ──┘
+```
 
-owner cycleは現行の除外理由ではない。malは表現に寄与する再帰型を持たず、functionも`Storable`でないため、storageの要素から出る
-owner edgeは型構造に沿って真に小さくなる。将来plugin leafを加える場合は、この前提をplugin contractで別途保つ必要がある。
+このaliasはIxPoolの意味そのものであり、storageから除外すべき異常状態ではない。
 
-## Poolの最小案
+## `Storable`の原理
 
-Poolだけを導入する段階では`Stable`を新しいcompiler judgmentにしない。IxPoolとImPoolのMetaとelementは、どちらも現行のclosed
-`Storable`を要求する。
+`Storable(T)`はvalue semanticsの分類ではなく、typed placeのlifecycle contractである。placeは次を型だけから実装できなければ
+ならない。
+
+- `T`の有効なcarrierを保持し、readでは必要なresponsibilityをShareする。
+- exchangeではresponsibilityをcarrierとともに移す。
+- replaceとplace終了では保持したresponsibilityをDropする。
+- physical relocationでsource上のauthorityと観測を変えない。
+- 現在の回収方式で、型から見えないowner back-edgeをstorageへ導入しない。
+
+Pool proposalでは、現行`Storable`を次へ広げる。
+
+```text
+Storable(Unit | numeric scalar | Address | ByteSize | USize | Symbol)
+Storable(external opaque type)
+Storable((A...))                 if all Storable(A)
+Storable([A...])                 if the sum has at least two variants and all Storable(A)
+Storable(Buffer<A>)              if Storable(A)
+Storable(IxPool<M, V>)           if Storable(M) and Storable(V)
+Storable(ImPool<M, V>)           if Storable(M) and Storable(V)
+not Storable(function)
+not Storable(empty sum)
+```
+
+transparent aliasは展開後、file-local opaque型はhidden representationから判定する。external opaque carrierを保存してもhost
+resourceのlifetimeは延長しない。これは`Address`を保存する場合と同じであり、保存されたcarrierの有効性は元のextern contractに従う。
+
+`Buffer<Buffer<T>>`、IxPool handleを要素にするIxPool、mutable containerをpayloadに持つMapは、この規則でwell-formedになる。
+readが返すhandleは同じidentityを指し、`fill`と`copy`もhandle carrierのshallow copyになる。この観測はIxPoolと現行Bufferの
+handle semanticsから直接決まり、特別なnested-container semanticsを追加しない。
+
+functionを除く理由はmutable identityではなく、closure environmentの型にcaptureが現れないことである。containerにclosureを保存し、
+そのclosureが同じcontainerをcaptureすると、型構造から検出できないowner cycleを作れる。BufferやPoolのhandle nestingは、表現に寄与する
+再帰型がなくfile-local opaque representationの再帰も拒否されるため、owner edgeの型構造が真に小さくなる。したがってD075が一緒に
+扱っていたhandle aliasとclosure cycleは分離できる。
+
+将来、cycleを回収するmechanismまたはcapture effectを導入すればfunctionの`Storable`を再検討できる。これはhandle nestingの採択条件
+ではない。plugin-defined Engram leafは自動的にStorableにしない。trusted extensionがlayout、Share、Drop、relocationと、保持するMal owner edgeを
+宣言し、同じreclaimability invariantを満たす場合だけconformanceを与える。external opaque typeはMal owner edgeを持たないcopyable
+carrierなので、このplugin条件とは別である。
+
+## `Managed`へ改名しない理由
+
+`Storable`を`Managed`へ単に改名しない。現在のimplementationでmanaged valueとは、ownerを持ちShareとDropのglueを必要とする
+carrierを指す。scalarと`Address`はStorableだがmanagedでなく、functionとBufferはmanagedだが現行仕様ではStorableでないため、
+二つは同じ集合ではない。
+
+実装は型ごとに次のlifecycle planを持てばよい。
+
+```text
+Lifecycle(T) = Trivial
+             | Owned(share glue, drop glue)
+```
+
+`Storable`はplaceへ入れられるかを答え、lifecycle planはそのplace operationをどうlowerするかを答える。`Managed`は後者の説明語に
+留める。もし実装上の曖昧さが残るなら、`managed type`を`owned carrier`または`needs-drop type`へ改称する方が境界に合う。
+
+## structural snapshot
+
+ImPoolが保存するのはMeta、capacity、各slotのcarrierである。successorを作っても、旧snapshotから得るcarrierは置換されない。
+carrierがhandleなら、そのhandleが指すreferentの変更までは固定しない。
+
+```text
+s0.slot[0] = handle i
+s1 = slot(s0, 0, handle j)
+
+peek(s0, 0) = handle i
+peek(s1, 0) = handle j
+```
+
+この後identity `i`が別のhandleから変更されても、`s0`のslot 0は依然として`handle i`である。変わったのは保存したcarrierではなく、
+carrierから到達するreferentである。この区別をstructural snapshotと呼ぶ。
+
+Swift Arrayもclass referenceを要素にでき、Arrayのcopy後に一方の要素を別referenceへ置換しても他方のArrayは変わらないが、両方が
+同じclass instanceを指す間はinstanceの変更を共有観測する。Rustの内部的な`Freeze`判定もindirection先まで追わない。Poolの
+structural snapshotはこの境界と同じであり、deep copyまたは推移的不変性を暗黙に約束しない
+（[関連事例](../../../research/pool-storage-prior-art.md#value-containerにhandleを保存する言語)）。
+
+したがってIxPoolとImPoolの型形成条件は同じである。
 
 ```text
 IxPool<M, V> is well-formed if Storable(M) and Storable(V)
 ImPool<M, V> is well-formed if Storable(M) and Storable(V)
-
-Storable(ImPool<M, V>) if Storable(M) and Storable(V)
-not Storable(IxPool<M, V>)
 ```
 
-したがって`opaque Buffer<T> :: IxPool<USize, T>`は`Storable`にならず、`opaque Vector<T> :: ImPool<USize, T>`は`Storable(T)`のもとで
-`Storable`になる。IxPoolは`Representable`でも`HostMappable`でもなく、ImPoolもruntime representationをそのままhost境界へ出さない。
-opaque型の判定とlifecycleはhidden representationから再帰的に導き、wrapperが制約を迂回できない。
+`freeze`と`thaw`もcarrierを保存するshallowな変換であり、handle referentをcloneしない。transitive snapshot、serialization、
+content-addressed keyなど、到達先まで変化しないことが必要なAPIは別途stabilityを要求する。
 
-この案ではsnapshotの入れ子はできるが、shared identityへのhandleの入れ子はできない。Pool state、carrierの観測則、responsibility
-loweringの検証にはそれで足り、既存のgeneric requirement、specialization、diagnostic、plugin contractを増やさない。
+## stabilityを要求する場所
 
-## `Storable`と`Stable`の分割案
-
-identityをstorageへ入れる具体的な用途が現れた場合だけ、現在の`Storable`が兼ねる二つの条件を分ける。
+将来の`Stable(T)`を定めるなら、少なくとも何に対する安定性かを名前またはcontractに含める必要がある。候補となる最小の定義は
+次である。
 
 ```text
-Storable(T) = Mal-managed placeがTのShare、Drop、relocationを実装できる
-Stable(T)   = Storable(T) and TからMal-owned shared mutable identityを観測できない
+Stable(T) = Storable(T)
+            and TからMal-owned shared mutable identityを観測できない
 ```
 
-productとsumは要素から、file-local opaque型はhidden representationから導く。分割後の関係は次になる。
+この定義では`Address`とexternal opaque typeはMal-owned identityについてStableでも、Extern referentが不変とは限らない。
+serializationやMap keyには、extern capabilityを含まないこと、equalityとhashが時間で変わらないことなど、さらに別の条件が要る。
+したがって`Stable`だけでそれらのAPIを一般化しない。
 
-```text
-Representable(T) implies Stable(T)
-Stable(T) implies Storable(T)
-HostMappable(T) is independent
-```
+| 型 | Storable案 | Mal-owned identityに対するstability | Representable | HostMappable | lifecycle plan |
+|---|---:|---:|---:|---:|---|
+| `Unit`、numeric scalar、`ByteSize`、`USize` | ○ | ○ | ○ | ○ | Trivial |
+| `Address` | ○ | ○ | ○ | ○ | Trivial |
+| `Symbol` | ○ | ○ | × | × | Owned |
+| external opaque | ○ | ○ | × | ○ | Trivial |
+| `Buffer<A>` | `A`がStorableなら○ | × | × | × | Owned |
+| `IxPool<M, V>` | `M`と`V`がStorableなら○ | × | × | × | Owned |
+| `ImPool<M, V>` | `M`と`V`がStorableなら○ | `M`と`V`がstableなら○ | × | × | Owned |
+| function | × | capture次第 | × | × | Owned |
 
-| 型 | Storable（現行） | Storable（分割後） | Stable | Representable | HostMappable |
-|---|---|---|---|---|---|
-| `Unit`、numeric scalar、`ByteSize`、`USize`、`Address` | ○ | ○ | ○ | ○ | ○ |
-| `Symbol` | ○ | ○ | ○ | × | × |
-| `ImPool<M, V>` | ― | ○ | `M`と`V`がStableなら○ | × | × |
-| `Buffer<A>` | × | `A`がStorableなら○ | × | × | × |
-| `IxPool<M, V>` | ― | `M`と`V`がStorableなら○ | × | × | × |
-| external opaque | × | × | × | × | ○ |
-| function | × | × | × | × | × |
-
-分割後は、IxPoolが`Storable(Meta)`と`Storable(V)`を、ImPoolが`Stable(Meta)`と`Stable(V)`を要求する。`freeze`もMetaとelementの
-`Stable`を要求する。これによりIxPoolやBufferはmutable identityを保持できる一方、ImPoolのsnapshotからMal-owned mutationを
-観測する経路は作らない。Mapのkeyには別途equalityとhashのcontractが要り、`Stable`だけでkey invariant全体を表したことにはしない。
-
-`fill`で同じ内側のBufferを複数のplaceへ置けば、それらは意図どおりaliasになり、`copy`もshallowになる。これは`Storable`の
-lifecycle contractには反しない。snapshot semanticsが必要な型とoperationだけが`Stable`を要求する。
+`Representable(T)`は引き続き`Storable(T)`の一部であり、canonical memory copyだけを意味する。`HostMappable(T)`は独立である。
 
 ## minimality監査
 
-現行の三判定は統合できない。`Symbol`は`Storable`だが`Representable`でなく、external opaque typeは`HostMappable`だが
-`Storable`でも`Representable`でもない。file-local opaque representationはcanonical memory helperの対象になり得ても、opaque identityを
-public C ABIへ出さないため`HostMappable`でない。したがって`Representable`と`HostMappable`の両方を要求する境界も、片方から他方を
-導けない。三判定はそれぞれstorage lifecycle、canonical memory copy、public extern ABIという独立contractを一つずつ所有している。
+この整理で新しく必要なのは`Stable` judgmentではなく、現行`Storable`の意味をplace lifecycleへ純化する変更である。独立contractの数は
+次のように保つ。
 
-`Stable`を分けると、`Buffer<Buffer<T>>`、IxPoolを要素にするIxPool、mutable identityへのhandleをpayloadに持つMapを書ける。一方で、独立contractは
-確実に増える。
+- PoolとBufferの型形成は一つの`Storable`を共有する。
+- handle nestingに別の`Placeable`や`Managed`を追加しない。
+- ImPoolはstructural snapshotなので`Stable`を要求しない。
+- canonical memory copyとpublic extern ABIは既存の`Representable`と`HostMappable`を使う。
+- closure cycleはfunctionのstorage admissionとして個別に残し、mutable identity一般を除外しない。
+- deep snapshotやkey stabilityの要求が複数のAPIで一致するまで`Stable`をcompiler judgmentにしない。
 
-- type formationとgeneric requirementに`Stable`を追加する。
-- operation familyのspecializationが`Storable`と`Stable`を区別する。
-- opaque型、plugin leaf、diagnostic、conformance testが両判定を説明する。
-- `freeze`、ImPool、Map keyなど、どのoperationがどちらを要求するかを利用者が調べる。
-- 現行`Storable`の意味を広げるため、D075とBuffer element semanticsを見直す。
-
-この費用はhandle nestingという一つの能力のために発生する。snapshotの入れ子とcoordinateの入れ子で用途を表せる間は、現行`Storable`を
-再利用するPoolの最小案の方がsystem全体で小さい。分割を採択する条件は、少なくとも一つの代表的containerでhandle nestingが
-relationの不自然な平坦化や重複実装を実際に減らし、その利益が上の静的・説明上のcontract増加を上回ることである。
-
-現在の`Storable`を残して、広い判定を`Placeable`などの別名で足す案は採らない。保存できる型の一部が`Storable`でないという名前と
-規則の逆転を作り、BufferとIxPoolの型形成に二種類のstorage判定が残る。分割が必要になった時点で、`Storable`をmechanismへ狭く定義し、
-従来兼ねていたvalue条件だけを`Stable`へ出す方が独立contractは少ない。
-
-名称だけを先に追加したり、`Stable`をruntime uniquenessの証明として使ったり、`HostMappable`を包含階層へ入れたりしない。
+現行Bufferのelement restrictionは、Bufferだけの局所的な制限として残すより、Pool採択前の独立段階でD075を後続decisionにより
+置き換え、同じ`Storable`へ揃える。
+そうしなければIxPool上のBufferだけがhandleを保存でき、primitive Bufferが保存できないという二つのstorage modelが残る。
 
 ## 入れ子
 
-現在の判定では、snapshotは入れ子にでき、shared identityへのhandleは入れ子にできない。`Vector<Vector<T>>`やpayloadが
-`Vector<V>`のMapは書けるが、
-`Buffer<Buffer<T>>`、valueが`Buffer<V>`のMap、IxPool上のMapを要素にするcontainerは書けない。containerを利用者が書く
-基盤として、この穴の扱いを決める必要がある。入れ子を作る経路は三つある。
+拡張後はcarrierの種類にかかわらず同じplace lawを使う。
 
-| 経路 | 内側 | 内側の更新 | 必要なもの |
+| 外側 | 内側 | 保存されるもの | 内側の更新 |
 |---|---|---|---|
-| snapshotの入れ子 | ImPool上のcontainer | 外側から`takeAt`で取り出して更新し、戻す | 内側のsnapshot版container |
-| coordinateの入れ子 | 一つのIxPoolにまとめた要素 | coordinateを引いてその場で更新する | coordinateの回収をcontainerが行う |
-| handleの入れ子 | IxPool上のcontainer | handleを通してその場で更新する | [`Storable`と`Stable`の分割案](#storableとstableの分割案)と[D075](../../../history/decisions/active/D075.md)の見直し |
+| IxPool上のcontainer | IxPool handle | handle authorityとresponsibility | 全aliasから観測する |
+| ImPool上のcontainer | IxPool handle | snapshot内のhandle carrier | referentの変更は全handleから観測する |
+| IxPool上のcontainer | ImPool snapshot | snapshot carrier | successorを外側へ書き戻す |
+| ImPool上のcontainer | ImPool snapshot | snapshot carrier | successorを外側のsuccessorへ書き戻す |
+| 一つのIxPool | coordinate | scalar coordinate | 同じPool identity内を直接更新する |
 
-snapshotの入れ子は、判定を変えずに使える。費用はO(1)にもO(n)にもなり、外側のplaceにaliasを残さずresponsibilityを移す書き方が要る
-（[更新の費用](../api/pool.md#更新の費用)）。内側のsnapshot版containerは、containerを核と周辺の返すpoolを引き回す形で一度書けば、
-constructorを替えるだけで得られる。[試作](../prototypes.md#constructorについてgenericなcontainer)では、同じsourceのbinary heapが
-IxPool上ではhandleを通じて共有更新され、ImPool上ではsnapshotとsuccessorとして動いた。ただしこれは、IxPoolの更新も同じhandleを
-返すfamilyの形を採る場合に限られる（[Pool primitive](../api/pool.md#impool)）。
-
-coordinateの入れ子は、木やgraphのように外部や要素からidentityを参照する構造に合う。handleの入れ子は、内側を複数の場所から
-共有して変更する場合だけに要る。snapshotの入れ子とcoordinateの入れ子で足りない用途が見つかるまで、判定の分割は採らずにおける。
+snapshot内のhandleを取り出してreferentを変更しても外側snapshotのslotは変わらない。外側の構造まで更新する場合だけsuccessorを作る。
+この違いをAPI documentationとexampleで明示し、「immutable container」が「到達可能な全stateのdeep immutability」を意味すると読ませない。

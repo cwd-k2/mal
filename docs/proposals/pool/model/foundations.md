@@ -9,7 +9,7 @@ Poolの状態とoperationの形式的な核は[意味論](semantics.md)、respon
 ## 中心命題
 
 Poolはallocatorでもcontainerでもない。Engram authorityの下にある有限個のtyped placeを、shared identityへのhandle valueまたは
-immutableなsnapshot valueとして扱うmechanismである。
+structural snapshot valueとして扱うmechanismである。
 
 ```text
 Engram-owned finite places
@@ -112,7 +112,8 @@ source valueは通常のmal valueとして再利用できる。再利用を許�
 
 この分離により、Rustの`Box<T>`に似た「一つのresponsibilityがallocation上の`T`を保持する」状態はsource typeでなくlowering上の
 事実として現れる。Boxのようなexclusive ownerをPool authorityへ加える必要はない。runtimeはIxPoolにもImPoolにも一時的に単一ownerの
-representationを使えるが、IxPoolの変更は別handleから観測され、ImPoolの旧snapshotは変更されないというsource semanticsを変えない。
+representationを使えるが、IxPoolの変更は別handleから観測され、ImPoolの旧snapshotの構造は変更されないというsource semanticsを
+変えない。
 
 すべてのPool carrierはsource valueである。違いはvalueであるかどうかではなく、そのvalueがstateへ到達するauthorityにある。
 
@@ -130,16 +131,24 @@ IxPool: update(x)      の後、observe(y)は更新後のstateを返す
 ImPool: x2 := update(x)の後、observe(y)は更新前、observe(x2)は更新後のstateを返す
 ```
 
-IxPool handleの複製は同じidentityを共有する。ImPoolの更新はsuccessor snapshotを返し、更新前のsnapshotは変わらない。これは二つの
-storage algebraではなく、一つのPool state algebraに対する二つの観測則である。
+IxPool handleの複製は同じidentityを共有する。ImPoolの更新はsuccessor snapshotを返し、更新前のMeta、capacity、slot carrierは
+変わらない。これは二つのstorage algebraではなく、一つのPool state algebraに対する二つの観測則である。
 
 IxPool handleまたはImPool snapshotへのresponsibilityを誰が持つかは`Share`、`Consume`、`Drop`で定まり、place内の値へのresponsibilityは
 read、exchange、writeのloweringで移る。IxPoolがidentityを共有することは、各handleが独立したresponsibilityを持つことと矛盾しない。
-ImPoolがsnapshot valueであることも、物理storageを常にdeep copyすることを意味しない。
+ImPoolがsnapshot valueであることも、物理storageやslotに保存したhandleのreferentをdeep copyすることを意味しない。
+
+handleもsource valueなのでtyped placeへ保存できる。保存されるのはhandle carrierへのresponsibilityと、同じidentityへ到達する
+authorityである。IxPoolやBufferのhandleを複数のslotへ保存すれば、各slotは同じidentityの変更を共有観測する。このaliasは
+handle semanticsそのものであり、value storageの例外ではない。
+
+ImPoolのsnapshotはcarrierについてstructuralである。旧snapshotが`handle i`を持つslotはsuccessor作成後も`handle i`を返すが、
+identity `i`を別のhandleから変更すれば、そのreferentの変更は旧snapshotから得たhandleでも観測する。外側の構造が変わらないことと、
+到達可能な全stateが推移的に不変であることを同一視しない。
 
 ImPoolのstorage再利用は次のas-if ruleに従う。
 
-> 更新前のsnapshotに対する今後の観測と区別できない場合に限り、実装はstorageをsuccessorへ再利用できる。
+> 更新前のsnapshotに対する今後のPool operationによる構造観測と区別できない場合に限り、実装はstorageをsuccessorへ再利用できる。
 
 inputを`Consume`でき、runtimeが区別可能なaliasを持たないと確認できることは、この条件の十分条件である。reference countはその確認に
 使えるrepresentation上のwitnessの一つにすぎず、ImPoolの意味ではない。
@@ -151,7 +160,7 @@ Rustはmutation authorityとallocation responsibilityをsource ownershipとborro
 分担を組み合わせる。
 
 ```text
-Haskellに近い部分  source valueは再利用でき、ImPoolはsnapshot semanticsを持つ
+Haskellに近い部分  source valueは再利用でき、ImPoolはstructural snapshot semanticsを持つ
 Rustに近い部分     backendへ渡すresponsibilityはaffineに移動できる
 mal固有の境界       authorityは型とoperation、responsibilityはcompiler、物理一意性はruntime
 ```
@@ -166,7 +175,7 @@ IxPoolで組み立てて`freeze`する形は`ST`に似るが、identityのescape
 |---|---|---|---|---|
 | Rust `Box<T>` | exclusive owner | single | always Live | borrowable address |
 | IxPool | handleからshared identityを観測 | extensible indexed places | Vacant / Live | coordinate |
-| ImPool | immutable snapshot | extensible indexed state | Vacant / Live | coordinate |
+| ImPool | structural snapshot | extensible indexed state | Vacant / Live | coordinate |
 
 この表からBoxとPoolの共通部分は「typed valueをmanaged lifetimeで保持する」ことだけだと分かる。Boxのsingle place、exclusive source
 owner、stableなderefをPoolへ持ち込まず、Poolの最小核はindexed place、occupancy、handleとsnapshotの観測則に限る。
@@ -179,9 +188,11 @@ runtime、backend、host contract、暗黙のcost、利用者が調べるAPIの�
 - shared mutable identityを新設せず、現行Bufferが既に持つEngram authorityを一般化する。
 - vacancyを新しいuninitialized value categoryにせず、既存のsum `Slot<V> = [Unit, V]`で表す。
 - valueの移動をlinear source valueにせず、placeのexchangeと既存responsibility規則で表す。
+- `Storable`をplace lifecycleの一つの判定にし、handle用の`Managed`や`Placeable`を追加しない。
+- ImPoolへ推移的な`Stable` judgmentを要求せず、handleを含むslot carrierの構造だけをsnapshotとして保存する。
 - allocator、pointer、layout、reference countをsourceへ公開しない。
 - container固有のrelationとinvariantをPoolへ固定しない。
-- hostとの交換をimmutableな値のadmissionとobservationへ閉じ、mutable identityを境界へ出さない。
+- hostとの交換をcarrier valueのadmissionとobservationへ閉じ、mal-owned mutable identityを境界へ出さない。
 - Buffer、Map、Deque、heap、木のstorage lifecycleを一つのtyped mechanismから導く。
 
 Poolの核が小さいかは、operationを削れるかだけでなく、削った結果をどこへ移すかで判断する。例えばslot readはexchange二回でも
@@ -232,6 +243,8 @@ lowerできる。`llvm.lifetime.start`と`llvm.lifetime.end`をslot stateの意�
 - Rustの`Allocator`に当たるraw block policyはC runtimeへ閉じ、Poolをallocator parameter付きの型にしない。
 - Rustの`MaybeUninit<T>`に当たるsource categoryを加えず、Vacantを既存のsum `Unit + V`で表す。
 - Rustのinterior referenceに当たるslot pointerを発行せず、coordinateをPool identityに相対化してgrowth後も使う。
+- Rustのpointer、Haskellのreference、Swiftのclass referenceと同様にhandleをcontainerへ保存できるvalueとする。
+- Swift Arrayと同様にsnapshotをelement carrierについてstructuralとし、handle referentのdeep immutabilityを含めない。
 - Haskellのmutable/immutable arrayと同様にIxPoolとImPoolを分けるが、`State# s`に当たるsource valueは加えない。
 - Haskellの`ST s`のようにIxPool identityのescapeを禁止せず、既存Bufferと同じ共有観測を保つ。
 - RustやLinear Haskellのuniquenessをsource authorityにせず、compilerのresponsibility移動とruntimeの観測不能なstorage再利用に分ける。
@@ -245,12 +258,14 @@ Poolを採択するには、operationが動くことだけでなく次を満た�
 
 1. Buffer固有のstorage contractをPool state algebraとBuffer invariantへ完全に分解できる。
 2. IxPoolとImPoolが同じstateとoperation lawを共有し、違いをhandleとsnapshotの観測則だけで説明できる。
-3. managed valueのread、exchange、終了が既存responsibility規則から導ける。
+3. handleを含むStorable valueのread、exchange、終了が既存responsibility規則から導ける。
 4. Pool identityをC/LLVM allocation identityへ依存させず、growth後のpointer再取得をlowering contractにできる。
-5. Poolをpublic C ABIへ出さず、hostとの交換をVectorのadmissionとobservationへ閉じられる。
+5. Poolをpublic C ABIへ出さず、hostとの交換をdense sequenceのadmissionとobservationへ閉じられる。Vectorを正規形にする場合も、
+   現行Bufferのcompatibility operationとは別に判断できる。
 6. containerのinvariantをPoolへ取り込まず、opaque型の宣言元へ置ける。
 7. Buffer上のemulationより増えるoccupancy costと、減るShare、Drop、番兵costを測定できる。
 8. source authority、compiler responsibility、runtime representationのどの層も、下位層の一意性やlayoutを上位層の意味として
    逆輸入しない。
+9. 現行BufferとPoolが同じ`Storable`を使い、handle nestingだけを禁止する歴史的なelement制限を残さない。
 
 この条件を満たさない場合、Poolという型を追加するだけではminimalityの改善にならない。

@@ -66,15 +66,30 @@ IxPoolのstate transitionはidentityを保存する。source APIがsuccessor IxP
 
 ### ImPool
 
-ImPool valueはPool stateのsnapshotを表す。更新はsuccessor snapshotを返し、inputが表すstateを変えない。
+ImPool valueはPool stateのstructural snapshotを表す。更新はsuccessor snapshotを返し、inputが表すMeta、capacity、slot carrierを
+変えない。
 
 ```text
 update : State A -> State B
 observe State A after update = observe State A before update
 ```
 
-実装はinputへの今後の観測と区別できない場合にstorageをsuccessorへ移してよい。区別できるaliasがあればstorageを複製する。
-この選択は物理的なcopy-on-writeであり、上のsnapshot semanticsを変えない。
+実装はinputへの今後のPool operationによる構造観測と区別できない場合にstorageをsuccessorへ移してよい。区別できるreferenceが
+あればstorageを複製する。この選択は物理的なcopy-on-writeであり、上のsnapshot semanticsを変えない。
+
+snapshotが保存する`H`または`V`のcarrierがIxPoolやBufferのhandleなら、referentはdeep copyしない。旧snapshotは同じhandleを返し
+続け、そのidentityの変更を他のhandleと共有観測する。
+
+```text
+peek(S0, i) = Live(handle x)
+S1 = slot(S0, i, Live(handle y))
+
+peek(S0, i) = Live(handle x)
+peek(S1, i) = Live(handle y)
+```
+
+このlawが保存するのはslotのcarrierであり、identity `x`のstateではない。structural snapshotと到達可能なstateの推移的不変性を
+分けることで、handleを通常のStorable valueとして扱える。
 
 ## 構造のoperation
 
@@ -139,7 +154,8 @@ peek(P1, i) = peek(P, i)
 ```
 
 IxPoolではtransitionをcommitする前のstateを`P`、commit後に同じidentityから観測するstateを`P1`と読む。ImPoolでは更新後も
-`P`を旧snapshot、`P1`をsuccessor snapshotとしてそれぞれ観測できる。
+`P`を旧snapshot、`P1`をsuccessor snapshotとしてそれぞれ観測できる。ここでstateに含まれる`H`と`Slot<V>`はcarrier valueであり、
+そこからhandleを通して到達する別identityのstateは`P`の一部ではない。
 
 ## 最小核の導出
 
@@ -229,7 +245,8 @@ Pool stateは次を規定しない。
 - growthが`realloc`、allocate-and-move、chunk追加のどれか。
 - ImPoolがflat owner、view、または別の共有表現を使うか。
 
-sourceから観測できるのはoperation law、handleとsnapshotの観測則、precondition、trap、約束された計算量だけである。C/LLVM loweringが守る境界は
+sourceから観測できるのはoperation law、handleとstructural snapshotの観測則、precondition、trap、約束された計算量だけである。
+C/LLVM loweringが守る境界は
 [runtime contract](../runtime/contract.md#semantic-identityとallocation-object)に置く。
 
 ## malの設計原則との対応

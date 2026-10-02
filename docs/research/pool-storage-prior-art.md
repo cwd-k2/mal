@@ -16,7 +16,7 @@ collection、Haskellのmutable/immutable array、optionalなwritable successor�
 | raw allocation | `malloc`、LLVM allocated object | `Allocator`と`Layout` | GC heap、array primop | C runtime内部のmechanism |
 | typed storage | C object、LLVM load/store | `RawVec<T>`、`MaybeUninit<T>` | `Array#`、`MutableArray# s` | runtime payloadとoccupancy |
 | mutation authority | pointerと外部contract | `&mut`、move、unsafe contract | `State# s`、`ST s`、`IO` | IxPool handleが指すidentity |
-| immutable snapshot | conventionまたはcopy | owned value、`Arc`による共有 | immutable array | ImPool snapshot value |
+| structural snapshot | conventionまたはcopy | owned container、共有handleを要素にできる | immutable arrayもreferenceを要素にできる | ImPool snapshot value |
 | lifetime responsibility | callerの`free` | ownerと`Drop` | GC | compilerの`Share`、`Consume`、`Drop` |
 | container policy | library code | `Vec`、`HashMap` | array library、container library | malで書くopaque container |
 
@@ -58,7 +58,7 @@ source valueである。`Box`のmove、borrow、`Drop`はexclusive owner、addre
 一つの型へ結び付ける。raw pointerへの変換ではcleanup responsibilityもcallerへ移る。
 
 Pool案はこの結合をsourceへ導入しない。一つのresponsibilityが一つのallocationを保持する状態は、compilerとruntimeでは
-Box-likeな実装事実として現れ得る。しかしIxPool valueはshared identityへのhandleであり、ImPool valueはimmutable snapshotである。
+Box-likeな実装事実として現れ得る。しかしIxPool valueはshared identityへのhandleであり、ImPool valueはstructural snapshotである。
 物理ownerが一つだからIxPoolをexclusiveと解釈したり、ImPoolを破壊的に変更したりしない。Poolに必要なのはsingle objectへのderefでも
 stable addressでもなく、有限個のtyped placeをcoordinateで選ぶことだからである。
 
@@ -78,6 +78,48 @@ HaskellのGCとmalのmanaged responsibilityは回収mechanismが異なる。ど�
 GHCの[Linear Types](https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/linear_types.html)はargumentの一回消費を型で表せる。
 Pool案はuniquenessをsource authorityにせず、ImPoolのobservable snapshot semanticsを保ったままstorageを再利用する実装条件に置く。
 
+## value containerにhandleを保存する言語
+
+### Rust
+
+Rustのpointerはfirst-class valueであり、data structureへ保存できる
+（[Rust Reference: pointer types](https://doc.rust-lang.org/reference/types/pointer.html)）。`Rc<T>`はmultiple ownershipを明示し、
+`RefCell<T>`はshared referenceを経由するinterior mutationをruntime borrow checkで提供する
+（[`Rc<T>`](https://doc.rust-lang.org/book/ch15-04-rc.html)、
+[`RefCell<T>`](https://doc.rust-lang.org/book/ch15-05-interior-mutability.html)）。したがって`Vec<Rc<RefCell<T>>>`のようなcontainerは、
+外側の要素列と、要素handleが指すidentityを別のauthorityとして持つ。
+
+Rustの[`Freeze`](https://doc.rust-lang.org/stable/core/marker/trait.Freeze.html)は型の内部に`UnsafeCell`を含まないことを表す実験的な
+compiler traitだが、indirection先までは追わない。pointer carrierがFreezeでもreferentの変更不能性を意味しない。この境界は、
+ImPoolのsnapshotがslot carrierを保存してもhandle referentまで固定しないことの直接の比較になる。
+
+Rustは`Rc<RefCell<T>>`などの組合せでreference cycleを構成でき、そのcycleは解放されないことを明示している
+（[Reference Cycles Can Leak Memory](https://doc.rust-lang.org/book/ch15-06-reference-cycles.html)）。これはhandleを保存できることと、
+cycleを回収できることが独立したcontractである例である。malではclosure captureが型へ現れないためfunction storageを引き続き
+除外できる一方、再帰型を持たないcontainer handleの入れ子まで同じ理由で除外する必要はない。
+
+### Haskell
+
+Haskellの`STRef s a`、`IORef a`、mutable arrayはhandle valueであり、list、tuple、別のarrayなどの通常のdataへ要素として置ける。
+`STArray s i e`もelement `e`をmutable handleから除外しない
+（[`Data.Array.ST`](https://hackage.haskell.org/package/array/docs/Data-Array-ST.html)）。
+`runST :: (forall s. ST s a) -> a`はstate parameter `s`を含むhandleのescapeを防ぐが、`ST s`内でhandleをdata structureへ保存することは
+防がない（[`Control.Monad.ST`](https://hackage.haskell.org/package/base/docs/Control-Monad-ST.html)）。
+
+したがってHaskellも、data constructorが保存するcarrierと、carrierを使って実行するeffectを分ける。malはIxPool handleのescapeを
+禁止せず既存Bufferと同じ共有観測を保つが、handleをvalueとしてcontainerへ保存する点は同じである。
+
+### Swift
+
+SwiftのArrayはvalue typeでcopy-on-writeを使うが、class instanceを要素にできる。Arrayの一方で要素referenceを置換しても他方の
+Arrayは変わらない一方、二つのArrayが同じclass instanceを指す間はinstance propertyの変更を両方から観測する
+（[Swift Array: Modifying Copies of Arrays](https://developer.apple.com/documentation/swift/array#Modifying-Copies-of-Arrays)）。
+[Swift Language Guide](https://docs.swift.org/swift-book/LanguageGuide/ClassesAndStructures.html)も、structureとArrayをvalue type、classを
+reference typeとして区別する。
+
+これはshallow copyという実装上の妥協ではない。Array valueが保存するelement value自体がreferenceだからである。ImPoolも同様に、
+slot carrierの列をstructural snapshotとして保存し、carrierが持つauthorityをdeep copyしない。
+
 ## RustとHaskellの間での分解
 
 Rustではsource ownershipがmutation authorityとlifetime responsibilityの両方を表す。Haskellではstate tokenがmutation authorityを
@@ -85,7 +127,8 @@ Rustではsource ownershipがmutation authorityとlifetime responsibilityの両�
 affineに移す。Poolの型はauthority、compilerはresponsibility、runtimeはrepresentation uniquenessを受け持つ。
 
 この分解により、IxPoolで構築して`freeze`する経路はaliasがなければRustのmoveに近いO(1)のstorage transferになり、aliasがあれば
-Haskellのimmutable valueと同じsnapshot semanticsをcopyで保つ。どちらになったかはprogramの意味へ現れない。coordinateも同様に、
+slot carrierのstructural snapshotをcopyで保つ。handleをslotに含む場合もreferentをcloneしない。どちらになったかはprogramの
+意味へ現れない。coordinateも同様に、
 Rustのinterior borrowを公開せず、Haskellのarray indexのようにrelocationから独立している。
 
 ## Copy-on-writeとuniqueness
