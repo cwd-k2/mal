@@ -52,9 +52,23 @@ impl Checker {
                 .iter()
                 .all(|argument| matches!(argument, Type::Parameter { .. }))
         {
+            let names = parameters
+                .iter()
+                .map(|parameter| format!("`{}`", parameter.name.text))
+                .collect::<Vec<_>>()
+                .join(", ");
             return Err(
                 Diagnostic::error("generic operation implementation requires structure")
                     .with_primary(span, "a catch-all parameter key is not supported")
+                    .with_note(if parameters.len() == 1 {
+                        format!(
+                            "{names} names no visible type, so the key reads it as a type variable"
+                        )
+                    } else {
+                        format!(
+                            "{names} name no visible types, so the key reads them as type variables"
+                        )
+                    })
                     .into(),
             );
         }

@@ -99,3 +99,24 @@ fn checks_storable_requirements_of_a_selected_implementation() {
         "operation instance violates a Storable requirement"
     );
 }
+
+#[test]
+fn explains_a_catch_all_key_made_of_unknown_names() {
+    let error = check_error(
+        "equal<A> :: (A, A) -> Bool;\n\
+         equal<Int23> :: (Int23, Int23) -> Bool := (left, right) -> true;",
+    );
+
+    assert_eq!(
+        error.message,
+        "generic operation implementation requires structure"
+    );
+    assert!(
+        error
+            .notes
+            .iter()
+            .any(|note| note.contains("`Int23` names no visible type")),
+        "{:?}",
+        error.notes
+    );
+}
