@@ -1,6 +1,7 @@
 //! The control states one emitted function owns, and the slots their bindings need.
 
 use super::*;
+use crate::closure::ast::Pattern;
 
 /// The states of the emitted function, or of every function in its common control region, in emission order.
 pub(super) struct RegionStates {
@@ -64,5 +65,37 @@ impl RegionStates {
             }
         }
         Some(slots)
+    }
+}
+
+fn collect_pattern_slot(
+    pattern: &Pattern,
+    slots: &mut HashMap<ValueId, Slot>,
+    types: Types,
+) -> Option<()> {
+    match pattern {
+        Pattern::Binding { id, ty } if types.value(ty).is_some() => {
+            insert_slot(slots, *id, ty.clone())
+        }
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_pattern_slot(element, slots, types.clone())?;
+            }
+        }
+        Pattern::Wildcard { .. } => {}
+        _ => return None,
+    }
+    Some(())
+}
+
+fn insert_slot(slots: &mut HashMap<ValueId, Slot>, id: ValueId, ty: Type) {
+    if !slots.contains_key(&id) {
+        slots.insert(
+            id,
+            Slot {
+                index: slots.len(),
+                ty,
+            },
+        );
     }
 }

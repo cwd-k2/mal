@@ -164,7 +164,7 @@ impl FunctionEmitter<'_> {
         Some(pointer)
     }
 
-    fn constant(&mut self, constant: super::super::plan::Constant) -> Option<EmittedValue> {
+    fn constant(&mut self, constant: super::super::constants::Constant) -> Option<EmittedValue> {
         if let Some(value) = constant.value() {
             return Some(EmittedValue {
                 ty: constant.ty.clone(),

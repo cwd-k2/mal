@@ -6,28 +6,39 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 
 | Module | Responsibility |
 |---|---|
-| `target` | target data layout admission and the scalar, pointer, and index layout used by emission |
-| `module` | selection and composition of the LLVM declarations, definitions, metadata, and root bridge required by one program |
-| `module/declaration` | typed environment, control, byte-runtime, and intrinsic declaration groups selected by `module` |
-| `module/entry`, `module/metadata` | the internal root bridge and Buffer alias metadata |
-| `syntax` | LLVM module, function, and basic-block construction followed by textual rendering |
-| `host_bridge`, `host_bridge/plan` | marshalling plan and typed C syntax for converting between LLVM values and public C host values |
-| `shim` | C11 entry point that passes process arguments and calls the internal root bridge |
-| `body/types` | LLVM value types, target pointer size, and scalar and value ABI alignment |
-| `body/admission` | target-width literal, layout, and alignment checks before artifact generation |
-| `body/plan` | entry functions, reachable states, slots, and constant plans for closed top-level values |
-| `body/setup` | one function emitter: admission and the order of emission; the states and slots it owns (`region`), its frame tags (`frames`), shared scratch storage (`scratch`), and the signature and entry block (`prologue`) |
-| `body/terminator` | control terminators as branches, calls, returns, and case dispatch |
-| `body/operation`, `body/bridge` | control operations, dispatched to the modules below, and external operation calls through the C bridge |
-| `body/symbol` | Symbol literals, length, byte access, range views, and concatenation |
-| `body/call_emission` | value, environment, and parameter-responsibility handoff at call boundaries |
-| `body/control_storage`, `body/control_top` | region-local storage view and top access, synchronized at native Mal call boundaries |
-| `body/frame` | frame layout, resume dispatch, owner transfer, and bounded native-recursion workers |
-| `body/aggregate` | product and sum construction, case dispatch, and payload extraction |
-| `body/value` | typed share/drop recursion, slot load/initialize/vacate transitions, pattern destinations, and dead-slot cleanup |
-| `body/memory` | dispatch for `Address` and `Buffer` operations, canonical layout access, and Symbol/Buffer conversion, which moves the byte owner at the operand's last use |
-| `body/memory/buffer` | Buffer construction, access, range operations, host-memory transfer, and managed-element callback emission |
-| `body/scalar` | integer and floating-point widths, literals, and instruction selection |
+| `target` | the target data layout that emission sizes values with |
+| `module` | the one LLVM module a program needs, assembled from feature groups |
+| `module/declaration` | runtime and intrinsic declarations, one group per feature that calls them |
+| `module/entry` | the internal root bridge that the C shim calls |
+| `module/metadata` | alias metadata that keeps Buffer element accesses apart |
+| `syntax` | the typed LLVM syntax model and its rendering to text |
+| `host_bridge` | conversion between LLVM values and public C host values, planned per type in `host_bridge/plan` |
+| `shim` | the C11 entry point that calls the root bridge with the process arguments |
+| `body/types` | the LLVM representation of mal value types |
+| `body/admission` | rejection of a program the target cannot represent, before any function is emitted |
+| `body/constants` | closed top-level values, evaluated once into LLVM constants |
+| `body/setup` | one function emitter, from the states it owns to its emitted definition |
+| `body/terminator` | control terminators |
+| `body/operation` | dispatch of control operations to the modules below |
+| `body/bridge` | external operation calls through the C bridge |
+| `body/symbol` | Symbol operations |
+| `body/call_emission` | handoff of values, environments, and parameter responsibility at call boundaries |
+| `body/control_storage`, `body/control_top` | region-local control storage and top, synchronized at native call boundaries |
+| `body/frame` | suspension of a caller into a control frame |
+| `body/frame/layout`, `body/frame/resume` | the field layout of a frame, and resumption from one |
+| `body/frame/region` | transitions between the functions of a common control region |
+| `body/frame/native` | bounded native recursion for a self-recursive function |
+| `body/aggregate` | products and sums |
+| `body/value/atom` | materialization of operands |
+| `body/value/slot` | slot states and the release of slots whose owners die |
+| `body/value/lifetime` | typed share and drop of managed values |
+| `body/value/pattern` | binding destinations of patterns |
+| `body/value/use_effect` | the use effect an operand receives: borrow, share, consume, or take |
+| `body/memory` | dispatch of `Address` and `Buffer` primitives |
+| `body/memory/storage` | values in their canonical memory layout |
+| `body/memory/view`, `body/memory/transfer` | byte views and the Symbol and Buffer conversions, which move the byte owner at the operand's last use |
+| [`body/memory/buffer`](body/memory/buffer/README.md) | Buffer operations |
+| `body/scalar` | scalar literals and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |
 
 ## Construction boundary

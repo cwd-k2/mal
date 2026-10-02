@@ -1,27 +1,17 @@
+//! Closed top-level values, evaluated once into LLVM constants that every function reads.
+
 use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{AtomKind, FunctionId, Pattern, Reference, TopLevelPattern};
+use crate::closure::ast::{AtomKind, Pattern, Reference, TopLevelPattern};
 
 use mal_frontend::check::ast::Type;
 
-use super::Slot;
 use super::types::Types;
 use crate::backend::llvm::syntax::{
     BinaryOperator, CastOperator, Constant as LlvmConstant, TypedConstant, UnaryOperator,
     llvm_constant, llvm_typed_constant,
 };
-
-pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
-    let entry = execution.lowered.entry?;
-    let parameter = match entry.parameter {
-        mal_frontend::check::ast::EntryParameter::Unit => Type::Unit,
-        mal_frontend::check::ast::EntryParameter::ProcessArguments => {
-            mal_frontend::check::ast::EntryParameter::process_arguments_type()
-        }
-    };
-    Some((entry.function, parameter))
-}
 
 pub(super) struct TopLevelConstants {
     values: HashMap<ValueId, Constant>,
@@ -411,36 +401,4 @@ fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Op
         ty: result_type.clone(),
         kind: ConstantKind::Value(representation),
     })
-}
-
-pub(super) fn collect_pattern_slot(
-    pattern: &Pattern,
-    slots: &mut HashMap<ValueId, Slot>,
-    types: Types,
-) -> Option<()> {
-    match pattern {
-        Pattern::Binding { id, ty } if types.value(ty).is_some() => {
-            insert_slot(slots, *id, ty.clone())
-        }
-        Pattern::Product { elements, .. } => {
-            for element in elements {
-                collect_pattern_slot(element, slots, types.clone())?;
-            }
-        }
-        Pattern::Wildcard { .. } => {}
-        _ => return None,
-    }
-    Some(())
-}
-
-pub(super) fn insert_slot(slots: &mut HashMap<ValueId, Slot>, id: ValueId, ty: Type) {
-    if !slots.contains_key(&id) {
-        slots.insert(
-            id,
-            Slot {
-                index: slots.len(),
-                ty,
-            },
-        );
-    }
 }

@@ -30,12 +30,12 @@ mod admission;
 mod aggregate;
 mod bridge;
 mod call_emission;
+mod constants;
 mod control_storage;
 mod control_top;
 mod frame;
 mod memory;
 mod operation;
-mod plan;
 mod scalar;
 mod setup;
 mod symbol;
@@ -44,8 +44,8 @@ pub(super) mod types;
 mod value;
 
 use super::function_name;
+use constants::TopLevelConstants;
 use memory::ManagedBufferElements;
-use plan::{TopLevelConstants, collect_pattern_slot, insert_slot, main_function};
 use scalar::{comparison_predicate, scalar_type};
 use types::Types;
 
@@ -294,4 +294,15 @@ fn function_number(id: FunctionId) -> u32 {
 
 fn self_tail_entry_label(id: FunctionId) -> String {
     format!("mal_self_tail_entry_{}", function_number(id))
+}
+
+pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(FunctionId, Type)> {
+    let entry = execution.lowered.entry?;
+    let parameter = match entry.parameter {
+        mal_frontend::check::ast::EntryParameter::Unit => Type::Unit,
+        mal_frontend::check::ast::EntryParameter::ProcessArguments => {
+            mal_frontend::check::ast::EntryParameter::process_arguments_type()
+        }
+    };
+    Some((entry.function, parameter))
 }
