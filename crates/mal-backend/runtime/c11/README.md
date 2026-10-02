@@ -6,7 +6,7 @@ Program-specific behavior, such as frame layout, resume targets, and owner trans
 
 | File | Responsibility |
 |---|---|
-| `core.c` | closure environments, reference counting, and the trap terminal |
+| `core.c` | the mechanisms every program links: reference-counted closure environments and the trap terminal |
 | `control.c` | growable control storage and the native recursion bound |
 | `bytes.c`, `bytes_internal.h` | byte owners, and the header layout static owners share with LLVM |
 | `buffer.c`, `buffer_internal.h` | `Buffer` storage and the ownership of managed elements |

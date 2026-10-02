@@ -6,8 +6,8 @@ application site. Stages before and after `execution` read it; it derives no own
 | Module | Responsibility |
 |---|---|
 | `mod` | the `ClosureFlow` result queried per application site |
-| `analysis` | the fixed point over states: value sets per binding, capture slot, function result, and buffers |
+| `analysis` | the fixed point of function values over states |
 | `transfer` | how each operation and terminator moves function values |
-| `assign` | recording function values into patterns, filtered by the pattern's type |
-| `owner` | the function or top-level initializer each control state belongs to |
-| `compatible` | functions grouped by parameter and result type, the bound for a callee that no flow fact narrows |
+| `assign` | function values recorded into patterns |
+| `owner` | the function or top-level initializer each state belongs to |
+| `compatible` | the functions a callee may be when no flow fact narrows it |

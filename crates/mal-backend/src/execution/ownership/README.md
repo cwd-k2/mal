@@ -7,7 +7,7 @@ earlier ones complete. The plan's exact validator rebuilds it from the same auth
 | Module | Responsibility |
 |---|---|
 | `mod` | the phase order and the plan the backend reads |
-| `identity` | identities of edges, uses, and operands, and the use effects |
+| `identity` | the keys and values the plan is written in |
 | `managed` | which types own managed values |
 | `operand` | the operands of each operation and terminator, and whether each may pass ownership into the result |
 | `liveness` | which managed bindings are live at each point |

@@ -6,10 +6,10 @@ so the formatter, the language server, and the compiler all build on it.
 
 | Module | Responsibility |
 |---|---|
-| `source` | admitted UTF-8 files, stable file identities, byte spans, line locations, and UTF-16 editor positions |
-| `diagnostic` | structured source diagnostics and rendering against a source provider |
-| [`lexer`](src/lexer/) | parser tokens and the lossless trivia stream used by the formatter |
-| `ast` | source-oriented declarations, types, patterns, expressions, and literal spelling |
+| `source` | admitted UTF-8 files, their identities, spans, and positions |
+| `diagnostic` | structured diagnostics and their rendering |
+| [`lexer`](src/lexer/) | tokens and the lossless trivia stream |
+| `ast` | the source-oriented syntax tree |
 | [`parser`](src/parser/) | syntax admission from tokens to the AST |
-| `requirement` | requirement-path decoding, validation, and completion candidates |
-| `graph` | recursive source loading, open-document overlays, canonical file identity, and cycle detection |
+| `requirement` | requirement paths |
+| `graph` | loading a program's source files |

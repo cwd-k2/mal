@@ -36,7 +36,8 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/value/use_effect` | the use effect an operand receives: borrow, share, consume, or take |
 | `body/memory` | dispatch of `Address` and `Buffer` primitives |
 | `body/memory/storage` | values in their canonical memory layout |
-| `body/memory/view`, `body/memory/transfer` | byte views and the Symbol and Buffer conversions, which move the byte owner at the operand's last use |
+| `body/memory/view` | byte views, and the Symbol and Buffer conversions that copy |
+| `body/memory/transfer` | the Symbol and Buffer conversions that move the byte owner at the operand's last use |
 | [`body/memory/buffer`](body/memory/buffer/README.md) | Buffer operations |
 | `body/scalar` | scalar literals and instruction selection |
 | `optimization/*` | target-specific emission decisions that never change the execution plan |

@@ -6,10 +6,10 @@ in-memory values and return generated text.
 | Module | Responsibility |
 |---|---|
 | `mod` | the `check` and `emit` use cases |
-| `files` | writing generated files, and the temporary directory a build uses when no artifact directory is given |
-| `error` | the single driver failure type, rendered once into the message `malc` prints |
-| `build` | one build use case: source graph, optimization mode, artifact directory, generated inputs, Clang, and the AtCoder carrier |
-| `toolchain` | queries the pinned Clang for the host target triple and data layout and compiles every artifact for that same target |
-| `toolchain/optimization` | Clang optimization arguments for `baseline` and `production`, independent of language semantics |
+| `files` | generated files and temporary directories |
+| `error` | the driver failure and the message `malc` prints for it |
+| `build` | the build use case |
+| `toolchain` | compilation of every artifact with the pinned Clang for the host target |
+| `toolchain/optimization` | Clang arguments for `baseline` and `production` |
 
 Reading and resolving source files is done by `mal-syntax`; this crate only decides where generated files go.

@@ -5,8 +5,9 @@ answers come from the same analysis as `malc check`. Behavior is described in `d
 
 | Module | Responsibility |
 |---|---|
-| `server` | JSON-RPC method dispatch and the open-document lifecycle |
-| `server/analysis` | source graph, frontend analysis, semantic index state transitions, and diagnostic conversion |
-| `server/requirement` | `require` path completion and document links |
-| `server/semantic` | LSP representations of hover, navigation, rename, symbols, completion, semantic tokens, and inlay hints |
+| `server` | JSON-RPC dispatch and the open-document lifecycle |
+| `server/analysis` | the frontend analysis behind each open document |
+| `server/requirement` | `require` path completion and links |
+| `server/semantic` | LSP results from the semantic index |
+| `server/semantic/navigation` | definitions, references, rename, and document symbols |
 | `protocol` | LSP message types |

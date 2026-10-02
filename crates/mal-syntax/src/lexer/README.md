@@ -6,11 +6,11 @@ language from parsing.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | source traversal, trivia handling, identifier and punctuation recognition, and public lexing entry points |
-| `token` | token, literal, suffix, radix, and lossless lexeme representations |
-| `number` | integer and decimal-float token boundaries and structured literal components |
-| `escape` | byte escape decoding and the exact error offset |
-| `symbol` | Symbol literal decoding over the shared escape rules |
+| `mod` | the lexer |
+| `token` | tokens and their lossless lexemes |
+| `number` | numeric literal boundaries and components |
+| `escape` | byte escapes |
+| `symbol` | Symbol literals |
 
 The lexer classifies syntax only from bytes. Name identity, expected types, literal ranges, and numeric values belong to
 later stages.

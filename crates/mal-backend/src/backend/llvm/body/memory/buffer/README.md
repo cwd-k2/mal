@@ -12,10 +12,10 @@ The implementation is split as follows:
 
 | File | Responsibility |
 |---|---|
-| `mod.rs` | operation dispatch, element-storage classification, and the runtime call each operation makes |
-| `access.rs` | direct element access: the active data pointer, element addresses, and the managed get and put paths |
+| `mod.rs` | operation dispatch and the classification of element storage |
+| `access.rs` | direct element access |
 | `address.rs` | `from` and `into` copies between a `Buffer` and C host storage |
-| `managed.rs` | one numbered retain/release callback pair per managed element type |
+| `managed.rs` | one retain and release callback pair per managed element type |
 
 `new` and `fill` pass an element through the entry-block `%mal_buffer_value` scratch allocation sized in
 `body/setup/scratch.rs`. Runtime function names selected by `ElementStorage::runtime` must remain synchronized with

@@ -7,7 +7,7 @@ responsibilities. The derivation order and its rules are documented in
 
 | Module | Responsibility |
 |---|---|
-| `closure` | closure creators, aliases, and statically known application targets |
+| `closure` | which closures each value may be, and the application targets that follow statically |
 | `environment_alias` | values that may borrow from the active closure environment |
 | `application` | the possible targets of every application site |
 | `optimization/*` | one applicability rule per technique, yielding decisions only |

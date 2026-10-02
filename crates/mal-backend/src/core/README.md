@@ -8,7 +8,7 @@ Desugars a specialized checked program into the core language: explicit evaluati
 | `interface` | the host-visible `ProgramInterface` |
 | `external` | external operations as capture-free lambdas around external calls |
 | `expression` | dispatch of checked expressions to the modules below |
-| `lambda` | lambdas as core bindings, lexical joins, and closure captures |
+| `lambda` | lambdas and the captures they close over |
 | `buffer` | `Buffer` primitives as core operations with logical operands |
 | `bool` | `Bool` elimination as an explicit `case` |
 | `pattern` | checked patterns as core patterns |

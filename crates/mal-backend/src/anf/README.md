@@ -6,8 +6,8 @@ without walking nested expressions again.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | core-to-ANF lowering, left-to-right operand collection, and temporary identity allocation |
-| `ast` | ANF blocks, atoms, operations, patterns, lambdas, joins, and top-level bindings |
+| `mod` | lowering of core expressions into administrative normal form |
+| `ast` | the ANF program |
 
 This stage preserves lexical lambdas, captures, and join identities. Closure representation belongs to `closure`, and
 call/control-state planning belongs to `control` and `execution`.

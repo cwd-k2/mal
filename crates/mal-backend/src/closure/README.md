@@ -6,8 +6,8 @@ from free references.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | function lifting, capture-reference rewriting, entry-function selection, and fresh atom identities |
-| `ast` | functions, closure construction, capture fields, references, blocks, and logical operations |
+| `mod` | conversion of lambdas into lifted functions and closure construction |
+| `ast` | the closure-converted program |
 
 The stage does not choose direct calls, recursive regions, frames, or ownership. Those decisions require whole-program
 flow and belong to `execution`.

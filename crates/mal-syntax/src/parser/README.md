@@ -6,11 +6,11 @@ syntax from types or names.
 | Module | Responsibility |
 |---|---|
 | `mod` | top-level items, declarations, and type syntax |
-| `generic` | generic parameter and argument lists, and the `>>` token that closes two directly nested lists |
-| `expression` | Pratt loop, prefix dispatch, and operator precedence |
-| `expression/forms` | products, both application directions, receiver-first application, numeric conversion, and zero-continuation application |
-| `expression/lambda` | parameters and lambda bodies |
-| `expression/control` | `if`, `when`, direct blocks, and direct result blocks |
+| `generic` | generic parameter and argument lists |
+| `expression` | operator precedence and prefix dispatch |
+| `expression/forms` | products and the application forms |
+| `expression/lambda` | lambdas |
+| `expression/control` | `if`, `when`, and direct blocks |
 
 The language grammar is owned by [`docs/spec`](../../../../docs/spec/). The parser is the compiler's accepting
 implementation; editor recovery grammar lives in [`editors/tree-sitter-mal`](../../../../editors/tree-sitter-mal/),
