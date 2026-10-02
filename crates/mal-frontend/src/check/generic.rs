@@ -5,7 +5,6 @@ use crate::resolve::ast as resolved;
 use mal_syntax::ast::Node;
 use mal_syntax::source::Span;
 
-use super::ast::Type;
 use super::{CheckResult, Checker, GenericSignature, ast, types};
 
 impl Checker {
@@ -21,37 +20,17 @@ impl Checker {
             self.kinds
                 .parameters(parameters, annotation, &mut self.next_kind_variable)?;
         let signature_parameter_kinds = parameter_kinds.clone();
-        let substitutions = std::sync::Arc::new(
-            parameters
-                .iter()
-                .zip(parameter_kinds)
-                .map(|(parameter, kind)| {
-                    (
-                        parameter.id,
-                        Type::Parameter {
-                            id: parameter.id,
-                            name: parameter.name.text.clone(),
-                            kind,
-                        },
-                    )
-                })
-                .collect(),
-        );
-        let previous = std::mem::replace(&mut self.type_substitutions, substitutions);
-        let previous_requirements = std::mem::take(&mut self.active_requirements);
-        let previous_generic = self.active_generic.take();
-        let previous_operations = std::mem::take(&mut self.active_operations);
-        let previous_kinds = std::mem::take(&mut self.active_kinds);
-        let result = (|| {
-            let ty = self.expand_type(annotation)?;
+        let substitutions = types::rigid_parameters(parameters, parameter_kinds);
+        self.with_body(substitutions, |checker| {
+            let ty = checker.expand_type(annotation)?;
             let requirements = types::storable_requirements(&ty);
-            self.active_requirements = requirements.clone();
-            self.active_generic = Some((
+            checker.active_requirements = requirements.clone();
+            checker.active_generic = Some((
                 binding.id,
                 parameters.iter().map(|parameter| parameter.id).collect(),
             ));
-            self.values.insert(binding.id, ty.clone());
-            self.generic_signatures.insert(
+            checker.values.insert(binding.id, ty.clone());
+            checker.generic_signatures.insert(
                 binding.id,
                 GenericSignature {
                     parameters: parameters.to_vec(),
@@ -61,31 +40,28 @@ impl Checker {
                     operations: Vec::new(),
                 },
             );
-            let checked_value = self.check_expression(value, Some(&ty))?;
-            self.check_top_level_initializer(&checked_value)?;
-            let operations = std::mem::take(&mut self.active_operations);
-            self.generic_signatures
+            let checked_value = checker.check_expression(value, Some(&ty))?;
+            checker.check_top_level_initializer(&checked_value)?;
+            let operations = std::mem::take(&mut checker.active_operations);
+            checker
+                .generic_signatures
                 .get_mut(&binding.id)
                 .expect("active generic signature is registered")
                 .operations = operations.clone();
-            let kinds = std::mem::take(&mut self.active_kinds);
+            let kinds = std::mem::take(&mut checker.active_kinds);
             Ok(ast::GenericBinding {
                 binding: binding.clone(),
                 parameters: parameters.to_vec(),
                 ty,
                 value: checked_value,
                 operations,
-                parameter_kinds: self.generic_signatures[&binding.id].parameter_kinds.clone(),
+                parameter_kinds: checker.generic_signatures[&binding.id]
+                    .parameter_kinds
+                    .clone(),
                 kinds,
                 span,
             })
-        })();
-        self.type_substitutions = previous;
-        self.active_requirements = previous_requirements;
-        self.active_generic = previous_generic;
-        self.active_operations = previous_operations;
-        self.active_kinds = previous_kinds;
-        result
+        })
     }
 
     /// Keeps the kind equations of a type application for the active generic body to check at specialization.
@@ -100,5 +76,28 @@ impl Checker {
                 self.active_kinds.push(requirement);
             }
         }
+    }
+
+    /// Checks one declaration body under its rigid parameters with no requirements yet recorded, then restores the
+    /// enclosing state, so that bodies checked while another is active do not share requirements.
+    pub(super) fn with_body<T>(
+        &mut self,
+        substitutions: std::sync::Arc<
+            std::collections::HashMap<crate::resolve::ast::TypeId, ast::Type>,
+        >,
+        check: impl FnOnce(&mut Self) -> CheckResult<T>,
+    ) -> CheckResult<T> {
+        let substitutions = std::mem::replace(&mut self.type_substitutions, substitutions);
+        let requirements = std::mem::take(&mut self.active_requirements);
+        let generic = self.active_generic.take();
+        let operations = std::mem::take(&mut self.active_operations);
+        let kinds = std::mem::take(&mut self.active_kinds);
+        let result = check(self);
+        self.type_substitutions = substitutions;
+        self.active_requirements = requirements;
+        self.active_generic = generic;
+        self.active_operations = operations;
+        self.active_kinds = kinds;
+        result
     }
 }

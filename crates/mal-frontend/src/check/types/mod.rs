@@ -14,7 +14,7 @@ mod validation;
 
 pub(super) use canonical::{
     bool_type, equivalent_in_file, function_placeholder, layer_with_identity, representation_view,
-    runtime_type, substitute_type,
+    rigid_parameters, runtime_type, substitute_type,
 };
 pub(super) use definitions::{GenericAliasDefinition, OpaqueDefinition};
 pub(super) use display::type_name;

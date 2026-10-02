@@ -7,7 +7,7 @@ with a `Value` or `Abrupt` completion for every expression.
 |---|---|
 | `mod` | program order, value environment, and result targets |
 | `binding`, `entry` | bindings, patterns, and reachability of body items; the entry identity and its parameter form |
-| `generic` | generic value bindings: principal parameter kinds, one check of the body under rigid parameters, and the operation and kind requirements left for specialization |
+| `generic` | generic value bindings: principal parameter kinds, one check of the body under rigid parameters, the operation and kind requirements left for specialization, and the requirement state each declaration body starts from |
 | `control` | `if`, `when`, direct blocks, and direct result blocks with their completion and local result targets |
 | `expression` | expression dispatch, references, literals, and products checked against the expected type |
 | `expression/application` | ordinary, receiver-first, and continuation application, result transfer, and empty elimination |

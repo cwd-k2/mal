@@ -8,7 +8,7 @@ use super::super::ast::Type;
 
 mod substitution;
 
-pub(in crate::check) use substitution::substitute_type;
+pub(in crate::check) use substitution::{rigid_parameters, substitute_type};
 
 pub(in crate::check) fn runtime_type(ty: &Type) -> Type {
     match ty {

@@ -7,6 +7,29 @@ use crate::check::types::term::Normalizer;
 use crate::resolve::ast::TypeId;
 use mal_syntax::{diagnostic::Diagnostic, source::Span};
 
+/// Rigid parameters for checking a declaration once: each source parameter stands for itself at its principal kind.
+pub(in crate::check) fn rigid_parameters(
+    parameters: &[crate::resolve::ast::TypeBinding],
+    kinds: impl IntoIterator<Item = Kind>,
+) -> std::sync::Arc<HashMap<TypeId, Type>> {
+    std::sync::Arc::new(
+        parameters
+            .iter()
+            .zip(kinds)
+            .map(|(parameter, kind)| {
+                (
+                    parameter.id,
+                    Type::Parameter {
+                        id: parameter.id,
+                        name: parameter.name.text.clone(),
+                        kind,
+                    },
+                )
+            })
+            .collect(),
+    )
+}
+
 pub(in crate::check) fn substitute_type(
     ty: &Type,
     substitutions: &HashMap<TypeId, Type>,

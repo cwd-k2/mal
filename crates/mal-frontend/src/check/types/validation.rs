@@ -1,11 +1,9 @@
 //! Declaration-wide validation after kind inference and canonical expansion.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use mal_syntax::diagnostic::Diagnostic;
 
-use super::super::{Checker, ast::Type};
+use super::super::Checker;
+use super::canonical::rigid_parameters;
 use super::definitions::{GenericAliasDefinition, OpaqueDefinition};
 use super::ensure_representable;
 use super::expand::ensure_value_type;
@@ -31,23 +29,7 @@ impl Checker {
             definition.parameters.len(),
             definition.binding.name.span,
         )?;
-        let substitutions = Arc::new(
-            definition
-                .parameters
-                .iter()
-                .zip(kinds)
-                .map(|(parameter, kind)| {
-                    (
-                        parameter.id,
-                        Type::Parameter {
-                            id: parameter.id,
-                            name: parameter.name.text.clone(),
-                            kind,
-                        },
-                    )
-                })
-                .collect::<HashMap<_, _>>(),
-        );
+        let substitutions = rigid_parameters(&definition.parameters, kinds);
         let expanded = self.expand_expression(definition.representation.clone(), substitutions)?;
         ensure_value_type(&expanded, definition.representation.span)?;
         ensure_representable(&expanded, definition.representation.span)
