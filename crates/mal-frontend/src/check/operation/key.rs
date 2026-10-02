@@ -1,14 +1,12 @@
-//! Shape and coherence of one implementation key, and the decrease of the requirements its body leaves.
+//! The shape and coherence of one implementation key.
 
 use crate::resolve::ast as resolved;
 use mal_syntax::diagnostic::Diagnostic;
 
-use super::super::ast::{self, Kind, Type};
-use super::super::{CheckFailure, CheckResult, Checker};
+use super::super::ast::{Kind, Type};
+use super::super::{CheckResult, Checker};
 use super::overlap::operation_patterns_overlap;
-use super::pattern::{
-    contains_parameter, contains_parameter_id, has_nominal_head, operation_requirement_decreases,
-};
+use super::pattern::{contains_parameter, contains_parameter_id, has_nominal_head};
 
 impl Checker {
     /// Rejects a key that specialization could not select from deterministically: a constructor position
@@ -95,43 +93,4 @@ impl Checker {
         }
         Ok(())
     }
-}
-
-/// Requires each operation goal of a generic implementation body to name a proper subterm of the key, or the key
-/// itself for direct recursion, so that expanding requirements terminates.
-pub(super) fn require_decreasing(
-    family: &resolved::ValueReference,
-    arguments: &[Type],
-    operations: &[ast::OperationRequirement],
-) -> CheckResult<()> {
-    for requirement in operations {
-        let direct_self = requirement.family.id == family.id && requirement.arguments == arguments;
-        if !direct_self && !operation_requirement_decreases(arguments, &requirement.arguments) {
-            return Err(
-                Diagnostic::error("generic operation requirement does not decrease")
-                    .with_primary(
-                        requirement.family.name.span,
-                        "the required key must be a proper subterm of the implementation key",
-                    )
-                    .into(),
-            );
-        }
-    }
-    Ok(())
-}
-
-/// Adds to a failure inside an implementation the types its binders may have meant to name.
-pub(in crate::check) fn suggest_types(
-    failure: CheckFailure,
-    similar_types: &[(String, String)],
-) -> CheckFailure {
-    let CheckFailure::Diagnostic(mut diagnostic) = failure else {
-        return failure;
-    };
-    for (binder, ty) in similar_types {
-        diagnostic = diagnostic.with_note(format!(
-            "`{binder}` in the implementation key is a type variable; did you mean the type `{ty}`?"
-        ));
-    }
-    CheckFailure::Diagnostic(diagnostic)
 }

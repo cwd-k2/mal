@@ -5,7 +5,9 @@ implementation per concrete key and expand requirements in finitely many steps.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | family signatures, implementation bodies, and the requirements an implementation leaves for specialization |
-| `key` | the shape and coherence of an implementation key, the decrease of the requirements its body leaves, and the type suggestions added to its failures |
-| `pattern` | parameter occurrence in key patterns, nominal heads of constructor keys, and the structural decrease of requirement keys |
-| `overlap` | overlap between two keys, by unifying their patterns with each side's variables kept apart |
+| `mod` | family signatures and implementation bodies |
+| `key` | the keys specialization can select from without ambiguity |
+| `termination` | the structural decrease that makes requirement expansion finite |
+| `pattern` | where parameters occur in a key, and which constructor heads are nominal |
+| `overlap` | whether two keys can match one concrete argument list |
+| `spelling` | the types a misspelled key binder may have meant |

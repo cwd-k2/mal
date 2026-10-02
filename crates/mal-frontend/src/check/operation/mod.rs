@@ -8,10 +8,12 @@ use super::{CheckResult, Checker, GenericSignature, ast, types};
 mod key;
 mod overlap;
 mod pattern;
+mod spelling;
+mod termination;
 
-use key::require_decreasing;
-pub(super) use key::suggest_types;
 pub(super) use pattern::contains_parameter;
+pub(super) use spelling::suggest_types;
+use termination::require_decreasing;
 
 impl Checker {
     pub(super) fn check_operation_family(

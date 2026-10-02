@@ -1,5 +1,4 @@
-//! Implementation key patterns: parameter occurrence, nominal constructor heads, and the structural decrease
-//! that requirement keys of a generic implementation must show.
+//! Implementation key patterns: where parameters occur, and which constructor heads are nominal.
 
 use crate::resolve::ast::TypeId;
 
@@ -37,40 +36,6 @@ fn contains_parameter_id_if(ty: &Type, predicate: impl Copy + Fn(TypeId) -> bool
                 || contains_parameter_id_if(result, predicate)
         }
         _ => false,
-    }
-}
-
-pub(super) fn operation_requirement_decreases(pattern: &[Type], requirement: &[Type]) -> bool {
-    requirement.iter().all(|required| {
-        pattern
-            .iter()
-            .any(|root| proper_type_subterm(root, required))
-    })
-}
-
-fn proper_type_subterm(root: &Type, required: &Type) -> bool {
-    let mut pending = Vec::new();
-    extend_children(root, &mut pending);
-    while let Some(candidate) = pending.pop() {
-        if candidate == required {
-            return true;
-        }
-        extend_children(candidate, &mut pending);
-    }
-    false
-}
-
-fn extend_children<'a>(ty: &'a Type, pending: &mut Vec<&'a Type>) {
-    match ty {
-        Type::Abstraction { body, .. } => pending.push(body),
-        Type::Buffer(element) => pending.push(element),
-        Type::Opaque { arguments, .. } => pending.extend(arguments.iter()),
-        Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
-        Type::Function { parameter, result } => {
-            pending.push(parameter);
-            pending.push(result);
-        }
-        _ => {}
     }
 }
 
