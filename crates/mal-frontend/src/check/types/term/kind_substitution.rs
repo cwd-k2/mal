@@ -1,3 +1,5 @@
+//! Rewriting of the kinds recorded in a term.
+
 use std::collections::{HashMap, HashSet};
 
 use mal_syntax::diagnostic::Diagnostic;

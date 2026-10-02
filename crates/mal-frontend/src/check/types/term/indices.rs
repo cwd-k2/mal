@@ -1,3 +1,5 @@
+//! De Bruijn index shifting and occurrence tests.
+
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::{Type, normalization::Budget};

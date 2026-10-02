@@ -1,3 +1,5 @@
+//! Canonical type-level terms: the constructors that keep them in normal form, and the normalizer budget they share.
+
 use std::collections::HashMap;
 
 use mal_syntax::diagnostic::Diagnostic;

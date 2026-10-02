@@ -1,3 +1,5 @@
+//! Substitution of a bound variable, rebuilt through the canonical constructors.
+
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::{Type, indices::shift_bounded, normalization::Budget};

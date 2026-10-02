@@ -5,10 +5,14 @@ source type expressions and infers kinds; specialization consumes these terms an
 
 | Module | Responsibility |
 |---|---|
-| `kind` | principal kind inference for declarations and value signatures, including dependency components and occurs checking |
-| `definitions`, `validation` | source declaration collection and declaration-wide validation after kind inference |
-| `expand` | iterative source expansion, alias-cycle rejection, fresh instantiation of cached generic alias schemes, partial application, and opaque constructor formation |
-| `term` | canonical type terms: kind-safe application and eta-contracting abstraction are the only constructors that can create or remove a redex, substitution rebuilds through them, and shifting and kind rewriting keep node shapes; also the budgets, kind-variable rewriting that keeps enclosing parameters' variables, and kind requirement checks for concrete instances |
-| `canonical` | generic substitution, runtime erasure, and file-local opaque equivalence |
-| `properties`, `representation` | `Storable` and host-memory properties, plus bounded physical representation measurement |
+| `kind` | principal kind inference for declarations and value signatures |
+| `definitions` | the source declarations type checking reads |
+| `validation` | declaration-wide validation after kind inference |
+| `expand` | expansion of source type expressions into canonical terms |
+| [`term`](term/README.md) | canonical type-level terms |
+| `canonical` | erasure of canonical terms to runtime types |
+| `canonical/substitution` | substitution of type parameters |
+| `canonical/opaque_view` | file-local views of opaque types, and the type equivalence they give |
+| `properties` | `Storable` and host-memory properties |
+| `representation` | bounded physical representation measurement |
 | `display` | bounded diagnostic names for canonical types |

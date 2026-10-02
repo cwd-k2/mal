@@ -1,3 +1,5 @@
+//! The budget that bounds one normalization transaction.
+
 use mal_syntax::{diagnostic::Diagnostic, source::Span};
 
 const MAX_NORMALIZATION_DEPTH: usize = 256;

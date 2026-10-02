@@ -1,3 +1,5 @@
+//! Kind unification, substitution, and display.
+
 use std::collections::{HashMap, HashSet};
 
 use mal_syntax::diagnostic::Diagnostic;
