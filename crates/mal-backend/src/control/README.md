@@ -6,7 +6,9 @@ reachable from its entry.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | lowering of closure blocks into control states |
+| `mod` | lowering of closure programs into control states |
+| `block` | one closure block as control states |
+| `operation` | closure operations as control operations |
 | `ast` | the control program |
 | `graph` | traversal and reachable-state order |
 | `liveness` | values live across transitions |

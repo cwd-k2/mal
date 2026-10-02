@@ -16,10 +16,14 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `shim` | the C11 entry point that calls the root bridge with the process arguments |
 | `body/types` | the LLVM representation of mal value types |
 | `body/admission` | rejection of a program the target cannot represent, before any function is emitted |
+| `body/admission/layout` | host memory layouts and runtime storage the target must represent |
+| `body/admission/operation` | the storage and layouts each operation needs |
 | `body/constants` | closed top-level values, evaluated once into LLVM constants |
 | `body/setup` | one function emitter, from the states it owns to its emitted definition |
 | `body/terminator` | control terminators |
 | `body/operation` | dispatch of control operations to the modules below |
+| `body/closure` | closure values and their capture environments |
+| `body/primitive` | primitive scalar operators and numeric conversion |
 | `body/bridge` | external operation calls through the C bridge |
 | `body/symbol` | Symbol operations |
 | `body/call_emission` | handoff of values, environments, and parameter responsibility at call boundaries |

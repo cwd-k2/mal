@@ -17,7 +17,7 @@ Desugars a specialized checked program into the core language: explicit evaluati
 | `completion/abrupt` | completions that leave without a value |
 | `completion/branch` | branching bodies whose `Value` paths meet at a lexical join |
 | `completion/result_block` | direct result blocks and their join targets |
-| `completion/value` | operator values that contain control paths |
+| `completion/value` | values whose evaluation contains control paths |
 | `completion/presence` | which checked subtrees need lexical continuations |
 
 Core separates direct `Buffer` storage operations into `BufferOperation`. Snapshot conversion and copies across

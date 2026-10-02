@@ -14,7 +14,8 @@ The stage runs when `Technique::CallPattern` is enabled, before the program is l
 | `clone` | copies of functions and top-level bindings under fresh identities |
 | `ids` | fresh identities, and the check that every identity is unique |
 | `lambda_lift` | turning the captures of a directly called local closure into parameters |
-| `lambda_lift/uses`, `lambda_lift/lift` | where each local closure is created and how it is used, and the lifting rewrite |
+| `lambda_lift/uses` | where each local closure is created and how its aliases are used |
+| `lambda_lift/lift` | the rewrite that lifts the selected closures |
 | `parameter_lift` | the round of callback parameters lifted together |
 | `parameter_lift/analysis` | the callback uses that admit a parameter for lifting |
 | `parameter_lift/analysis/index` | the whole-program facts admission reads, collected once per round |
