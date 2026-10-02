@@ -75,11 +75,11 @@ IxPoolの明示的な解放が必要だったのはC hostを経由したため�
 
 ## runの語彙
 
-`fill`と`copy`というrunの語彙はBufferだけが持ち、hostとの交換は`Host<A>`が持つ（[語彙の分担](../api/buffer-host.md#語彙の分担)）。
+`fill`と`copy`というrunの語彙はBufferだけが持ち、hostとの交換はVectorが持つ（[語彙の分担](../api/buffer-vector.md#語彙の分担)）。
 他のcontainerがrunを必要とする場面は少なく、必要な場合もslot操作かBufferの経由で足りる。
 
 - stackは`[0, count)`がLiveなので、まとめたpushやpopもslot操作のloopで書ける。
-- Dequeの論理的な列は最大二つの区間に分かれる。hostとの交換は`Host<A>`を経由し、成長時に折り返した部分を動かす操作は値を写す
+- Dequeの論理的な列は最大二つの区間に分かれる。hostとの交換はVectorを経由し、成長時に折り返した部分を動かす操作は値を写す
   `copy`ではなく、`takeAt`と`initAt`で移す。
 - binary heapは`[0, count)`がLiveだが、coordinateの順は要素の順序ではない。範囲を使うのは配列からの一括構築くらいである。
 - Map、SlotMap、木のLiveな集合は区間にならない。rehashや複製は内部でslot遷移を使う。

@@ -3,14 +3,14 @@
 Status: Exploratory example
 
 この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`の全operationを、IxPoolの核と周辺operation、
-`Host<A>`で実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は
+Vectorで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は
 [AddressとBuffer](../../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 
 ## 使うprimitive
 
-[Pool primitive](../api/pool.md)のIxPoolの核と周辺operation、`Host<A>`と、現行runtimeと同じoverflow trapをmalで起こすための
+[Pool primitive](../api/pool.md)のIxPoolの核と周辺operation、Vectorのprimitiveと、現行runtimeと同じoverflow trapをmalで起こすための
 `trap`だけを使う。
 
 ## 表現とinvariant
@@ -143,44 +143,31 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 
 ## Host境界とSymbol
 
-hostと`Symbol`との交換は、[`Host<A>`](../api/buffer-host.md#host)を経由して書く。型、意味、preconditionは現行の
+hostと`Symbol`との交換は、[Vector](../api/buffer-vector.md#vector)を経由して書く。BufferとVectorは同じpreludeのfileで定義すると
+仮定し、`freeze`したIxPoolをそのままVectorとして、`thaw`したImPoolをそのままBufferとして扱う。型、意味、preconditionは現行の
 [C host copy boundary](../../../spec/memory.md#c-host-copy-boundary)と[Symbol conversion](../../../spec/memory.md#symbol-conversion)のまま
 である。
 
 ```mal
-_fromHost<A> :: (Buffer<A>, Host<A>, USize, USize) -> Unit :=
-    (buffer, source, index, length) -> [return] => {
-        when (index == length) return(());
-        initAt<USize, A>(buffer, index, source # index);
-        return(_fromHost<A>(buffer, source, index + 1usize, length));
-    };
-
-from<A> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) -> {
-    source := admit<A>(address, offset, length);
-    buffer := make<A>(length);
-    _fromHost<A>(buffer, source, 0usize, length);
-    setMeta<USize, A>(buffer, length);
-    buffer;
-};
+from<A> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) ->
+    thaw<USize, A>(admit<A>(address, offset, length));
 
 into<A> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
-    observe<A>(host<USize, A>(freeze<USize, A>(buffer), offset, length), address, 0usize);
+    observe<A>(slice<A>(freeze<USize, A>(buffer), offset, length), address, 0usize);
 
-_toSymbol :: Buffer<UInt8> -> Symbol := (buffer) ->
-    symbol(host<USize, UInt8>(freeze<USize, UInt8>(buffer), 0usize, length<UInt8>(buffer)));
+_toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(buffer));
 ```
 
-`into`の公開precondition `offset + length <= #buffer`は、invariantにより`host`の範囲が全てLiveであることを与える。現行の
-`into`はhost storageの先頭へ書くため、`observe`のoffsetに`0usize`を渡す。`*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、
-`*symbol`はbyte列の`thaw`に当たり、`symbol # index`を`new`で積むloopで書ける。
-
-`Host<A>`は値の側に属するため、`into`と`*buffer`はBufferを`freeze`した値から作る。`from`はhostから`Host<A>`へ、`Host<A>`から
-IxPoolへと二段のcopyを意味の上で行う。組み込みlibraryとしてのBufferは、同じ結果になる一段のcopyで実装してよい。
+`slice`はVectorの参照実装の範囲の写しである（[列のcontainer](sequences.md#vector)）。`into`の公開precondition
+`offset + length <= #buffer`は、invariantにより写す範囲が全てLiveであることを与える。現行の`into`はhost storageの先頭へ書くため、
+`observe`のoffsetに`0usize`を渡す。`*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、`*symbol`はbyte列の`thaw`に当たり、
+`symbol # index`を`new`で積むloopで書ける。組み込みlibraryとしてのBufferとVectorは、`freeze`と`thaw`のstorage共有と一括copyで、
+現行と同じ一段のcopyに実装してよい。
 
 ## 現行Bufferとの差分
 
 - 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
-- growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolと`Host<A>`のprimitiveを持つ。
+- growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolとVectorのprimitiveを持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
   [canonical layout](../runtime/contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
 - `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
@@ -195,7 +182,7 @@ IxPoolへと二段のcopyを意味の上で行う。組み込みlibraryとして
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
-| `from`、`into`、`*` | runtimeのbulk copy | `Host<A>`を経由する。組み込みlibraryとしては一段のbulk copyで実装してよい |
+| `from`、`into`、`*` | runtimeのbulk copy | Vectorを経由する。組み込みlibraryとしては一段のbulk copyで実装してよい |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
 

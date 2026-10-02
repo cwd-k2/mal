@@ -12,7 +12,7 @@ Status: Exploratory support document
   違反はtrapになる。要素はhostへ渡せる型に限られ、IxPoolの寿命はないため明示的に解放する。`Symbol`もextern境界を通らないため、
   同じoperationを持つhost側のtextで代用した。
 - Buffer上のemulation：現在の言語だけで、`Buffer<M>`のMetaと`Buffer<Slot<V>>`のslotとしてIxPoolの核を実装した。ImPool、
-  `freeze`と`thaw`、`Host<A>`もここに置き、preconditionへの違反は戻らない。
+  `freeze`と`thaw`、Vectorとhostとの交換もここに置き、preconditionへの違反は戻らない。
 
 二つの試作は、周辺のoperationとstack、binary heap、Map、Deque、SlotMap、木を一つのsourceで共有して動く。containerはIxPoolの
 核と周辺にしか依存せず、二つの試作は一つの意味の二つの実装である。[検証の段階](runtime/implementation.md#検証の段階)のstep 5と7の一部に当たる。
@@ -64,13 +64,14 @@ C host試作ではbyte IxPoolのstorageを`Symbol`相当のtextと共有した�
 三回に増え、探索ごとのhost callも倍になった。`peek`は書き込まず、copyは書いた側の二回だけである。[区分](api/pool.md#区分)が`peek`を
 計算量の核に置くのはこのためである。
 
-## `Host<A>`とbyte列のfreezeとthaw
+## Vectorとhostとの交換
 
-Buffer上のemulationで、`Buf<T>`の`from`、`into`、`*`の二方向を`Host<A>`、`freeze`、byte列の`freeze`と`thaw`の上に書き、host storageと
-`Symbol`についてpredefinedなBufferと比べた。結果は一致し、`Host<A>`と`Symbol`は作った後のVecへの書き込みを観測しなかった。
+Buffer上のemulationで、`Buf<T>`の`from`、`into`、`*`の二方向をVectorの上に書き、host storageと`Symbol`についてpredefinedな
+Bufferと比べた。`from`はadmitしたVectorの`thaw`、`into`は`freeze`したBufの範囲の`observe`、`*`は`freeze`したBufの`symbol`である。
+結果は一致し、Vectorと`Symbol`は作った後のBufへの書き込みを観測しなかった。
 
-generic codeはmemory intrinsicへ届かないため、`admit`と`observe`は要素型ごとのimplementationを持つoperation familyになった。
-runtimeのprimitiveとして要素型ごとに実装するという位置づけと一致する。malはAddressをoffsetできないため、emulationの`observe`は
+generic codeはmemory intrinsicへ届かないため、`admit`と`observe`の中のcopyは要素型ごとのimplementationを持つoperation familyに
+なった。runtimeのprimitiveとして要素型ごとに実装するという位置づけと一致する。malはAddressをoffsetできないため、emulationの`observe`は
 offsetより前の範囲を読み戻して書き直しており、本物のprimitiveには要らない追加のpreconditionを持つ。
 
 ## ropeとflatな`Symbol`

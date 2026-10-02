@@ -4,7 +4,7 @@ Status: Exploratory support document
 
 この文書は、IxPoolとImPoolのprimitiveを、意味と計算量を定める核と、核で意味を定めたうえで定数倍の費用のために持つ周辺に
 分けて管理する。核の導出は[Poolの意味論](../model/semantics.md#最小核の導出)、所有権の効果とpreconditionの責任は[runtime contract](../runtime/contract.md)、
-Bufferと`Host<A>`は[語彙の分担](buffer-host.md#語彙の分担)を正とする。名前は仮のものである。
+BufferとVectorは[語彙の分担](buffer-vector.md#語彙の分担)を正とする。名前は仮のものである。
 
 ## 区分
 

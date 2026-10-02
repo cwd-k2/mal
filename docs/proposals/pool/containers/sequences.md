@@ -123,7 +123,8 @@ heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
 
 ImPoolの上で、更新のたびに新しい値を返す平らな列である。Metaは長さで、`[0, length)`だけがLiveである。Bufferが組み立てる
 ための可変な列であるのに対し、Vectorは確定した値の列であり、Bufferから`freeze`で作れる。byte列ではこの対が`Buffer<UInt8>`と
-`Symbol`に当たる。Clojure、ScalaのVectorのように木で構造を共有せず、共有中の更新はcopyする。
+`Symbol`に当たる。Clojure、ScalaのVectorのように木で構造を共有せず、共有中の更新はcopyする。hostとの交換と`Symbol`の構築は、組み込み
+libraryとしてのVectorが[primitive](../api/buffer-vector.md#vector)として持つ。
 
 ```mal
 opaque Vector<T> :: ImPool<USize, T>;
@@ -139,6 +140,16 @@ vectorAppend<T> :: (Vector<T>, T) -> Vector<T> := (vector, value) -> {
         else grow(vector, if (current == 0usize) then 1usize else current);
     setMeta(initAt(grown, length, value), length + 1usize);
 };
+
+_copyFrom<T> :: (Vector<T>, Vector<T>, USize, USize, USize) -> Vector<T> :=
+    (source, target, offset, index, length) -> [return] => {
+        when (index == length) return(target);
+        return(_copyFrom(source, initAt(target, index, getAt(source, offset + index)), offset, index + 1usize, length));
+    };
+
+// Precondition: `offset + length <= meta(vector)`.
+slice<T> :: (Vector<T>, USize, USize) -> Vector<T> := (vector, offset, length) ->
+    _copyFrom(vector, setMeta(grow(pool(0usize), length), length), offset, 0usize, length);
 ```
 
 ImPoolの更新は参照数や一意性をsourceへ返さず、次の二つを同じ意味として選ぶ。

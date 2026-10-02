@@ -21,8 +21,8 @@ slot storageのlayoutは要素型ごとに実装が選び、sourceとhostへ観�
 sourceもhostも前提にしない。`IxPool<Meta, UInt8>`のslot storageはbyte列そのものになるため、`Symbol`のbyte ownerとstorageを
 共有する特殊化も実装の選択として取れる。
 
-`Host<A>`はcanonical layoutの密な列を一つの不変なstorageとして持ち、占有tagもlifecycle glueも持たない。`Host<UInt8>`のstorageは
-`Symbol`のbyte ownerと同じ形を取れる。
+`Representable`な要素のVectorは、`[0, length)`をcanonical layoutの密な列として一つのstorageに置き、hostとの交換を一括copyに
+できる。`Vector<UInt8>`のstorageは`Symbol`のbyte ownerと同じ形を取れる。
 
 `size<V> == 0`または`stride<V> == 0`でもslotは消滅しない。element payloadのbyte数が0でも、`n`、VacantとLiveの遷移、
 precondition、drop回数は通常の`V`と同じである。占有tagは`peek`と`isLive`の結果、`slot`で旧値をDropするかの判定、IxPool終了時に
@@ -64,7 +64,7 @@ swapのresultは通常のowned resultであり、使われなくなった時点�
 | IxPoolの終了 | Metaと全Live slotのDrop | なし | 1とLive slot数 |
 
 Bufferの`fill`と`copy`は[参照実装](../containers/buffer.md#range-operation)のloopがこれらのoperationを呼ぶため、回数はその分解から
-決まり、runtimeが一括処理で実装しても同じ回数にする。`Host<A>`のoperationは`Representable`な型か`UInt8`だけを扱い、`share`と
+決まり、runtimeが一括処理で実装しても同じ回数にする。Vectorの`admit`、`observe`、`symbol`は`Representable`な型か`UInt8`だけを扱い、`share`と
 `drop`はno-opなので所有権解析へ入力を持たない。
 
 この表はIxPoolのstorageが共有されていない場合の回数である。[freeze](../api/pool.md#freezeとthaw)がstorageをImPoolと共有する案を

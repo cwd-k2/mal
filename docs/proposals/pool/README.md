@@ -24,7 +24,7 @@ responsibilityはMetaとslotというplaceの値の入れ替えで動かす。
    引く`Slot<V> :: [Unit, V]`の線形空間を持つ。`ImPool<Meta, V>`は同じ状態を値として持ち、更新のたびにsuccessorを返す。核は`pool`、
    `grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である（[Poolの意味論](model/semantics.md)）。
 2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
-   自分のprimitiveを持たない。hostとの交換は不変な値の型`Host<A>`だけが持ち、Bufferはそれを経由して書く。Map、Deque、
+   自分のprimitiveを持たない。hostとの交換は値の列であるVectorが持ち、Bufferはそれを経由して書く。Map、Deque、
    heap、木もIxPool上に、値の列であるVectorはImPool上に置く。
 3. 核の未検査preconditionはcoordinateの範囲だけであり、LiveかVacantかを仮定する周辺operationがそれを加える。どちらもBufferと
    同じ未検査のpreconditionであり、primitiveはどのfileからも呼べる。
@@ -57,7 +57,7 @@ IxPoolをBufferより基本的なものとする。この差はまだ測って�
 | identity | 変更を誰が観測し、何を`Storable`にできるか | IxPoolとImPool | [identity](model/identity.md) |
 | 妥当性 | どのslotがLiveで、誰がそれを保証するか | `Slot<V>`の除去、または周辺operationの未検査preconditionとcontainer invariant | [runtime contract](runtime/contract.md#未検査precondition) |
 | 権限 | 誰がIxPoolへ直接触れるか | どのfileも。opaque型はcontainerのinvariantを宣言元fileへ閉じる | 本書 |
-| 表現 | どのbitで保持し、hostとどう交換するか | runtime representationと`Host<A>` | [runtime contract](runtime/contract.md#runtime-representation) |
+| 表現 | どのbitで保持し、hostとどう交換するか | runtime representationとVectorのprimitive | [runtime contract](runtime/contract.md#runtime-representation) |
 
 IxPoolはどのfileからも使え、そのpreconditionを未検査にするのは現行Bufferの未検査preconditionと同じ選択である。
 containerは[file-local opaque type](../../spec/types.md#file-local-opaque-type)でrepresentationを隠すことで、
@@ -82,7 +82,7 @@ containerが要求する。
   - [identity](model/identity.md)：所有権とidentityの関係、`Storable`の条件、`Storable`と`Stable`の分割案
 - `api/`：primitive
   - [Pool primitive](api/pool.md)：区分、IxPoolの核と周辺、ImPool、`freeze`と`thaw`、測定後の候補
-  - [BufferとHost](api/buffer-host.md)：語彙の分担、Buffer、`Host<A>`
+  - [BufferとVector](api/buffer-vector.md)：語彙の分担、BufferとVectorの対、Buffer、Vectorとhostとの交換
 - `runtime/`：trusted layerの契約と実装
   - [runtime contract](runtime/contract.md)：representation、所有権の遷移、未検査precondition
   - [compilerとruntimeの実装](runtime/implementation.md)：compilerとruntimeの分担、検証の段階
@@ -109,7 +109,7 @@ containerが要求する。
 - [`Storable`と`Stable`の分割案](model/identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
   [D075](../../history/decisions/active/D075.md)の見直しを伴う。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- [`Host<A>`](api/buffer-host.md#host)の名前と、`Symbol`を`Host<UInt8>`とどこまで同一視するか。
+- `Symbol`を`Vector<UInt8>`とどこまで同一視するか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形との比較。意味は同じであり、占有tagとIxPool終了時の
   走査に対する、slotごとのsum tagと移動ごとの`Share`と`Drop`のcostは測っていない。
