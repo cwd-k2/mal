@@ -13,3 +13,4 @@ Gives every name an identity and infers lexical captures. Later stages read thes
 | `continuation` | the continuations of a continuation application |
 | `expression` | expressions and the captures of lambdas |
 | `predefined` | the single declaration of predefined names and reserved identities |
+| `ast` | the resolved program representation |

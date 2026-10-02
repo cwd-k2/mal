@@ -10,7 +10,8 @@ module lives in `backend/llvm/shim`.
 | `header/common/templates` | the C templates for aggregate conversion, canonical memory, and public sums |
 | `host_signature` | host operation signatures |
 | `types` | the C type of every host-visible type, under one structural identity |
-| `types/collect` | the host-visible types a program interface reaches |
+| `types/collect` | interning of host-visible types under one structural identity |
+| `types/collect/interface` | the host-visible types a program interface reaches |
 | `types/declarations` | the C declarations of registered types and their representation descriptors |
 | `types/host` | constructors, observers, and projections of host-mappable aggregates |
 | `types/host/declaration` | the type declarations the host adapter and the public header need |

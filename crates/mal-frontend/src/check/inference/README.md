@@ -6,7 +6,8 @@ a non-constructor type, may be inferred from expected and operand types.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | the type arguments of one generic reference or call, inferred or explicit |
+| `mod` | the type arguments of one generic reference, inferred or explicit |
+| `call` | the type arguments of one generic call, inferred or explicit |
 | `reference` | a generic reference whose type arguments are known, and the requirements it passes to the enclosing body |
 | `arguments` | the argument lists inference starts from and finishes with |
 | `probe` | probes of operands and direct lambda results against a partially instantiated signature |

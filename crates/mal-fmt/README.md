@@ -15,6 +15,7 @@ The layout rules are documented in `docs/development/formatting.md`. The crate d
 | `control` | where control expressions start and end, and which of them expand |
 | `token` | spacing and line breaks between tokens |
 | `token/control` | output state for `if` and block delimiters |
+| `token/breaks` | line breaks the source wrote inside expressions |
 | `generic` | the angle brackets that delimit generic lists, so they are not spaced as operators |
 | `file` | reading a file and replacing it atomically |
 | `cli` | arguments and exit status |
