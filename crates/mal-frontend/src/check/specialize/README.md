@@ -1,15 +1,16 @@
 # specialize
 
 Selects the bindings reachable from the entry and turns each generic use into a monomorphic instance shared per
-concrete type argument list.
+concrete type argument list. Each instance gives its binders fresh identities, so later stages can key facts by
+`ValueId` program-wide.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | entry point, worklist of requested instances, and identity of the instance bindings |
-| `instance` | expansion of one instance: kind requirement checks, `Storable` requirement checks of a selected implementation, and the substituted binding |
-| `expression` | substitution and instance requests over value expressions, lambdas, and result blocks |
-| `structure` | the same walk over blocks, bodies, continuations, and abrupt completions |
+| `mod` | the worklist of requested instances, one per generic and concrete argument list |
+| `instance` | the expansion of one instance, after the requirements it carries hold |
+| `expression` | specialization of value expressions |
+| `structure` | specialization of blocks, bodies, continuations, and completions |
 | `substitution` | type substitution over patterns and completions |
-| `instance_identity` | fresh identities for the binders of one instance and the references that follow them |
-| `admission` | the specialization limit and the top-level binding index |
-| `selection` | the operation implementation whose key matches concrete family arguments, and its shared instance |
+| `instance_identity` | fresh identities for the binders of one instance |
+| `admission` | the limit on how many instances a program may specialize |
+| `selection` | the operation implementation a concrete family reference selects |

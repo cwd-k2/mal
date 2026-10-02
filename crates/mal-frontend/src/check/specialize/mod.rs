@@ -19,7 +19,7 @@ mod selection;
 mod structure;
 mod substitution;
 
-use admission::{admit_specialization, collect_pattern_bindings};
+use admission::admit_specialization;
 
 /// Concrete types for the type parameters of one instance.
 type Substitutions = HashMap<crate::resolve::ast::TypeId, Type>;
@@ -221,5 +221,24 @@ impl Specializer {
             id: binding.id,
             name: reference.name.clone(),
         })
+    }
+}
+
+/// Indexes each name a top-level binding pattern binds by the binding's position.
+fn collect_pattern_bindings(
+    pattern: &Pattern,
+    item: usize,
+    bindings: &mut HashMap<ValueId, usize>,
+) {
+    match pattern {
+        Pattern::Binding { binding, .. } => {
+            bindings.insert(binding.id, item);
+        }
+        Pattern::Product { elements, .. } => {
+            for element in elements {
+                collect_pattern_bindings(element, item, bindings);
+            }
+        }
+        Pattern::Wildcard { .. } => {}
     }
 }

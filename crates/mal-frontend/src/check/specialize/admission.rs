@@ -1,29 +1,8 @@
-use std::collections::HashMap;
+//! The limit on how many instances one program may specialize.
 
-use crate::resolve::ast::ValueId;
 use mal_syntax::diagnostic::Diagnostic;
 
-use super::super::ast::Pattern;
-
 const LIMIT: usize = 65_536;
-
-pub(super) fn collect_pattern_bindings(
-    pattern: &Pattern,
-    item: usize,
-    bindings: &mut HashMap<ValueId, usize>,
-) {
-    match pattern {
-        Pattern::Binding { binding, .. } => {
-            bindings.insert(binding.id, item);
-        }
-        Pattern::Product { elements, .. } => {
-            for element in elements {
-                collect_pattern_bindings(element, item, bindings);
-            }
-        }
-        Pattern::Wildcard { .. } => {}
-    }
-}
 
 pub(super) fn admit_specialization(
     count: usize,
