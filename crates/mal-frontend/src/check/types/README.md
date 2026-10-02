@@ -8,7 +8,8 @@ source type expressions and infers kinds; specialization consumes these terms an
 | `kind` | principal kind inference for declarations and value signatures |
 | `definitions` | the source declarations type checking reads |
 | `validation` | declaration-wide validation after kind inference |
-| `expand` | expansion of source type expressions into canonical terms |
+| `expand` | expansion of source type expressions into canonical terms, as a stack machine |
+| `expand/declaration` | type names resolved to the declarations they stand for, and the cache of finished expansions |
 | [`term`](term/README.md) | canonical type-level terms |
 | `canonical` | erasure of canonical terms to runtime types |
 | `canonical/substitution` | substitution of type parameters |
