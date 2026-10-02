@@ -1,4 +1,4 @@
-//! Lambda lifting for locally created closures used only as direct callees.
+//! Lambda lifting for non-recursive locally created closures whose aliases are used only as direct callees.
 
 use std::collections::{HashMap, HashSet};
 

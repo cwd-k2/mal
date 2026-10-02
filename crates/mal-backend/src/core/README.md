@@ -5,20 +5,20 @@ Desugars a specialized checked program into the core language: explicit evaluati
 
 | Module | Responsibility |
 |---|---|
-| `interface` | extracts the host-visible `ProgramInterface` and nothing else |
-| `external` | turns external operation signatures into capture-free lambdas and external calls |
-| `expression` | dispatches checked expression kinds to the modules that own control, memory, and `Buffer` lowering |
-| `lambda` | lambda parameters and body items as core bindings, lexical joins, and closure captures |
-| `buffer` | `Buffer` `make`, `new`, `get`, `put`, `fill`, and `copy` as core operations with logical operands rather than source products, for operands lowered directly and through a lexical join alike |
+| `interface` | the host-visible `ProgramInterface` |
+| `external` | external operations as capture-free lambdas around external calls |
+| `expression` | dispatch of checked expressions to the modules below |
+| `lambda` | lambdas as core bindings, lexical joins, and closure captures |
+| `buffer` | `Buffer` primitives as core operations with logical operands |
 | `bool` | `Bool` elimination as an explicit `case` |
 | `pattern` | checked patterns as core patterns |
-| `elimination` | sum elimination continuations as pattern-binding `case` arms, result binder names as jumps to the result join, and an elimination that sends every variant to the same position of one result as a plain jump of the scrutinee, which keeps a forwarded call a tail call |
-| `completion` | lowers body items iteratively and connects `Value` paths and direct result blocks to lexical joins |
-| `completion/abrupt` | result transfer, empty elimination, all-abrupt branches, and terminal control of direct blocks |
-| `completion/branch` | sum elimination, `if`, and short-circuit operator bodies whose `Value` paths continue at a lexical join |
-| `completion/result_block` | maps direct result binders to join targets and connects block body and continuation |
-| `completion/value` | operator values that contain control paths, rebuilt as core primitives and `Bool` elimination |
-| `completion/presence` | classifies checked subtrees that need lexical continuations |
+| `elimination` | sum elimination continuations as `case` arms and jumps |
+| `completion` | body items and the lexical joins their `Value` paths continue at |
+| `completion/abrupt` | completions that leave without a value |
+| `completion/branch` | branching bodies whose `Value` paths meet at a lexical join |
+| `completion/result_block` | direct result blocks and their join targets |
+| `completion/value` | operator values that contain control paths |
+| `completion/presence` | which checked subtrees need lexical continuations |
 
 Core separates direct `Buffer` storage operations into `BufferOperation`. Snapshot conversion and copies across
 the C host-memory boundary remain `MemoryPrimitive`; they have different representation and ownership contracts

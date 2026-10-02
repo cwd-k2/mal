@@ -1,3 +1,5 @@
+//! Sum elimination continuations as `case` arms, and eliminations that reduce to a jump of the scrutinee.
+
 use super::*;
 
 impl Lowerer {
