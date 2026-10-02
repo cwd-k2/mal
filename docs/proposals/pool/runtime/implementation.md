@@ -71,7 +71,7 @@ trusted crateへ移せるかを評価する。leafの登録には、layout、val
 5. IxPool上のBufferを現在のBufferとalias、range、overlap、trap semanticsで比べ、範囲と占有tagを検査するtest用runtimeで公開
    preconditionを満たすprogramがIxPool preconditionへ違反しないことを確かめる。canonical host copyはpaddingや非選択sum payloadへ
    依存せずround-tripする。
-6. ImPool上のimmutable arrayで、shared時のcopyとlast-use時のstorage再利用を別々に測る。
+6. ImPool上のVectorで、shared時のcopyとlast-use時のstorage再利用を別々に測る。
 7. 木やgeneration付きkeyのcontainerをcoordinateで実装し、coordinateの再利用と古いkeyの拒否を検査する。
 8. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換とtrusted crate境界を別々に判断する。
 

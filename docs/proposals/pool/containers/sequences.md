@@ -3,7 +3,7 @@
 Status: Exploratory example
 
 この文書は、[IxPool上のcontainer](overview.md)のうち、Liveなcoordinateが列をなすstack、Deque、binary heapと、ImPool上の
-immutable arrayを、試作で動かしたcodeから要点を抜き出して示す。primitiveの名前と区分は[Pool primitive](../api/pool.md)、試作は
+Vectorを、試作で動かしたcodeから要点を抜き出して示す。primitiveの名前と区分は[Pool primitive](../api/pool.md)、試作は
 [試作で確かめたこと](../prototypes.md)を正とする。例は未採択の擬似codeである。
 
 各例は共通の補助として、capacityが`required`未満なら4以上の倍増で`grow`する`ensureCapacity(pool, required)`を使う。これはprimitiveではなく、
@@ -119,23 +119,24 @@ heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
 `_siftDown`は小さい方の子を`moveAt`で穴へ上げる。移動は`takeAt`と`initAt`だけで、比較の`getAt`以外に`Share`も`Drop`も起こさない。
 `less`は[operation family](../../../spec/operation-families.md)のrequirementとしてheapへ渡る。
 
-## immutable array
+## Vector
 
-ImPoolの上で、更新のたびに新しい値を返す配列である。Metaは長さで、`[0, length)`だけがLiveである。mutable arrayに当たる
-ものはBufferであり、同じinvariantをIxPoolの上に置く。
+ImPoolの上で、更新のたびに新しい値を返す平らな列である。Metaは長さで、`[0, length)`だけがLiveである。Bufferが組み立てる
+ための可変な列であるのに対し、Vectorは確定した値の列であり、Bufferから`freeze`で作れる。byte列ではこの対が`Buffer<UInt8>`と
+`Symbol`に当たる。Clojure、ScalaのVectorのように木で構造を共有せず、共有中の更新はcopyする。
 
 ```mal
-opaque Array<T> :: ImPool<USize, T>;
+opaque Vector<T> :: ImPool<USize, T>;
 
-arraySet<T> :: (Array<T>, USize, T) -> Array<T> := (array, index, value) ->
-    putAt(array, index, value);
+vectorSet<T> :: (Vector<T>, USize, T) -> Vector<T> := (vector, index, value) ->
+    putAt(vector, index, value);
 
-arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
-    length := meta(array);
-    current := capacity(array);
+vectorAppend<T> :: (Vector<T>, T) -> Vector<T> := (vector, value) -> {
+    length := meta(vector);
+    current := capacity(vector);
     grown := if (length < current)
-        then array
-        else grow(array, if (current == 0usize) then 1usize else current);
+        then vector
+        else grow(vector, if (current == 0usize) then 1usize else current);
     setMeta(initAt(grown, length, value), length + 1usize);
 };
 ```
@@ -143,17 +144,17 @@ arrayAppend<T> :: (Array<T>, T) -> Array<T> := (array, value) -> {
 ImPoolの更新は参照数や一意性をsourceへ返さず、次の二つを同じ意味として選ぶ。
 
 ```text
-inputが唯一:       Array A ── storage P ── update in place ── Array B
+inputが唯一:       Vector A ── storage P ── update in place ── Vector B
 
-inputにaliasあり:  Array A ── storage P  = [A, B, C]
+inputにaliasあり:  Vector A ── storage P  = [A, B, C]
                                   share live elements
-                   Array B ── storage P' = [A, X, C]
+                   Vector B ── storage P' = [A, X, C]
 ```
 
-callerが旧Arrayを後でも使う場合、call siteは渡すresponsibilityをShareするため、更新は新しいstorageを作る。旧Arrayがlast useなら
-inputを`Consume`でき、他のaliasがなければ同じstorageを再利用する。`arrayAppend`のように更新を続けると、最初の更新が一意な
+callerが旧Vectorを後でも使う場合、call siteは渡すresponsibilityをShareするため、更新は新しいstorageを作る。旧Vectorがlast useなら
+inputを`Consume`でき、他のaliasがなければ同じstorageを再利用する。`vectorAppend`のように更新を続けると、最初の更新が一意な
 successorを作るため、以後の更新はその場で行われる。borrowedなcall経路ではcopyへfallbackしてよく、意味はcall conventionに
-依存しない。`Array<T>`は`T`が`Storable`なら`Storable`になるため、`Array<Array<T>>`やMapのvalueにできる。
+依存しない。`Vector<T>`は`T`が`Storable`なら`Storable`になるため、`Vector<Vector<T>>`やMapのvalueにできる。
 
 chunk単位のCOWやpersistent vectorは共有時のcopy量を減らせる一方、複数storageの所有と使われなくなったnodeの回収を別途定める
 必要がある。外部の事例は[Pool storageの関連事例](../../../research/pool-storage-prior-art.md)にまとめる。

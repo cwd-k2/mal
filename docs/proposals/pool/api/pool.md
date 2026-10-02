@@ -163,4 +163,4 @@ byte ownerを共有するため同じ確認を持つが、全要素型のIxPool�
 次の操作は意味を核のloopで書ける。loopのcostが測定で問題になった場合に追加を検討する。
 
 - IxPoolの`moveRange`：範囲の`takeAt`と`initAt`を一括で行い、`Share`も`Drop`もしない。Dequeの成長、Mapのrehash、詰め直しが使う。
-- ImPoolの範囲の写し：immutable arrayのsliceと連結。`Symbol`の`+`、`/`、`%`をbyte列以外へ広げたものに当たる。
+- ImPoolの範囲の写し：Vectorのsliceと連結。`Symbol`の`+`、`/`、`%`をbyte列以外へ広げたものに当たる。

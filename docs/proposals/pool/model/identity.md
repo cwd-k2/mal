@@ -4,7 +4,7 @@ Status: Exploratory support document
 
 この文書は、Pool案のidentity軸、すなわち値の変更を誰が観測するかと、それによって決まる`Storable`の可否を管理する。
 所有権の遷移は[runtime contract](../runtime/contract.md#所有権)、ImPoolの意味は[Pool primitive](../api/pool.md#impool)、copy-on-writeの動作例は
-[immutable array](../containers/sequences.md#immutable-array)を正とする。現行の`Storable` judgmentは
+[Vector](../containers/sequences.md#vector)を正とする。現行の`Storable` judgmentは
 [AddressとBuffer](../../../spec/memory.md#storable)に定める。
 
 ## 所有権とidentity
@@ -32,8 +32,8 @@ owner edgeは常に真に小さい型の値を指す。`IxPool<M, IxPool<M, V>>`
 
 IxPoolと`ImPool`の形成は、現在のclosed judgmentである`Storable(Meta)`と`Storable(V)`を要求する。opaque型の`Storable`、
 `Representable`、lifecycleはcompilerがhidden representationから導き、opaque型がこれらのpropertyを新たに宣言して
-representationの制約を迂回することはできない。したがって`opaque Array<T> :: IxPool<USize, T>`は`Storable`にならず、
-`opaque Array<T> :: ImPool<USize, T>`は`Storable(T)`のもとで`Storable`になる。
+representationの制約を迂回することはできない。したがって`opaque Vector<T> :: IxPool<USize, T>`は`Storable`にならず、
+`opaque Vector<T> :: ImPool<USize, T>`は`Storable(T)`のもとで`Storable`になる。
 
 将来plugin leafを`Storable`へ追加するには、storage内のShareが安全であること、aliasが後の
 mal-owned mutationを観測しないこと、container edgeからowner cycleを作らないことを登録時に示す。
@@ -74,10 +74,10 @@ ImPoolは表の値を無条件に持つ。productとsumは要素から、file-lo
 
 ## 入れ子構造の選び方
 
-`Array<Array<T>>`に相当する構造は、identity軸のどちらを選ぶかで作り方が分かれる。
+`Vector<Vector<T>>`に相当する構造は、identity軸のどちらを選ぶかで作り方が分かれる。
 
 - `ImPool`を入れ子にする。値として振る舞い、到達できなくなった内側の配列は自動で回収される。cycleは作れない。
 - 内側の要素を一つのIxPoolへまとめ、外側にはcoordinateを保存する。identityを共有し、cycleを作れるが、使わなくなった
   coordinateの回収はcontainerが行う。[判定の分割案](#判定の分割案)を採れば、IxPoolを直接要素にもできる。
 
-treeやgraphのように外部やelementからidentityを参照する構造は後者、immutable arrayやsnapshotのような値は前者を使う。
+treeやgraphのように外部やelementからidentityを参照する構造は後者、Vectorやsnapshotのような値は前者を使う。

@@ -22,14 +22,14 @@ ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをho
 
 核はpoolのconstructor `F`をkeyに持つoperation familyとして書き、IxPoolとImPoolで一つの名前を共有した。更新はどれもpoolを
 返し、IxPoolは同じidentityを、ImPoolはsuccessorを返す。周辺は`F`の上に一度だけ書け、IxPool上のcontainerとImPool上の
-immutable arrayが同じ周辺を使った。呼び出しは`meta<IxPool>(map)`のようにconstructorを明示し、これはopaqueのどの層として見るかの
+Vectorが同じ周辺を使った。呼び出しは`meta<IxPool>(map)`のようにconstructorを明示し、これはopaqueのどの層として見るかの
 指定も兼ねる。更新がpoolを返すため、更新で終わる`Unit`のblockには末尾の`()`が要った。この形を書く過程で、kind多相な型parameterを
 扱うcompilerの不具合を四つ見つけて直し、本体が求めるkindをspecializationで検査する規則を
 [D093](../../history/decisions/active/D093.md)として決めた。
 
 ## Bufferの参照実装
 
-[Buffer実装](containers/buffer.md)をBufferと別名の`Vec<T>`としてIxPoolの上に書き、predefinedな`Buffer<UInt64>`と比べた。
+[Buffer実装](containers/buffer.md)をBufferと別名の`Buf<T>`としてIxPoolの上に書き、predefinedな`Buffer<UInt64>`と比べた。
 同じ擬似乱数列で`new`、`put`、`fill`、重なる範囲の`copy`、別の値からの`copy`を1000回、aliasを通して両方へ適用し、各操作の後に
 長さと全要素が一致することを二つの試作で確かめた。`fill`と`copy`は参照実装と同じくslot操作のloopで書き、`copy`はoffsetの大小で
 loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、範囲の一括primitiveなしに現行Bufferと一致した。overflowのtrapは
@@ -37,10 +37,10 @@ loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、�
 
 ## ImPoolとfreezeとthaw
 
-Buffer上のemulationで、[immutable array](containers/sequences.md#immutable-array)の`Array<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
+Buffer上のemulationで、[Vector](containers/sequences.md#vector)の`Vector<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
 後のIxPoolへの書き込みも、`thaw`したIxPoolへの書き込みも、値と他のIxPoolから観測されないことを確かめた。`Symbol`を要素に
 しても、valgrindで全allocationの解放とerror 0を確かめた。emulationのImPoolはBufferを含むため`Storable`にならず、
-`Array<Array<T>>`は確かめていない。要素を`takeAt`で取り出して更新し、戻す`arrayUpdate`は、入れ子の値を一意に保ったまま
+`Vector<Vector<T>>`は確かめていない。要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、入れ子の値を一意に保ったまま
 更新する経路として動いた。
 
 ## slot遷移とcontainer
@@ -66,7 +66,7 @@ C host試作ではbyte IxPoolのstorageを`Symbol`相当のtextと共有した�
 
 ## `Host<A>`とbyte列のfreezeとthaw
 
-Buffer上のemulationで、`Vec<T>`の`from`、`into`、`*`の二方向を`Host<A>`、`freeze`、byte列の`freeze`と`thaw`の上に書き、host storageと
+Buffer上のemulationで、`Buf<T>`の`from`、`into`、`*`の二方向を`Host<A>`、`freeze`、byte列の`freeze`と`thaw`の上に書き、host storageと
 `Symbol`についてpredefinedなBufferと比べた。結果は一致し、`Host<A>`と`Symbol`は作った後のVecへの書き込みを観測しなかった。
 
 generic codeはmemory intrinsicへ届かないため、`admit`と`observe`は要素型ごとのimplementationを持つoperation familyになった。

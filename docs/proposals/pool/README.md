@@ -25,7 +25,7 @@ responsibilityはMetaとslotというplaceの値の入れ替えで動かす。
    `grow`、`capacity`、`peek`、`swap`、`meta`、`swapMeta`である（[Poolの意味論](model/semantics.md)）。
 2. containerは、この対の上にmalで書く。BufferはIxPoolに「Liveなslotは`[0, count)`」というinvariantを課したものであり、
    自分のprimitiveを持たない。hostとの交換は不変な値の型`Host<A>`だけが持ち、Bufferはそれを経由して書く。Map、Deque、
-   heap、木もIxPool上に、immutable arrayはImPool上に置く。
+   heap、木もIxPool上に、値の列であるVectorはImPool上に置く。
 3. 核の未検査preconditionはcoordinateの範囲だけであり、LiveかVacantかを仮定する周辺operationがそれを加える。どちらもBufferと
    同じ未検査のpreconditionであり、primitiveはどのfileからも呼べる。
    containerの実装がinvariantでその条件を満たし、利用者はcontainerの公開preconditionだけを見る。
@@ -36,7 +36,7 @@ byte列に特化して既に実装したものに当たる。
 | | identityを共有する | 値 |
 |---|---|---|
 | primitive | IxPool | ImPool |
-| 一つのLiveなrun | Buffer（`[0, count)`） | Array（`[0, length)`） |
+| 一つのLiveなrun | Buffer（`[0, count)`） | Vector（`[0, length)`） |
 | byte列 | `Buffer<UInt8>` | `Symbol` |
 
 対の間は`freeze`と`thaw`で変換し、byte列ではこれが`Buffer<UInt8>`と`Symbol`の間の`*`に当たる。
@@ -89,7 +89,7 @@ containerが要求する。
 - `containers/`：Poolの上のcontainer
   - [IxPool上のcontainer](containers/overview.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
   - [Buffer実装](containers/buffer.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
-  - [列のcontainer](containers/sequences.md)：stack、Deque、binary heap、immutable array
+  - [列のcontainer](containers/sequences.md)：stack、Deque、binary heap、Vector
   - [keyで引くcontainer](containers/keyed.md)：open addressing Map、SlotMap、木
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
 
@@ -100,6 +100,7 @@ containerが要求する。
   新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書く。
   [試作](prototypes.md#二つの試作)では、更新がpoolを返す形にsignatureを揃え、constructorをkeyに持つ
   [operation family](../../spec/operation-families.md)で一つの名前にまとめられた。この形を採るかもここで決める。
+  値の列は、可変な作業領域のBufferと対にして仮にVectorと呼ぶ。byte列の`Buffer<UInt8>`と`Symbol`と同じ対である。
 - [Meta](model/semantics.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
