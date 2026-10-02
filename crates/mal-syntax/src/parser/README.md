@@ -5,7 +5,10 @@ syntax from types or names.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | top-level items, declarations, and type syntax |
+| `mod` | the entry points, programs, and top-level items |
+| `types` | type syntax |
+| `binding` | bindings, their patterns, and the bodies they initialize with |
+| `cursor` | the token cursor, diagnostics, and the bound on syntax nesting |
 | `generic` | generic parameter and argument lists |
 | `expression` | operator precedence and prefix dispatch |
 | `expression/forms` | products and the application forms |

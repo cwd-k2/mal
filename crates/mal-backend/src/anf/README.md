@@ -6,7 +6,8 @@ without walking nested expressions again.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | lowering of core expressions into administrative normal form |
+| `mod` | lowering of core programs into administrative normal form |
+| `expression` | one core expression as ANF blocks, operands evaluated left to right |
 | `ast` | the ANF program |
 
 This stage preserves lexical lambdas, captures, and join identities. Closure representation belongs to `closure`, and
