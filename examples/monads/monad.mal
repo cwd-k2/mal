@@ -1,0 +1,19 @@
+// A monad is a pair of operation families keyed by a type constructor. Code written against them is
+// specialized for each concrete constructor, so no dictionary exists at run time.
+pure<F, A> :: A -> F<A>;
+bind<F, A, B> :: (F<A>, A -> F<B>) -> F<B>;
+
+fmap<F, A, B> :: (F<A>, A -> B) -> F<B> := (value, function) ->
+    bind<F>(value, (element) -> pure<F, B>(function(element)));
+
+both<F, A, B> :: (F<A>, F<B>) -> F<(A, B)> := (left, right) ->
+    bind<F>(left, (first) -> fmap<F>(right, (second) -> (first, second)));
+
+_foldFrom<F, A, S> :: (Buffer<A>, USize, S, (S, A) -> F<S>) -> F<S> := (values, index, state, step) -> [return] => {
+    when (index == #values) return(pure<F, S>(state));
+    return(bind<F>(step(state, values.get(index)), (next) -> _foldFrom<F>(values, index + 1usize, next, step)));
+};
+
+// Threads `step` through the elements in order; the constructor decides whether and how it continues.
+foldEach<F, A, S> :: (Buffer<A>, S, (S, A) -> F<S>) -> F<S> := (values, initial, step) ->
+    _foldFrom<F>(values, 0usize, initial, step);
