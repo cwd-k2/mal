@@ -196,6 +196,13 @@ impl Resolver {
                 {
                     let parameter_names =
                         key::key_binders(arguments, |name| self.types.contains_key(name));
+                    let similar_types = parameter_names
+                        .iter()
+                        .filter_map(|binder| {
+                            key::similar_type(&binder.text, self.types.keys().map(String::as_str))
+                                .map(|ty| (binder.text.clone(), ty.to_string()))
+                        })
+                        .collect();
                     let parameter_bindings = self.push_type_parameters(&parameter_names)?;
                     let resolved = (|| {
                         let arguments = arguments
@@ -228,6 +235,7 @@ impl Resolver {
                         arguments,
                         annotation,
                         value,
+                        similar_types,
                     }
                 } else {
                     let parameters = generic_parameter_names(arguments)?;

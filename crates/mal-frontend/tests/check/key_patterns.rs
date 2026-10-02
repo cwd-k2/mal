@@ -120,3 +120,42 @@ fn explains_a_catch_all_key_made_of_unknown_names() {
         error.notes
     );
 }
+
+#[test]
+fn suggests_the_type_a_misspelled_key_binder_may_name() {
+    let suggestion = "did you mean the type `Int32`?";
+    let catch_all = check_error(
+        "equal<A> :: (A, A) -> Bool;\n\
+         equal<Int23> :: (Int23, Int23) -> Bool := (left, right) -> true;",
+    );
+    assert!(
+        catch_all.notes.iter().any(|note| note.contains(suggestion)),
+        "{:?}",
+        catch_all.notes
+    );
+
+    // The body treats the binder as the integer type it was meant to be.
+    let body = check_error(
+        "first<F, A> :: F<A> -> A;\n\
+         first<Buffer, Int23> :: Buffer<Int23> -> Int23 := (values) -> values.get(0usize) + 1i32;",
+    );
+    assert!(
+        body.notes.iter().any(|note| note.contains(suggestion)),
+        "{:?}",
+        body.notes
+    );
+
+    // A single-letter binder is an ordinary type variable and is never suspected.
+    let single = check_error(
+        "first<F, A> :: F<A> -> A;\n\
+         first<Buffer, I> :: Buffer<I> -> I := (values) -> values.get(0usize) + 1i32;",
+    );
+    assert!(
+        !single
+            .notes
+            .iter()
+            .any(|note| note.contains("did you mean")),
+        "{:?}",
+        single.notes
+    );
+}

@@ -10,6 +10,7 @@ mod overlap;
 mod pattern;
 
 use key::require_decreasing;
+pub(super) use key::suggest_types;
 pub(super) use pattern::contains_parameter;
 
 impl Checker {

@@ -80,6 +80,7 @@ impl Index {
                 arguments,
                 annotation,
                 value,
+                ..
             } => {
                 self.add_raw(
                     SymbolId::Value(family.id),

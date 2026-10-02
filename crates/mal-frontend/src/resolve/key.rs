@@ -34,3 +34,55 @@ pub(super) fn key_binders(
     }
     binders
 }
+
+/// The visible type name one edit away from `binder`, so that a diagnostic can ask whether the binder is a misspelled
+/// type. A single-letter binder is the usual spelling of a type variable and is never suspected. Among several
+/// candidates the first in name order is chosen, so the note does not depend on table order.
+pub(super) fn similar_type<'a>(
+    binder: &str,
+    types: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
+    if binder.chars().count() < 2 {
+        return None;
+    }
+    types
+        .into_iter()
+        .filter(|name| *name != binder && within_one_edit(binder, name))
+        .min()
+}
+
+/// Whether one insertion, deletion, substitution, or transposition of adjacent characters turns `left` into `right`.
+fn within_one_edit(left: &str, right: &str) -> bool {
+    let left = left.chars().collect::<Vec<_>>();
+    let right = right.chars().collect::<Vec<_>>();
+    let (shorter, longer) = if left.len() <= right.len() {
+        (&left, &right)
+    } else {
+        (&right, &left)
+    };
+    match longer.len() - shorter.len() {
+        0 => {
+            let differences = (0..shorter.len())
+                .filter(|&index| shorter[index] != longer[index])
+                .collect::<Vec<_>>();
+            match differences.as_slice() {
+                [_] => true,
+                [first, second] => {
+                    *second == first + 1
+                        && shorter[*first] == longer[*second]
+                        && shorter[*second] == longer[*first]
+                }
+                _ => false,
+            }
+        }
+        1 => {
+            let prefix = shorter
+                .iter()
+                .zip(longer.iter())
+                .take_while(|(left, right)| left == right)
+                .count();
+            shorter[prefix..] == longer[prefix + 1..]
+        }
+        _ => false,
+    }
+}

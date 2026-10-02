@@ -4,7 +4,7 @@ use crate::resolve::ast as resolved;
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::super::ast::{self, Kind, Type};
-use super::super::{CheckResult, Checker};
+use super::super::{CheckFailure, CheckResult, Checker};
 use super::overlap::operation_patterns_overlap;
 use super::pattern::{
     contains_parameter, contains_parameter_id, has_nominal_head, operation_requirement_decreases,
@@ -118,4 +118,20 @@ pub(super) fn require_decreasing(
         }
     }
     Ok(())
+}
+
+/// Adds to a failure inside an implementation the types its binders may have meant to name.
+pub(in crate::check) fn suggest_types(
+    failure: CheckFailure,
+    similar_types: &[(String, String)],
+) -> CheckFailure {
+    let CheckFailure::Diagnostic(mut diagnostic) = failure else {
+        return failure;
+    };
+    for (binder, ty) in similar_types {
+        diagnostic = diagnostic.with_note(format!(
+            "`{binder}` in the implementation key is a type variable; did you mean the type `{ty}`?"
+        ));
+    }
+    CheckFailure::Diagnostic(diagnostic)
 }

@@ -156,7 +156,7 @@ pub enum TopItem {
     OperationImplementation {
         /// A reference to the previously declared family.
         family: ValueReference,
-        /// Pattern binders reused from the family declaration, empty for an exact key.
+        /// Pattern variables the key binds, empty for an exact key.
         parameters: Vec<TypeBinding>,
         /// Canonical type expressions forming the implementation key.
         arguments: Vec<Node<TypeExpression>>,
@@ -164,6 +164,8 @@ pub enum TopItem {
         annotation: Node<TypeExpression>,
         /// The resolved implementation initializer.
         value: Node<Expression>,
+        /// Each binder spelled one edit away from a visible type, with that type, for diagnostics.
+        similar_types: Vec<(String, String)>,
     },
 }
 

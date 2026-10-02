@@ -34,6 +34,7 @@ pub fn type_name(ty: &ast::Type) -> String {
 
 use self::ast::{AbruptExpression, Completion, Kind, Program, TopItem, Type};
 use self::interface::ExternalSignature;
+use self::operation::suggest_types;
 use self::types::{GenericAliasDefinition, Kinds};
 
 /// Applies every type and completion rule to a resolved program while retaining generic declarations.
@@ -230,11 +231,14 @@ impl Checker {
                 arguments,
                 annotation,
                 value,
+                similar_types,
             } = &item.kind
             {
-                let implementation = self.check_operation_implementation(
-                    family, parameters, arguments, annotation, value, item.span,
-                )?;
+                let implementation = self
+                    .check_operation_implementation(
+                        family, parameters, arguments, annotation, value, item.span,
+                    )
+                    .map_err(|failure| suggest_types(failure, similar_types))?;
                 items.push(Node::new(
                     TopItem::OperationImplementation(Box::new(implementation)),
                     item.span,
