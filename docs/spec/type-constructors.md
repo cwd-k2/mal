@@ -14,9 +14,9 @@ type applicationは左からargumentを適用する。argument数をdeclaration 
 認め、kind `Type`へさらに適用した場合とkindが一致しないargumentを拒否する。value signature、opaque representation、product、sum、
 function、`Buffer` elementなどruntime typeを要求する位置は、正規化後のkindが`Type`でなければならない。
 
-generic transparent aliasはtype-level abstractionとして展開し、applicationをbeta reduceする。alpha同値とeta同値をcanonical type termへ
-正規化し、phantom parameterへ渡したargumentはforceしない。sourceにtype lambda、placeholder、kind annotation、type-level pattern match、
-type constructorをruntime valueとして扱う構文はない。
+generic transparent aliasはtype-level abstractionとして展開し、applicationをbeta reduceする。型applicationはargumentを正規化して
+から代入し、alpha同値とeta同値をcanonical type termへ正規化する。phantom parameterへ渡したargumentだけはforceしない。
+sourceにtype lambda、placeholder、kind annotation、type-level pattern match、type constructorをruntime valueとして扱う構文はない。
 
 reference compilerは型項正規化の一transactionを256 nested term levelかつ65,536 normalization stepまで、推論したkindを
 256 nested function levelかつ65,536 construction stepまで、一つのdeclarationのtype parameterを256個まで受理する。kindの上限は個々の

@@ -123,3 +123,15 @@ fn forwards_rigid_arguments_to_an_operation_requirement() {
 
     check::specialize(program).expect("forward a constructor operation requirement");
 }
+
+#[test]
+fn eta_reduces_abstractions_whose_variable_a_substitution_drops() {
+    // `Apply<Dup, Konst<F>>` reduces to an abstraction over `F<X>`, which is eta-equal to `F`.
+    check_ok(
+        "Konst<F, A> :: F;\n\
+         Dup<K, X> :: K<X, X>;\n\
+         Apply<G, T> :: G<T>;\n\
+         opaque Box<F> :: F<Int32>;\n\
+         same<F> :: Box<Apply<Dup, Konst<F>>> -> Box<F> := (value) -> value;",
+    );
+}

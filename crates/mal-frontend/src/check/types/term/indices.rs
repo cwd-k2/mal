@@ -2,6 +2,8 @@ use mal_syntax::diagnostic::Diagnostic;
 
 use super::{Type, normalization::Budget};
 
+/// Renumbers the variables bound at or above `depth` by `amount`. Every occurrence and node shape is kept, so nodes are
+/// rebuilt directly without the canonical constructors.
 pub(super) fn shift_bounded(
     ty: &Type,
     depth: usize,

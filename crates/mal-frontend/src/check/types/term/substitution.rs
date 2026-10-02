@@ -1,11 +1,9 @@
 use mal_syntax::diagnostic::Diagnostic;
 
-use super::{
-    Type,
-    indices::{map_children_bounded, shift_bounded},
-    normalization::Budget,
-};
+use super::{Type, indices::shift_bounded, normalization::Budget};
 
+/// Replaces bound variable `binder_depth` with `argument`, renumbering the variables bound outside it. Removing a
+/// variable can expose a redex in any enclosing node, so the term is rebuilt through the canonical constructors.
 pub(super) fn bound(
     ty: &Type,
     argument: &Type,
@@ -14,50 +12,31 @@ pub(super) fn bound(
     traversal_depth: usize,
 ) -> Result<Type, Diagnostic> {
     budget.visit(traversal_depth)?;
-    Ok(match ty {
+    match ty {
         Type::Bound { index, .. } if *index == binder_depth => shift_bounded(
             argument,
             0,
             binder_depth as isize,
             budget,
             traversal_depth + 1,
-        )?,
-        Type::Bound { index, kind } if *index > binder_depth => Type::Bound {
+        ),
+        Type::Bound { index, kind } if *index > binder_depth => Ok(Type::Bound {
             index: index - 1,
             kind: kind.clone(),
-        },
-        Type::Application {
-            constructor,
-            argument: applied,
-            span,
-            ..
-        } => {
-            let constructor = bound(
-                constructor,
-                argument,
-                binder_depth,
-                budget,
-                traversal_depth + 1,
-            )?;
-            let applied = bound(applied, argument, binder_depth, budget, traversal_depth + 1)?;
-            super::apply_with_budget(constructor, applied, *span, budget, traversal_depth + 1)?
-        }
-        Type::Abstraction {
-            parameter_kind,
-            body,
-        } => Type::Abstraction {
-            parameter_kind: parameter_kind.clone(),
-            body: bound(
-                body,
-                argument,
-                binder_depth + 1,
-                budget,
-                traversal_depth + 1,
-            )?
-            .into(),
-        },
-        _ => map_children_bounded(ty, |child| {
-            bound(child, argument, binder_depth, budget, traversal_depth + 1)
-        })?,
-    })
+        }),
+        _ => super::rebuild_canonical(
+            ty,
+            budget,
+            traversal_depth + 1,
+            |child, under_binder, budget| {
+                bound(
+                    child,
+                    argument,
+                    binder_depth + usize::from(under_binder),
+                    budget,
+                    traversal_depth + 1,
+                )
+            },
+        ),
+    }
 }

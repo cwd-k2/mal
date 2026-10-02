@@ -4,6 +4,8 @@ use mal_syntax::diagnostic::Diagnostic;
 
 use super::{Kind, Type, kind_variables, normalization::Budget};
 
+/// Rewrites the kinds recorded in `ty`. Variables and node shapes are kept, so nodes are rebuilt directly without the
+/// canonical constructors.
 pub(super) fn rewrite(
     ty: &Type,
     substitutions: &HashMap<u32, Kind>,

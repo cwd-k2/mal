@@ -33,6 +33,26 @@ impl Normalizer {
         apply_with_budget(constructor, argument, span, &mut self.budget, 0)
     }
 
+    /// Applies an abstraction to an argument its body never uses, so the argument is never formed. The caller knows the
+    /// parameter is unused from its declaration; anything else is rejected as an application of a complete type.
+    pub(in crate::check) fn apply_unused(
+        &mut self,
+        constructor: Type,
+        span: Span,
+    ) -> Result<Type, Diagnostic> {
+        match constructor {
+            Type::Abstraction { body, .. } => {
+                indices::shift_bounded(&body, 0, -1, &mut self.budget, 0)
+            }
+            constructor => Err(
+                Diagnostic::error("type does not accept arguments").with_primary(
+                    span,
+                    format!("`{}` has kind `Type`", type_name(&constructor)),
+                ),
+            ),
+        }
+    }
+
     pub(in crate::check) fn abstraction(
         &mut self,
         parameter_kind: Kind,
@@ -77,6 +97,39 @@ fn apply_with_budget(
         super::ensure_buffer_storable(element, span)?;
     }
     Ok(applied)
+}
+
+/// Rebuilds `ty` with each child replaced by `child(child, under_binder, budget)`, through the canonical constructors:
+/// an application whose new constructor is an abstraction reduces, and an abstraction whose new body is an eta-redex
+/// contracts. A traversal that can remove occurrences of a bound variable, such as substitution, rebuilds through here.
+/// Traversals that keep every occurrence and every node shape, such as shifting and kind rewriting, cannot create a
+/// redex and rebuild nodes directly.
+fn rebuild_canonical(
+    ty: &Type,
+    budget: &mut normalization::Budget,
+    depth: usize,
+    mut child: impl FnMut(&Type, bool, &mut normalization::Budget) -> Result<Type, Diagnostic>,
+) -> Result<Type, Diagnostic> {
+    match ty {
+        Type::Application {
+            constructor,
+            argument,
+            span,
+            ..
+        } => {
+            let constructor = child(constructor, false, budget)?;
+            let argument = child(argument, false, budget)?;
+            apply_with_budget(constructor, argument, *span, budget, depth)
+        }
+        Type::Abstraction {
+            parameter_kind,
+            body,
+        } => {
+            let body = child(body, true, budget)?;
+            abstraction_with_budget(parameter_kind.clone(), body, budget, depth)
+        }
+        _ => indices::map_children_bounded(ty, |inner| child(inner, false, budget)),
+    }
 }
 
 fn abstraction_with_budget(

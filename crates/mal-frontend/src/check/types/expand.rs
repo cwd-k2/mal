@@ -256,15 +256,7 @@ impl Checker {
                         let constructor = values
                             .pop()
                             .expect("type application has a constructor term");
-                        let Kind::Function { parameter, .. } = constructor.kind() else {
-                            return Err(Diagnostic::error("type does not accept arguments")
-                                .with_primary(span, "this term already has kind `Type`"));
-                        };
-                        let ignored = Type::Bound {
-                            index: usize::MAX,
-                            kind: parameter.as_ref().clone(),
-                        };
-                        values.push(normalizer.apply(constructor, ignored, span)?);
+                        values.push(normalizer.apply_unused(constructor, span)?);
                         pending.push(state);
                     } else {
                         pending.push(state);
