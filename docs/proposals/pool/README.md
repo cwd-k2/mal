@@ -109,7 +109,7 @@ containerが要求する。
 - [`Storable`と`Stable`の分割案](model/identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
   [D075](../../history/decisions/active/D075.md)の見直しを伴う。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- `Symbol`を`Vector<UInt8>`とどこまで同一視するか。
+- `Symbol`を`Vector<UInt8>`とどこまで同一視するか。`*`による`Symbol`との変換も、`from`と`into`と同じくBufferからVectorへ寄せるか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形との比較。意味は同じであり、占有tagとIxPool終了時の
   走査に対する、slotごとのsum tagと移動ごとの`Share`と`Drop`のcostは測っていない。

@@ -64,7 +64,7 @@ swapのresultは通常のowned resultであり、使われなくなった時点�
 | IxPoolの終了 | Metaと全Live slotのDrop | なし | 1とLive slot数 |
 
 Bufferの`fill`と`copy`は[参照実装](../containers/buffer.md#range-operation)のloopがこれらのoperationを呼ぶため、回数はその分解から
-決まり、runtimeが一括処理で実装しても同じ回数にする。Vectorの`admit`、`observe`、`symbol`は`Representable`な型か`UInt8`だけを扱い、`share`と
+決まり、runtimeが一括処理で実装しても同じ回数にする。Vectorの`from`、`into`、`symbol`は`Representable`な型か`UInt8`だけを扱い、`share`と
 `drop`はno-opなので所有権解析へ入力を持たない。
 
 この表はIxPoolのstorageが共有されていない場合の回数である。[freeze](../api/pool.md#freezeとthaw)がstorageをImPoolと共有する案を

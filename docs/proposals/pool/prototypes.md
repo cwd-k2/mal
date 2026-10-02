@@ -66,12 +66,12 @@ C host試作ではbyte IxPoolのstorageを`Symbol`相当のtextと共有した�
 
 ## Vectorとhostとの交換
 
-Buffer上のemulationで、`Buf<T>`の`from`、`into`、`*`の二方向をVectorの上に書き、host storageと`Symbol`についてpredefinedな
-Bufferと比べた。`from`はadmitしたVectorの`thaw`、`into`は`freeze`したBufの範囲の`observe`、`*`は`freeze`したBufの`symbol`である。
-結果は一致し、Vectorと`Symbol`は作った後のBufへの書き込みを観測しなかった。
+Buffer上のemulationで、hostとの交換をVectorの`from`と`into`として書き、host storageと`Symbol`についてpredefinedな
+Bufferと比べた。Bufferの`from`はVectorの`from`の`thaw`、`into`は`freeze`したBufの範囲を切り出したVectorの`into`、`*`は`freeze`した
+Bufの`symbol`として書いた。結果は一致し、Vectorと`Symbol`は作った後のBufへの書き込みを観測しなかった。
 
-generic codeはmemory intrinsicへ届かないため、`admit`と`observe`の中のcopyは要素型ごとのimplementationを持つoperation familyに
-なった。runtimeのprimitiveとして要素型ごとに実装するという位置づけと一致する。malはAddressをoffsetできないため、emulationの`observe`は
+generic codeはmemory intrinsicへ届かないため、Vectorの`from`と`into`の中のcopyは要素型ごとのimplementationを持つoperation familyに
+なった。runtimeのprimitiveとして要素型ごとに実装するという位置づけと一致する。malはAddressをoffsetできないため、emulationの`into`は
 offsetより前の範囲を読み戻して書き直しており、本物のprimitiveには要らない追加のpreconditionを持つ。
 
 ## ropeとflatな`Symbol`

@@ -2,9 +2,9 @@
 
 Status: Exploratory example
 
-この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`の全operationを、IxPoolの核と周辺operation、
-Vectorで実装した擬似codeを示す。IxPool primitiveの規則は[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は
-[AddressとBuffer](../../../spec/memory.md)を正とする。
+この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`のoperationのうち、Vectorへ移す`from`と`into`を
+除く全てを、IxPoolの核と周辺operation、Vectorで実装した擬似codeを示す。IxPool primitiveの規則は
+[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は[AddressとBuffer](../../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 
@@ -141,36 +141,26 @@ malはsourceとdestinationが同じidentityかを知れないため、`copy`はo
 昇順、後ろにあれば降順に写すと、同じBufferで範囲が重なっても、まだ読んでいないsourceの要素を先に上書きしない。別のBufferなら
 どちらの向きでも結果は同じである。どちらのoperationもslotごとに値を一回`Share`し、置き換えたLiveな値を一回`Drop`する。
 
-## Host境界とSymbol
+## Symbolとの変換
 
-hostと`Symbol`との交換は、[Vector](../api/buffer-vector.md#vector)を経由して書く。BufferとVectorは同じpreludeのfileで定義すると
-仮定し、`freeze`したIxPoolをそのままVectorとして、`thaw`したImPoolをそのままBufferとして扱う。型、意味、preconditionは現行の
-[C host copy boundary](../../../spec/memory.md#c-host-copy-boundary)と[Symbol conversion](../../../spec/memory.md#symbol-conversion)のまま
-である。
+本案ではhostとの交換をVectorへ移すため、Bufferは`from`と`into`を持たない（[BufferとVector](../api/buffer-vector.md#buffer)）。
+`Symbol`との変換は、BufferとVectorを同じpreludeのfileで定義すると仮定し、`freeze`したIxPoolをそのままVectorとして扱って書く。
+型、意味、preconditionは現行の[Symbol conversion](../../../spec/memory.md#symbol-conversion)のままである。
 
 ```mal
-from<A> :: (Address, USize, USize) -> Buffer<A> := (address, offset, length) ->
-    thaw<USize, A>(admit<A>(address, offset, length));
-
-into<A> :: (Buffer<A>, Address, USize, USize) -> Unit := (buffer, address, offset, length) ->
-    observe<A>(slice<A>(freeze<USize, A>(buffer), offset, length), address, 0usize);
-
 _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(buffer));
 ```
 
-`slice`はVectorの参照実装の範囲の写しである（[列のcontainer](sequences.md#vector)）。`into`の公開precondition
-`offset + length <= #buffer`は、invariantにより写す範囲が全てLiveであることを与える。現行の`into`はhost storageの先頭へ書くため、
-`observe`のoffsetに`0usize`を渡す。`*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、`*symbol`はbyte列の`thaw`に当たり、
-`symbol # index`を`new`で積むloopで書ける。組み込みlibraryとしてのBufferとVectorは、`freeze`と`thaw`のstorage共有と一括copyで、
-現行と同じ一段のcopyに実装してよい。
+`*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、`*symbol`はbyte列の`thaw`に当たり、`symbol # index`を`new`で積むloopで
+書ける。組み込みlibraryとしてのBufferとVectorは、`freeze`と`thaw`のstorage共有で現行と同じ費用に実装してよい。
 
 ## 現行Bufferとの差分
 
-- 各operationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
+- `from`と`into`はVectorへ移る。他のoperationの意味、評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolとVectorのprimitiveを持つ。
 - 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
   [canonical layout](../runtime/contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
-- `from`、`into`、`*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
+- `*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
   representation選択とMeta=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
 
@@ -182,7 +172,8 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 | `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
 | `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
-| `from`、`into`、`*` | runtimeのbulk copy | Vectorを経由する。組み込みlibraryとしては一段のbulk copyで実装してよい |
+| `from`、`into` | runtimeのbulk copy | Vectorへ移る |
+| `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。組み込みlibraryとしてはstorageを共有してよい |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
 

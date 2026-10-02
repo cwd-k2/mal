@@ -12,7 +12,7 @@ BufferとVectorは[語彙の分担](buffer-vector.md#語彙の分担)を正と�
 
 | 区分 | 判断の基準 | 例 |
 |---|---|---|
-| 意味論の核 | malの他の操作では表せない | `swap`、`meta`、`swapMeta`、`grow`、`admit` |
+| 意味論の核 | malの他の操作では表せない | `swap`、`meta`、`swapMeta`、`grow`、Vectorの`from` |
 | 計算量の核 | 意味は他の操作で書けるが、書くと計算量が変わる | `peek`、`freeze`、`thaw` |
 | 定数倍の周辺 | 意味は他の操作で書け、差は`Share`、`Drop`、tagの分岐、call数 | `getAt`、`takeAt`、`initAt` |
 | 派生 | 費用も含めて他の操作と同じ | `slot`、`setMeta`、`moveAt` |
