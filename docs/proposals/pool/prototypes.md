@@ -43,6 +43,14 @@ Buffer上のemulationで、[Vector](containers/sequences.md#vector)の`Vector<T>
 `Vector<Vector<T>>`は確かめていない。要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、入れ子の値を一意に保ったまま
 更新する経路として動いた。
 
+## constructorについてgenericなcontainer
+
+Buffer上のemulationで、binary heapを核と周辺の返すpoolを引き回す形でconstructor `F`について一度だけ書き、IxPoolとImPoolの
+両方で動かした。IxPool上では返り値を捨ててaliasから同じheapを観測でき、ImPool上では途中の値が後のpushとpopで変わらなかった。
+擬似乱数の300個をpushしてpopした結果は両方で減少せず、valgrindで全allocationの解放とerror 0を確かめた。identityのcontainerを
+値として入れ子にするために別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。emulationのImPoolは`Storable`にならない
+ため、値版のheapを実際に入れ子にすることは確かめていない。
+
 ## slot遷移とcontainer
 
 - 要素型ごとの実装はstorageの作成、`peek`、`swap`、`meta`、`swapMeta`だけで足り、周辺は全て核の上の通常のgeneric関数として

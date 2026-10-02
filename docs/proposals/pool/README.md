@@ -44,7 +44,7 @@ byte列に特化して既に実装したものに当たる。
 ImPoolはIxPoolの上に書けない。storageを再利用できるかは参照数で決まり、malは参照数をsourceへ見せないためである。IxPoolとBufferは
 互いの上に書けるが、Buffer上のIxPoolがslotごとのsum tagと移動ごとの`Share`と`Drop`を払うのに対し、IxPool上のBufferが払うのは
 占有tagの更新と終了時の走査である（[試作](prototypes.md#ixpoolとbufferの非対称)）。後者が小さいと見込んで、仕組みの層では
-IxPoolをBufferより基本的なものとする。この差はまだ測っていない。
+IxPoolをBufferより基本的なものとする。この差はまだ測っておらず、測り方は[占有tagの費用](runtime/implementation.md#占有tagの費用)に置く。
 
 ## 設計の軸
 
@@ -100,19 +100,21 @@ containerが要求する。
   新たに持ち込む。本案はIxPoolとImPoolのprimitiveを同じ名前で書く。
   [試作](prototypes.md#二つの試作)では、更新がpoolを返す形にsignatureを揃え、constructorをkeyに持つ
   [operation family](../../spec/operation-families.md)で一つの名前にまとめられた。この形を採るかもここで決める。
+  この形ではcontainerを一度書けば値版も得られるため、[入れ子](model/identity.md#入れ子)の扱いにも関わる。
   値の列は、可変な作業領域のBufferと対にして仮にVectorと呼ぶ。byte列の`Buffer<UInt8>`と`Symbol`と同じ対である。
 - [Meta](model/semantics.md#metaをpoolに置く理由)をPoolに融合したまま持つか、容量1のPoolとの組へ分離するか。ImPoolのMetaはproductで足りる。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
 - [ImPool](api/pool.md#impool)をIxPoolと対のprimitiveとして持つか。持つ場合のAPIと、uniqueness検査をruntimeへ置く範囲。
-- [freezeとthaw](api/pool.md#freezeとthaw)でstorageを共有するか。共有するとIxPoolへの書き込みのたびに共有中かの確認が入る。
+- [freezeとthaw](api/pool.md#freezeとthaw)の方式。本案はlast useでstorageを移し、それ以外はcopyする方式を第一候補とする。
 - [`Storable`と`Stable`の分割案](model/identity.md#判定の分割案)。採ると`Buffer<Buffer<T>>`やIxPoolの入れ子を書ける。
-  [D075](../../history/decisions/active/D075.md)の見直しを伴う。
+  [D075](../../history/decisions/active/D075.md)の見直しを伴う。値の入れ子とcoordinateの入れ子で足りない
+  用途が見つかるまで採らずにおける（[入れ子](model/identity.md#入れ子)）。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
 - `Symbol`を`Vector<UInt8>`とどこまで同一視するか。`*`による`Symbol`との変換も、`from`と`into`と同じくBufferからVectorへ寄せるか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形との比較。意味は同じであり、占有tagとIxPool終了時の
-  走査に対する、slotごとのsum tagと移動ごとの`Share`と`Drop`のcostは測っていない。
+  走査に対する、slotごとのsum tagと移動ごとの`Share`と`Drop`のcostは測っていない（[占有tagの費用](runtime/implementation.md#占有tagの費用)）。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

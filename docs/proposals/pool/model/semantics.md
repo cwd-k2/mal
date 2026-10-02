@@ -57,7 +57,7 @@ Metaとslotは同じ規則のplaceであり、違いは持つ値の型だけで�
 
 ```text
 slot(i, s)     = swap(i, s)の結果を捨てる
-peek(i)        = r := swap(i, vacant()); _ := swap(i, r); r
+peek(i)        = r := swap(i, vacant()); swap(i, r); r
 ```
 
 `peek`の分解で`r`を二回使えるのは、malの値が再利用できるからである。それでも`peek`を計算量の核に置くのは、読み出しを

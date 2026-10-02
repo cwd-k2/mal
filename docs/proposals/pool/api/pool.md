@@ -127,6 +127,11 @@ preconditionを持たない。
 | `dropAt` | `(IxPool, USize) -> Unit` | `(ImPool, USize) -> ImPool` |
 | `moveAt` | `(IxPool, USize, USize) -> Unit` | `(ImPool, USize, USize) -> ImPool` |
 
+二つの型のoperationを同じ名前で書くには、constructorをkeyに持つ[operation family](../../../spec/operation-families.md)が要る。
+familyは一つのsignatureを持つため、表の形のままでは一つにまとまらない。[試作](../prototypes.md#二つの試作)は、IxPoolの更新も
+同じidentityを返す形に揃えて一つのfamilyにし、新しいidentityを作る`pool`だけはconstructorごとに分けた。どちらの形を採るかは
+[README](../README.md#未決定事項)の未決定事項である。
+
 ImPoolのMetaは、意味の上では`(Meta, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
 IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。
 
@@ -134,15 +139,27 @@ IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの
 responsibilityならstorageを再利用し、共有中ならcopyする。この判断は参照数に依存し、malの他の操作では表せないため、核の
 更新`grow`、`swap`、`swapMeta`は意味論の核である。
 
-- 更新前のvalueをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
-- 同じvalueを別のslotへ保存したoperandはShareされてuniquenessが成り立たず、以後の更新はcopyへfallbackする。
+更新前のvalueをsourceから変更する手段がないため、storage内でShareしても後のmutationを観測しない。
 
 更新を`Unit`を返す操作とsuccessor取得の二つへ分けると、Shareしたsuccessorを更新しないことが未検査preconditionになり、違反は
 別のvalueの変更として現れる。更新自体がsuccessorを返す形なら、`Storable`の健全性をcontainer実装のinvariantへ依存させない。
 
-`Symbol`は意味の上ではImPoolの上のbyte列のrunに、`#`、`+`、`/`、`%`、`==`を加えたものである。ImPoolで再定義はせず、
-storageを共有するsliceのview、static storageのliteral、占有tagのないdenseなbyte列という専用の表現を保つ。BufferとIxPoolの
-関係と同じく、意味はImPoolの上で説明し、実装は同じ結果になる限り専用でよい。
+### 更新の費用
+
+ImPoolの更新がstorageを再利用するかは、inputが唯一のresponsibilityかで決まる。意味は変わらないが費用はO(1)とO(n)に分かれる
+ため、どこでcopyが起きるかを費用の約束として定める。copyの原因は次の三つである。
+
+| 原因 | sourceからの見え方 | 扱い |
+|---|---|---|
+| 更新前の値を後で使う | 同じ関数の中で見える | 意味が求めるcopyであり、避けられない |
+| 同じ値を別のplaceにも保存している | 保存した場所が離れていると見えない | 入れ子の値は`takeAt`で取り出して更新し、戻す |
+| 呼び出し経路がresponsibilityを借りる | 見えない | `Store`をmal wrapperへ伝播して起こさない |
+
+三つ目を実装の自由として残すと、同じsourceの費用がcompilerの解析の精度で変わる。本案は、last useのinputを`Store`へ渡す
+呼び出しは`Consume`になることを約束し、`Store`へ渡るparameterを持つmal wrapperをowned native entryにする
+（[compilerとruntimeの分担](../runtime/implementation.md#compilerとruntimeの分担)）。残る非局所的なcopyは二つ目だけであり、
+入れ子の値を一意に保つ書き方は[Vector](../containers/sequences.md#vector)の`vectorUpdate`と同じ`takeAt`と`initAt`の組である。
+SwiftのArrayも同じ費用の約束を持つ（[関連事例](../../../research/pool-storage-prior-art.md)）。
 
 ## freezeとthaw
 
@@ -157,10 +174,20 @@ thaw<Meta, V> :: ImPool<Meta, V> -> IxPool<Meta, V>;
   thawした別のIxPoolからも観測されない。
 
 可変なIxPoolで効率よく組み立ててから値として公開すること、値から編集用の可変なcopyを作ることに使う。意味は核の`peek`と`swap`
-のloopで定まり、区分は計算量の核である。primitiveにするのはstorageを共有してO(n)のcopyを避けるためであり、`freeze`はIxPoolのstorageを
-ImPoolと共有して、IxPool側への後の書き込みでcopyする。`thaw`は入力が唯一のresponsibilityならstorageを移し、共有中なら
-書き込みでcopyする。共有を許すと、IxPoolへの書き込みのたびにstorageが共有中かの確認が一回入る。現在のBufferも`Symbol`と
-byte ownerを共有するため同じ確認を持つが、全要素型のIxPoolへ広げるか、`freeze`を常にcopyにして確認を省くかは未決定である。
+のloopで定まり、区分は計算量の核である。primitiveにするのはO(n)のcopyを避けられる場合があるためであり、`thaw`は入力が唯一の
+responsibilityならstorageを移し、共有中ならcopyする。`freeze`の実装には次の三つがある。
+
+| 方式 | `freeze`の費用 | IxPoolへの書き込みの費用 |
+|---|---|---|
+| 常にcopyする | O(n) | 追加なし |
+| storageを共有し、IxPool側の後の書き込みでcopyする | O(1) | 毎回、共有中かを確認する |
+| inputがlast useで他のaliasがなければstorageを移し、それ以外はcopyする | 移せればO(1)、それ以外はO(n) | 追加なし |
+
+二つ目は、全要素型のIxPoolの全書き込みに確認を課す。現在のBufferは`Symbol`とbyte ownerを共有するため同じ確認を持つが、
+IxPoolを安い可変primitiveとする前提と衝突する。三つ目は`thaw`と対称であり、組み立ててから公開する主な用途、例えばBufferを
+`*`で`Symbol`にして捨てる形ではcopyも確認も起きない。copyが残るのは、`freeze`した後もIxPoolを使い続ける場合である。そのとき
+二つ目はIxPoolへ次に書くまでcopyを遅らせ、書かなければcopyしない。本案は三つ目を第一候補とし、`freeze`のinputを`Store`で
+受け取る。
 
 ## 測定後の候補
 

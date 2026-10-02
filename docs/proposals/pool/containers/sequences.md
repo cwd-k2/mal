@@ -141,6 +141,12 @@ vectorAppend<T> :: (Vector<T>, T) -> Vector<T> := (vector, value) -> {
     setMeta(initAt(grown, length, value), length + 1usize);
 };
 
+// Takes the element out so a nested value stays uniquely held while `update` rewrites it.
+vectorUpdate<T> :: (Vector<T>, USize, T -> T) -> Vector<T> := (vector, index, update) -> {
+    (emptied, element) := takeAt(vector, index);
+    initAt(emptied, index, update(element));
+};
+
 _copyFrom<T> :: (Vector<T>, Vector<T>, USize, USize, USize) -> Vector<T> :=
     (source, target, offset, index, length) -> [return] => {
         when (index == length) return(target);
@@ -164,8 +170,8 @@ inputにaliasあり:  Vector A ── storage P  = [A, B, C]
 
 callerが旧Vectorを後でも使う場合、call siteは渡すresponsibilityをShareするため、更新は新しいstorageを作る。旧Vectorがlast useなら
 inputを`Consume`でき、他のaliasがなければ同じstorageを再利用する。`vectorAppend`のように更新を続けると、最初の更新が一意な
-successorを作るため、以後の更新はその場で行われる。borrowedなcall経路ではcopyへfallbackしてよく、意味はcall conventionに
-依存しない。`Vector<T>`は`T`が`Storable`なら`Storable`になるため、`Vector<Vector<T>>`やMapのvalueにできる。
+successorを作るため、以後の更新はその場で行われる。どこでcopyが起きるかは[更新の費用](../api/pool.md#更新の費用)が定める。
+`Vector<T>`は`T`が`Storable`なら`Storable`になるため、`Vector<Vector<T>>`やMapのvalueにできる。
 
 chunk単位のCOWやpersistent vectorは共有時のcopy量を減らせる一方、複数storageの所有と使われなくなったnodeの回収を別途定める
 必要がある。外部の事例は[Pool storageの関連事例](../../../research/pool-storage-prior-art.md)にまとめる。

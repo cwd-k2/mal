@@ -75,12 +75,11 @@ Bufferは言語の組み込み型ではなく、IxPoolの上のpreludeのopaque�
 [Symbol conversion](../../../spec/memory.md#symbol-conversion)が定める「以後のBuffer変更はresultを変更しない」と
 「Symbolは変更されない」は、`freeze`と`thaw`の後の書き込みがもう一方から観測されないことと一致する。
 
-hostとBufferの間で交換するには、Vectorを経由する。hostから受け取って書き換える場合は`thaw(from(address, offset, length))`、
-Bufferの範囲を書き出す場合は`slice(freeze(buffer), offset, length).into(address, destination)`と書く。`slice`はVectorの参照実装の
-範囲の写しである。現行仕様のBufferの`from`と`into`はこの形へ移る。
+hostとBufferの間の交換は、対応表のとおりVectorを経由し、現行仕様のBufferの`from`と`into`はこの形へ移る。`slice`はVectorの
+参照実装の範囲の写しである。
 
-現行runtimeと同じ費用は、組み込みlibraryとしての実装の自由で保つ。`*`はbyte IxPoolのstorageを`Symbol`と共有してよく、
-書き込みはcopy-on-writeにする（[representation](../runtime/contract.md#runtime-representation)）。
+現行runtimeと同じ費用は、組み込みlibraryとしての実装の自由で保つ。`*`は、Bufferがlast useならstorageを`Symbol`へ移せる
+（[freezeとthaw](pool.md#freezeとthaw)）。
 
 containerが現行runtimeと同じoverflow trapをmalで起こすには、[primitive `trap`案](../../primitive-trap.md)の
 `trap :: Symbol -> []`を使う。Pool案はこの採択に依存する。
@@ -105,7 +104,8 @@ symbol :: Vector<UInt8> -> Symbol;
 runtimeは`Representable`な要素のVectorをcanonical layoutで連続に置き、`from`と`into`を一括copyで実装してよい。この配置は
 sourceから観測できない。`from`と`into`のhost側の条件、offsetとlengthの加算やallocation sizeを表現できない場合のtrapは、
 現行の[C host copy boundary](../../../spec/memory.md#c-host-copy-boundary)と同じである。`Symbol`は意味の上では`Vector<UInt8>`に
-text操作を加えた密で不変なbyte列であり、`symbol`は表現を`Symbol`の専用の形へ移す。
+`+`、`/`、`%`、`==`などのtext操作を加えた密で不変なbyte列であり、`symbol`は表現を、storageを共有するsliceのview、static storageの
+literal、占有tagのないbyte列という`Symbol`の専用の形へ移す。
 
 Addressは加減算も比較も持たないため、それ単独では位置を表さず、host storageというExternの所有するcarrierのoriginに当たる。
 位置はoffsetが表し、`(address, offset)`はPoolとcoordinateの組と同じ形を取る。`from`はhost storageの範囲を写したVectorを作り、

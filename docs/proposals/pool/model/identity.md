@@ -32,7 +32,7 @@ owner edgeは常に真に小さい型の値を指す。`IxPool<M, IxPool<M, V>>`
 
 IxPoolと`ImPool`の形成は、現在のclosed judgmentである`Storable(Meta)`と`Storable(V)`を要求する。opaque型の`Storable`、
 `Representable`、lifecycleはcompilerがhidden representationから導き、opaque型がこれらのpropertyを新たに宣言して
-representationの制約を迂回することはできない。したがって`opaque Vector<T> :: IxPool<USize, T>`は`Storable`にならず、
+representationの制約を迂回することはできない。したがって`opaque Buffer<T> :: IxPool<USize, T>`は`Storable`にならず、
 `opaque Vector<T> :: ImPool<USize, T>`は`Storable(T)`のもとで`Storable`になる。
 
 将来plugin leafを`Storable`へ追加するには、storage内のShareが安全であること、aliasが後の
@@ -71,12 +71,23 @@ ImPoolは表の値を無条件に持つ。productとsumは要素から、file-lo
 `fill`で同じ内側のBufferをすべての位置へ置くとそれらがaliasになり、`copy`は浅くなる。値の意味が要る場所は`Stable`を要求して、
 このaliasを型で排除する。
 
-## 入れ子構造の選び方
+## 入れ子
 
-`Vector<Vector<T>>`に相当する構造は、identity軸のどちらを選ぶかで作り方が分かれる。
+現在の判定では、値は入れ子にでき、identityは入れ子にできない。`Vector<Vector<T>>`やvalueが`Vector<V>`のMapは書けるが、
+`Buffer<Buffer<T>>`、valueが`Buffer<V>`のMap、IxPool上のMapを要素にするcontainerは書けない。containerを利用者が書く
+基盤として、この穴の扱いを決める必要がある。入れ子を作る経路は三つある。
 
-- `ImPool`を入れ子にする。値として振る舞い、到達できなくなった内側の配列は自動で回収される。cycleは作れない。
-- 内側の要素を一つのIxPoolへまとめ、外側にはcoordinateを保存する。identityを共有し、cycleを作れるが、使わなくなった
-  coordinateの回収はcontainerが行う。[判定の分割案](#判定の分割案)を採れば、IxPoolを直接要素にもできる。
+| 経路 | 内側 | 内側の更新 | 必要なもの |
+|---|---|---|---|
+| 値の入れ子 | ImPool上のcontainer | 外側から`takeAt`で取り出して更新し、戻す | 内側の値版のcontainer |
+| coordinateの入れ子 | 一つのIxPoolにまとめた要素 | coordinateを引いてその場で更新する | coordinateの回収をcontainerが行う |
+| identityの入れ子 | IxPool上のcontainer | aliasを通してその場で更新する | [判定の分割案](#判定の分割案)と[D075](../../../history/decisions/active/D075.md)の見直し |
 
-treeやgraphのように外部やelementからidentityを参照する構造は後者、Vectorやsnapshotのような値は前者を使う。
+値の入れ子は、判定を変えずに使える。費用はO(1)にもO(n)にもなり、内側を一意に保つ書き方が要る
+（[更新の費用](../api/pool.md#更新の費用)）。内側の値版のcontainerは、containerを核と周辺の返すpoolを引き回す形で一度書けば、
+constructorを替えるだけで得られる。[試作](../prototypes.md#constructorについてgenericなcontainer)では、同じsourceのbinary heapが
+IxPool上ではidentityとして、ImPool上では値として動いた。ただしこれは、IxPoolの更新も同じidentityを返すfamilyの形を採る場合に
+限られる（[Pool primitive](../api/pool.md#impool)）。
+
+coordinateの入れ子は、木やgraphのように外部や要素からidentityを参照する構造に合う。identityの入れ子は、内側を複数の場所から
+共有して変更する場合だけに要る。値の入れ子とcoordinateの入れ子で足りない用途が見つかるまで、判定の分割は採らずにおける。

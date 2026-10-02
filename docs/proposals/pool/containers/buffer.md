@@ -152,7 +152,7 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 ```
 
 `*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、`*symbol`はbyte列の`thaw`に当たり、`symbol # index`を`new`で積むloopで
-書ける。組み込みlibraryとしてのBufferとVectorは、`freeze`と`thaw`のstorage共有で現行と同じ費用に実装してよい。
+書ける。組み込みlibraryとしてのBufferとVectorは、`freeze`と`thaw`のstorageの移動で、組み立ててから変換する用途を現行と同じ費用に実装できる。
 
 ## 現行Bufferとの差分
 
