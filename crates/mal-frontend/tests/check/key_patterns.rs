@@ -70,3 +70,32 @@ fn rejects_a_variable_key_constructor_without_a_nominal_head() {
         );
     }
 }
+
+#[test]
+fn checks_storable_requirements_of_a_selected_implementation() {
+    let header = "wrap<F, A> :: A -> F<Buffer<A>>;\n\
+        opaque Id<A> :: A;\n\
+        wrap<Id, A> :: A -> Id<Buffer<A>> := (value) -> {\n\
+            values := make<A>(1usize);\n\
+            values.new(value);\n\
+            values;\n\
+        };\n";
+
+    let accepted = check_ok(&format!(
+        "{header}main :: Unit -> Int32 := () -> {{ wrap<Id>(1i32); 0i32; }};"
+    ));
+    check::specialize(accepted).expect("a storable element");
+
+    let rejected = check_ok(&format!(
+        "{header}main :: Unit -> Int32 := () -> {{\n\
+             inner :: Buffer<Int32> := make(1usize);\n\
+             wrap<Id>(inner);\n\
+             0i32;\n\
+         }};"
+    ));
+    let error = check::specialize(rejected).expect_err("a Buffer element");
+    assert_eq!(
+        error.message,
+        "operation instance violates a Storable requirement"
+    );
+}

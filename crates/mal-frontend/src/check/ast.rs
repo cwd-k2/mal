@@ -514,6 +514,9 @@ pub struct OperationImplementation {
     pub parameter_kinds: Vec<Kind>,
     /// Kind equations required by the implementation body.
     pub kinds: Vec<KindRequirement>,
+    /// `Storable` atoms of the instantiated signature. They may exceed the family's own requirements, so
+    /// specialization checks them when it selects this implementation.
+    pub requirements: Vec<Type>,
     /// The complete implementation span.
     pub span: Span,
 }

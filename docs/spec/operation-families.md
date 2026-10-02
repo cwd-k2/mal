@@ -77,10 +77,13 @@ same<A> :: (A, A) -> Bool := (left, right) -> equal(left, right);
 ## Selection
 
 specializationはconcreteになったfamily referenceごとに、一意にmatchするexactまたはgeneric keyを検索する。generic keyがmatchした
-場合はpattern binderへのconcrete substitutionをimplementationのannotation、body、requirementへ適用する。implementationのkind requirementも
-このsubstitutionで検査する（[parametric polymorphism](generics.md#requirements)）。到達したkeyに
-implementationがなければcompile-time errorにする。未到達のkeyへimplementationがなくてもerrorにしない。選択したimplementationは
-通常のmonomorphic bindingへ変換し、同じconcrete keyを参照する箇所で共有する。
+場合はpattern binderへのconcrete substitutionをimplementationのannotation、body、requirementへ適用する。implementationの
+kind requirementと、keyを代入したsignatureから得る`Storable` requirementも、このsubstitutionで検査する
+（[parametric polymorphism](generics.md#requirements)）。family signatureはopen application `F<A>`の中に`Storable`を要求できない
+ため、Bufferを表現に持つkeyのimplementationはfamilyより多いrequirementを持ち得る。設計理由は
+[D095](../history/decisions/active/D095.md)に記録する。到達したkeyにimplementationがなければcompile-time errorにする。
+未到達のkeyへimplementationがなくてもerrorにしない。選択したimplementationは通常のmonomorphic bindingへ変換し、同じconcrete keyを
+参照する箇所で共有する。
 
 family resultはfunction型に限らない。value implementationも既存のclosed top-level initializer規則に従う。family valueは
 期待型からargumentが決まれば通常のvalueとして渡せるが、function型でないfamily valueをapplicationできない。

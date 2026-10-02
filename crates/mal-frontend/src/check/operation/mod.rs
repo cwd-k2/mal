@@ -183,7 +183,8 @@ impl Checker {
             let declared = self.expand_type(annotation)?;
             self.require_type(&declared, &expected, annotation.span)?;
             // Like a generic binding, the body may assume what its signature makes well formed.
-            self.active_requirements = types::storable_requirements(&expected);
+            let requirements = types::storable_requirements(&expected);
+            self.active_requirements = requirements.clone();
             self.active_generic = (!parameters.is_empty()).then_some((
                 family.id,
                 parameters.iter().map(|parameter| parameter.id).collect(),
@@ -227,6 +228,7 @@ impl Checker {
                 operations,
                 parameter_kinds,
                 kinds,
+                requirements,
                 span,
             })
         })();

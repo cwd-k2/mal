@@ -10,7 +10,7 @@ use super::ast::*;
 use super::specialization_identity::next_identities;
 use super::type_fingerprint::TypeFingerprints;
 use super::types::term::check_kind_requirements;
-use super::types::{runtime_type, substitute_type};
+use super::types::{runtime_type, satisfies_storable_requirement, substitute_type, type_name};
 
 mod admission;
 mod expression;
@@ -152,6 +152,7 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
             &implementation.kinds,
             binding.name.span,
         )?;
+        check_storable_requirements(implementation, &substitutions, binding.name.span)?;
         let family = implementation.family.id;
         let mut value = implementation.value.clone();
         let implementation_ty = runtime_type(&substitute_type(
@@ -293,4 +294,31 @@ impl Specializer {
             name: reference.name.clone(),
         })
     }
+}
+
+/// Checks the `Storable` atoms that a selected implementation's body assumed. A family signature cannot
+/// require `Storable` inside an open application such as `F<A>`, so a key that expands to a Buffer can need
+/// more than the callers of the family were asked to supply.
+fn check_storable_requirements(
+    implementation: &OperationImplementation,
+    substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+    span: mal_syntax::source::Span,
+) -> Result<(), Diagnostic> {
+    for requirement in &implementation.requirements {
+        let required = substitute_type(requirement, substitutions, span)?;
+        if !satisfies_storable_requirement(&required, &[]) {
+            return Err(Diagnostic::error("operation instance violates a Storable requirement")
+                .with_primary(
+                    span,
+                    format!(
+                        "the selected implementation needs `{}` to be storable",
+                        type_name(&required)
+                    ),
+                )
+                .with_note(
+                    "a family signature cannot require Storable inside an open application, so the implementation's own requirements are checked when it is selected",
+                ));
+        }
+    }
+    Ok(())
 }
