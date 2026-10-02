@@ -109,27 +109,26 @@ _average :: Focus<Int32> -> Int32 := (window) -> {
     _sum(window, first, last, 0i32) / (last - first + 1usize).i32;
 };
 
-_averaged :: (Focus<Int32>, USize) -> Bool := (window, at) -> [return] => {
-    when (at == focusLength(window)) return(true);
-    expected := if (at == 0usize)
-        then 15i32
-        else if (at == 4usize)
-            then 45i32
-            else (at.i32 + 1i32) * 10i32;
-    when (focusAt(window, at) != expected) return(false);
-    return(_averaged(window, at + 1usize));
+_five :: (Int32, Int32, Int32, Int32, Int32) -> Buffer<Int32> := (a, b, c, d, e) -> {
+    values :: Buffer<Int32> := make(5usize);
+    values.new(a);
+    values.new(b);
+    values.new(c);
+    values.new(d);
+    values.new(e);
+    values;
+};
+
+_holds :: (Focus<Int32>, Buffer<Int32>, USize) -> Bool := (window, expected, at) -> [return] => {
+    when (at == #expected) return(true);
+    when (focusAt(window, at) != expected.get(at)) return(false);
+    return(_holds(window, expected, at + 1usize));
 };
 
 focusScenario :: Unit -> Int32 := () -> [return] => {
-    values :: Buffer<Int32> := make(5usize);
-    values.new(10i32);
-    values.new(20i32);
-    values.new(30i32);
-    values.new(40i32);
-    values.new(50i32);
-    readings := focus(values, 2usize);
+    readings := focus(_five(10i32, 20i32, 30i32, 40i32, 50i32), 2usize);
     smoothed := extend<Focus>(readings, _average);
-    when (!_averaged(smoothed, 0usize)) return(16);
+    when (!_holds(smoothed, _five(15i32, 20i32, 30i32, 40i32, 45i32), 0usize)) return(16);
     when (extract<Focus>(smoothed) != 30i32 || focusAt(readings, 0usize) != 10i32) return(17);
     return(0);
 };
