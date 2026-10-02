@@ -1,21 +1,19 @@
 //! Specialization of value expressions: substitutes type arguments, requests the instances they name, and
 //! gives the binders of an instance their own identities.
 
-use std::collections::HashMap;
-
 use crate::resolve::ast::{LambdaId, ValueId};
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::super::ast::*;
 use super::super::types::{runtime_type, substitute_type};
-use super::Specializer;
 use super::substitution::pattern;
+use super::{Specializer, Substitutions};
 
 impl Specializer {
     pub(super) fn expression(
         &mut self,
         expression: &mut Expression,
-        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        substitutions: &Substitutions,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
         if matches!(&expression.kind, ExpressionKind::Binary { .. }) {
@@ -191,7 +189,7 @@ impl Specializer {
     fn binary_expression(
         &mut self,
         expression: &mut Expression,
-        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        substitutions: &Substitutions,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
         let mut pending = vec![expression];

@@ -9,17 +9,20 @@ use mal_syntax::diagnostic::Diagnostic;
 use super::ast::*;
 use super::specialization_identity::next_identities;
 use super::type_fingerprint::TypeFingerprints;
-use super::types::term::check_kind_requirements;
-use super::types::{runtime_type, satisfies_storable_requirement, substitute_type, type_name};
+use super::types::runtime_type;
 
 mod admission;
 mod expression;
+mod instance;
 mod instance_identity;
 mod selection;
 mod structure;
 mod substitution;
 
 use admission::{admit_specialization, collect_pattern_bindings};
+
+/// Concrete types for the type parameters of one instance.
+type Substitutions = HashMap<crate::resolve::ast::TypeId, Type>;
 
 pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnostic> {
     let identities = next_identities(&program).ok_or_else(|| {
@@ -97,84 +100,13 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
         if generic_cursor < specializer.pending.len() {
             let (generic, arguments, binding) = specializer.pending[generic_cursor].clone();
             generic_cursor += 1;
-            let definition = specializer
-                .definitions
-                .get(&generic)
-                .expect("checked generic reference has a definition");
-            check_kind_requirements(
-                &definition.parameter_kinds,
-                &arguments,
-                &definition.kinds,
-                binding.name.span,
-            )?;
-            let substitutions = definition
-                .parameters
-                .iter()
-                .map(|parameter| parameter.id)
-                .zip(arguments)
-                .collect::<HashMap<_, _>>();
-            let mut value = definition.value.clone();
-            let ty = runtime_type(&substitute_type(
-                &definition.ty,
-                &substitutions,
-                definition.span,
-            )?);
-            let span = definition.span;
-            specializer.begin_instance_identities();
-            specializer.expression(&mut value, &substitutions, Some((generic, binding.id)))?;
-            specializer.specializations.push(Node::new(
-                TopItem::Binding(Box::new(Binding {
-                    pattern: Pattern::Binding {
-                        binding,
-                        ty: ty.clone(),
-                    },
-                    annotation: Some(ty),
-                    value,
-                    span,
-                })),
-                span,
-            ));
-            continue;
+            specializer.expand_generic(generic, arguments, binding)?;
+        } else {
+            let (implementation, substitutions, binding) =
+                specializer.pending_operations[operation_cursor].clone();
+            operation_cursor += 1;
+            specializer.expand_implementation(implementation, substitutions, binding)?;
         }
-
-        let (implementation, substitutions, binding) =
-            specializer.pending_operations[operation_cursor].clone();
-        operation_cursor += 1;
-        let implementation = &specializer.implementations[implementation];
-        let pattern_arguments = implementation
-            .parameters
-            .iter()
-            .map(|parameter| substitutions[&parameter.id].clone())
-            .collect::<Vec<_>>();
-        check_kind_requirements(
-            &implementation.parameter_kinds,
-            &pattern_arguments,
-            &implementation.kinds,
-            binding.name.span,
-        )?;
-        check_storable_requirements(implementation, &substitutions, binding.name.span)?;
-        let family = implementation.family.id;
-        let mut value = implementation.value.clone();
-        let implementation_ty = runtime_type(&substitute_type(
-            &implementation.ty,
-            &substitutions,
-            implementation.span,
-        )?);
-        let span = implementation.span;
-        specializer.begin_instance_identities();
-        specializer.expression(&mut value, &substitutions, Some((family, binding.id)))?;
-        specializer.specializations.push(Node::new(
-            TopItem::Binding(Box::new(Binding {
-                pattern: Pattern::Binding {
-                    binding,
-                    ty: implementation_ty.clone(),
-                },
-                annotation: Some(implementation_ty),
-                value,
-                span,
-            })),
-            span,
-        ));
     }
     for index in 0..specializer.bindings.len() {
         if let Some(binding) = specializer.reachable.remove(&index) {
@@ -202,11 +134,7 @@ struct Specializer {
     fingerprints: TypeFingerprints,
     pending: Vec<(ValueId, Vec<Type>, ValueBinding)>,
     /// Selected implementations by index into `implementations`, with the key substitution and instance binding.
-    pending_operations: Vec<(
-        usize,
-        HashMap<crate::resolve::ast::TypeId, Type>,
-        ValueBinding,
-    )>,
+    pending_operations: Vec<(usize, Substitutions, ValueBinding)>,
     next_value: u32,
     next_lambda: u32,
     value_renames: HashMap<ValueId, ValueId>,
@@ -294,31 +222,4 @@ impl Specializer {
             name: reference.name.clone(),
         })
     }
-}
-
-/// Checks the `Storable` atoms that a selected implementation's body assumed. A family signature cannot
-/// require `Storable` inside an open application such as `F<A>`, so a key that expands to a Buffer can need
-/// more than the callers of the family were asked to supply.
-fn check_storable_requirements(
-    implementation: &OperationImplementation,
-    substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
-    span: mal_syntax::source::Span,
-) -> Result<(), Diagnostic> {
-    for requirement in &implementation.requirements {
-        let required = substitute_type(requirement, substitutions, span)?;
-        if !satisfies_storable_requirement(&required, &[]) {
-            return Err(Diagnostic::error("operation instance violates a Storable requirement")
-                .with_primary(
-                    span,
-                    format!(
-                        "the selected implementation needs `{}` to be storable",
-                        type_name(&required)
-                    ),
-                )
-                .with_note(
-                    "a family signature cannot require Storable inside an open application, so the implementation's own requirements are checked when it is selected",
-                ));
-        }
-    }
-    Ok(())
 }

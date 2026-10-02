@@ -11,6 +11,7 @@ use super::super::ast::*;
 use super::super::types::term::kinds_unify;
 use super::super::types::type_name;
 use super::Specializer;
+use super::Substitutions;
 use super::admission::admit_specialization;
 
 impl Specializer {
@@ -79,7 +80,7 @@ fn match_operation_pattern(
     implementation: &OperationImplementation,
     arguments: &[Type],
     span: Span,
-) -> Option<HashMap<crate::resolve::ast::TypeId, Type>> {
+) -> Option<Substitutions> {
     if implementation.arguments.len() != arguments.len() {
         return None;
     }
@@ -103,7 +104,7 @@ fn match_operation_type(
     pattern: &Type,
     argument: &Type,
     parameters: &HashSet<crate::resolve::ast::TypeId>,
-    substitutions: &mut HashMap<crate::resolve::ast::TypeId, Type>,
+    substitutions: &mut Substitutions,
     span: Span,
 ) -> bool {
     if let Type::Parameter { id, .. } = pattern

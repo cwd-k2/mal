@@ -1,14 +1,13 @@
 //! Type substitution over the patterns and completions of a generic body.
 
-use std::collections::HashMap;
-
-use super::super::ast::{Completion, Pattern, Type};
+use super::super::ast::{Completion, Pattern};
 use super::super::types::{runtime_type, substitute_type};
+use super::Substitutions;
 use mal_syntax::diagnostic::Diagnostic;
 
 pub(super) fn pattern(
     value: &mut Pattern,
-    substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+    substitutions: &Substitutions,
 ) -> Result<(), Diagnostic> {
     match value {
         Pattern::Binding { binding, ty } => {
@@ -29,7 +28,7 @@ pub(super) fn pattern(
 
 pub(super) fn completion(
     completion: &mut Completion,
-    substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+    substitutions: &Substitutions,
 ) -> Result<(), Diagnostic> {
     if let Completion::Value(value) = completion {
         value.ty = runtime_type(&substitute_type(&value.ty, substitutions, value.span)?);

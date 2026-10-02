@@ -1,20 +1,18 @@
 //! Specialization of the blocks, bodies, and continuations that carry binders and completions.
 
-use std::collections::HashMap;
-
 use crate::resolve::ast::ValueId;
 use mal_syntax::diagnostic::Diagnostic;
 
 use super::super::ast::*;
 use super::super::types::{runtime_type, substitute_type};
-use super::Specializer;
 use super::substitution::{completion, pattern};
+use super::{Specializer, Substitutions};
 
 impl Specializer {
     pub(super) fn block(
         &mut self,
         block: &mut ExpressionBlock,
-        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        substitutions: &Substitutions,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
         for item in &mut block.items {
@@ -42,7 +40,7 @@ impl Specializer {
     pub(super) fn body(
         &mut self,
         body: &mut LambdaBody,
-        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        substitutions: &Substitutions,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
         let mut block = ExpressionBlock {
@@ -66,7 +64,7 @@ impl Specializer {
     pub(super) fn continuation(
         &mut self,
         continuation: &mut SumContinuation,
-        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        substitutions: &Substitutions,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
         match continuation {
@@ -111,7 +109,7 @@ impl Specializer {
     pub(super) fn abrupt(
         &mut self,
         abrupt: &mut AbruptExpression,
-        substitutions: &HashMap<crate::resolve::ast::TypeId, Type>,
+        substitutions: &Substitutions,
         self_instance: Option<(ValueId, ValueId)>,
     ) -> Result<(), Diagnostic> {
         for value in &mut abrupt.preceding {
