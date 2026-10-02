@@ -39,7 +39,9 @@ opaque Vector<A> :: ImPool<USize, A>;    // Metaはlength、[0, length)がLive
 
 二つのinvariantは同じ形なので、Bufferを`freeze`した値はそのままVectorであり、Vectorを`thaw`した値はそのままBufferである。
 Bufferは組み立てるための可変な列、Vectorは確定した値の列であり、byte列ではこの対が`Buffer<UInt8>`と`Symbol`に当たる。
-どちらも組み込みlibraryとして提供し、runtimeは参照実装と同じ結果になる一括処理で実装してよい。
+BufferとVectorはpreludeに置き、意味を参照実装で定めてas-ifで実装する。runtimeは参照実装と観測できる結果が同じである限り、
+表現と処理を選べる。Bufferは占有tagを持たない`[0, count)`の密なstorageで、範囲の操作は一括処理で実装してよい。IxPoolの占有tagや
+slotごとの状態はBufferの意味に現れないためである。
 
 次の表は、BufferとVectorのoperationを対で並べる。Vectorの読み出しと長さの名前は仮であり、更新と追加をBufferと同じ`put`、`new`へ
 揃えるかは[primitiveの名前](../README.md#未決定事項)と合わせて決める。
@@ -78,11 +80,11 @@ Bufferは言語の組み込み型ではなく、IxPoolの上のpreludeのopaque�
 hostとBufferの間の交換は、対応表のとおりVectorを経由し、現行仕様のBufferの`from`と`into`はこの形へ移る。`slice`はVectorの
 参照実装の範囲の写しである。
 
-現行runtimeと同じ費用は、組み込みlibraryとしての実装の自由で保つ。`*`は、Bufferがlast useならstorageを`Symbol`へ移せる
+現行runtimeと同じ費用はas-ifの実装で保つ。`*`は、Bufferがlast useならstorageを`Symbol`へ移せる
 （[freezeとthaw](pool.md#freezeとthaw)）。
 
 containerが現行runtimeと同じoverflow trapをmalで起こすには、[primitive `trap`案](../../primitive-trap.md)の
-`trap :: Symbol -> []`を使う。Pool案はこの採択に依存する。
+`trap :: Symbol -> []`を使う。Pool案はこの導入を前提とする。
 
 ## Vector
 

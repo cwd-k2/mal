@@ -152,7 +152,7 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 ```
 
 `*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、`*symbol`はbyte列の`thaw`に当たり、`symbol # index`を`new`で積むloopで
-書ける。組み込みlibraryとしてのBufferとVectorは、`freeze`と`thaw`のstorageの移動で、組み立ててから変換する用途を現行と同じ費用に実装できる。
+書ける。as-ifで実装するBufferとVectorは、`freeze`と`thaw`のstorageの移動で、組み立ててから変換する用途を現行と同じ費用に実装できる。
 
 ## 現行Bufferとの差分
 
@@ -173,7 +173,7 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 | `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
 | `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
 | `from`、`into` | runtimeのbulk copy | Vectorへ移る |
-| `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。組み込みlibraryとしてはstorageを共有してよい |
+| `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。Bufferがlast useならstorageを移す |
 | managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
 | 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
 

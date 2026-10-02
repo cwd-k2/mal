@@ -62,22 +62,19 @@ trusted crateへ移せるかを評価する。leafの登録には、layout、val
 
 ## 占有tagの費用
 
-IxPoolをBufferより基本的なものとする判断は、IxPool上のBufferが現行Bufferに対して払う差が小さいという見込みに依る
-（[README](../README.md#要点)）。差は次の三つに限られる。
+BufferとVectorはas-ifで実装するため（[BufferとVector](../api/buffer-vector.md#bufferとvectorの対)）、占有tagを払うのはIxPoolを
+直接使うcontainerだけである。比べる相手は、同じcontainerをBuffer上に番兵値とsum tagで書いた形である
+（[Bufferの前提を外すと変わること](../containers/overview.md#bufferの前提を外すと変わること)）。IxPool側が払う差は次の三つに限られる。
 
 - 占有tagの書き込み：`initAt`と`takeAt`ごとに一回。要素の書き込みに比べた割合は、要素が小さいほど大きい。
-- 占有tagのmemory：slotごとに1 byteなら`Buffer<UInt8>`のstorageは倍になる。bitmapなら1/8で済むが、書き込みが読み出しと
+- 占有tagのmemory：slotごとに1 byteなら小さい要素ではstorageが倍近くになる。bitmapなら1/8で済むが、書き込みが読み出しと
   書き戻しになる。
-- IxPool終了時の走査：`drop`がno-opでない要素型だけが払い、countではなくcapacityまでtagを読む。
+- IxPool終了時の走査：`drop`がno-opでない要素型だけが払い、capacityまでtagを読む。
 
-最悪の場合はbyte列の組み立てである。`Buffer<UInt8>`の`new`は要素一つの書き込みが小さく、tagの書き込みとmemoryがそのまま
-費用の比に現れる。`Buffer<Symbol>`の終了は走査の範囲がcountからcapacityへ広がる。二つの試作はこの差を測れない。C host試作は
-operationごとにextern callを挟み、Buffer上のemulationは意味の参照でありcopyを含むためである。
-
-したがって測定には[検証の段階](#検証の段階)のstep 2と5の実装が要る。`Buffer<UInt8>`の`new`と`*`、`Buffer<UInt64>`の`get`と
-`put`、`Buffer<Symbol>`の終了を現行Bufferと比べ、差が組み込みlibraryとしての実装の自由で消せない場合は、Bufferを組み込みの
-まま残してIxPoolを他のcontainerの基盤にするか、Vacantを末尾に限ったdense primitiveを採る
-（[README](../README.md#未決定事項)）。
+Buffer上の形は代わりに、slotごとのsum tag、構築時の`fill`、移動ごとの`Share`と`Drop`を払う。二つの試作はこの差を測れない。
+C host試作はoperationごとにextern callを挟み、Buffer上のemulationは意味の参照でありcopyを含むためである。測定には
+[検証の段階](#検証の段階)のstep 2の実装が要り、Map、Deque、heapを[`generic-map`](../../../../examples/generic-map/map.mal)のような
+Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表現を見直す。
 
 ## 検証の段階
 
@@ -89,7 +86,7 @@ operationごとにextern callを挟み、Buffer上のemulationは意味の参照
 4. `Store`へ渡るparameterを持つmal wrapperがowned native entryになり、last-use argumentを`Consume`する。
 5. IxPool上のBufferを現在のBufferとalias、range、overlap、trap semanticsで比べ、範囲と占有tagを検査するtest用runtimeで公開
    preconditionを満たすprogramがIxPool preconditionへ違反しないことを確かめる。canonical host copyはpaddingや非選択sum payloadへ
-   依存せずround-tripする。同時に[占有tagの費用](#占有tagの費用)を測る。
+   依存せずround-tripする。これはas-ifで実装するBufferが参照実装と一致することの検査を兼ねる。
 6. ImPool上のVectorで、shared時のcopyとlast-use時のstorage再利用を別々に測る。
 7. 木やgeneration付きkeyのcontainerをcoordinateで実装し、coordinateの再利用と古いkeyの拒否を検査する。
 8. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換とtrusted crate境界を別々に判断する。
