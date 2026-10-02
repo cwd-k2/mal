@@ -13,7 +13,8 @@ with a `Value` or `Abrupt` completion for every expression.
 | `generic` | checking a declaration body once under rigid parameters, and the requirements it leaves for specialization |
 | `control` | `if`, `when`, and direct blocks with their completion |
 | `expression` | expression dispatch against the expected type |
-| `expression/application` | the three application forms and their completion |
+| `expression/application` | calls and their arguments |
+| `expression/continuation` | continuation application and the transfer of a result |
 | `expression/elimination` | sum elimination continuations and the join of their completions |
 | [`inference`](inference/README.md) | type arguments of generic references and calls |
 | `lambda` | lambdas against the expected function type |

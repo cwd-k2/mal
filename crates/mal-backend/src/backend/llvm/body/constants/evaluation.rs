@@ -1,66 +1,9 @@
-//! Closed top-level values, evaluated once into LLVM constants that every function reads.
+//! Evaluation of closed top-level operations and atoms into constants.
 
-use std::collections::HashMap;
-
-use crate::anf::ast::ValueId;
-use crate::closure::ast::{AtomKind, Pattern, Reference, TopLevelPattern};
-
-use mal_frontend::check::ast::Type;
-
-use super::types::Types;
-use crate::backend::llvm::syntax::{
-    BinaryOperator, CastOperator, Constant as LlvmConstant, TypedConstant, UnaryOperator,
-    llvm_constant, llvm_typed_constant,
-};
-
-pub(super) struct TopLevelConstants {
-    values: HashMap<ValueId, Constant>,
-    globals: Vec<crate::backend::llvm::syntax::GlobalDefinition>,
-    types: Types,
-}
-
-#[derive(Clone)]
-pub(super) struct Constant {
-    pub(super) ty: Type,
-    kind: ConstantKind,
-}
-
-#[derive(Clone)]
-enum ConstantKind {
-    Value(LlvmConstant),
-    Product(Vec<Constant>),
-    Sum { index: usize, value: Box<Constant> },
-}
+use super::*;
 
 impl TopLevelConstants {
-    pub(super) fn new(execution: &crate::execution::Program, types: Types) -> Option<Self> {
-        let mut constants = Self {
-            values: HashMap::new(),
-            globals: Vec::new(),
-            types,
-        };
-        for binding in &execution.lowered.bindings {
-            let mut locals = HashMap::new();
-            for local in &binding.value.bindings {
-                let ty = local.pattern.ty();
-                let value = constants.operation(&local.operation, ty, &locals)?;
-                constants.bind_local_pattern(&local.pattern, value, &mut locals)?;
-            }
-            let value = constants.atom(&binding.value.result, &locals)?;
-            constants.bind_top_pattern(&binding.pattern, value)?;
-        }
-        Some(constants)
-    }
-
-    pub(super) fn globals(&self) -> &[crate::backend::llvm::syntax::GlobalDefinition] {
-        &self.globals
-    }
-
-    pub(super) fn get(&self, id: ValueId) -> Option<&Constant> {
-        self.values.get(&id)
-    }
-
-    fn operation(
+    pub(super) fn operation(
         &mut self,
         operation: &crate::closure::ast::Operation,
         result_type: &Type,
@@ -76,7 +19,7 @@ impl TopLevelConstants {
                     structure([
                         typed(
                             (ptr),
-                            atom(#{ format!("@{}", super::function_name(*function)) })
+                            atom(#{ format!("@{}", super::super::function_name(*function)) })
                         ),
                         typed((ptr), atom("null")),
                     ])
@@ -115,7 +58,7 @@ impl TopLevelConstants {
                 if value.ty != *member {
                     return None;
                 }
-                let kind = if super::types::is_bool(result_type) {
+                let kind = if super::super::types::is_bool(result_type) {
                     match index {
                         0 => ConstantKind::Value(llvm_constant!(atom("false"))?),
                         1 => ConstantKind::Value(llvm_constant!(atom("true"))?),
@@ -134,7 +77,8 @@ impl TopLevelConstants {
             }
             Operation::PrimitiveUnary { operator, operand } => {
                 let operand = self.atom(operand, values)?;
-                let scalar = super::scalar::scalar_type(&operand.ty, self.types.index_size())?;
+                let scalar =
+                    super::super::scalar::scalar_type(&operand.ty, self.types.index_size())?;
                 let value = match operator {
                     crate::core::ast::UnaryPrimitive::Negate if scalar.floating => llvm_constant! {
                         unary {
@@ -169,8 +113,8 @@ impl TopLevelConstants {
                 if left.ty != right.ty {
                     return None;
                 }
-                let scalar = super::scalar::scalar_type(&left.ty, self.types.index_size())?;
-                let instruction = super::scalar::arithmetic_instruction(*operator, scalar)?;
+                let scalar = super::super::scalar::scalar_type(&left.ty, self.types.index_size())?;
+                let instruction = super::super::scalar::arithmetic_instruction(*operator, scalar)?;
                 let value = llvm_constant! {
                     binary {
                         operator: #{ instruction },
@@ -188,14 +132,14 @@ impl TopLevelConstants {
         (value.ty == *result_type).then_some(value)
     }
 
-    fn atom(
+    pub(super) fn atom(
         &mut self,
         atom: &crate::closure::ast::Atom,
         values: &HashMap<ValueId, Constant>,
     ) -> Option<Constant> {
         let value = match &atom.kind {
             AtomKind::Integer(value) => llvm_constant! {
-                atom(#{ super::scalar::integer_literal(&atom.ty, *value, self.types.index_size())? })
+                atom(#{ super::super::scalar::integer_literal(&atom.ty, *value, self.types.index_size())? })
             }?,
             AtomKind::Float(bits) if atom.ty == Type::Float32 => llvm_constant! {
                 atom(#{ format!("0x{:016X}", (f32::from_bits(*bits as u32) as f64).to_bits()) })
@@ -207,7 +151,7 @@ impl TopLevelConstants {
             AtomKind::Symbol(bytes) => {
                 let name = format!("mal_top_symbol_{}", atom.id.0);
                 self.globals
-                    .push(super::symbol::literal_definition(&name, bytes)?);
+                    .push(super::super::symbol::literal_definition(&name, bytes)?);
                 let address_constant = llvm_constant!(atom(#{ format!("@{name}") }))?;
                 let address = || llvm_typed_constant!(typed((ptr), #{ address_constant.clone() }));
                 llvm_constant! {
@@ -220,7 +164,7 @@ impl TopLevelConstants {
                                 pointer: #{ address()? },
                                 indices: [typed(
                                     #{ self.types.index_llvm_type() },
-                                    atom(#{ super::symbol::STATIC_OWNER_DATA_OFFSET })
+                                    atom(#{ super::super::symbol::STATIC_OWNER_DATA_OFFSET })
                                 )],
                             }
                         ),
@@ -240,118 +184,11 @@ impl TopLevelConstants {
             kind: ConstantKind::Value(value),
         })
     }
-
-    fn bind_local_pattern(
-        &self,
-        pattern: &Pattern,
-        value: Constant,
-        values: &mut HashMap<ValueId, Constant>,
-    ) -> Option<()> {
-        bind_pattern(pattern, value, values)
-    }
-
-    fn bind_top_pattern(&mut self, pattern: &TopLevelPattern, value: Constant) -> Option<()> {
-        bind_top_pattern(pattern, value, &mut self.values)
-    }
-}
-
-fn bind_pattern(
-    pattern: &Pattern,
-    value: Constant,
-    values: &mut HashMap<ValueId, Constant>,
-) -> Option<()> {
-    if *pattern.ty() != value.ty {
-        return None;
-    }
-    match pattern {
-        Pattern::Binding { id, .. } => {
-            values.insert(*id, value);
-        }
-        Pattern::Wildcard { .. } => {}
-        Pattern::Product { elements, .. } => {
-            let ConstantKind::Product(fields) = value.kind else {
-                return None;
-            };
-            if fields.len() != elements.len() {
-                return None;
-            }
-            for (element, field) in elements.iter().zip(fields) {
-                bind_pattern(element, field, values)?;
-            }
-        }
-    }
-    Some(())
-}
-
-fn bind_top_pattern(
-    pattern: &TopLevelPattern,
-    value: Constant,
-    values: &mut HashMap<ValueId, Constant>,
-) -> Option<()> {
-    let ty = match pattern {
-        TopLevelPattern::Binding { ty, .. }
-        | TopLevelPattern::Wildcard { ty, .. }
-        | TopLevelPattern::Product { ty, .. } => ty,
-    };
-    if *ty != value.ty {
-        return None;
-    }
-    match pattern {
-        TopLevelPattern::Binding { id, .. } => {
-            values.insert(*id, value);
-        }
-        TopLevelPattern::Wildcard { .. } => {}
-        TopLevelPattern::Product { elements, .. } => {
-            let ConstantKind::Product(fields) = value.kind else {
-                return None;
-            };
-            if fields.len() != elements.len() {
-                return None;
-            }
-            for (element, field) in elements.iter().zip(fields) {
-                bind_top_pattern(element, field, values)?;
-            }
-        }
-    }
-    Some(())
-}
-
-impl Constant {
-    fn llvm(&self) -> Option<&LlvmConstant> {
-        let ConstantKind::Value(value) = &self.kind else {
-            return None;
-        };
-        Some(value)
-    }
-
-    fn typed(&self, types: Types) -> Option<TypedConstant> {
-        llvm_typed_constant! {
-            typed(#{ types.value(&self.ty)?.llvm }, #{ self.llvm()?.clone() })
-        }
-    }
-
-    pub(super) fn product(&self) -> Option<&[Constant]> {
-        let ConstantKind::Product(elements) = &self.kind else {
-            return None;
-        };
-        Some(elements)
-    }
-
-    pub(super) fn sum(&self) -> Option<(usize, &Constant)> {
-        let ConstantKind::Sum { index, value } = &self.kind else {
-            return None;
-        };
-        Some((*index, value))
-    }
-
-    pub(super) fn value(&self) -> Option<String> {
-        self.llvm().map(LlvmConstant::render)
-    }
 }
 
 fn numeric_conversion(operand: Constant, result_type: &Type, types: Types) -> Option<Constant> {
-    let source = super::scalar::scalar_type(&operand.ty, types.index_size())?;
-    let target = super::scalar::scalar_type(result_type, types.index_size())?;
+    let source = super::super::scalar::scalar_type(&operand.ty, types.index_size())?;
+    let target = super::super::scalar::scalar_type(result_type, types.index_size())?;
     let representation = if source.floating == target.floating && source.bits == target.bits {
         operand.llvm()?.clone()
     } else if !source.floating && !target.floating {

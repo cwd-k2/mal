@@ -11,6 +11,7 @@ use super::types::type_name;
 use super::{CheckFailure, CheckResult, Checker};
 
 mod application;
+mod continuation;
 mod elimination;
 
 impl Checker {
