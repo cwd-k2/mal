@@ -12,12 +12,13 @@ The implementation is split as follows:
 
 | File | Responsibility |
 |---|---|
-| `mod.rs` | operation dispatch, element-storage classification, runtime calls, and direct element access |
+| `mod.rs` | operation dispatch, element-storage classification, and the runtime call each operation makes |
+| `access.rs` | direct element access: the active data pointer, element addresses, and the managed get and put paths |
 | `address.rs` | `from` and `into` copies between a `Buffer` and C host storage |
 | `managed.rs` | one numbered retain/release callback pair per managed element type |
 
 `new` and `fill` pass an element through the entry-block `%mal_buffer_value` scratch allocation sized in
-`body/setup.rs`. Runtime function names selected by `ElementStorage::runtime` must remain synchronized with
+`body/setup/scratch.rs`. Runtime function names selected by `ElementStorage::runtime` must remain synchronized with
 `runtime/c11/buffer.c`, `runtime/c11/buffer_range.c`, and their declarations in `runtime/c11/runtime.h`. Changes to
 the buffer object or byte-owner layout must also preserve the contracts documented by `runtime/c11/README.md` and
 the generated declarations in the LLVM module setup.
