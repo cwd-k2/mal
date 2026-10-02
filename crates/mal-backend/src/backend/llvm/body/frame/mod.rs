@@ -3,6 +3,7 @@ use crate::control::ast::StateId;
 
 use super::{EmittedValue, FunctionEmitter};
 
+mod continuation;
 mod layout;
 mod native;
 mod region;

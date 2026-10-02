@@ -29,7 +29,9 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `body/call_emission` | handoff of values, environments, and parameter responsibility at call boundaries |
 | `body/control_storage`, `body/control_top` | region-local control storage and top, synchronized at native call boundaries |
 | `body/frame` | suspension of a caller into a control frame |
-| `body/frame/layout`, `body/frame/resume` | the field layout of a frame, and resumption from one |
+| `body/frame/layout` | the field layout of a frame |
+| `body/frame/continuation` | returning a value through a continuation |
+| `body/frame/resume` | resumption of a suspended frame |
 | `body/frame/region` | transitions between the functions of a common control region |
 | `body/frame/native` | bounded native recursion for a self-recursive function |
 | `body/aggregate` | products and sums |
