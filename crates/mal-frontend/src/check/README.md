@@ -5,27 +5,30 @@ with a `Value` or `Abrupt` completion for every expression.
 
 | Module | Responsibility |
 |---|---|
-| `mod` | program order, value environment, and result targets |
-| `ast` | the typed program representation that checking emits, split into type terms, program items, expressions, and primitive operators |
-| `binding`, `entry` | bindings, patterns, and reachability of body items; the entry identity and its parameter form |
-| `generic` | generic value bindings: principal parameter kinds, one check of the body under rigid parameters, the operation and kind requirements left for specialization, and the requirement state each declaration body starts from |
-| `control` | `if`, `when`, direct blocks, and direct result blocks with their completion and local result targets |
-| `expression` | expression dispatch, references, literals, and products checked against the expected type |
-| `expression/application` | ordinary, receiver-first, and continuation application, result transfer, and empty elimination |
-| [`inference`](inference/README.md) | local inference and explicit prefixes for generic value references and calls |
-| `expression/elimination` | sum elimination continuations (function values, branches of the enclosing invocation, and result binder names) and their completion join |
-| `lambda` | parameters and body completion against the expected function type |
-| `operator` | numeric, logical, and Symbol operator rules and left-associative operator chains |
-| [`operation`](operation/README.md) | operation-family signatures, implementation coherence, and structural termination |
-| `integer`, `product` | integer literals and operands against the expected type with fixed-width ranges, and product expressions against an expected product |
-| `memory` | `Buffer` access, Symbol snapshot conversion, and C host copy typing; logical operands are distinct from source products |
-| [`types`](types/README.md) | kind inference, canonical type-level terms, source expansion, type properties, and runtime-type admission |
-| `interface` | extern transport checks and extraction of host-visible metadata |
+| `mod` | the checking entry points and the state shared while checking one program |
+| `program` | the order in which top-level items are checked |
+| `ast` | the typed program representation that checking emits |
+| `binding` | bindings and patterns, and the reachability of body items |
+| `entry` | the entry identity and its parameter form |
+| `generic` | checking a declaration body once under rigid parameters, and the requirements it leaves for specialization |
+| `control` | `if`, `when`, and direct blocks with their completion |
+| `expression` | expression dispatch against the expected type |
+| `expression/application` | the three application forms and their completion |
+| `expression/elimination` | sum elimination continuations and the join of their completions |
+| [`inference`](inference/README.md) | type arguments of generic references and calls |
+| `lambda` | lambdas against the expected function type |
+| `operator` | operator rules |
+| [`operation`](operation/README.md) | operation families and their implementations |
+| `integer` | integer literals and operands against fixed-width ranges |
+| `product` | product expressions against an expected product |
+| `memory` | typing of the predefined memory primitives |
+| [`types`](types/README.md) | type-level terms and their properties |
+| `interface` | the extern boundary and the host-visible metadata it yields |
 | `initializer` | admission of closed top-level values |
-| `float` | exact rounding of decimal float literals to IEEE 754 binary formats |
-| `specialize` | selection of bindings reachable from the entry, exact operation-family lookup, sharing of monomorphic instances per concrete type argument, and a fresh identity for every binder in each instance so that later stages can key facts by `ValueId` program-wide |
-| `specialization_identity` | the first value and lambda identities that no checked binder uses, from which specialization and core lowering allocate |
-| `type_fingerprint` | memoized structural hashes of canonical types, the keys that specialization and the backend closure flow group types by |
+| `float` | exact rounding of decimal float literals |
+| [`specialize`](specialize/README.md) | monomorphic instances reachable from the entry |
+| `specialization_identity` | the identities left free for specialization and core lowering to allocate |
+| `type_fingerprint` | memoized structural hashes of canonical types |
 
 Predefined memory and `Buffer` operations do not follow the ordinary function-call path. `resolve/predefined.rs`
 owns their names and stable identities; `expression/application::check_call` dispatches those identities to
