@@ -21,9 +21,6 @@ slot storageのlayoutは要素型ごとに実装が選び、sourceとhostへ観�
 sourceもhostも前提にしない。`IxPool<Meta, UInt8>`のslot storageはbyte列そのものになるため、`Symbol`のbyte ownerとstorageを
 共有する特殊化も実装の選択として取れる。
 
-`Representable`な要素のVectorは、`[0, length)`をcanonical layoutの密な列として一つのstorageに置き、hostとの交換を一括copyに
-できる。`Vector<UInt8>`のstorageは`Symbol`のbyte ownerと同じ形を取れる。
-
 `size<V> == 0`または`stride<V> == 0`でもslotは消滅しない。element payloadのbyte数が0でも、`n`、VacantとLiveの遷移、
 precondition、drop回数は通常の`V`と同じである。占有tagは`peek`と`isLive`の結果、`slot`で旧値をDropするかの判定、IxPool終了時に
 Dropするslotの決定に使う。LiveかVacantかを仮定する周辺operationはtagを検査しない。
@@ -32,6 +29,32 @@ Dropするslotの決定に使う。LiveかVacantかを仮定する周辺operatio
 `n + k`またはstorage sizeをtargetで表現できない場合とallocationに失敗した場合は、既存Engram allocationと同じくtrapする。
 [trap](../../../spec/execution.md#trap)はterminalなので、失敗後のIxPool状態を公開する規則は要らない。IxPoolとmanaged valueは現在の
 C runtime contextと同じくthread-confinedであり、物理relocation中の一時状態は一つのprimitive内部へ閉じる。
+
+### BufferとVectorの表現
+
+現行runtimeのBuffer（`MalBuffer`）は、IxPool上のBufferをas-ifで実装したものとして説明できる。
+
+| 現行runtime | Pool上の意味 |
+|---|---|
+| `count` | Meta |
+| byte ownerの物理容量 | slot数`n`。`make`のcapacityは確保量の要求であり、sourceから観測できない |
+| 占有tagを持たない | invariant `[0, count)`がLiveからslot状態が決まる |
+| managed要素の`retain`と`release` callback | 要素型ごとのlifecycle glue |
+| 終了時に`[0, count)`をrelease | IxPool終了時のLive slotのDrop。tagを走査しない |
+| `put`が新しい値をretainしてから旧値をrelease | placeのwrite |
+| `fill`、`copy`がcountを範囲末尾まで延ばす | 参照実装の`initAt`、`putAt`のloopとMetaの更新 |
+| `from`、`into` | Vectorの`from`の`thaw`と、`slice`の`into`を一段のcopyにまとめたもの |
+| `zeroed_until` | 0で確保した範囲へ0を書かない物理的な最適化 |
+
+Bufferのstorageは`Symbol`と同じ形のflatなbyte ownerである。`Symbol`は`(owner, data, length)`という不変のviewであり、
+Vectorはこれを要素型について一般化した`(owner, data, count)`で表せる。値は不変なので、`slice`はcopyせずviewとして作ってよい。
+その代わり、sliceは`Symbol`と同じく元のstorage全体を生かし続ける。表現の上では`Symbol`は`Vector<UInt8>`であり、text操作と
+static storageのliteralを加えたものである。`Representable`な要素のVectorは`[0, length)`をcanonical layoutの密な列として置き、
+hostとの交換を一括copyにできる。
+
+`freeze`と`thaw`はこの二つの表現の間でbyte ownerを受け渡す。inputがlast useで、Bufferのidentityとbyte ownerがどちらも一意な
+とき、`freeze`はownerをviewへ移し、`thaw`はviewが先頭から全体を覆うflatなownerを新しいBufferへ移す。それ以外はcopyする
+（[freezeとthaw](../api/pool.md#freezeとthaw)）。byte列の`*`の両方向がこの規則の最初の例であり、現行の`*`の意味を変えずに実装できる。
 
 ## 所有権
 

@@ -111,7 +111,8 @@ containerが要求する。
   [D075](../../history/decisions/active/D075.md)の見直しを伴う。値の入れ子とcoordinateの入れ子で足りない
   用途が見つかるまで採らずにおける（[入れ子](model/identity.md#入れ子)）。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- `Symbol`を`Vector<UInt8>`とどこまで同一視するか。`*`による`Symbol`との変換も、`from`と`into`と同じくBufferからVectorへ寄せるか。
+- `Symbol`を言語の上でも`Vector<UInt8>`とみなすか。表現の上では同じ形である（[BufferとVectorの表現](runtime/contract.md#bufferとvectorの表現)）。
+  `*`による`Symbol`との変換も、`from`と`into`と同じくBufferからVectorへ寄せるか。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。測っておらず、大きい場合はtagの表現を見直す。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
