@@ -179,6 +179,7 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
             .count(),
         2
     );
+    assert!(!plan.applications.is_empty(), "{:#?}", plan.applications);
 }
 
 #[test]
@@ -186,8 +187,9 @@ fn validates_the_exact_demand_set() {
     let source = SourceFile::new(
         FileId::new(100),
         "continuation-specialization-validation.mal",
-        "create :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
-         main :: Unit -> Int32 := () -> create(40i32)(2i32) - 42i32;"
+        "increment :: Int32 -> Int32 := (value) -> value + 1i32;
+         create :: (Int32 -> Int32) -> (Int32 -> Int32) := (callback) -> (value) -> callback(value);
+         main :: Unit -> Int32 := () -> create(increment)(41i32) - 42i32;"
             .into(),
     );
     let checked = mal_frontend::analysis::check(&source).expect("check validation fixture");
@@ -200,5 +202,12 @@ fn validates_the_exact_demand_set() {
 
     assert!(plan.is_valid(&closure));
     plan.demands.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    plan.steps.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    assert!(!plan.applications.is_empty());
+    plan.applications.clear();
     assert!(!plan.is_valid(&closure));
 }

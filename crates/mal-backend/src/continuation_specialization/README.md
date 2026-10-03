@@ -15,3 +15,4 @@ calling-convention rewrite is enabled.
 | `plan` | admitted application demands and exact reconstruction |
 | `index` | binding definitions, canonical aliases, uses, escape classification, and effect intervals |
 | `trace` | direct call, closure creator, branch, and result-join edges followed from demanded producers |
+| `application` | closure-flow candidates reached while executing demanded closure targets |

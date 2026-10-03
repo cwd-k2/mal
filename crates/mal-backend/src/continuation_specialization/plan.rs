@@ -27,17 +27,31 @@ pub(crate) enum ProducerResult {
     Closure(FunctionId),
 }
 
+/// One application reached while executing a demanded closure target.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ApplicationStep {
+    pub(crate) host: FunctionId,
+    pub(crate) site: AtomId,
+    pub(crate) targets: Vec<FunctionId>,
+}
+
 /// Closed application demands admitted from a closure program.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     pub(in crate::continuation_specialization) demands: Vec<Demand>,
     pub(in crate::continuation_specialization) steps: Vec<ProducerStep>,
+    pub(in crate::continuation_specialization) applications: Vec<ApplicationStep>,
 }
 
 impl Plan {
     pub(crate) fn new(program: &Program) -> Self {
         let (demands, steps) = index::analyze(program);
-        Self { demands, steps }
+        let applications = super::application::trace(program, &steps);
+        Self {
+            demands,
+            steps,
+            applications,
+        }
     }
 
     pub(crate) fn is_valid(&self, program: &Program) -> bool {
