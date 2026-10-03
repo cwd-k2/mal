@@ -146,7 +146,8 @@ containerが要求する。
 - Vectorの公開API、現行Bufferのhost operationとの互換性、`Symbol`との型関係は
   [BufferとVectorの採択前に残る判断](api/buffer-vector.md#採択前に残る判断)を正とする。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
-- IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。測っておらず、大きい場合はtagの表現を見直す。
+- IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。direct C kernelの測定ではbitmapを選んだが、
+  managed payload、growth、終了時走査と実際のcontainerを含む再測定が要る。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callback emitterから一般化するか、共通`Lifecycle`を消費する別のemitterとして置くか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

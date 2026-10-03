@@ -210,10 +210,12 @@ BufferとVectorはas-ifで実装するため（[BufferとVector](../api/buffer-v
   書き戻しになる。
 - IxPool終了時の走査：`drop`がno-opでない要素型だけが払い、capacityまでtagを読む。
 
-Buffer上の形は代わりに、slotごとのsum tag、構築時の`fill`、移動ごとの`Share`と`Drop`を払う。二つの試作はこの差を測れない。
-C host試作はoperationごとにextern callを挟み、Buffer上のemulationは意味の参照でありcopyを含むためである。測定には
-[検証の段階](#検証の段階)のstep 3の実装が要り、Map、Deque、heapを[`generic-map`](../../../../examples/generic-map/map.mal)のような
-Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表現を見直す。
+Buffer上の形は代わりに、slotごとのsum tag、構築時の`fill`、移動ごとの`Share`と`Drop`を払う。二つの試作はhost callまたはcopyを
+挟むため直接比較に使えないが、IxPool kernelと同じVacant/Live反転を行うdirect C測定では、separate byte、bitmap、inline sumのうち
+bitmapが最小のmemoryで、random accessでは最速、sequential accessでも差が小さかった
+（[Pool占有tagの表現比較](../../../history/performance/pool-occupancy.md)）。初期kernelはbitmapを使い、step 3以降でmanaged payload、
+growth、終了時の走査を含めて再測定する。その際はMap、Deque、heapを
+[`generic-map`](../../../../examples/generic-map/map.mal)のようなBuffer上の実装と比べる。
 
 ## 検証の段階
 
@@ -222,7 +224,7 @@ Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表�
    [D097](../../../history/decisions/active/D097.md)のexternal opaque carrierを、通常値とBuffer element callbackが共有する
    `Lifecycle(T) = Trivial | Owned(share, drop)`で検証する。
 3. backend内部にIxPoolの核と周辺operationを置き、unmanaged Metaとelementで実行する。
-   zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
+   初期occupancyは測定済みのbitmapとし、zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
 4. `Symbol`、nested Buffer、nested Pool handleとmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの
    書き戻し、同じBufferで範囲が重なる`copy`でDrop済みのreferentを読まず、IxPool終了時のlive allocationは0になる。
 5. Bufferで検証済みの`Store`をPool primitiveへ付与する。`Store`へ渡るparameterを持つmal wrapperがowned native entryになり、
