@@ -14,6 +14,40 @@ fn accepts_the_nested_focus_example_in_editor_analysis() {
     let opened = server.handle(did_open(&uri, &text));
 
     assert_eq!(opened.messages[0]["params"]["diagnostics"], json!([]));
+
+    let nested = text.find("focusAt(nested").unwrap() + "focusAt(".len();
+    let hover = request_at(&mut server, 1, "textDocument/hover", &uri, &text, nested);
+    let contents = hover["result"]["contents"]["value"].as_str().unwrap();
+    assert!(
+        contents.starts_with("```mal\nnested :: Focus<Focus<Int32>>\n```\n\nvalue"),
+        "unexpected hover: {contents}"
+    );
+
+    let duplicate = text.rfind("duplicate<Focus>").unwrap();
+    let hover = request_at(&mut server, 2, "textDocument/hover", &uri, &text, duplicate);
+    let contents = hover["result"]["contents"]["value"].as_str().unwrap();
+    assert!(
+        contents.starts_with(
+            "```mal\nduplicate :: Focus<Int32> -> Focus<Focus<Int32>>\n```\n\nfunction"
+        ),
+        "unexpected hover: {contents}"
+    );
+
+    let nested_env =
+        text.find("extract<Env<Int32>>(nested)").unwrap() + "extract<Env<Int32>>(".len();
+    let hover = request_at(
+        &mut server,
+        3,
+        "textDocument/hover",
+        &uri,
+        &text,
+        nested_env,
+    );
+    let contents = hover["result"]["contents"]["value"].as_str().unwrap();
+    assert!(
+        contents.starts_with("```mal\nnested :: Env<Int32, Env<Int32, Int32>>\n```\n\nvalue"),
+        "unexpected hover: {contents}"
+    );
 }
 
 #[test]

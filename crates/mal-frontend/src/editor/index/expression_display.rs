@@ -54,6 +54,9 @@ impl Index {
                 arguments,
             } => {
                 let signature = self.generic_value_types.get(&reference.id)?;
+                if arguments.len() != signature.parameters.len() {
+                    return None;
+                }
                 let substitutions = signature
                     .parameters
                     .iter()
@@ -90,14 +93,33 @@ impl Index {
         use resolved::Expression;
         match &expression.kind {
             Expression::Reference(reference) => {
-                self.instantiated_generic_type_name(reference.id, expression.span, false)
+                self.instantiated_generic_type_name(reference.id, reference.name.span, &[], false)
             }
+            Expression::GenericReference {
+                reference,
+                arguments,
+            } => self.instantiated_generic_type_name(
+                reference.id,
+                reference.name.span,
+                arguments,
+                false,
+            ),
             Expression::Parenthesized(inner) => self.inferred_expression_display_name(inner),
             Expression::Call { callee, .. } => {
-                let Expression::Reference(reference) = &callee.kind else {
-                    return None;
+                let (reference, arguments) = match &callee.kind {
+                    Expression::Reference(reference) => (reference, &[][..]),
+                    Expression::GenericReference {
+                        reference,
+                        arguments,
+                    } => (reference, arguments.as_slice()),
+                    _ => return None,
                 };
-                self.instantiated_generic_type_name(reference.id, callee.span, true)
+                self.instantiated_generic_type_name(
+                    reference.id,
+                    reference.name.span,
+                    arguments,
+                    true,
+                )
             }
             Expression::Block(block) => self.inferred_expression_display_name(&block.result),
             Expression::ResultBlock { body, .. } => {
@@ -114,20 +136,24 @@ impl Index {
         }
     }
 
-    fn instantiated_generic_type_name(
+    pub(super) fn instantiated_generic_type_name(
         &self,
         id: resolved::ValueId,
         span: Span,
+        explicit_arguments: &[mal_syntax::ast::Node<resolved::TypeExpression>],
         call_result: bool,
     ) -> Option<String> {
         let signature = self.generic_value_types.get(&id)?;
         let arguments = self.inferred_type_arguments.get(&span)?;
-        let substitutions = signature
+        let mut substitutions = signature
             .parameters
             .iter()
             .copied()
             .zip(arguments.iter().cloned())
-            .collect();
+            .collect::<HashMap<_, _>>();
+        for (parameter, argument) in signature.parameters.iter().zip(explicit_arguments) {
+            substitutions.insert(*parameter, type_display::type_name(argument));
+        }
         let ty = if call_result {
             let resolved::TypeExpression::Function { result, .. } = &signature.ty.kind else {
                 return None;

@@ -155,21 +155,37 @@ impl Index {
     ) {
         use resolved::Expression;
         match &expression.kind {
-            Expression::Reference(reference) => self.add_raw(
-                SymbolId::Value(self.canonical_value(reference.id)),
-                &reference.name,
-                OccurrenceRole::Reference,
-                None,
-            ),
-            Expression::GenericReference {
-                reference,
-                arguments,
-            } => {
-                self.add_raw(
+            Expression::Reference(reference) => {
+                let detail = self.instantiated_generic_type_name(
+                    reference.id,
+                    reference.name.span,
+                    &[],
+                    false,
+                );
+                self.add_raw_with_detail(
                     SymbolId::Value(self.canonical_value(reference.id)),
                     &reference.name,
                     OccurrenceRole::Reference,
                     None,
+                    detail,
+                );
+            }
+            Expression::GenericReference {
+                reference,
+                arguments,
+            } => {
+                let detail = self.instantiated_generic_type_name(
+                    reference.id,
+                    reference.name.span,
+                    arguments,
+                    false,
+                );
+                self.add_raw_with_detail(
+                    SymbolId::Value(self.canonical_value(reference.id)),
+                    &reference.name,
+                    OccurrenceRole::Reference,
+                    None,
+                    detail,
                 );
                 for argument in arguments {
                     self.collect_resolved_type(argument);

@@ -50,14 +50,14 @@ pub(super) fn type_name_with_substitutions(
         TypeExpression::Application {
             constructor,
             arguments,
-        } => format!(
-            "{}<{}>",
-            constructor.name.text,
+        } => applied_type_name(
+            substitutions
+                .get(&constructor.id)
+                .map(String::as_str)
+                .unwrap_or(&constructor.name.text),
             arguments
                 .iter()
-                .map(|argument| type_name_with_substitutions(argument, substitutions))
-                .collect::<Vec<_>>()
-                .join(", ")
+                .map(|argument| type_name_with_substitutions(argument, substitutions)),
         ),
         TypeExpression::Unit => "Unit".into(),
         TypeExpression::Parenthesized(inner) => {
@@ -101,13 +101,19 @@ pub(super) fn substitute(
         TypeExpression::Application {
             constructor,
             arguments,
-        } => TypeExpression::Application {
-            constructor: constructor.clone(),
-            arguments: arguments
+        } => {
+            let arguments = arguments
                 .iter()
                 .map(|argument| substitute(argument, substitutions))
-                .collect(),
-        },
+                .collect();
+            if let Some(replacement) = substitutions.get(&constructor.id) {
+                return apply(replacement, arguments, ty.span);
+            }
+            TypeExpression::Application {
+                constructor: constructor.clone(),
+                arguments,
+            }
+        }
         TypeExpression::Unit => TypeExpression::Unit,
         TypeExpression::Parenthesized(inner) => {
             TypeExpression::Parenthesized(Box::new(substitute(inner, substitutions)))
@@ -130,4 +136,45 @@ pub(super) fn substitute(
         },
     };
     Node::new(kind, ty.span)
+}
+
+fn applied_type_name(constructor: &str, arguments: impl Iterator<Item = String>) -> String {
+    let arguments = arguments.collect::<Vec<_>>().join(", ");
+    if let Some(partial) = constructor.strip_suffix('>') {
+        format!("{partial}, {arguments}>")
+    } else {
+        format!("{constructor}<{arguments}>")
+    }
+}
+
+fn apply(
+    constructor: &Node<TypeExpression>,
+    mut arguments: Vec<Node<TypeExpression>>,
+    span: mal_syntax::source::Span,
+) -> Node<TypeExpression> {
+    match &constructor.kind {
+        TypeExpression::Named(reference) => Node::new(
+            TypeExpression::Application {
+                constructor: reference.clone(),
+                arguments,
+            },
+            span,
+        ),
+        TypeExpression::Application {
+            constructor,
+            arguments: partial,
+        } => {
+            let mut combined = partial.clone();
+            combined.append(&mut arguments);
+            Node::new(
+                TypeExpression::Application {
+                    constructor: constructor.clone(),
+                    arguments: combined,
+                },
+                span,
+            )
+        }
+        TypeExpression::Parenthesized(inner) => apply(inner, arguments, span),
+        _ => unreachable!("checked constructor substitution must remain applicable"),
+    }
 }

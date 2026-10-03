@@ -65,6 +65,7 @@ struct RawOccurrence {
     name: String,
     span: Span,
     role: OccurrenceRole,
+    detail: Option<String>,
     declaration_span: Option<Span>,
 }
 
@@ -172,7 +173,7 @@ impl Index {
                 let id = self.canonical_symbol(raw.id);
                 Occurrence {
                     kind: self.kind(id),
-                    detail: self.detail(id),
+                    detail: raw.detail.or_else(|| self.detail(id)),
                     documentation: predefined::documentation(id).map(str::to_owned),
                     id,
                     name: raw.name,
@@ -274,11 +275,23 @@ impl Index {
         role: OccurrenceRole,
         declaration_span: Option<Span>,
     ) {
+        self.add_raw_with_detail(id, name, role, declaration_span, None);
+    }
+
+    fn add_raw_with_detail(
+        &mut self,
+        id: SymbolId,
+        name: &mal_syntax::ast::Name,
+        role: OccurrenceRole,
+        declaration_span: Option<Span>,
+        detail: Option<String>,
+    ) {
         self.raw_occurrences.push(RawOccurrence {
             id,
             name: name.text.clone(),
             span: name.span,
             role,
+            detail,
             declaration_span,
         });
     }

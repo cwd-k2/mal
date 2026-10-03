@@ -181,6 +181,9 @@ semantic hoverはsymbolごとに次を表示する。
 - mal形式の名前、型、symbol kind。
 - 型aliasは右辺を一段だけ表示する。型注釈を持つ値は注釈内のalias名を保った型を、推論された型と名前を持たない
   typed expressionはcanonical typeを表示する。
+- generic valueの参照と、その呼び出しから推論したbindingでは、明記された型引数の綴りとcheckerが確定した残りの型引数を合成し、
+  型constructorの部分適用を含めてcall siteで具体化された型を表示する。
+- generic declarationが導入する型parameterは、宣言位置と型注釈内の参照位置のどちらでも同じtype symbolとしてhoverを表示する。
 - opaque typeはnominal constructor名だけを表示し、内部表現をhoverへ展開しない。nested applicationでも各constructor名を保つ。
 - literalなど名前を持たないexpressionではsource expressionと型を表示し、hover rangeをそのexpressionへ限定する。
 - direct result blockが導入するbinderは`result binder`として表示し、適用するとenclosing blockを抜け、その位置へ制御が戻らないことを

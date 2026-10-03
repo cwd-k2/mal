@@ -128,6 +128,22 @@ fn nested_opaque_carriers_keep_the_nominal_type_without_exposing_representation(
 }
 
 #[test]
+fn type_parameters_have_hover_at_their_declarations_and_references() {
+    let text = "identity<A> :: A -> A := (value) -> value;\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+
+    for offset in [
+        text.find('A').unwrap(),
+        text.find("A ->").unwrap(),
+        text.find("-> A").unwrap() + 3,
+    ] {
+        let hover = document.hover_at(offset).expect("type parameter hover");
+        assert_eq!(hover.ty, "A");
+        assert_eq!(hover.occurrence.unwrap().kind, SymbolKind::Type);
+    }
+}
+
+#[test]
 fn external_function_references_share_the_declaration_identity() {
     let text = "extern output :: UInt8 -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(1u8) };\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");

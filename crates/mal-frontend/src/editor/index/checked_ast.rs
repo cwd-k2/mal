@@ -96,7 +96,7 @@ impl Index {
                     .entry(self.canonical_value(reference.id))
                     .or_insert(ty);
                 self.inferred_type_arguments.insert(
-                    expression.span,
+                    reference.name.span,
                     arguments.iter().map(crate::check::type_name).collect(),
                 );
             }
@@ -105,7 +105,7 @@ impl Index {
                     .entry(self.canonical_value(family.id))
                     .or_insert(ty);
                 self.inferred_type_arguments.insert(
-                    expression.span,
+                    family.name.span,
                     arguments.iter().map(crate::check::type_name).collect(),
                 );
             }

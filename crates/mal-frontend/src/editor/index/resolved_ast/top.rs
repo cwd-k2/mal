@@ -103,6 +103,8 @@ impl Index {
 
     fn declare_parameters(&mut self, parameters: &[resolved::TypeBinding]) {
         for parameter in parameters {
+            self.type_details
+                .insert(parameter.id, parameter.name.text.clone());
             self.add_raw(
                 SymbolId::Type(parameter.id),
                 &parameter.name,
