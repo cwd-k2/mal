@@ -1,16 +1,16 @@
 mod access;
 mod address;
-mod managed;
+mod runtime_owned;
 
 use crate::backend::llvm::syntax::{BinaryOperator, MetadataAttachment, llvm_type};
 use crate::core::ast::BufferOperation;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
-pub(in crate::backend::llvm::body) use managed::ManagedBufferElements;
+pub(in crate::backend::llvm::body) use runtime_owned::RuntimeOwnedBufferElements;
 
 /// How a Buffer keeps one element. Canonical storage exists for host copy; runtime-owned storage keeps an internal
-/// carrier and preserves its lifecycle through the callbacks of [`ManagedBufferElements`].
+/// carrier and preserves its lifecycle through the callbacks of [`RuntimeOwnedBufferElements`].
 #[derive(Clone, Copy)]
 pub(in crate::backend::llvm::body) enum ElementStorage {
     Canonical { stride: usize },
@@ -55,7 +55,7 @@ impl FunctionEmitter<'_> {
                 }
                 let buffer = self.register();
                 if let ElementStorage::RuntimeOwned { .. } = storage {
-                    let number = self.index.managed_buffer_elements.number(element)?;
+                    let number = self.index.runtime_owned_buffer_elements.number(element)?;
                     emit_instruction! {
                         self;
                         let #{ buffer.clone() } = call {
@@ -132,7 +132,7 @@ impl FunctionEmitter<'_> {
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
                 match storage {
                     ElementStorage::RuntimeOwned { alignment, .. } => {
-                        self.emit_managed_element_get(&pointer, element, alignment)
+                        self.emit_runtime_owned_element_get(&pointer, element, alignment)
                     }
                     ElementStorage::Canonical { .. } => {
                         self.emit_aligned_buffer_load_at(&pointer, element)
@@ -155,7 +155,7 @@ impl FunctionEmitter<'_> {
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
                     match storage {
                         ElementStorage::RuntimeOwned { alignment, .. } => {
-                            self.emit_managed_element_put(&pointer, value, alignment)?;
+                            self.emit_runtime_owned_element_put(&pointer, value, alignment)?;
                         }
                         ElementStorage::Canonical { .. } => {
                             self.emit_aligned_buffer_store_at(&pointer, value)?;

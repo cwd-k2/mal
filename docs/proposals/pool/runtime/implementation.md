@@ -46,6 +46,11 @@ callback生成が既にある。IxPoolはこのloweringの新しい利用者に�
 | C Buffer runtime | plain storageと、element retain/release callbackを持つstorage。nested Bufferは既存managed pathを使う | Trivialなruntime-value elementにはcallbackを課さない |
 | Buffer host operation | canonical layoutだけを扱う`from`と`into` | `Representable`制限を保ち、Storable拡張から独立させる |
 
+C runtimeの`_managed`はcallbackを受け取るprivate ABI variantの名前であり、languageの`Storable`またはcompilerの
+`RuntimeOwned`全体を分類する語ではない。nested Bufferは`Owned` lifecycleなのでこのvariantを使うが、将来の
+`Runtime(_, Trivial)`はruntime-value representationを使ってもcallbackを必要としない。このABI名をsource-level judgmentへ
+逆輸入しない。
+
 特にstorage分類は、canonical representationとlifecycleを一つの二択へ押し込まない。導入時の概念形は次である。
 
 ```text
@@ -76,6 +81,10 @@ canonical memoryへ出せないruntime carrierを保持する。
 D096では既存の`RuntimeOwned` mechanismだけでnested Bufferを通せたため、利用者が一つしかない段階で抽象的な`Lifecycle` data typeを
 先行追加しなかった。残る順序では、欠けているrepresentation category、複数consumerが生じるlifecycle plan、Pool固有のstate machineを
 別々に失敗へ局所化できる。
+現行実装のallocation、動的instruction、LLVMのalias証明の限界は
+[Buffer生成物とownership cost](../../../history/performance/buffer.md)で測定した。そこで観測した二重allocationと、
+同一slotへの書き戻しが消えないことは、nested identityの意味論的なcostではない。`Store`とmove-based `swap`の
+採用判断では、現行`get` / `put`のownership trafficからこれらの実装costを分けて比較する。
 
 ## lowering boundary
 

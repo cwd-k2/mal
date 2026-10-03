@@ -116,16 +116,22 @@ pub(in crate::check) fn storable_requirements(ty: &Type) -> Vec<Type> {
 /// Whether `ty` is known to be a valid Buffer element, given the type parameters that the enclosing signature
 /// already requires to be storable.
 pub(in crate::check) fn satisfies_storable_requirement(ty: &Type, available: &[Type]) -> bool {
-    satisfies_requirement(ty, available, true)
+    satisfies_requirement(ty, available, Requirement::Storable)
 }
 
 /// Whether `ty` has a canonical memory representation for C host copy. A type parameter never does, because
 /// generic code cannot derive the layout of an opaque type.
 pub(in crate::check) fn satisfies_representable_requirement(ty: &Type) -> bool {
-    satisfies_requirement(ty, &[], false)
+    satisfies_requirement(ty, &[], Requirement::Representable)
 }
 
-fn satisfies_requirement(ty: &Type, available: &[Type], symbols: bool) -> bool {
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Requirement {
+    Storable,
+    Representable,
+}
+
+fn satisfies_requirement(ty: &Type, available: &[Type], requirement: Requirement) -> bool {
     let mut pending = vec![ty];
     while let Some(ty) = pending.pop() {
         if available.iter().any(|requirement| requirement == ty) {
@@ -153,8 +159,8 @@ fn satisfies_requirement(ty: &Type, available: &[Type], symbols: bool) -> bool {
             | Type::Address
             | Type::ByteSize
             | Type::USize => {}
-            Type::Symbol if symbols => {}
-            Type::Buffer(element) if symbols => pending.push(element),
+            Type::Symbol if requirement == Requirement::Storable => {}
+            Type::Buffer(element) if requirement == Requirement::Storable => pending.push(element),
             _ => return false,
         }
     }

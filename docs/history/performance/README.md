@@ -13,6 +13,7 @@ Status: Historical records
 | 現在のexample corpus | [example corpus](examples.md) | baseline / productionと採択済みclosure optimizationの比較 |
 | recursionとloop combinator | [loop combinator](loop-combinators.md) | native recursion、stack bound、persistent parameterの調査 |
 | managed value | [managed Engram](managed-engrams.md) | C backend当時のownership costと回帰条件 |
+| Buffer element storage | [Buffer](buffer.md) | LLVM backendのcanonical elementとruntime-owned handleのC比較 |
 | C host boundary | [C host ABI](c-host-abi.md) | headerとadapter生成の測定 |
 | compiler自身 | [compiler compile-time](compiler.md) | frontend、lowering、editor queryの規模と深度 |
 

@@ -5,5 +5,5 @@ mod storage;
 mod transfer;
 mod view;
 
-pub(super) use buffer::ManagedBufferElements;
+pub(super) use buffer::RuntimeOwnedBufferElements;
 pub(super) use view::ByteViewFields;

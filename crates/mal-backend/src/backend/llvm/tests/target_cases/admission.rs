@@ -358,7 +358,7 @@ fn rejects_oversized_canonical_buffer_elements() {
 }
 
 #[test]
-fn rejects_oversized_managed_buffer_elements() {
+fn rejects_oversized_runtime_owned_buffer_elements() {
     let mut text = String::from("_T0 :: Symbol;\n");
     for index in 1..=14 {
         text.push_str(&format!(
@@ -368,9 +368,13 @@ fn rejects_oversized_managed_buffer_elements() {
         ));
     }
     text.push_str("main :: Unit -> Int32 := () -> { make<_T14>(0usize); 0i32; };");
-    let source = SourceFile::new(FileId::new(100), "llvm-managed-buffer-layout.mal", text);
+    let source = SourceFile::new(
+        FileId::new(100),
+        "llvm-runtime-owned-buffer-layout.mal",
+        text,
+    );
     let checked =
-        mal_frontend::analysis::check(&source).expect("check managed Buffer layout fixture");
+        mal_frontend::analysis::check(&source).expect("check runtime-owned Buffer layout fixture");
     let core = crate::core::lower(
         &mal_frontend::check::specialize(checked).expect("specialize checked program"),
     );
@@ -387,7 +391,7 @@ fn rejects_oversized_managed_buffer_elements() {
         },
         OptimizationSet::production(),
     ) {
-        Ok(_) => panic!("managed Buffer element stride exceeds the 16-bit target range"),
+        Ok(_) => panic!("runtime-owned Buffer element stride exceeds the 16-bit target range"),
         Err(error) => error,
     };
     let Error::Diagnostic(diagnostic) = error else {
@@ -395,10 +399,10 @@ fn rejects_oversized_managed_buffer_elements() {
     };
     let primary = diagnostic
         .primary
-        .expect("managed Buffer layout diagnostic span");
+        .expect("runtime-owned Buffer layout diagnostic span");
     assert!(
         source.text()[primary.span.start()..primary.span.end()].contains("make<_T14>"),
-        "diagnostic points at the managed Buffer operation"
+        "diagnostic points at the runtime-owned Buffer operation"
     );
     assert!(primary.message.contains("98304"));
     assert!(primary.message.contains("65535"));

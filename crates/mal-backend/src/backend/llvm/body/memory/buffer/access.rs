@@ -1,4 +1,4 @@
-//! Direct element access: the active data pointer, element addresses, and the managed get and put paths.
+//! Direct element access: the active data pointer, element addresses, and the runtime-owned get and put paths.
 
 use super::*;
 
@@ -74,7 +74,7 @@ impl FunctionEmitter<'_> {
 
     /// The buffer keeps its own reference to the element, and a later `put` can drop it while the result is live, so
     /// the result takes a reference of its own.
-    pub(super) fn emit_managed_element_get(
+    pub(super) fn emit_runtime_owned_element_get(
         &mut self,
         pointer: &str,
         element: &Type,
@@ -101,7 +101,7 @@ impl FunctionEmitter<'_> {
 
     /// The stored value operand keeps its own reference through the call, so the old element may be the same value
     /// without being freed; the new reference is still taken first so the buffer never holds an element without one.
-    pub(super) fn emit_managed_element_put(
+    pub(super) fn emit_runtime_owned_element_put(
         &mut self,
         pointer: &str,
         value: &EmittedValue,

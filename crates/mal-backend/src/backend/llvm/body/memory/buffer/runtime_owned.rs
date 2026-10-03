@@ -4,11 +4,11 @@ use mal_frontend::check::ast::Type;
 
 use super::super::super::{EmittedFunction, FunctionEmitter};
 
-/// The element types of the program's Buffers that own managed values. Each has one retain and one
-/// release callback, numbered by position.
-pub(in crate::backend::llvm::body) struct ManagedBufferElements(Vec<Type>);
+/// The element types whose Buffers use runtime-owned storage. Each has one retain and one release
+/// callback, numbered by position.
+pub(in crate::backend::llvm::body) struct RuntimeOwnedBufferElements(Vec<Type>);
 
-impl ManagedBufferElements {
+impl RuntimeOwnedBufferElements {
     pub(in crate::backend::llvm::body) fn collect(execution: &crate::execution::Program) -> Self {
         let mut elements = Vec::new();
         for binding in execution
@@ -38,14 +38,14 @@ impl ManagedBufferElements {
 
 impl FunctionEmitter<'_> {
     /// Defines the callbacks that let the runtime retain and release one stored element of each
-    /// managed element type.
-    pub(in crate::backend::llvm::body) fn emit_managed_buffer_element_callbacks(
+    /// runtime-owned element type.
+    pub(in crate::backend::llvm::body) fn emit_runtime_owned_buffer_element_callbacks(
         &mut self,
     ) -> Option<EmittedFunction> {
         let index = self.index;
-        for (number, element) in index.managed_buffer_elements.0.iter().enumerate() {
-            self.emit_managed_element_callback(number, element, true)?;
-            self.emit_managed_element_callback(number, element, false)?;
+        for (number, element) in index.runtime_owned_buffer_elements.0.iter().enumerate() {
+            self.emit_runtime_owned_element_callback(number, element, true)?;
+            self.emit_runtime_owned_element_callback(number, element, false)?;
         }
         (!self.emission_failed).then(|| EmittedFunction {
             globals: std::mem::take(&mut self.globals),
@@ -53,7 +53,7 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    fn emit_managed_element_callback(
+    fn emit_runtime_owned_element_callback(
         &mut self,
         number: usize,
         element: &Type,

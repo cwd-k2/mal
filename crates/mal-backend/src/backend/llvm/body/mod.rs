@@ -47,7 +47,7 @@ mod value;
 
 use super::function_name;
 use constants::TopLevelConstants;
-use memory::ManagedBufferElements;
+use memory::RuntimeOwnedBufferElements;
 use scalar::{comparison_predicate, scalar_type};
 use types::Types;
 
@@ -99,7 +99,7 @@ pub(super) fn generate(
         &execution.ownership,
         &optimizations,
     )
-    .and_then(|mut emitter| emitter.emit_managed_buffer_element_callbacks())
+    .and_then(|mut emitter| emitter.emit_runtime_owned_buffer_element_callbacks())
     .ok_or("Buffer element callback emission")?;
     let mut definitions = callbacks.definitions;
     let mut uses_control = false;
@@ -225,7 +225,7 @@ struct ProgramIndex<'a> {
         mal_frontend::resolve::ast::ExternalOperationId,
         &'a crate::core::ast::ExternalOperation,
     >,
-    managed_buffer_elements: ManagedBufferElements,
+    runtime_owned_buffer_elements: RuntimeOwnedBufferElements,
 }
 
 impl<'a> ProgramIndex<'a> {
@@ -256,7 +256,7 @@ impl<'a> ProgramIndex<'a> {
             control_functions,
             lowered_functions,
             externals,
-            managed_buffer_elements: ManagedBufferElements::collect(execution),
+            runtime_owned_buffer_elements: RuntimeOwnedBufferElements::collect(execution),
         })
     }
 }

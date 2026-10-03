@@ -48,7 +48,8 @@ typeがなくfile-local opaque representationの再帰も拒否されるため�
 
 ## Representable
 
-compilerは閉じた`Representable(A)` judgmentを持つ。これは`Storable(A)`のうち`Symbol`を含まない型である。
+compilerは閉じた`Representable(A)` judgmentを持つ。これは`Storable(A)`のうち、次の規則からcanonical memory
+representationを構成できる型である。
 
 ```text
 Representable(Unit)

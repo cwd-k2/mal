@@ -131,6 +131,37 @@ fn stores_symbol_elements_as_runtime_values_with_retain_and_release_callbacks() 
 }
 
 #[test]
+fn stores_nested_buffer_handles_as_runtime_owned_elements() {
+    let module = generate_module(
+        "main :: Unit -> Int32 := () -> {
+           inner := make<UInt64>(1usize);
+           inner.new(41u64);
+           outer := make<Buffer<UInt64>>(2usize);
+           outer.new(inner);
+           outer.fill(1usize, 1usize, inner);
+           outer.copy(0usize, outer, 1usize, 1usize);
+           outer.put(0usize, outer.get(1usize));
+           outer.get(0usize).get(0usize).i32 - 41i32;
+         };",
+    );
+
+    assert!(module.contains(
+        "call ptr @mal_runtime_buffer_make_managed(ptr %mal_context, i64 8, i64 2, ptr @mal_buffer_retain_0, ptr @mal_buffer_release_0)"
+    ));
+    assert!(module.contains("call i64 @mal_runtime_buffer_new_managed("));
+    assert!(module.contains("call void @mal_runtime_buffer_fill_managed("));
+    assert!(module.contains("call void @mal_runtime_buffer_copy_managed("));
+    assert!(
+        module.contains(
+            "define internal void @mal_buffer_retain_0(ptr %mal_context, ptr %mal_element)"
+        )
+    );
+    assert!(module.contains("call ptr @mal_runtime_environment_retain("));
+    assert!(module.contains("define internal void @mal_buffer_release_0(ptr %mal_element)"));
+    assert!(module.contains("call void @mal_runtime_environment_release("));
+}
+
+#[test]
 fn accounts_for_element_references_only_in_managed_buffer_operations() {
     let managed = generate_module(
         "main :: Unit -> Int32 := () -> {

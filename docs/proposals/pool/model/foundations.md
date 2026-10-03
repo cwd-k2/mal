@@ -173,12 +173,14 @@ IxPoolで組み立てて`freeze`する形は`ST`に似るが、identityのescape
 
 | 抽象 | authority | shape | occupancy | addressability |
 |---|---|---|---|---|
+| C allocationとpointer | pointerを解釈する外部contract | byte extent | 規定しない | pointer arithmetic |
 | Rust `Box<T>` | exclusive owner | single | always Live | borrowable address |
 | IxPool | handleからshared identityを観測 | extensible indexed places | Vacant / Live | coordinate |
 | ImPool | structural snapshot | extensible indexed state | Vacant / Live | coordinate |
 
-この表からBoxとPoolの共通部分は「typed valueをmanaged lifetimeで保持する」ことだけだと分かる。Boxのsingle place、exclusive source
-owner、stableなderefをPoolへ持ち込まず、Poolの最小核はindexed place、occupancy、handleとsnapshotの観測則に限る。
+この表から、C allocationはPoolのbacking mechanismだけを提供し、typed place、occupancy、authorityを定めないことが分かる。
+BoxとPoolの共通部分は「typed valueをmanaged lifetimeで保持する」ことだけである。Boxのsingle place、exclusive source owner、
+stableなderefをPoolへ持ち込まず、Poolの最小核はindexed place、occupancy、handleとsnapshotの観測則に限る。
 
 ## minimality
 
