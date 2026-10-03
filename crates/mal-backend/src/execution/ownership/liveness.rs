@@ -4,7 +4,7 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, Pattern};
 use crate::control::ast::Terminator;
 
-use super::managed::is_managed;
+use super::lifecycle::is_managed;
 
 pub(super) fn insert_managed_binding(atom: &Atom, live: &mut HashSet<ValueId>) {
     if let Some(id) = managed_binding_id(atom) {

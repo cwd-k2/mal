@@ -78,7 +78,7 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         element: &Type,
         alignment: usize,
-        lifecycle: ElementLifecycle,
+        lifecycle: Lifecycle,
     ) -> Option<EmittedValue> {
         let value_type = self.types.value(element)?;
         let loaded = self.register();
@@ -91,13 +91,13 @@ impl FunctionEmitter<'_> {
                 metadata: #{ buffer_element_metadata() },
             };
         };
-        if lifecycle == ElementLifecycle::Owned {
+        if lifecycle == Lifecycle::Owned {
             self.retain_value(element, &loaded)?;
         }
         Some(EmittedValue {
             ty: element.clone(),
             representation: loaded,
-            owned: lifecycle == ElementLifecycle::Owned,
+            owned: lifecycle == Lifecycle::Owned,
         })
     }
 
@@ -108,9 +108,9 @@ impl FunctionEmitter<'_> {
         pointer: &str,
         value: &EmittedValue,
         alignment: usize,
-        lifecycle: ElementLifecycle,
+        lifecycle: Lifecycle,
     ) -> Option<()> {
-        if lifecycle == ElementLifecycle::Owned {
+        if lifecycle == Lifecycle::Owned {
             return self.move_into_managed_place(
                 pointer,
                 value,

@@ -10,8 +10,8 @@ use super::super::{
 use super::borrow::BorrowPlan;
 use super::destination::PatternDestination;
 use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
+use super::lifecycle::is_managed;
 use super::liveness::insert_pattern_bindings;
-use super::managed::is_managed;
 use super::operand::{OperationEffect, binding_operands, terminator_argument, terminator_operands};
 use super::parameter::ParameterBorrows;
 

@@ -8,7 +8,7 @@ earlier ones complete. The plan's exact validator rebuilds it from the same auth
 |---|---|
 | `mod` | the phase order and the plan the backend reads |
 | `identity` | the keys and values the plan is written in |
-| `managed` | which types own managed values |
+| `lifecycle` | the representation-independent `Trivial` or `Owned` lifecycle of each type |
 | `operand` | the operands of each operation and terminator, and whether each may pass ownership into the result |
 | `liveness` | which managed bindings are live at each point |
 | `authority` | the managed values whose lifetime authorizes each borrowed binding |

@@ -18,8 +18,8 @@ mod convention;
 mod destination;
 mod drop_plan;
 mod identity;
+mod lifecycle;
 mod liveness;
-mod managed;
 mod operand;
 mod parameter;
 mod query;
@@ -43,8 +43,8 @@ use drop_plan::collect_edge_drops;
 pub(crate) use identity::{
     BindingOperand, ControlPath, EdgeId, TerminatorOperand, UseEffect, UseId, UseLocation,
 };
+pub(crate) use lifecycle::{Lifecycle, is_managed, lifecycle};
 use liveness::{managed_binding_id, remove_pattern_bindings};
-pub(crate) use managed::is_managed;
 use parameter::{ParameterBorrows, collect_parameter_effects};
 pub(crate) use parameter::{ParameterEffect, ParameterEntry};
 use use_plan::{UseInputs, collect_use_effects, exclude_consumed_sources};

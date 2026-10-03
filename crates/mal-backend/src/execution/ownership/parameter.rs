@@ -9,7 +9,7 @@ use super::super::{
     ParameterDestination, ParameterPlan, SelfTailParameterPlan,
 };
 use super::convention::OwnedConvention;
-use super::managed::is_managed;
+use super::lifecycle::is_managed;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum ParameterEntry {

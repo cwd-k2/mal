@@ -42,7 +42,7 @@ callback生成が既にある。IxPoolはこのloweringの新しい利用者に�
 | 現行箇所 | 既にあるもの | 導入前に必要な整理 |
 |---|---|---|
 | frontend `types/properties` | place lifecycleとしての`Storable`、nested Bufferとexternal opaque carrierのadmission、requirementの再帰 | Pool handleを同じ再帰へ加える。functionとempty sumは拒否を保つ |
-| execution ownership | product、sum、Symbol、Buffer、functionを再帰するmanaged判定と、Buffer `new` / `put`の`Store` | `Storable`とmanagedを同じ判定にせず、後者をlifecycle planとして明示する |
+| execution ownership | product、sum、Symbol、Buffer、functionを再帰する`Lifecycle = Trivial | Owned`分類と、Buffer `new` / `put`の`Store` | Pool handleを同じ分類へ加え、Pool operationのuseとdropを計画する |
 | LLVM value lifetime | Buffer handleを含むproductとsumの再帰的retain/release | nested Bufferのelement callbackから同じ処理を再利用する。Pool handle追加時も別の型再帰を作らない |
 | LLVM Buffer storage | `Canonical(layout)`と`Runtime(layout, Lifecycle)`。external opaqueはTrivial、nested BufferはOwnedで動作する | Pool loweringから同じrepresentation/lifecycle分解を使う |
 | C Buffer runtime | plain storageと、element retain/release callbackを持つstorage。nested Bufferは既存managed pathを使う | Trivialなruntime-value elementにはcallbackを課さない |
@@ -71,16 +71,13 @@ positive runtime testまで採択した。external opaque carrierは`Runtime(_, 
 検証できる。`Canonical`を`Runtime(_, Trivial)`へ統合する必要はない。前者はhost bulk copyと既存の最適化を所有し、後者は
 canonical memoryへ出せないruntime carrierを保持する。
 
-残る導入は次の依存順に分ける。
-
-1. 現行の型再帰的なmanaged判定を、Pool loweringも消費する時点で`Lifecycle` planとして名前付きにする。通常値のretain/release、
-   Buffer element callback、Pool element callbackが同じplanを使い、別の型再帰を持たない。
-2. このBufferで確かめた`Lifecycle`と`ElementStorage`をIxPoolとImPoolのMetaおよびslotへ使う。Pool用に第三の型分類や別のglue再帰を
-   作らない。
+型再帰的なmanaged判定はrepresentationと独立した`Lifecycle`として名前を与え、execution ownershipとBuffer storageが同じ分類を
+消費するようにした。残る導入では、このBufferで確かめた`Lifecycle`と`ElementStorage`をIxPoolとImPoolのMetaおよびslotへ使う。
+Pool用に第三の型分類や別のglue再帰を作らない。
 
 D096では既存の`RuntimeOwned` mechanismだけでnested Bufferを通せたため、利用者が一つしかない段階で抽象的な`Lifecycle` data typeを
-先行追加しなかった。[D097](../../../history/decisions/active/D097.md)ではrepresentationとlifecycleを直交させて欠けていたcategoryを追加した。残る順序では、複数consumerが
-生じるlifecycle planとPool固有のstate machineを別々に失敗へ局所化できる。
+先行追加しなかった。[D097](../../../history/decisions/active/D097.md)でrepresentationとlifecycleを直交させ、その直後に二つのconsumerが
+生じた時点で共通分類を抽出した。これによりPool固有のstate machineはlifecycle分類から独立して導入できる。
 現行実装のallocation、動的instruction、LLVMのalias証明の限界は
 [Buffer生成物とownership cost](../../../history/performance/buffer.md)で測定した。そこで最初に観測した小容量Bufferの二重allocationと、
 同一slotへの書き戻しが消えないことは、nested identityの意味論的なcostではない。前者はstable object内のsmall-buffer storage、
@@ -222,8 +219,8 @@ Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表�
 
 1. opaque identity、file-local representation view、別fileからの構築と分解の拒否をfrontend testで固定する。
 2. [D096](../../../history/decisions/active/D096.md)の`Buffer<Buffer<T>>`と
-   [D097](../../../history/decisions/active/D097.md)のexternal opaque carrierに続き、`Lifecycle(T) = Trivial | Owned(share, drop)`を通常値、
-   Buffer element callback、closure environment destructorで共有する。
+   [D097](../../../history/decisions/active/D097.md)のexternal opaque carrierを、通常値とBuffer element callbackが共有する
+   `Lifecycle(T) = Trivial | Owned(share, drop)`で検証する。
 3. backend内部にIxPoolの核と周辺operationを置き、unmanaged Metaとelementで実行する。
    zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
 4. `Symbol`、nested Buffer、nested Pool handleとmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの

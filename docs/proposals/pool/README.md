@@ -148,5 +148,5 @@ containerが要求する。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。測っておらず、大きい場合はtagの表現を見直す。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
-- IxPool callbackを既存Buffer callbackから一般化するか、共通lifecycle planを先に抽出するか。
+- IxPool callbackを既存Buffer callback emitterから一般化するか、共通`Lifecycle`を消費する別のemitterとして置くか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

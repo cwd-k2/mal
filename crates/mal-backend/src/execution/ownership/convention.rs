@@ -20,7 +20,7 @@ use super::super::derived::{close, derived_from, managed_leaves};
 use super::super::{
     ApplicationGraph, ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan,
 };
-use super::managed::is_managed;
+use super::lifecycle::is_managed;
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub(super) struct OwnedConvention {
