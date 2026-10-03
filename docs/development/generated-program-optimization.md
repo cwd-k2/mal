@@ -94,7 +94,7 @@ allocation policyの費用を分離する。比較対象のoptimizerが一方の
 1. `State`はdictionaryやgeneric dispatchではなく、関数を返すproducerから最終applicationまでのclosure representationが残る。
    result join、callback call、self-recursive edgeを一つのcontinuation demandとして証明し、`_foldFrom`、`bind<State>`、step callbackを
    新しいcreatorを残さず融合できる場合だけdeforestする。単独のresult-application workerは再試行しない。解析、rewrite、validatorの
-   実装境界は[continuation specialization](../proposals/continuation-specialization.md)に置く。
+   実装境界は[continuation specialization](../implementation/continuation-specialization.md)に置く。
 2. nested Bufferはstable objectとrelocatable backingの二allocationが残る。任意capacityのco-allocationは再試行せず、growthしないこと、
    byte ownerへ移されないこと、独立identityのlifetimeを壊さないことを通常planが証明できる場合に限り、conditionalなrepresentationを
    比較する。まずpacked referenceとsplit referenceの両方を用意し、意味論costとallocation policyを分ける。

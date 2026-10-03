@@ -1,24 +1,12 @@
 # continuation specialization
 
-Status: Implemented and adopted (2026-10-03)
+Status: Current implementation design
 
 この文書は、specialized programで関数を返すproducerと、その関数を一度だけ適用するconsumerを融合し、途中のclosure
 representationを消去するoptimizationの境界を定める。言語上のfunction valueと評価順は
 [実行意味論](../spec/execution.md)、closure-converted programの現行責務は
-[compilerの責務境界](../implementation/responsibilities.md)、採択条件は
+[compilerの責務境界](responsibilities.md)、採択条件は
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
-
-## 対象
-
-最初の対象は、concrete specialization後の`State` chainである。`foldEach<State<USize>>`が返すactionは最終consumerで一度だけ
-適用されるが、現行programには次の三種類のclosure creatorが反復ごとに残る。
-
-- `step`と`fmap<State<USize>>`が返すaction。
-- `bind<State<USize>>`がactionと次のproducerを保持するaction。
-- `_foldFrom<State<USize>>`の終了pathで`pure<State<USize>>`が返すaction。
-
-単独のfunction resultだけをworkerへ変えても、callback callとself-recursive resultを通るcreatorが残る。この形は既に測定上
-不採択であり、[genericsとmanaged container](../history/performance/generics.md#result-application-workerの不採択)に記録している。
 
 ## 所有stage
 
@@ -105,35 +93,14 @@ debug buildのexact validatorは元programから同じplanを再構成し、rewr
 slice内creator不在を検査する。validatorがrewriteの正しさを新たに推論するのではなく、admissionが使ったauthorityと出力の一致だけを
 確認する。
 
-## 最初の採択gate
-
-実装は次を同じ変更で満たした場合だけproduction集合へ加える。
-
-1. 非再帰のproducer、result join、callback、self recursionを個別のfocused testで検査し、escape、複数consumer、effect interval、
-   不完全なcall-site集合をnegative caseにする。
-2. `State` fixtureで`baseline`と同じresult、trap、effect trace、終了時owner状態を得る。
-3. `State`の反復hot pathから対象creatorが消え、allocationが反復数に比例しないことをartifactとallocation counterで検査する。
-4. productionで既存example corpusを実行し、Memcheck errorと終了時live allocationを0に保つ。
-5. pre-LTO definition、最終IR、動的instruction、wall-clockを再測定し、変換前およびhand-lowered lower boundと区別して記録する。
-
-最初の実装では任意のcontinuation calculus、closure arena、stack allocation、runtime ABI、関数型全体のrepresentation変更へ広げない。
-上記のclosed sliceを証明できないprogramは元のclosure semanticsを使う。
-
-## 一般性と代替案
+## 一般性と非責務
 
 この変換は`State`、`bind`、`fmap`などのsource identityを認識しない。対象は、関数型resultに唯一のapplication demandがあり、
-その間のproducer、join、callback、self recursionを閉じたsliceとして証明できる任意のprogramである。最初のState fixtureは
-支配costと到達可能なlower boundが既知なので採択gateに使うだけであり、planとrewriteの語彙へmonad operationを持ち込まない。
+その間のproducer、join、callback、self recursionを閉じたsliceとして証明できる任意のprogramであり、planとrewriteの語彙へmonad
+operationを持ち込まない。
 
-一般的なinliningはsliceを露出させる前処理になり得るが、recursive resultのcalling conventionを単独では変えない。GHC 9.10.3の
-比較では、公開されたbindを使うStrict、Lazy、CPSの各Stateが`-O2`で直接loopと同じCore workerになり、bindだけを`NOINLINE`にすると
-step比例allocationが戻った。一方、Mal sourceをCPSへ変更するだけでは通常Stateよりallocationとinstructionが増えた。測定値と条件は
-[genericsとmanaged container](../history/performance/generics.md#haskellとcps表現による原理の切り分け)を正とする。
-Mal sourceでmonad operationをすべて人手でinlineしても、self-recursive producerが返す最後のclosure一つは各stepに残ったため、
-通常のbody substitutionだけを新しいpassとして追加しない。
-
-従って採る原理は、公開bodyをwhole-programで見通せることと、consumerの需要に合わせてproducerのcalling conventionを複製することの
-組合せである。sourceをCPSへ限定したり、特定のoperation familyをrewriteしたりしない。escape analysisに基づくstack allocationは
-allocation場所を変えるだけでenvironment構築とapplicationを消さず、unbounded iterationをnative stackへ移すこともできない。
-defunctionalizationもtagとpayloadを運ぶだけなら同じであり、それらをloop parameterへ融合するには本proposalと同じsliceとeffectの
-証明が要る。このため、いずれも最初の代替implementationにはしない。
+一般的なinliningはsliceを露出させる前処理になり得るが、recursive resultのcalling conventionを単独では変えない。sourceをCPSへ
+限定したり、特定のoperation familyをrewriteしたりしない。closure arena、stack allocation、runtime ABI、関数型全体の
+representation変更も本stageの責務ではなく、closed sliceを証明できないprogramは元のclosure semanticsを使う。採択時の代替案、
+検証結果、測定値は
+[genericsとmanaged container](../history/performance/generics.md#continuation-specializationの採択)を正とする。
