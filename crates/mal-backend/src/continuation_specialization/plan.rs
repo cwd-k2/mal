@@ -22,17 +22,25 @@ pub(crate) struct Demand {
 }
 
 /// One direct edge followed while propagating an application demand through producer results.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ProducerStep {
     pub(crate) function: FunctionId,
     pub(crate) result: ProducerResult,
 }
 
 /// The producer named directly by a function body result.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) enum ProducerResult {
-    Call { function: FunctionId, site: AtomId },
-    Closure(FunctionId),
+    Call {
+        function: FunctionId,
+        site: AtomId,
+        argument: Atom,
+    },
+    Closure {
+        creator: ValueId,
+        function: FunctionId,
+        captures: Vec<Atom>,
+    },
 }
 
 /// One application reached while executing a demanded closure target.
@@ -40,6 +48,7 @@ pub(crate) enum ProducerResult {
 pub(crate) struct ApplicationStep {
     pub(crate) host: FunctionId,
     pub(crate) site: AtomId,
+    pub(crate) argument: Atom,
     pub(crate) targets: Vec<FunctionId>,
 }
 
@@ -103,7 +112,7 @@ impl Plan {
             demands.iter().any(|demand| {
                 call.site == demand.producer_site || call.site == demand.consumer
             }) || steps.iter().any(|step| {
-                matches!(step.result, ProducerResult::Call { site, .. } if site == call.site)
+                matches!(&step.result, ProducerResult::Call { site, .. } if *site == call.site)
             }) || applications
                 .iter()
                 .any(|application| application.site == call.site)

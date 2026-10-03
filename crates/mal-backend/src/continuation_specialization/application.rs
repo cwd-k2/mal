@@ -30,8 +30,8 @@ pub(super) fn trace(program: &Program, producers: &[ProducerStep]) -> Vec<Applic
         .collect::<HashMap<_, _>>();
     let mut pending = producers
         .iter()
-        .filter_map(|step| match step.result {
-            ProducerResult::Closure(function) => Some(function),
+        .filter_map(|step| match &step.result {
+            ProducerResult::Closure { function, .. } => Some(*function),
             ProducerResult::Call { .. } => None,
         })
         .collect::<Vec<_>>();
@@ -74,7 +74,7 @@ fn trace_block(
     pending: &mut Vec<FunctionId>,
     applications: &mut Vec<ApplicationStep>,
 ) {
-    for_each_call(block, &mut |site| {
+    for_each_call(block, &mut |site, argument| {
         let Some(state) = sites.get(&site).copied() else {
             return;
         };
@@ -87,6 +87,7 @@ fn trace_block(
         applications.push(ApplicationStep {
             host,
             site,
+            argument: argument.clone(),
             targets,
         });
     });
@@ -97,10 +98,10 @@ fn function_number(function: FunctionId) -> u32 {
     number
 }
 
-fn for_each_call(block: &Block, visit: &mut impl FnMut(AtomId)) {
+fn for_each_call(block: &Block, visit: &mut impl FnMut(AtomId, &crate::closure::ast::Atom)) {
     for binding in &block.bindings {
-        if let Operation::Call { callee, .. } = &binding.operation {
-            visit(callee.id);
+        if let Operation::Call { callee, argument } = &binding.operation {
+            visit(callee.id, argument);
         }
         binding
             .operation

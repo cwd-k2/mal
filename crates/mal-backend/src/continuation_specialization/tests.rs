@@ -32,7 +32,10 @@ fn admits_one_application_of_a_function_valued_call_result() {
 
     assert_eq!(plan.demands.len(), 1);
     assert_eq!(plan.steps.len(), 1);
-    assert!(matches!(plan.steps[0].result, ProducerResult::Closure(_)));
+    assert!(matches!(
+        &plan.steps[0].result,
+        ProducerResult::Closure { .. }
+    ));
 }
 
 #[test]
@@ -48,12 +51,12 @@ fn follows_a_direct_call_result_to_its_closure_creator() {
     assert!(
         plan.steps
             .iter()
-            .any(|step| matches!(step.result, ProducerResult::Call { .. }))
+            .any(|step| matches!(&step.result, ProducerResult::Call { .. }))
     );
     assert!(
         plan.steps
             .iter()
-            .any(|step| matches!(step.result, ProducerResult::Closure(_)))
+            .any(|step| matches!(&step.result, ProducerResult::Closure { .. }))
     );
 }
 
@@ -71,14 +74,14 @@ fn follows_every_result_join_predecessor() {
     assert_eq!(
         plan.steps
             .iter()
-            .filter(|step| matches!(step.result, ProducerResult::Call { .. }))
+            .filter(|step| matches!(&step.result, ProducerResult::Call { .. }))
             .count(),
         2
     );
     assert_eq!(
         plan.steps
             .iter()
-            .filter(|step| matches!(step.result, ProducerResult::Closure(_)))
+            .filter(|step| matches!(&step.result, ProducerResult::Closure { .. }))
             .count(),
         2
     );
@@ -210,7 +213,7 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
     assert_eq!(
         plan.steps
             .iter()
-            .filter(|step| matches!(step.result, ProducerResult::Call { .. }))
+            .filter(|step| matches!(&step.result, ProducerResult::Call { .. }))
             .count(),
         2
     );

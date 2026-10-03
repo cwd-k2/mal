@@ -40,8 +40,10 @@ fn slice_functions(
     let mut functions = HashSet::new();
     for step in producers {
         functions.insert(step.function);
-        functions.insert(match step.result {
-            ProducerResult::Call { function, .. } | ProducerResult::Closure(function) => function,
+        functions.insert(match &step.result {
+            ProducerResult::Call { function, .. } | ProducerResult::Closure { function, .. } => {
+                *function
+            }
         });
     }
     for application in applications {

@@ -34,8 +34,8 @@ pub(super) fn producer_steps(
             continue;
         };
         for result in results {
-            if let ProducerResult::Call { function, .. } = result {
-                pending.push(function);
+            if let ProducerResult::Call { function, .. } = &result {
+                pending.push(*function);
             }
             steps.push(ProducerStep { function, result });
         }
@@ -69,13 +69,19 @@ fn trace_atom(
     let operation = index.definitions.get(&index.origin(binding))?;
     match operation {
         Operation::Atom(value) => trace_atom(index, value, function, substitutions, active_joins),
-        Operation::Call { callee, .. } => Some(vec![ProducerResult::Call {
+        Operation::Call { callee, argument } => Some(vec![ProducerResult::Call {
             function: index.function(callee)?,
             site: callee.id,
+            argument: argument.clone(),
         }]),
         Operation::MakeClosure {
-            function: target, ..
-        } => Some(vec![ProducerResult::Closure(*target)]),
+            function: target,
+            captures,
+        } => Some(vec![ProducerResult::Closure {
+            creator: index.origin(binding),
+            function: *target,
+            captures: captures.clone(),
+        }]),
         Operation::Goto { target, value } => {
             trace_join(index, *target, value, function, substitutions, active_joins)
         }
