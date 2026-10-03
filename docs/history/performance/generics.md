@@ -132,6 +132,13 @@ continuation specialization着手時の`108b6c4f`でも同じfixtureをrelease b
 3 definitionsだった。errorは0で全heap blockを解放した。従ってcontinuation specializationが回収し得る主costは約98%のdynamic
 instructionと反復ごとの600,001 allocationだが、この値へ合わせるためにfunction valueを保存できる元programの意味を狭めない。
 
+既存のC `volatile` inputとRust `black_box` inputも同じ環境で再buildし、上の二つのMal binaryと一roundごとに実行順を回転して
+20 runを採った。このrunner内のmedianはState Mal 10.22 ms、direct Mal 2.80 ms、C 2.71 ms、Rust 3.04 msだった。絶対時間は同日の
+単独測定より高く、別runとの直接比較には使わないが、四者間ではdirect MalがC/Rustと同じ帯域にある。Callgrindはdirect Mal
+2,136,603、C 715,562、Rust 800,902 instructionsだった。Cは1 allocation、1,600,000 bytes、Rustは標準runtime込み10 allocation、
+1,602,620 bytesであり、以前の測定と一致する。これら三つのdirect形は引き続きhand-lowered lower boundであって、Stateの
+semantic parity比較には分類しない。
+
 pre-LTO IRには19 function definition、3箇所のenvironment allocation siteがあり、LTO後にも11 definitionと24-byteまたは
 80-byteの`malloc` pathが残る。20万stepで3個ずつ、Buffer本体を含め600,003 allocationとなった。Callgrindではhot worker
 `mal_function_26`が全instructionの98.5%を占め、そこから20万回のowner allocation、40万回の`free`、20万回の次action生成を呼ぶ。
