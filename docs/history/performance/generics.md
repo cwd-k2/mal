@@ -10,7 +10,7 @@ Status: Historical measurement record
 
 ## 測定条件
 
-対象は`60f4840d`、malc 0.6.0-dev、Clang 21.1.8、Rust 1.97.1、Valgrind 3.27.1、
+対象は`c5ee965e`、malc 0.6.0-dev、Clang 21.1.8、Rust 1.97.1、Valgrind 3.27.1、
 Intel Core Ultra 7 258Vである。MalとCは`-O2 -flto`、Rustは`-C opt-level=3 -C lto=fat
 -C codegen-units=1 -C panic=abort`でbuildした。全buildと測定processをsystemd cgroupの2 GiBに制限した。
 
@@ -35,11 +35,11 @@ Callgrindは`main`からcollectionを始めた。Rustの`main`には標準runtim
 
 | Case | Mal | C | Rust | Mal / C | Mal / Rust |
 |:---|---:|---:|---:|---:|---:|
-| `control` | 3.68 ms | 1.98 ms | 3.71 ms | 1.86x | 0.99x |
-| `nested-buffer` | 7.42 ms | 3.57 ms | 3.94 ms | 2.08x | 1.88x |
-| `map` | 5.63 ms | 5.16 ms | 4.45 ms | 1.09x | 1.26x |
-| `state` | 4.64 ms | 1.55 ms | 1.64 ms | 3.00x | 2.84x |
-| `focus` | 3.88 ms | 2.53 ms | 3.57 ms | 1.53x | 1.09x |
+| `control` | 3.86 ms | 1.95 ms | 3.89 ms | 1.98x | 0.99x |
+| `nested-buffer` | 7.85 ms | 3.60 ms | 4.05 ms | 2.18x | 1.94x |
+| `map` | 6.16 ms | 5.47 ms | 4.73 ms | 1.13x | 1.30x |
+| `state` | 4.89 ms | 1.57 ms | 1.68 ms | 3.11x | 2.92x |
+| `focus` | 3.93 ms | 2.64 ms | 3.72 ms | 1.49x | 1.06x |
 
 絶対時間はprocess起動とCPU frequencyの影響を受ける。特に`state`はnative allocatorが小さいallocationを速く処理するため、
 Callgrind上のinstruction比ほどwall-clock差は大きくない。採択判断には時間だけでなく、次の命令、allocation、IRを使う。
@@ -49,10 +49,10 @@ Callgrind上のinstruction比ほどwall-clock差は大きくない。採択判�
 | Case | Mal | C | Rust | Mal / C | Mal / Rust |
 |:---|---:|---:|---:|---:|---:|
 | `control` | 16,250,027 | 10,000,013 | 16,350,163 | 1.63x | 0.99x |
-| `nested-buffer` | 51,983,790 | 21,881,457 | 22,390,932 | 2.38x | 2.32x |
-| `map` | 7,603,641 | 3,671,943 | 4,382,386 | 2.07x | 1.74x |
-| `state` | 106,588,003 | 717,022 | 800,806 | 148.65x | 133.10x |
-| `focus` | 46,425,194 | 24,145,664 | 35,507,544 | 1.92x | 1.31x |
+| `nested-buffer` | 51,918,265 | 21,881,457 | 22,390,932 | 2.37x | 2.32x |
+| `map` | 7,603,640 | 3,671,943 | 4,382,386 | 2.07x | 1.74x |
+| `state` | 106,588,002 | 717,022 | 800,806 | 148.65x | 133.10x |
+| `focus` | 46,425,192 | 24,145,664 | 35,507,544 | 1.92x | 1.31x |
 
 `control`は最終LTO moduleが`main`一つ、callとallocationが0になり、generic callback、sum branch、closure carrierは残らない。
 CとMalのpre-codegen IRはいずれも同じrecurrenceを8 step展開するが、最終machine loopはCが8 instruction、Malが13 instructionである。
@@ -74,12 +74,12 @@ field順を最終PHI順として保証できない。後続試作では、自己
 
 `map`も最終moduleは`main`、trap、Buffer destructorの3 definitionだけで、operation dictionaryやtype inspectionはない。
 初期化、put、getはdirect loopへinlineされている。Malのinstruction差は48-byteのtagged slot、Buffer countとprobe終了条件、
-trap可能なstorage pathにあり、generic operation familyのdispatch costではない。native medianがCの1.09倍に留まることも、
+trap可能なstorage pathにあり、generic operation familyのdispatch costではない。native medianがCの1.13倍に留まることも、
 specialization後のhot pathが直接実行されていることと整合する。
 
 `focus`はpre-LTOの11 definitionが3 definitionになり、closure environment allocationは残らない。`extend<Focus>`とrule callbackは
 二つのBuffer loopへinlineされた。Cは全要素が定数3であることから入力配列のallocationを消し、MalとRustは入力と出力を保持するため、
-Cを意味論上必要なmemory costとはみなさない。Rustと比べた1.31倍のinstruction、1.09倍の時間が、同じ二配列を保持した場合の
+Cを意味論上必要なmemory costとはみなさない。Rustと比べた1.31倍のinstruction、1.06倍の時間が、同じ二配列を保持した場合の
 より近い比較である。
 
 ## allocationとmemory
@@ -88,11 +88,11 @@ Memcheckのrequested bytesとallocation回数、Massifで同時にliveだったh
 
 | Case | 実装 | Allocations | Requested bytes | Peak total | Native peak RSS |
 |:---|:---|---:|---:|---:|---:|
-| `control` | Mal / C / Rust | 0 / 0 / 9 | 0 / 0 / 2,620 | 7,744 / 7,744 / 7,744 B | 1,440 / 1,436 / 2,272 KiB |
-| `nested-buffer` | Mal / C / Rust | 131,074 / 65,537 / 65,546 | 11,010,160 / 5,242,880 / 6,294,076 | 12,059,216 / 6,235,472 / 7,334,320 B | 14,108 / 6,936 / 8,628 KiB |
-| `map` | Mal / C / Rust | 2 / 1 / 10 | 6,291,552 / 6,291,456 / 6,294,076 | 6,295,968 / 6,295,896 / 6,296,712 B | 7,452 / 7,448 / 8,276 KiB |
-| `state` | Mal / C / Rust | 600,003 / 1 / 10 | 38,400,120 / 1,600,000 / 1,602,620 | 1,601,264 / 1,600,408 / 1,601,256 B | 2,972 / 2,968 / 3,568 KiB |
-| `focus` | Mal / C / Rust | 4 / 1 / 11 | 4,000,192 / 2,000,000 / 4,002,620 | 4,000,768 / 2,000,424 / 4,001,344 B | 5,276 / 3,352 / 5,972 KiB |
+| `control` | Mal / C / Rust | 0 / 0 / 9 | 0 / 0 / 2,620 | 7,744 / 7,744 / 7,744 B | 1,440 / 1,436 / 2,296 KiB |
+| `nested-buffer` | Mal / C / Rust | 131,074 / 65,537 / 65,546 | 10,485,872 / 5,242,880 / 6,294,076 | 12,059,216 / 6,235,472 / 7,334,320 B | 13,084 / 6,936 / 8,640 KiB |
+| `map` | Mal / C / Rust | 2 / 1 / 10 | 6,291,544 / 6,291,456 / 6,294,076 | 6,295,968 / 6,295,896 / 6,296,712 B | 7,452 / 7,448 / 8,188 KiB |
+| `state` | Mal / C / Rust | 600,003 / 1 / 10 | 38,400,112 / 1,600,000 / 1,602,620 | 1,601,264 / 1,600,408 / 1,601,256 B | 2,972 / 2,968 / 3,572 KiB |
+| `focus` | Mal / C / Rust | 4 / 1 / 11 | 4,000,176 / 2,000,000 / 4,002,620 | 4,000,768 / 2,000,424 / 4,001,344 B | 5,276 / 3,352 / 5,872 KiB |
 
 MalとCは全allocationを終了時までに解放し、Memcheck errorは0だった。Rustは全caseで標準runtimeのthread情報544 bytesを
 still reachableとして残すが、definitely、indirectly、possibly lostはいずれも0だった。表のRust allocationにはこの固定costを含む。
@@ -165,11 +165,11 @@ Mal compilerが出力したpre-LTO IRと、runtime Cを含めたLLDのpre-codege
 
 | Case | Pre-LTO bytes / definitions | LTO bytes / definitions / calls | Mal text | C text | Rust text |
 |:---|---:|---:|---:|---:|---:|
-| `control` | 19,573 / 6 | 4,062 / 1 / 0 | 1,633 B | 1,262 B | 295,232 B |
-| `nested-buffer` | 19,248 / 6 | 48,976 / 6 / 77 | 5,087 B | 1,756 B | 295,540 B |
-| `map` | 65,486 / 14 | 24,125 / 3 / 15 | 3,117 B | 1,631 B | 295,600 B |
-| `state` | 50,534 / 19 | 48,653 / 11 / 83 | 4,811 B | 1,549 B | 295,536 B |
-| `focus` | 39,417 / 11 | 42,017 / 3 / 60 | 5,001 B | 1,946 B | 296,672 B |
+| `control` | 19,717 / 6 | 4,080 / 1 / 0 | 1,633 B | 1,262 B | 295,232 B |
+| `nested-buffer` | 19,248 / 6 | 48,851 / 6 / 77 | 5,087 B | 1,756 B | 295,540 B |
+| `map` | 65,486 / 14 | 23,988 / 3 / 15 | 3,117 B | 1,631 B | 295,600 B |
+| `state` | 50,534 / 19 | 48,518 / 11 / 83 | 4,795 B | 1,549 B | 295,536 B |
+| `focus` | 39,417 / 11 | 41,778 / 3 / 60 | 4,969 B | 1,946 B | 296,672 B |
 
 LTO IR bytesはruntime helperのinlineとlibc declarationを含むため、pre-LTOから増える場合があり、性能指標にはならない。
 definitionの減少と、最終IRに残るallocation、direct/indirect callを対応づけるdiagnosticとして使う。Rust textは静的にlinkされた
@@ -183,11 +183,11 @@ definitionの減少と、最終IRに残るallocation、direct/indirect callを�
 
 | Example | Instructions | Allocations / requested | Peak total | Pre-LTO IR bytes / definitions | ELF text |
 |:---|---:|---:|---:|---:|---:|
-| `language-tour` | 6,082 | 5 / 4,276 B | 7,744 B | 32,747 / 13 | 3,427 B |
-| `control-and-iteration` | 4,001,266 | 2 / 120 B | 7,744 B | 48,597 / 11 | 3,708 B |
+| `language-tour` | 6,082 | 5 / 4,260 B | 7,744 B | 32,747 / 13 | 3,427 B |
+| `control-and-iteration` | 4,001,265 | 2 / 112 B | 7,744 B | 48,597 / 11 | 3,708 B |
 | `generic-map` | 7,535 | 9 / 890 B | 7,744 B | 218,704 / 33 | 11,925 B |
-| `monads-and-comonads` | 110,757 | 42 / 4,200 B | 7,744 B | 502,629 / 112 | 28,096 B |
-| `indexed-graph` | 7,397 | 15 / 1,080 B | 7,744 B | 122,428 / 15 | 20,356 B |
+| `monads-and-comonads` | 110,918 | 42 / 4,136 B | 7,744 B | 502,629 / 112 | 28,112 B |
+| `indexed-graph` | 7,389 | 15 / 1,016 B | 7,744 B | 122,428 / 15 | 20,356 B |
 
 小さいexampleのwall-clockはprocess起動が支配するので記録しない。pre-LTO IRはspecialized instanceを明示するため、特にoperation familyを
 多数組み合わせる二件で大きい。一方、実行時memoryは全件でnative stackを含む7,744 bytes以下のsnapshotが最大であり、
