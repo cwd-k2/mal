@@ -109,6 +109,7 @@ impl Index {
                     demands.push(Demand {
                         producer_result: origin,
                         producer,
+                        producer_site: producer_callee.id,
                         producer_argument: producer_argument.clone(),
                         consumer: callee.id,
                         argument: argument.clone(),

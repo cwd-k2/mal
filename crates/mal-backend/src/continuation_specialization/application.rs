@@ -32,7 +32,7 @@ pub(super) fn trace(program: &Program, producers: &[ProducerStep]) -> Vec<Applic
         .iter()
         .filter_map(|step| match step.result {
             ProducerResult::Closure(function) => Some(function),
-            ProducerResult::Call(_) => None,
+            ProducerResult::Call { .. } => None,
         })
         .collect::<Vec<_>>();
     let mut visited = HashSet::new();

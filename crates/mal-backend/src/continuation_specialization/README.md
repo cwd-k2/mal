@@ -7,8 +7,9 @@ make the value escape and reject the demand.
 
 The stage runs after `call_pattern` and before control lowering. It does not recognize source operation names such as
 `State`, `bind`, or `fmap`. The plan records demand seeds, follows direct function results to calls or closure creators,
-and validates exact reconstruction. Join, callback, and self-recursive edges must join the same closed slice before any
-calling-convention rewrite is enabled.
+inventories creator instances and every call site involving candidate code, and validates exact reconstruction. A plan
+is closed only when every inventoried call site is its seed producer or consumer, a traced result edge, or an application
+inside a demanded closure. Creator provenance must also close before any calling-convention rewrite is enabled.
 
 | Module | Responsibility |
 |---|---|

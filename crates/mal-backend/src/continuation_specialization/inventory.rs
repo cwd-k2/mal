@@ -26,7 +26,7 @@ fn slice_functions(
     for step in producers {
         functions.insert(step.function);
         functions.insert(match step.result {
-            ProducerResult::Call(target) | ProducerResult::Closure(target) => target,
+            ProducerResult::Call { function, .. } | ProducerResult::Closure(function) => function,
         });
     }
     for application in applications {

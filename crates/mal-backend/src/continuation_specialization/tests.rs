@@ -48,7 +48,7 @@ fn follows_a_direct_call_result_to_its_closure_creator() {
     assert!(
         plan.steps
             .iter()
-            .any(|step| matches!(step.result, ProducerResult::Call(_)))
+            .any(|step| matches!(step.result, ProducerResult::Call { .. }))
     );
     assert!(
         plan.steps
@@ -71,7 +71,7 @@ fn follows_every_result_join_predecessor() {
     assert_eq!(
         plan.steps
             .iter()
-            .filter(|step| matches!(step.result, ProducerResult::Call(_)))
+            .filter(|step| matches!(step.result, ProducerResult::Call { .. }))
             .count(),
         2
     );
@@ -156,6 +156,23 @@ fn inventories_every_creator_and_call_site_for_slice_code() {
     assert_eq!(plan.demands.len(), 2);
     assert_eq!(plan.creators.len(), 2, "{:#?}", plan.creators);
     assert_eq!(plan.call_sites.len(), 4, "{:#?}", plan.call_sites);
+    assert!(plan.closed);
+}
+
+#[test]
+fn reports_a_slice_with_an_uncovered_call_site_as_open() {
+    let plan = plan(
+        "create :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
+         main :: Unit -> Int32 := () -> {
+             retained := create(1i32);
+             kept := (retained, 0i32);
+             (_, zero) := kept;
+             create(40i32)(2i32) - 42i32 + zero;
+         };",
+    );
+
+    assert_eq!(plan.demands.len(), 1);
+    assert!(!plan.closed, "{plan:#?}");
 }
 
 #[test]
@@ -192,13 +209,14 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
     assert_eq!(
         plan.steps
             .iter()
-            .filter(|step| matches!(step.result, ProducerResult::Call(_)))
+            .filter(|step| matches!(step.result, ProducerResult::Call { .. }))
             .count(),
         2
     );
     assert!(!plan.applications.is_empty(), "{:#?}", plan.applications);
     assert!(!plan.creators.is_empty(), "{:#?}", plan.creators);
     assert!(!plan.call_sites.is_empty(), "{:#?}", plan.call_sites);
+    assert!(plan.closed, "{plan:#?}");
 }
 
 #[test]
@@ -236,5 +254,8 @@ fn validates_the_exact_demand_set() {
     plan = Plan::new(&closure);
     assert!(!plan.call_sites.is_empty());
     plan.call_sites.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    plan.closed = !plan.closed;
     assert!(!plan.is_valid(&closure));
 }

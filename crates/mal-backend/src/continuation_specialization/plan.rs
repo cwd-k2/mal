@@ -15,6 +15,7 @@ pub(crate) enum Scope {
 pub(crate) struct Demand {
     pub(crate) producer_result: ValueId,
     pub(crate) producer: FunctionId,
+    pub(crate) producer_site: AtomId,
     pub(crate) producer_argument: Atom,
     pub(crate) consumer: AtomId,
     pub(crate) argument: Atom,
@@ -30,7 +31,7 @@ pub(crate) struct ProducerStep {
 /// The producer named directly by a function body result.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ProducerResult {
-    Call(FunctionId),
+    Call { function: FunctionId, site: AtomId },
     Closure(FunctionId),
 }
 
@@ -67,6 +68,7 @@ pub(crate) struct Plan {
     pub(in crate::continuation_specialization) applications: Vec<ApplicationStep>,
     pub(in crate::continuation_specialization) creators: Vec<Creator>,
     pub(in crate::continuation_specialization) call_sites: Vec<CallSite>,
+    pub(in crate::continuation_specialization) closed: bool,
 }
 
 impl Plan {
@@ -74,12 +76,22 @@ impl Plan {
         let (demands, steps) = index::analyze(program);
         let applications = super::application::trace(program, &steps);
         let (creators, call_sites) = super::inventory::collect(program, &steps, &applications);
+        let closed = call_sites.iter().all(|call| {
+            demands.iter().any(|demand| {
+                call.site == demand.producer_site || call.site == demand.consumer
+            }) || steps.iter().any(|step| {
+                matches!(step.result, ProducerResult::Call { site, .. } if site == call.site)
+            }) || applications
+                .iter()
+                .any(|application| application.site == call.site)
+        });
         Self {
             demands,
             steps,
             applications,
             creators,
             call_sites,
+            closed,
         }
     }
 
