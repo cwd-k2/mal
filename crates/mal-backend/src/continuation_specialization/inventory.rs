@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{AtomId, Block, FunctionId, Operation, Pattern, Program};
 use crate::control::ast::{StateId, Terminator};
-use crate::flow::{ClosureFlow, CompatibleTargets};
+use crate::flow::ClosureFlow;
 
 use super::plan::{
     ApplicationStep, CallSite, ClosureUse, Creator, ProducerResult, ProducerStep, Scope,
@@ -11,15 +11,14 @@ use super::plan::{
 /// Enumerates program identities before a rewrite decides whether every relevant instance is closed.
 pub(super) fn collect(
     program: &Program,
+    control: &crate::control::ast::Program,
+    flow: &ClosureFlow,
     producers: &[ProducerStep],
     applications: &[ApplicationStep],
 ) -> (Vec<Creator>, Vec<CallSite>, Vec<ClosureUse>) {
     let functions = slice_functions(producers, applications);
-    let control = crate::control::lower(program);
-    let mut compatible = CompatibleTargets::new(program);
-    let flow = ClosureFlow::new(program, &control, &mut compatible);
-    let provenance = super::provenance::Provenance::new(program, &control, &flow, &functions);
-    let call_sites = call_sites(program, &control, &flow, &provenance, &functions);
+    let provenance = super::provenance::Provenance::new(program, control, flow, &functions);
+    let call_sites = call_sites(program, control, flow, &provenance, &functions);
     let reached = call_sites
         .iter()
         .flat_map(|call| &call.sources)

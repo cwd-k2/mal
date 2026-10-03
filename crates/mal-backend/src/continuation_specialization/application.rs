@@ -2,14 +2,16 @@ use std::collections::{HashMap, HashSet};
 
 use crate::closure::ast::{AtomId, Block, FunctionId, Operation, Program};
 use crate::control::ast::{StateId, Terminator};
-use crate::flow::{ClosureFlow, CompatibleTargets};
+use crate::flow::ClosureFlow;
 
 use super::plan::{ApplicationStep, ProducerResult, ProducerStep};
 
-pub(super) fn trace(program: &Program, producers: &[ProducerStep]) -> Vec<ApplicationStep> {
-    let control = crate::control::lower(program);
-    let mut compatible = CompatibleTargets::new(program);
-    let flow = ClosureFlow::new(program, &control, &mut compatible);
+pub(super) fn trace(
+    program: &Program,
+    control: &crate::control::ast::Program,
+    flow: &ClosureFlow,
+    producers: &[ProducerStep],
+) -> Vec<ApplicationStep> {
     let sites = control
         .states
         .iter()
@@ -48,7 +50,7 @@ pub(super) fn trace(program: &Program, producers: &[ProducerStep]) -> Vec<Applic
             host,
             &function.body,
             &sites,
-            &flow,
+            flow,
             &mut pending,
             &mut applications,
         );
@@ -57,7 +59,7 @@ pub(super) fn trace(program: &Program, producers: &[ProducerStep]) -> Vec<Applic
                 host,
                 &join.body,
                 &sites,
-                &flow,
+                flow,
                 &mut pending,
                 &mut applications,
             );

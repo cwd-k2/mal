@@ -1,5 +1,6 @@
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, AtomId, FunctionId, Program};
+use crate::flow::{ClosureFlow, CompatibleTargets};
 
 use super::index;
 
@@ -148,9 +149,12 @@ pub(crate) struct Plan {
 impl Plan {
     pub(crate) fn new(program: &Program) -> Self {
         let (demands, result_applications, steps) = index::analyze(program);
-        let applications = super::application::trace(program, &steps);
+        let control = crate::control::lower(program);
+        let mut compatible = CompatibleTargets::new(program);
+        let flow = ClosureFlow::new(program, &control, &mut compatible);
+        let applications = super::application::trace(program, &control, &flow, &steps);
         let (creators, call_sites, uses) =
-            super::inventory::collect(program, &steps, &applications);
+            super::inventory::collect(program, &control, &flow, &steps, &applications);
         let closed = call_sites.iter().all(|call| {
             demands.iter().any(|demand| {
                 call.site == demand.producer_site || call.site == demand.consumer
