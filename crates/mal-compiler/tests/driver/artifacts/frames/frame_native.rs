@@ -255,9 +255,7 @@ fn keeps_nested_fields_borrowed_from_a_preserved_self_tail_parameter() {
     assert_eq!(directory.run(executable).status.code(), Some(0));
     let module = std::fs::read_to_string(artifacts.join("program.ll")).unwrap();
     assert_eq!(
-        module
-            .matches("call ptr @mal_runtime_environment_retain")
-            .count(),
+        module.matches("call ptr @mal_runtime_owner_retain").count(),
         0
     );
 }

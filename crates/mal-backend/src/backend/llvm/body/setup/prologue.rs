@@ -137,7 +137,7 @@ impl FunctionEmitter<'_> {
             let #{ environment.clone() } = call {
                 tail: false,
                 result_type: (ptr),
-                callee: direct("mal_runtime_environment_retain"),
+                callee: direct("mal_runtime_owner_retain"),
                 arguments: [typed((ptr), "%mal_context"), typed((ptr), "%mal_environment")],
             };
         };

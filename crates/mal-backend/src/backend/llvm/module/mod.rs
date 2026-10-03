@@ -17,7 +17,7 @@ pub(super) fn render(
     let types = body::types::Types::for_target(layout);
     let mut module = Module::new(target.triple, target.data_layout);
 
-    declaration::add_environment(&mut module, &types);
+    declaration::add_owner(&mut module, &types);
     if body.uses_control {
         declaration::add_control(&mut module, &types);
     }

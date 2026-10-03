@@ -102,7 +102,7 @@ impl FunctionEmitter<'_> {
             let #{ unique.clone() } = call {
                 tail: false,
                 result_type: (int(8_u16)),
-                callee: direct("mal_runtime_environment_is_unique"),
+                callee: direct("mal_runtime_owner_is_unique"),
                 arguments: [typed((ptr), #{ environment })],
             };
         };

@@ -194,11 +194,11 @@ fn lambda_lifts_captures_of_a_locally_applied_closure() {
     assert!(
         baseline
             .module
-            .contains("call ptr @mal_runtime_environment_allocate")
+            .contains("call ptr @mal_runtime_owner_allocate")
     );
     assert!(
         !lifted
             .module
-            .contains("call ptr @mal_runtime_environment_allocate")
+            .contains("call ptr @mal_runtime_owner_allocate")
     );
 }

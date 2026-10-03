@@ -5,7 +5,7 @@ use crate::backend::llvm::syntax::{
 
 mod byte;
 mod control;
-mod environment;
+mod owner;
 
 pub(super) fn add_byte_runtime(module: &mut Module<'_>, types: &body::types::Types) {
     byte::add(module, types);
@@ -15,8 +15,8 @@ pub(super) fn add_control(module: &mut Module<'_>, types: &body::types::Types) {
     control::add(module, types);
 }
 
-pub(super) fn add_environment(module: &mut Module<'_>, types: &body::types::Types) {
-    environment::add(module, types);
+pub(super) fn add_owner(module: &mut Module<'_>, types: &body::types::Types) {
+    owner::add(module, types);
 }
 
 fn declaration(

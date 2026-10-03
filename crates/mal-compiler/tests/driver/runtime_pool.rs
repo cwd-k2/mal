@@ -30,26 +30,26 @@ static void destroy_child(void *child) {
 }
 
 static void *make_child(MalContext *context) {
-    return mal_runtime_environment_allocate(context, 1, destroy_child);
+    return mal_runtime_owner_allocate(context, 1, destroy_child);
 }
 
 static void retain_child(MalContext *context, void *carrier) {
     void *child = *(void **)carrier;
     ++retained;
-    mal_runtime_environment_retain(context, child);
+    mal_runtime_owner_retain(context, child);
 }
 
 static void release_child(void *carrier) {
     void *child = *(void **)carrier;
     ++released;
-    mal_runtime_environment_release(child);
+    mal_runtime_owner_release(child);
 }
 
 int main(void) {
     MalContext context = {0};
     Header header = {3, 5, 7};
     void *pool = mal_runtime_pool_make(&context, &header, sizeof header, sizeof(uint64_t));
-    void *alias = mal_runtime_environment_retain(&context, pool);
+    void *alias = mal_runtime_owner_retain(&context, pool);
     if (mal_runtime_pool_capacity(pool) != 0) return 1;
 
     Header observed = {0};
@@ -93,7 +93,7 @@ int main(void) {
     if (mal_runtime_pool_swap(zero, 8, 1, 0, 0) != 0) return 15;
     mal_runtime_pool_grow(&context, zero, 9);
     if (mal_runtime_pool_peek(zero, 8, 0) != 1) return 16;
-    mal_runtime_environment_release(zero);
+    mal_runtime_owner_release(zero);
 
     void *metadata_child = make_child(&context);
     void *managed = mal_runtime_pool_make_managed(
@@ -131,12 +131,12 @@ int main(void) {
     release_child(&old_child);
     void *last_element = make_child(&context);
     if (mal_runtime_pool_swap(managed, 63, 1, &last_element, &old_child) != 0) return 26;
-    mal_runtime_environment_release(managed);
+    mal_runtime_owner_release(managed);
     if (retained != 2 || released != 6 || destroyed != 4) return 27;
 
-    mal_runtime_environment_release(pool);
+    mal_runtime_owner_release(pool);
     if (mal_runtime_pool_capacity(alias) != 80) return 28;
-    mal_runtime_environment_release(alias);
+    mal_runtime_owner_release(alias);
     return 0;
 }
 "#,

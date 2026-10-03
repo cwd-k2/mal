@@ -30,7 +30,7 @@ static MalBuffer *mal_buffer_allocate(
     size_t size,
     void (*destroy)(void *)
 ) {
-    MalBuffer *buffer = mal_runtime_environment_allocate(
+    MalBuffer *buffer = mal_runtime_owner_allocate(
         context,
         size,
         destroy

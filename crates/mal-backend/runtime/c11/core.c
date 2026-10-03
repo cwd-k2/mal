@@ -6,11 +6,11 @@
 typedef struct {
     size_t references;
     void (*destroy)(void *);
-} MalEnvironmentHeader;
+} MalOwnerHeader;
 
 _Static_assert(
-    sizeof(MalEnvironmentHeader) % _Alignof(max_align_t) == 0,
-    "environment payload alignment is insufficient"
+    sizeof(MalOwnerHeader) % _Alignof(max_align_t) == 0,
+    "managed owner payload alignment is insufficient"
 );
 
 void *mal_runtime_allocate(MalContext *context, size_t size) {
@@ -28,20 +28,20 @@ void mal_runtime_deallocate(void *allocation) {
     free(allocation);
 }
 
-void *mal_runtime_environment_allocate(
+void *mal_runtime_owner_allocate(
     MalContext *context,
     size_t size,
     void (*destroy)(void *)
 ) {
     if (destroy == NULL) {
-        mal_trap(context, "closure environment destructor missing");
+        mal_trap(context, "managed owner destructor missing");
     }
-    if (size > SIZE_MAX - sizeof(MalEnvironmentHeader)) {
-        mal_trap(context, "closure environment size overflow");
+    if (size > SIZE_MAX - sizeof(MalOwnerHeader)) {
+        mal_trap(context, "managed owner size overflow");
     }
-    MalEnvironmentHeader *header = mal_runtime_allocate(
+    MalOwnerHeader *header = mal_runtime_allocate(
         context,
-        sizeof(MalEnvironmentHeader) + size
+        sizeof(MalOwnerHeader) + size
     );
     header->references = 1;
     header->destroy = destroy;
@@ -49,40 +49,40 @@ void *mal_runtime_environment_allocate(
 }
 
 __attribute__((always_inline))
-void *mal_runtime_environment_retain(MalContext *context, void *environment) {
-    if (environment == NULL || ((uintptr_t)environment & 1) != 0) {
-        return environment;
+void *mal_runtime_owner_retain(MalContext *context, void *owner) {
+    if (owner == NULL || ((uintptr_t)owner & 1) != 0) {
+        return owner;
     }
-    MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
-    /* A live environment is referenced at least once, and every reference occupies an addressable slot, so the
+    MalOwnerHeader *header = (MalOwnerHeader *)owner - 1;
+    /* A live owner is referenced at least once, and every reference occupies an addressable slot, so the
      * count cannot reach SIZE_MAX. Stating both facts lets the optimizer cancel a retain against a later release
      * instead of keeping the trap and the zero test of the release. */
     __builtin_assume(header->references >= 1);
     __builtin_assume(header->references < SIZE_MAX);
     ++header->references;
     (void)context;
-    return environment;
+    return owner;
 }
 
 __attribute__((always_inline))
-void mal_runtime_environment_release(void *environment) {
-    if (environment == NULL || ((uintptr_t)environment & 1) != 0) {
+void mal_runtime_owner_release(void *owner) {
+    if (owner == NULL || ((uintptr_t)owner & 1) != 0) {
         return;
     }
-    MalEnvironmentHeader *header = (MalEnvironmentHeader *)environment - 1;
+    MalOwnerHeader *header = (MalOwnerHeader *)owner - 1;
     --header->references;
     if (header->references == 0) {
-        header->destroy(environment);
+        header->destroy(owner);
         free(header);
     }
 }
 
 __attribute__((always_inline))
-uint8_t mal_runtime_environment_is_unique(const void *environment) {
-    if (environment == NULL || ((uintptr_t)environment & 1) != 0) {
+uint8_t mal_runtime_owner_is_unique(const void *owner) {
+    if (owner == NULL || ((uintptr_t)owner & 1) != 0) {
         return 0;
     }
-    const MalEnvironmentHeader *header = (const MalEnvironmentHeader *)environment - 1;
+    const MalOwnerHeader *header = (const MalOwnerHeader *)owner - 1;
     return header->references == 1;
 }
 

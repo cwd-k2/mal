@@ -75,7 +75,7 @@ static MalPool *mal_pool_make(
     size_t object_size,
     void (*destroy)(void *)
 ) {
-    MalPool *pool = mal_runtime_environment_allocate(
+    MalPool *pool = mal_runtime_owner_allocate(
         context,
         object_size,
         destroy

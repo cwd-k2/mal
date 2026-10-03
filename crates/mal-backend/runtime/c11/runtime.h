@@ -35,17 +35,18 @@ _Noreturn void mal_trap(MalContext *context, const char *message);
 /* malloc that traps on failure. A size of zero allocates nothing and returns NULL. */
 void *mal_runtime_allocate(MalContext *context, size_t size);
 void mal_runtime_deallocate(void *allocation);
-/* Allocates a reference-counted closure environment of `size` bytes with one reference. `destroy` releases what the
- * environment holds and runs when the last reference is released, before the storage is freed. NULL and pointers with the
- * lowest bit set denote environments without storage: retain and release ignore them and is_unique is false. */
-void *mal_runtime_environment_allocate(
+/* Allocates a reference-counted managed owner of `size` bytes with one reference. `destroy` releases what the owner holds
+ * and runs when the last reference is released, before the storage is freed. Closure environments, Buffers, and Pools use
+ * this mechanism. NULL and low-bit-tagged closure environments have no storage: retain and release ignore them and
+ * is_unique is false. */
+void *mal_runtime_owner_allocate(
     MalContext *context,
     size_t size,
     void (*destroy)(void *)
 );
-void *mal_runtime_environment_retain(MalContext *context, void *environment);
-void mal_runtime_environment_release(void *environment);
-uint8_t mal_runtime_environment_is_unique(const void *environment);
+void *mal_runtime_owner_retain(MalContext *context, void *owner);
+void mal_runtime_owner_release(void *owner);
+uint8_t mal_runtime_owner_is_unique(const void *owner);
 /* The control arena is grown by reserve_frame and freed here. */
 void mal_control_destroy(MalContext *context);
 /* Makes room for `frame_size` bytes above `current_bytes` and returns the storage base. Growth can move the storage, so

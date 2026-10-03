@@ -492,6 +492,6 @@ fn native_recursion_borrows_managed_parameter_leaves_preserved_by_every_self_edg
         .split_once("\n}\n")
         .map_or("", |(body, _)| body);
 
-    assert!(!native.contains("mal_runtime_environment_retain"));
-    assert!(!native.contains("mal_runtime_environment_release"));
+    assert!(!native.contains("mal_runtime_owner_retain"));
+    assert!(!native.contains("mal_runtime_owner_release"));
 }

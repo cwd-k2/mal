@@ -89,7 +89,7 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
             address((id("result"))),
         ]);
         // The entry only borrows its argument, so the shim drops the buffer and the Symbols it owns.
-        call("mal_runtime_environment_release", [id("arguments")]);
+        call("mal_runtime_owner_release", [id("arguments")]);
         call("mal_control_destroy", [address((id("context")))]);
         return (id("result"));
     };

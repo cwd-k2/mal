@@ -63,14 +63,12 @@ fn borrows_buffer_operands_without_temporary_owner_traffic() {
     );
 
     assert_eq!(
-        module
-            .matches("call ptr @mal_runtime_environment_retain")
-            .count(),
+        module.matches("call ptr @mal_runtime_owner_retain").count(),
         0
     );
     assert_eq!(
         module
-            .matches("call void @mal_runtime_environment_release")
+            .matches("call void @mal_runtime_owner_release")
             .count(),
         1
     );
@@ -156,9 +154,9 @@ fn stores_nested_buffer_handles_as_runtime_owned_elements() {
             "define internal void @mal_buffer_retain_0(ptr %mal_context, ptr %mal_element)"
         )
     );
-    assert!(module.contains("call ptr @mal_runtime_environment_retain("));
+    assert!(module.contains("call ptr @mal_runtime_owner_retain("));
     assert!(module.contains("define internal void @mal_buffer_release_0(ptr %mal_element)"));
-    assert!(module.contains("call void @mal_runtime_environment_release("));
+    assert!(module.contains("call void @mal_runtime_owner_release("));
 }
 
 #[test]

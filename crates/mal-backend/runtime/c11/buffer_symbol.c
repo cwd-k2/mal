@@ -11,7 +11,7 @@ void *mal_runtime_buffer_into_symbol(MalContext *context, void *opaque_buffer) {
     MalBytes *owner;
     if (count != 0
         && buffer_owner != NULL
-        && mal_runtime_environment_is_unique(buffer)
+        && mal_runtime_owner_is_unique(buffer)
         && buffer_owner->references == 1) {
         ((MalBytesFlat *)buffer_owner)->start = 0;
         owner = buffer_owner;
@@ -22,7 +22,7 @@ void *mal_runtime_buffer_into_symbol(MalContext *context, void *opaque_buffer) {
     } else {
         owner = mal_bytes_flat_copy(context, buffer->data, count, "byte allocation failed");
     }
-    mal_runtime_environment_release(buffer);
+    mal_runtime_owner_release(buffer);
     return owner;
 }
 

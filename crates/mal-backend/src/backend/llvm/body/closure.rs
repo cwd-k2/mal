@@ -70,7 +70,7 @@ impl FunctionEmitter<'_> {
                 let #{ environment.clone() } = call {
                     tail: false,
                     result_type: (ptr),
-                    callee: direct("mal_runtime_environment_allocate"),
+                    callee: direct("mal_runtime_owner_allocate"),
                     arguments: [
                         typed((ptr), "%mal_context"),
                         typed(#{ self.types.index_llvm_type() }, #{ environment_layout.size.to_string() }),

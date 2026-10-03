@@ -47,8 +47,8 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの
 owner moveは実行計画の一部である。共通byte storage、reference count更新、Symbol operationは別programでも同じmechanismなのでC runtimeに属する。
-program固有のclosure environment destructorはfield型と順序を知るためLLVM IRに置き、generic allocation headerのreleaseは
-C runtimeを呼ぶ。
+program固有のclosure environment destructorはfield型と順序を知るためLLVM IRに置く。closure environment、Buffer、Poolが共有する
+genericなmanaged owner headerのreference count更新と最後のdestructor呼び出しはC runtimeを呼ぶ。
 
 file headerはaggregate helperのfunction bodyやraw/host representationのfield列を型ごとに複製せず、fieldまたはvariantごとの差分を
 `MAL_DETAIL_` descriptorとして記録する。1つのrepresentation descriptorはvariant index、member名、raw型、host型、双方向の変換を持ち、

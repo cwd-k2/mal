@@ -131,6 +131,10 @@ immutable capture schemaを所有し、capture-free lambdaも同じmal function 
 typed memory operationとしてcore以降へ渡す。control IRはfunction environment schemaを複製しない。backendは
 operationとelement型を直接使い、function environmentの形からBuffer operationを推測しない。
 
+closure environment、Buffer、内部Pool kernelのstable objectは同じmanaged owner headerとretain/release mechanismを使う。
+これはallocationとreference countのmechanism共有であり、それぞれが保持するfield、element、Live slotの意味やdestructorは
+program固有LLVMまたは各runtime objectが所有する。
+
 call siteのcalleeがtop-level lambda、現在のself closure、またはidentityを追跡できるlocal closureならdirect entryへ進み、
 runtime選択が必要なcalleeだけ共通closure entryからindirect callする。
 

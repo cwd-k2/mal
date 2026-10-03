@@ -6,23 +6,23 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     let index = types.index_llvm_type();
     module.declare(declaration(
         llvm_type!(ptr),
-        "mal_runtime_environment_allocate",
+        "mal_runtime_owner_allocate",
         [llvm_type!(ptr), index.clone(), llvm_type!(ptr)],
     ));
     module.declare(declaration(
         llvm_type!(ptr),
-        "mal_runtime_environment_retain",
+        "mal_runtime_owner_retain",
         [llvm_type!(ptr), llvm_type!(ptr)],
     ));
     module.declare(declaration(
         llvm_type!(void),
-        "mal_runtime_environment_release",
+        "mal_runtime_owner_release",
         [llvm_type!(ptr)],
     ));
     module.declare(
         declaration(
             llvm_type!(int(8_u16)),
-            "mal_runtime_environment_is_unique",
+            "mal_runtime_owner_is_unique",
             [llvm_type!(ptr)],
         )
         .with_attributes(llvm_function_attributes! {

@@ -85,7 +85,7 @@ impl FunctionEmitter<'_> {
                 call {
                     tail: false,
                     result_type: (void),
-                    callee: direct("mal_runtime_environment_release"),
+                    callee: direct("mal_runtime_owner_release"),
                     arguments: [typed((ptr), #{ previous })],
                 };
             };
