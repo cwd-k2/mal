@@ -213,6 +213,13 @@ simplificationの組合せが本質であり、State名を認識するrewriteは
 closureをresultからcallback argumentへ移すだけであり、現行call-pattern specializationはrecursive producer-consumer chain全体を
 消さない。従ってsource APIをCPSへ変更する案は不採択とし、compiler側の一般的なclosed-slice deforestationを対象とする。
 
+通常Stateから`pure`、`bind`、`fmap`、`foldEach`をすべて人手でinlineし、`_fold(values, index, sum)`が一つのaction closureを返して、
+そのbodyから次の`_fold` resultを直ちに適用する形も測った。この形にはgeneric operationもcallback parameterもないが、各stepで
+再帰resultのclosure一つが残った。allocationは200,003回、9,600,128 bytes、Callgrindは30,766,288 instructions、pre-LTO IRは
+15,997 bytes、5 definitionsだった。同じ交互20 runのnative medianは2.73 msで、通常Stateの4.63 msより改善するが直接版の1.67 msには
+届かない。局所inliningは三つあったstep closureを一つへ減らせるが、self-recursive functionのresult calling conventionを
+`(arguments, state) -> result`へ変えない限り最後のstep比例allocationを消せない。
+
 stack allocationも根本解にはしない。escapeしない短命environmentの`malloc` / `free`は減らせるが、反復ごとのenvironment構築と
 applicationは残り、unbounded iterationをnative stackへ積むとbounded native stackのcontractも失う。有限tagへの
 defunctionalizationも、payloadの生成と再帰的なcontinuation transportを残すだけなら同じである。tag、payload、applicationをまとめて

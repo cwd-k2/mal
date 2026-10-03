@@ -127,6 +127,8 @@ slice内creator不在を検査する。validatorがrewriteの正しさを新た�
 比較では、公開されたbindを使うStrict、Lazy、CPSの各Stateが`-O2`で直接loopと同じCore workerになり、bindだけを`NOINLINE`にすると
 step比例allocationが戻った。一方、Mal sourceをCPSへ変更するだけでは通常Stateよりallocationとinstructionが増えた。測定値と条件は
 [genericsとmanaged container](../history/performance/generics.md#haskellとcps表現による原理の切り分け)を正とする。
+Mal sourceでmonad operationをすべて人手でinlineしても、self-recursive producerが返す最後のclosure一つは各stepに残ったため、
+通常のbody substitutionだけを新しいpassとして追加しない。
 
 従って採る原理は、公開bodyをwhole-programで見通せることと、consumerの需要に合わせてproducerのcalling conventionを複製することの
 組合せである。sourceをCPSへ限定したり、特定のoperation familyをrewriteしたりしない。escape analysisに基づくstack allocationは
