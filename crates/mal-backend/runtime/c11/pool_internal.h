@@ -13,6 +13,7 @@ typedef struct {
     unsigned char *metadata;
     void *metadata_owner;
     size_t capacity;
+    size_t physical_capacity;
     size_t stride;
     size_t metadata_size;
     uintptr_t inline_metadata;

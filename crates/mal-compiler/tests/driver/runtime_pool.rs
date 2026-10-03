@@ -45,8 +45,25 @@ static void release_child(void *carrier) {
     mal_runtime_owner_release(child);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
     MalContext context = {0};
+    if (argc == 2) {
+        uint8_t failure_metadata = 0;
+        if (argv[1][0] == 'c') {
+            void *failure = mal_runtime_pool_make(&context, &failure_metadata, 0, 0);
+            mal_runtime_pool_grow(&context, failure, 1);
+            mal_runtime_pool_grow(&context, failure, SIZE_MAX);
+        }
+        if (argv[1][0] == 'p') {
+            void *failure = mal_runtime_pool_make(&context, &failure_metadata, 0, 2);
+            mal_runtime_pool_grow(&context, failure, SIZE_MAX);
+        }
+        if (argv[1][0] == 'a') {
+            void *failure = mal_runtime_pool_make(&context, &failure_metadata, 0, 1);
+            mal_runtime_pool_grow(&context, failure, SIZE_MAX);
+        }
+        return 99;
+    }
     Header header = {3, 5, 7};
     void *pool = mal_runtime_pool_make(&context, &header, sizeof header, sizeof(uint64_t));
     void *alias = mal_runtime_owner_retain(&context, pool);
@@ -141,37 +158,67 @@ int main(void) {
 }
 "#,
     );
-    let executable = fixture.join("pool-check");
-    let compiled = Command::new("clang")
-        .args([
-            OsStr::new("-std=c11"),
-            OsStr::new("-O2"),
-            OsStr::new("-flto"),
-            OsStr::new("-fuse-ld=lld"),
-            OsStr::new("-Wall"),
-            OsStr::new("-Wextra"),
-            OsStr::new("-Werror"),
-            OsStr::new("-I"),
-            runtime.as_os_str(),
-            harness.as_os_str(),
-            runtime.join("core.c").as_os_str(),
-            runtime.join("pool.c").as_os_str(),
-            OsStr::new("-o"),
-            executable.as_os_str(),
-        ])
-        .output()
-        .expect("compile Pool runtime harness");
-    assert!(
-        compiled.status.success(),
-        "{}",
-        String::from_utf8_lossy(&compiled.stderr)
-    );
+    let configurations: [(&str, &[&str]); 2] = [
+        ("pool-check", &["-O2", "-flto", "-fuse-ld=lld"]),
+        (
+            "pool-check-sanitize",
+            &[
+                "-O1",
+                "-fsanitize=address,undefined",
+                "-fno-omit-frame-pointer",
+            ],
+        ),
+    ];
+    for (name, options) in configurations {
+        let executable = fixture.join(name);
+        let compiled = Command::new("clang")
+            .args([
+                OsStr::new("-std=c11"),
+                OsStr::new("-Wall"),
+                OsStr::new("-Wextra"),
+                OsStr::new("-Werror"),
+            ])
+            .args(options)
+            .args([
+                OsStr::new("-I"),
+                runtime.as_os_str(),
+                harness.as_os_str(),
+                runtime.join("core.c").as_os_str(),
+                runtime.join("pool.c").as_os_str(),
+                OsStr::new("-o"),
+                executable.as_os_str(),
+            ])
+            .output()
+            .expect("compile Pool runtime harness");
+        assert!(
+            compiled.status.success(),
+            "{}",
+            String::from_utf8_lossy(&compiled.stderr)
+        );
 
-    let executed = fixture.run(executable);
-    assert_eq!(
-        executed.status.code(),
-        Some(0),
-        "{}",
-        String::from_utf8_lossy(&executed.stderr)
-    );
+        let executed = fixture.run(executable);
+        assert_eq!(
+            executed.status.code(),
+            Some(0),
+            "{}",
+            String::from_utf8_lossy(&executed.stderr)
+        );
+    }
+
+    for (mode, message) in [
+        ("capacity", "mal trap: pool capacity overflow"),
+        ("payload", "mal trap: pool payload size overflow"),
+        ("allocation", "mal trap: pool allocation size overflow"),
+    ] {
+        let trapped = Command::new(fixture.join("pool-check"))
+            .arg(mode)
+            .output()
+            .expect("run Pool overflow probe");
+        assert!(!trapped.status.success());
+        assert!(
+            String::from_utf8_lossy(&trapped.stderr).contains(message),
+            "{}",
+            String::from_utf8_lossy(&trapped.stderr)
+        );
+    }
 }

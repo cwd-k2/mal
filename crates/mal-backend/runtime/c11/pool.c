@@ -29,6 +29,17 @@ static size_t mal_pool_payload_size(
     return capacity * stride;
 }
 
+static size_t mal_pool_growth_capacity(size_t current, size_t required) {
+    size_t capacity = current < 8 ? 8 : current;
+    while (capacity < required) {
+        if (capacity > SIZE_MAX / 2) {
+            return required;
+        }
+        capacity *= 2;
+    }
+    return capacity;
+}
+
 static int mal_pool_is_live(const MalPool *pool, size_t index) {
     size_t byte = index / 8;
     uint8_t mask = (uint8_t)(1U << (index % 8));
@@ -84,6 +95,7 @@ static MalPool *mal_pool_make(
     pool->payload = NULL;
     pool->metadata_owner = NULL;
     pool->capacity = 0;
+    pool->physical_capacity = 0;
     pool->stride = stride;
     pool->metadata_size = metadata_size;
     pool->inline_metadata = 0;
@@ -163,9 +175,21 @@ void mal_runtime_pool_grow(
     if (next_capacity == pool->capacity) {
         return;
     }
+    if (next_capacity <= pool->physical_capacity) {
+        pool->capacity = next_capacity;
+        return;
+    }
 
-    size_t payload_offset = mal_pool_payload_offset(context, next_capacity);
-    size_t payload_size = mal_pool_payload_size(context, next_capacity, pool->stride);
+    size_t next_physical_capacity = mal_pool_growth_capacity(
+        pool->physical_capacity,
+        next_capacity
+    );
+    size_t payload_offset = mal_pool_payload_offset(context, next_physical_capacity);
+    size_t payload_size = mal_pool_payload_size(
+        context,
+        next_physical_capacity,
+        pool->stride
+    );
     if (payload_size > SIZE_MAX - payload_offset) {
         mal_trap(context, "pool allocation size overflow");
     }
@@ -193,6 +217,7 @@ void mal_runtime_pool_grow(
     pool->backing = next_backing;
     pool->payload = next_payload;
     pool->capacity = next_capacity;
+    pool->physical_capacity = next_physical_capacity;
     free(old_backing);
 }
 
