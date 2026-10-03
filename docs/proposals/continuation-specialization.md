@@ -44,8 +44,10 @@ continuation demandは、関数型valueに対する一つのapplicationを、そ
 5. `MakeClosure`と、作られるfunctionのbody。
 6. demanded worker内で直接適用されるfunction parameterと、そのworkerを呼ぶ全siteの対応argument。
 
-一つのvalueがaggregate、sum payload、Buffer、capture、host boundary、別のfunction argument、または二つ以上のapplicationへ流れる場合は
-escapeとし、そのsliceを採択しない。source function valueを保存または返せる通常のpathは元programへ残す。
+一つのvalueがsum payload、Buffer、host boundary、slice外のcaptureまたはfunction argument、あるいは二つ以上のapplicationへ流れる場合は
+escapeとし、そのsliceを採択しない。source function valueを保存または返せる通常のpathは元programへ残す。局所productへのpackは、bindingを
+持ち、そこから伝播する全field useが同じsliceのparameter、capture、call、resultへ閉じ、rewriteでproduct自体も消去する場合だけ内部transport
+として扱う。aggregateへ入ったことだけを根拠にruntime保存とみなさず、未追跡field、wildcard storage、sum、Bufferへ流れる場合はescapeとする。
 
 関数parameterからcall site argumentへ進むedgeは、対象hostの全call siteが同じcall-pattern copyへ解決され、各argumentのproducerが
 閉じたsliceへ含まれる場合だけ作る。一部のcall siteだけをworker signatureへ合わせず、runtime tagやnullable closureで欠けたcaseを

@@ -1,22 +1,31 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{Atom, AtomKind, FunctionId, Pattern, Reference, TopLevelPattern};
+use crate::closure::ast::{
+    Atom, AtomKind, FunctionId, Pattern, Program, Reference, TopLevelPattern,
+};
 use crate::control::ast::{self as control, StateId, Terminator};
 use crate::core::ast::BufferOperation;
 use crate::flow::ClosureFlow;
+use mal_frontend::check::ast::Type;
 
-use super::plan::{ClosureSource, Scope};
+use super::plan::{ClosureSource, ClosureUse, ClosureUseKind, Scope};
 
 type Sources = HashSet<ClosureSource>;
 
-pub(super) struct CalleeSources {
+pub(super) struct Provenance {
     sites: HashMap<StateId, Vec<ClosureSource>>,
+    uses: Vec<ClosureUse>,
 }
 
-impl CalleeSources {
-    pub(super) fn new(control: &control::Program, flow: &ClosureFlow) -> Self {
-        let mut analysis = Analysis::new(control, flow);
+impl Provenance {
+    pub(super) fn new(
+        closure: &Program,
+        control: &control::Program,
+        flow: &ClosureFlow,
+        relevant: &HashSet<FunctionId>,
+    ) -> Self {
+        let mut analysis = Analysis::new(closure, control, flow);
         while std::mem::take(&mut analysis.changed) {
             analysis.pass();
         }
@@ -36,17 +45,25 @@ impl CalleeSources {
                 let mut sources = analysis
                     .atom(owner, callee)
                     .into_iter()
-                    .filter(|source| allowed.contains(&source.function()))
+                    .filter(|source| {
+                        allowed.contains(&source.function())
+                            && relevant.contains(&source.function())
+                    })
                     .collect::<Vec<_>>();
                 sources.sort_by_key(|source| source_key(*source));
                 Some((site, sources))
             })
             .collect();
-        Self { sites }
+        let uses = collect_uses(control, &analysis, relevant);
+        Self { sites, uses }
     }
 
     pub(super) fn at(&self, site: StateId) -> Vec<ClosureSource> {
         self.sites.get(&site).cloned().unwrap_or_default()
+    }
+
+    pub(super) fn uses(&self) -> &[ClosureUse] {
+        &self.uses
     }
 }
 
@@ -55,6 +72,8 @@ struct Analysis<'a> {
     flow: &'a ClosureFlow,
     owners: Vec<Option<Scope>>,
     parameters: HashMap<FunctionId, Option<ValueId>>,
+    parameter_types: HashMap<FunctionId, Type>,
+    signatures: HashMap<FunctionId, (Type, Type)>,
     values: HashMap<ValueId, Sources>,
     captures: HashMap<(FunctionId, usize), Sources>,
     returns: HashMap<Scope, Sources>,
@@ -62,8 +81,178 @@ struct Analysis<'a> {
     changed: bool,
 }
 
+fn collect_uses(
+    control: &control::Program,
+    analysis: &Analysis<'_>,
+    relevant: &HashSet<FunctionId>,
+) -> Vec<ClosureUse> {
+    let mut uses = Vec::new();
+    for (index, state) in control.states.iter().enumerate() {
+        let Some(scope) = analysis.owners[index] else {
+            continue;
+        };
+        for binding in &state.bindings {
+            match &binding.operation {
+                control::Operation::Atom(atom) => {
+                    record_use(
+                        analysis,
+                        relevant,
+                        scope,
+                        atom,
+                        ClosureUseKind::Alias,
+                        &mut uses,
+                    );
+                }
+                control::Operation::Product(atoms) => {
+                    let product = pattern_binding(&binding.pattern);
+                    for atom in atoms {
+                        record_use(
+                            analysis,
+                            relevant,
+                            scope,
+                            atom,
+                            ClosureUseKind::Product(product),
+                            &mut uses,
+                        );
+                    }
+                }
+                control::Operation::SumInjection { value, .. } => record_use(
+                    analysis,
+                    relevant,
+                    scope,
+                    value,
+                    ClosureUseKind::Aggregate,
+                    &mut uses,
+                ),
+                control::Operation::MakeClosure { function, captures } => {
+                    let creator = pattern_binding(&binding.pattern);
+                    for capture in captures {
+                        record_use(
+                            analysis,
+                            relevant,
+                            scope,
+                            capture,
+                            ClosureUseKind::Capture {
+                                binding: creator,
+                                function: *function,
+                            },
+                            &mut uses,
+                        );
+                    }
+                }
+                operation => operation.for_each_atom(|atom| {
+                    record_use(
+                        analysis,
+                        relevant,
+                        scope,
+                        atom,
+                        ClosureUseKind::Escape,
+                        &mut uses,
+                    );
+                }),
+            }
+        }
+        match &state.terminator {
+            Terminator::Return(atom) => record_use(
+                analysis,
+                relevant,
+                scope,
+                atom,
+                ClosureUseKind::Return,
+                &mut uses,
+            ),
+            Terminator::Jump { value, .. } => record_use(
+                analysis,
+                relevant,
+                scope,
+                value,
+                ClosureUseKind::Join,
+                &mut uses,
+            ),
+            Terminator::Call {
+                callee, argument, ..
+            }
+            | Terminator::TailCall { callee, argument } => {
+                record_use(
+                    analysis,
+                    relevant,
+                    scope,
+                    callee,
+                    ClosureUseKind::Callee(callee.id),
+                    &mut uses,
+                );
+                record_use(
+                    analysis,
+                    relevant,
+                    scope,
+                    argument,
+                    ClosureUseKind::CallArgument(callee.id),
+                    &mut uses,
+                );
+            }
+            Terminator::Case { scrutinee, .. } => record_use(
+                analysis,
+                relevant,
+                scope,
+                scrutinee,
+                ClosureUseKind::Aggregate,
+                &mut uses,
+            ),
+            Terminator::PrimitiveBranch { left, right, .. } => {
+                record_use(
+                    analysis,
+                    relevant,
+                    scope,
+                    left,
+                    ClosureUseKind::Escape,
+                    &mut uses,
+                );
+                record_use(
+                    analysis,
+                    relevant,
+                    scope,
+                    right,
+                    ClosureUseKind::Escape,
+                    &mut uses,
+                );
+            }
+            Terminator::Goto(_) => {}
+        }
+    }
+    uses
+}
+
+fn record_use(
+    analysis: &Analysis<'_>,
+    relevant: &HashSet<FunctionId>,
+    scope: Scope,
+    atom: &Atom,
+    kind: ClosureUseKind,
+    uses: &mut Vec<ClosureUse>,
+) {
+    let mut sources = analysis
+        .atom(scope, atom)
+        .into_iter()
+        .filter(|source| relevant.contains(&source.function()))
+        .collect::<Vec<_>>();
+    sources.sort_by_key(|source| source_key(*source));
+    uses.extend(sources.into_iter().map(|source| ClosureUse {
+        scope,
+        atom: atom.id,
+        source,
+        kind,
+    }));
+}
+
+fn pattern_binding(pattern: &Pattern) -> Option<ValueId> {
+    match pattern {
+        Pattern::Binding { id, .. } => Some(*id),
+        Pattern::Product { .. } | Pattern::Wildcard { .. } => None,
+    }
+}
+
 impl<'a> Analysis<'a> {
-    fn new(control: &'a control::Program, flow: &'a ClosureFlow) -> Self {
+    fn new(closure: &Program, control: &'a control::Program, flow: &'a ClosureFlow) -> Self {
         Self {
             control,
             flow,
@@ -72,6 +261,24 @@ impl<'a> Analysis<'a> {
                 .functions
                 .iter()
                 .map(|function| (function.id, function.parameter.binding))
+                .collect(),
+            parameter_types: control
+                .functions
+                .iter()
+                .map(|function| (function.id, function.parameter.ty.clone()))
+                .collect(),
+            signatures: closure
+                .functions
+                .iter()
+                .map(|function| {
+                    (
+                        function.id,
+                        (
+                            function.parameter.ty.clone(),
+                            function.body.result.ty.clone(),
+                        ),
+                    )
+                })
                 .collect(),
             values: HashMap::new(),
             captures: HashMap::new(),
@@ -235,7 +442,8 @@ impl<'a> Analysis<'a> {
 
     fn assign_parameter(&mut self, function: FunctionId, value: &Sources) {
         if let Some(Some(binding)) = self.parameters.get(&function).copied() {
-            self.merge_value(binding, value);
+            let ty = self.parameter_types[&function].clone();
+            self.assign_binding(binding, &ty, value);
         }
     }
 
@@ -247,7 +455,7 @@ impl<'a> Analysis<'a> {
 
     fn assign(&mut self, pattern: &Pattern, value: &Sources) {
         match pattern {
-            Pattern::Binding { id, .. } => self.merge_value(*id, value),
+            Pattern::Binding { id, ty } => self.assign_binding(*id, ty, value),
             Pattern::Product { elements, .. } => {
                 for element in elements {
                     self.assign(element, value);
@@ -259,7 +467,7 @@ impl<'a> Analysis<'a> {
 
     fn assign_top_level(&mut self, pattern: &TopLevelPattern, value: &Sources) {
         match pattern {
-            TopLevelPattern::Binding { id, .. } => self.merge_value(*id, value),
+            TopLevelPattern::Binding { id, ty, .. } => self.assign_binding(*id, ty, value),
             TopLevelPattern::Product { elements, .. } => {
                 for element in elements {
                     self.assign_top_level(element, value);
@@ -271,6 +479,25 @@ impl<'a> Analysis<'a> {
 
     fn merge_value(&mut self, id: ValueId, value: &Sources) {
         self.changed |= merge(self.values.entry(id).or_default(), value);
+    }
+
+    fn assign_binding(&mut self, id: ValueId, ty: &Type, value: &Sources) {
+        let held = match ty {
+            Type::Function { parameter, result } => value
+                .iter()
+                .copied()
+                .filter(|source| {
+                    self.signatures
+                        .get(&source.function())
+                        .is_some_and(|(p, r)| p == parameter.as_ref() && r == result.as_ref())
+                })
+                .collect(),
+            _ if crate::flow::holds_function(ty) => value.clone(),
+            _ => Sources::new(),
+        };
+        if !held.is_empty() {
+            self.merge_value(id, &held);
+        }
     }
 
     fn merge_capture(&mut self, capture: (FunctionId, usize), value: &Sources) {

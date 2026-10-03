@@ -9,7 +9,9 @@ The stage runs after `call_pattern` and before control lowering. It does not rec
 `State`, `bind`, or `fmap`. The plan records demand seeds, follows direct function results to calls or closure creators,
 inventories creator instances and every call site involving candidate code, and validates exact reconstruction. A plan
 is closed only when every inventoried call site is its seed producer or consumer, a traced result edge, or an application
-inside a demanded closure. Creator provenance must also close before any calling-convention rewrite is enabled.
+inside a demanded closure. Creator provenance records aliases, joins, bounded product packing, captures, parameters,
+results, and escaping destinations. Every transport must remain inside the slice before any calling-convention rewrite
+is enabled.
 
 | Module | Responsibility |
 |---|---|
@@ -18,4 +20,4 @@ inside a demanded closure. Creator provenance must also close before any calling
 | `trace` | direct call, closure creator, branch, and result-join edges followed from demanded producers |
 | `application` | closure-flow candidates reached while executing demanded closure targets |
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
-| `provenance` | creator and self-closure origins reaching each inventoried call site |
+| `provenance` | creator and self-closure origins reaching each use, with transport and escape destinations |

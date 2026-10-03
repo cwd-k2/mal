@@ -4,16 +4,22 @@ use crate::closure::ast::{AtomId, Block, FunctionId, Operation, Pattern, Program
 use crate::control::ast::{StateId, Terminator};
 use crate::flow::{ClosureFlow, CompatibleTargets};
 
-use super::plan::{ApplicationStep, CallSite, Creator, ProducerResult, ProducerStep, Scope};
+use super::plan::{
+    ApplicationStep, CallSite, ClosureUse, Creator, ProducerResult, ProducerStep, Scope,
+};
 
 /// Enumerates program identities before a rewrite decides whether every relevant instance is closed.
 pub(super) fn collect(
     program: &Program,
     producers: &[ProducerStep],
     applications: &[ApplicationStep],
-) -> (Vec<Creator>, Vec<CallSite>) {
+) -> (Vec<Creator>, Vec<CallSite>, Vec<ClosureUse>) {
     let functions = slice_functions(producers, applications);
-    let call_sites = call_sites(program, &functions);
+    let control = crate::control::lower(program);
+    let mut compatible = CompatibleTargets::new(program);
+    let flow = ClosureFlow::new(program, &control, &mut compatible);
+    let provenance = super::provenance::Provenance::new(program, &control, &flow, &functions);
+    let call_sites = call_sites(program, &control, &flow, &provenance, &functions);
     let reached = call_sites
         .iter()
         .flat_map(|call| &call.sources)
@@ -30,7 +36,7 @@ pub(super) fn collect(
         .into_iter()
         .filter(|creator| reached.contains(&(creator.binding, creator.function)))
         .collect();
-    (creators, call_sites)
+    (creators, call_sites, provenance.uses().to_vec())
 }
 
 fn slice_functions(
@@ -106,11 +112,13 @@ fn collect_creators(
     }
 }
 
-fn call_sites(program: &Program, relevant: &HashSet<FunctionId>) -> Vec<CallSite> {
-    let control = crate::control::lower(program);
-    let mut compatible = CompatibleTargets::new(program);
-    let flow = ClosureFlow::new(program, &control, &mut compatible);
-    let provenance = super::provenance::CalleeSources::new(&control, &flow);
+fn call_sites(
+    program: &Program,
+    control: &crate::control::ast::Program,
+    flow: &ClosureFlow,
+    provenance: &super::provenance::Provenance,
+    relevant: &HashSet<FunctionId>,
+) -> Vec<CallSite> {
     let scopes = call_scopes(program);
     control
         .states
@@ -132,11 +140,7 @@ fn call_sites(program: &Program, relevant: &HashSet<FunctionId>) -> Vec<CallSite
                 scope: scopes[&callee.id],
                 site: callee.id,
                 targets,
-                sources: provenance
-                    .at(StateId(index))
-                    .into_iter()
-                    .filter(|source| relevant.contains(&source.function()))
-                    .collect(),
+                sources: provenance.at(StateId(index)),
             })
         })
         .collect()

@@ -180,6 +180,39 @@ fn reports_a_slice_with_an_uncovered_call_site_as_open() {
 }
 
 #[test]
+fn admits_a_closure_origin_packed_only_for_local_transport() {
+    let plan = plan(
+        "increment :: Int32 -> Int32 := (value) -> value + 1i32;
+         create :: (Int32 -> Int32) -> (Int32 -> Int32) := (callback) -> (value) -> {
+             kept := (callback, value);
+             (selected, argument) := kept;
+             selected(argument);
+         };
+         main :: Unit -> Int32 := () -> create(increment)(41i32) - 42i32;",
+    );
+
+    assert_eq!(plan.demands.len(), 1);
+    assert!(plan.closed, "{plan:#?}");
+    assert!(plan.transport_closed, "{plan:#?}");
+}
+
+#[test]
+fn reports_capture_by_a_closure_outside_the_slice_as_open_transport() {
+    let plan = plan(
+        "increment :: Int32 -> Int32 := (value) -> value + 1i32;
+         create :: (Int32 -> Int32) -> (Int32 -> Int32) := (callback) -> (value) -> {
+             unused :: Unit -> (Int32 -> Int32) := () -> callback;
+             callback(value);
+         };
+         main :: Unit -> Int32 := () -> create(increment)(41i32) - 42i32;",
+    );
+
+    assert_eq!(plan.demands.len(), 1);
+    assert!(plan.closed, "{plan:#?}");
+    assert!(!plan.transport_closed, "{plan:#?}");
+}
+
+#[test]
 fn finds_the_final_consumer_of_a_recursive_state_chain() {
     let plan = plan(
         "opaque State<S, A> :: S -> (S, A);
@@ -222,6 +255,7 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
     assert!(!plan.call_sites.is_empty(), "{:#?}", plan.call_sites);
     assert!(plan.closed, "{plan:#?}");
     assert!(plan.creators_complete, "{plan:#?}");
+    assert!(plan.transport_closed, "{plan:#?}");
 }
 
 #[test]
@@ -268,5 +302,11 @@ fn validates_the_exact_demand_set() {
     assert!(!plan.is_valid(&closure));
     plan = Plan::new(&closure);
     plan.creators_complete = !plan.creators_complete;
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    plan.uses.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    plan.transport_closed = !plan.transport_closed;
     assert!(!plan.is_valid(&closure));
 }
