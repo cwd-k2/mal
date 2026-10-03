@@ -4,6 +4,7 @@ mod application;
 mod fuse;
 mod index;
 mod inventory;
+mod materialize;
 mod plan;
 mod provenance;
 mod request;

@@ -5,8 +5,8 @@ use mal_syntax::source::Span;
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{
-    Atom, AtomKind, Binding, Block, CaseArm, Function, FunctionId, Join, Operation, Pattern,
-    Program, Reference,
+    Atom, AtomKind, Binding, Block, Function, FunctionId, Join, Operation, Pattern, Program,
+    Reference,
 };
 use crate::closure::rewrite::Identities;
 
@@ -518,104 +518,7 @@ impl Evaluator<'_> {
     }
 
     pub(super) fn materialize(&mut self, value: Value, output: &mut Vec<Binding>) -> Option<Atom> {
-        match value {
-            Value::Bound(id, ty) => Some(Atom {
-                id: self.ids.atom(),
-                kind: AtomKind::Reference(Reference::Binding(id)),
-                ty,
-                span: self.fallback_span,
-            }),
-            Value::Literal(kind, ty, span) => Some(Atom {
-                id: self.ids.atom(),
-                kind,
-                ty,
-                span,
-            }),
-            Value::Product(elements, ty, span) => {
-                let elements = elements
-                    .into_iter()
-                    .map(|value| self.materialize(value, output))
-                    .collect::<Option<Vec<_>>>()?;
-                let id = self.ids.value();
-                output.push(Binding {
-                    pattern: Pattern::Binding { id, ty: ty.clone() },
-                    operation: Operation::Product(elements),
-                    span,
-                });
-                Some(Atom {
-                    id: self.ids.atom(),
-                    kind: AtomKind::Reference(Reference::Binding(id)),
-                    ty,
-                    span,
-                })
-            }
-            Value::Choice(choice) => self.materialize_choice(*choice, output),
-            Value::Closure { .. } => None,
-        }
-    }
-
-    fn materialize_choice(&mut self, choice: Choice, output: &mut Vec<Binding>) -> Option<Atom> {
-        let (operation, ty, span) = match choice {
-            Choice::Case {
-                scrutinee,
-                arms,
-                ty,
-                span,
-            } => {
-                let arms = arms
-                    .into_iter()
-                    .map(|arm| {
-                        Some(CaseArm {
-                            index: arm.index,
-                            pattern: arm.pattern,
-                            value: self.finish(arm.value)?,
-                            span: arm.span,
-                        })
-                    })
-                    .collect::<Option<Vec<_>>>()?;
-                (Operation::Case { scrutinee, arms }, ty, span)
-            }
-            Choice::Branch {
-                operator,
-                left,
-                right,
-                otherwise,
-                then,
-                ty,
-                span,
-            } => (
-                Operation::PrimitiveBranch {
-                    operator,
-                    left,
-                    right,
-                    otherwise: Box::new(self.finish(*otherwise)?),
-                    then: Box::new(self.finish(*then)?),
-                },
-                ty,
-                span,
-            ),
-        };
-        let id = self.ids.value();
-        output.push(Binding {
-            pattern: Pattern::Binding { id, ty: ty.clone() },
-            operation,
-            span,
-        });
-        Some(Atom {
-            id: self.ids.atom(),
-            kind: AtomKind::Reference(Reference::Binding(id)),
-            ty,
-            span,
-        })
-    }
-
-    fn finish(&mut self, mut block: EvalBlock) -> Option<Block> {
-        let result = self.materialize(block.value, &mut block.bindings)?;
-        Some(Block {
-            bindings: block.bindings,
-            result,
-            span: block.span,
-        })
+        super::materialize::value(value, output, self.ids, self.fallback_span)
     }
 
     fn fresh_pattern(&mut self, pattern: &Pattern, environment: &mut Environment) -> Pattern {

@@ -20,6 +20,7 @@ is enabled.
 | `trace` | direct call, closure creator, branch, and result-join edges followed from demanded producers |
 | `application` | closure-flow candidates reached while executing demanded closure targets |
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
+| `materialize` | symbolic products and choices converted back into closure-program bindings |
 | `provenance` | creator and self-closure origins reaching each use, with transport and escape destinations |
 | `request` | all-or-nothing worker identities under the shared closure-copy budget |
 | `symbolic` | symbolic values, branch results, and capture-context transport used during fusion |
