@@ -23,6 +23,7 @@ is enabled.
 | `concrete` | observable operations rebuilt from resolved symbolic operands |
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
 | `materialize` | symbolic products and choices converted back into closure-program bindings |
+| `order` | deterministic ordering keys for identities recorded in plans and requests |
 | `provenance` | creator and self-closure origins reaching each use, with transport and escape destinations |
 | `use_sites` | closure-source uses classified from control bindings and terminators |
 | `request` | all-or-nothing worker identities under the shared closure-copy budget |

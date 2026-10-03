@@ -82,7 +82,7 @@ fn trace_block(
             return;
         };
         let mut targets = reaching.iter().copied().collect::<Vec<_>>();
-        targets.sort_by_key(|function| function_number(*function));
+        targets.sort_by_key(|function| super::order::function(*function));
         pending.extend(targets.iter().copied());
         applications.push(ApplicationStep {
             host,
@@ -91,11 +91,6 @@ fn trace_block(
             targets,
         });
     });
-}
-
-fn function_number(function: FunctionId) -> u32 {
-    let FunctionId::Lambda(mal_frontend::resolve::ast::LambdaId(number)) = function;
-    number
 }
 
 fn for_each_call(block: &Block, visit: &mut impl FnMut(AtomId, &crate::closure::ast::Atom)) {

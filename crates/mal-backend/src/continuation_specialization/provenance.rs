@@ -371,23 +371,10 @@ fn merge(target: &mut Sources, added: &Sources) -> bool {
 }
 
 pub(super) fn source_key(source: ClosureSource) -> (u32, u8, u64) {
-    let function = function_number(source.function());
+    let function = super::order::function(source.function());
     match source {
-        ClosureSource::Creator { binding, .. } => (function, 0, value_number(binding)),
+        ClosureSource::Creator { binding, .. } => (function, 0, super::order::value(binding)),
         ClosureSource::SelfClosure(_) => (function, 1, 0),
         ClosureSource::Unbound(_) => (function, 2, 0),
     }
-}
-
-fn value_number(value: ValueId) -> u64 {
-    match value {
-        ValueId::Core(crate::core::ast::ValueId::Source(id)) => u64::from(id.0),
-        ValueId::Core(crate::core::ast::ValueId::Temporary(id)) => 1_u64 << 32 | u64::from(id),
-        ValueId::Temporary(id) => 2_u64 << 32 | u64::from(id),
-    }
-}
-
-fn function_number(function: FunctionId) -> u32 {
-    let FunctionId::Lambda(mal_frontend::resolve::ast::LambdaId(number)) = function;
-    number
 }

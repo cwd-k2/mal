@@ -82,7 +82,7 @@ pub(super) fn prepare(program: &Program, plan: &Plan) -> Option<Request> {
     }
 
     let mut functions = functions.into_iter().collect::<Vec<_>>();
-    functions.sort_by_key(|function| function_number(*function));
+    functions.sort_by_key(|function| super::order::function(*function));
     let mut copy = program.clone();
     let mut ids = Identities::after(&mut copy);
     let workers = functions
@@ -97,7 +97,7 @@ pub(super) fn prepare(program: &Program, plan: &Plan) -> Option<Request> {
         .iter()
         .map(|creator| creator.binding)
         .collect::<Vec<_>>();
-    creators.sort_by_key(|creator| value_number(*creator));
+    creators.sort_by_key(|creator| super::order::value(*creator));
     creators.dedup();
     let mut sites = plan
         .call_sites
@@ -124,17 +124,4 @@ pub(super) fn prepare(program: &Program, plan: &Plan) -> Option<Request> {
         sites,
         targets,
     })
-}
-
-fn value_number(value: ValueId) -> u64 {
-    match value {
-        ValueId::Core(crate::core::ast::ValueId::Source(id)) => u64::from(id.0),
-        ValueId::Core(crate::core::ast::ValueId::Temporary(id)) => 1_u64 << 32 | u64::from(id),
-        ValueId::Temporary(id) => 2_u64 << 32 | u64::from(id),
-    }
-}
-
-fn function_number(function: FunctionId) -> u32 {
-    let FunctionId::Lambda(mal_frontend::resolve::ast::LambdaId(number)) = function;
-    number
 }

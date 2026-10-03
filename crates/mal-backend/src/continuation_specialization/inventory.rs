@@ -135,7 +135,7 @@ fn call_sites(
                 return None;
             }
             let mut targets = reaching.iter().copied().collect::<Vec<_>>();
-            targets.sort_by_key(|function| function_number(*function));
+            targets.sort_by_key(|function| super::order::function(*function));
             Some(CallSite {
                 scope: scopes[&callee.id],
                 site: callee.id,
@@ -169,9 +169,4 @@ fn collect_call_scopes(scope: Scope, block: &Block, scopes: &mut HashMap<AtomId,
             .operation
             .for_each_nested_block(|nested| collect_call_scopes(scope, nested, scopes));
     }
-}
-
-fn function_number(function: FunctionId) -> u32 {
-    let FunctionId::Lambda(mal_frontend::resolve::ast::LambdaId(number)) = function;
-    number
 }

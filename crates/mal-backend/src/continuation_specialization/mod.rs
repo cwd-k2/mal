@@ -7,6 +7,7 @@ mod fuse;
 mod index;
 mod inventory;
 mod materialize;
+mod order;
 mod plan;
 mod provenance;
 mod request;

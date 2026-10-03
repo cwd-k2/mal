@@ -109,7 +109,7 @@ fn worker_top_level(
     TopLevelBinding {
         pattern: TopLevelPattern::Binding {
             id: binding,
-            name: format!("continuation${}", function_number(worker.id)),
+            name: format!("continuation${}", super::order::function(worker.id)),
             ty: ty.clone(),
         },
         value: Block {
@@ -250,10 +250,4 @@ fn redirect_block(
         bindings.push(binding);
     }
     block.bindings = bindings;
-}
-
-fn function_number(function: crate::closure::ast::FunctionId) -> u32 {
-    let crate::closure::ast::FunctionId::Lambda(mal_frontend::resolve::ast::LambdaId(number)) =
-        function;
-    number
 }
