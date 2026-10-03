@@ -196,7 +196,6 @@ fn admits_a_closure_origin_packed_only_for_local_transport() {
          };
          main :: Unit -> Int32 := () -> create(increment)(41i32) - 42i32;",
     );
-
     assert_eq!(plan.demands.len(), 1);
     assert!(plan.closed, "{plan:#?}");
     assert!(plan.transport_closed, "{plan:#?}");
@@ -280,16 +279,12 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
             .iter()
             .all(|worker| worker.original != worker.worker)
     );
-    let copied = request.copy_workers(&program);
-    assert_eq!(
-        copied.functions.len(),
-        program.functions.len() + request.workers.len()
-    );
-    assert!(request.workers.iter().all(|worker| {
-        copied
-            .functions
-            .iter()
-            .any(|function| function.id == worker.worker)
+    let copied = request.apply(&program).expect("fused State worker");
+    assert_eq!(copied.functions.len(), program.functions.len() + 1);
+    assert!(copied.functions.iter().any(|function| {
+        request.workers.iter().any(|worker| {
+            worker.original == request.demand.producer && function.id == worker.worker
+        })
     }));
     assert!(crate::closure::rewrite::are_unique(&mut copied.clone()));
     request.workers.clear();

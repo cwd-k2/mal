@@ -25,8 +25,8 @@ impl Request {
         prepare(program, plan).as_ref() == Some(self)
     }
 
-    pub(crate) fn copy_workers(&self, program: &Program) -> Program {
-        super::rewrite::copy_workers(program, self)
+    pub(crate) fn apply(&self, program: &Program) -> Option<Program> {
+        super::rewrite::apply(program, self)
     }
 }
 

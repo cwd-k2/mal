@@ -48,26 +48,22 @@ pub(crate) struct Program {
 
 /// Derives execution plans in dependency order and validates each plan against the semantic authority it consumed.
 pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> Program {
-    // Call-pattern specialization is the only technique that rewrites the program, so every graph and plan must see
-    // either the original program or the completed rewrite, never a mixture of both.
+    // Program rewrites finish before graph construction, so every graph and plan sees one completed program.
     let lowered = if enabled.contains(Technique::CallPattern) {
         crate::call_pattern::specialize(lowered)
     } else {
         lowered
     };
-    #[cfg(debug_assertions)]
-    {
-        let demands = crate::continuation_specialization::Plan::new(&lowered);
-        debug_assert!(demands.is_valid(&lowered));
-        if let Some(request) = demands.request(&lowered) {
-            debug_assert!(request.is_valid(&lowered, &demands));
-            let preview = request.copy_workers(&lowered);
-            debug_assert_eq!(
-                preview.functions.len(),
-                lowered.functions.len() + request.workers.len()
-            );
-        }
-    }
+    let lowered = if enabled.contains(Technique::ContinuationSpecialization) {
+        let plan = crate::continuation_specialization::Plan::new(&lowered);
+        debug_assert!(plan.is_valid(&lowered));
+        plan.request(&lowered)
+            .inspect(|request| debug_assert!(request.is_valid(&lowered, &plan)))
+            .and_then(|request| request.apply(&lowered))
+            .unwrap_or(lowered)
+    } else {
+        lowered
+    };
     let closure_uses = ClosureUsePlan::new(&lowered);
     debug_assert!(closure_uses.is_valid(&lowered));
     let control = crate::control::lower(&lowered);

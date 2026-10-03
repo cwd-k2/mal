@@ -1,6 +1,7 @@
 //! Producer-consumer slices whose function-valued result has one application demand.
 
 mod application;
+mod fuse;
 mod index;
 mod inventory;
 mod plan;
