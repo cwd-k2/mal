@@ -44,21 +44,30 @@ pub(super) struct UseInputs<'a> {
 /// facts. Owner successors are examined in reverse emission order: the last successor of a dying
 /// local consumes it, while earlier successors must share it.
 pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEffect> {
-    let UseInputs {
-        control,
-        optimizations,
-        calls,
-        regions,
-        frames,
-        live_in,
-        input_destinations,
-        binding_destinations,
-        drop_candidates,
-        borrowed_bindings,
-        parameter_borrows,
-        borrows,
-    } = inputs;
     let mut uses = HashMap::new();
+    let local_bindings = owned_local_bindings(inputs.control, inputs.borrowed_bindings);
+    for (state_index, state) in inputs.control.states.iter().enumerate() {
+        let site = StateId(state_index);
+        for (binding_index, binding) in state.bindings.iter().enumerate() {
+            collect_binding_effects(
+                &inputs,
+                &local_bindings,
+                site,
+                binding_index,
+                binding,
+                &mut uses,
+            );
+        }
+        collect_terminator_effects(&inputs, &local_bindings, site, &state.terminator, &mut uses);
+        collect_case_payload_effects(&inputs, &local_bindings, site, &state.terminator, &mut uses);
+    }
+    uses
+}
+
+fn owned_local_bindings(
+    control: &crate::control::ast::Program,
+    borrowed_bindings: &HashSet<ValueId>,
+) -> HashSet<ValueId> {
     let mut local_bindings = HashSet::new();
     for function in &control.functions {
         if let Some(binding) = function.parameter.binding {
@@ -74,223 +83,254 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
         }
     }
     local_bindings.retain(|binding| !borrowed_bindings.contains(binding));
-    for (state_index, state) in control.states.iter().enumerate() {
-        let site = StateId(state_index);
-        for (binding_index, binding) in state.bindings.iter().enumerate() {
-            let operands = binding_operands(&binding.operation);
-            let result_has_owner_successor = binding_destinations
-                .get(&(site, binding_index))
-                .is_some_and(PatternDestination::has_owner_successor);
-            let operation_requires_owner_successors = !matches!(
-                binding.operation,
-                Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
-            ) || result_has_owner_successor;
-            let dead = drop_candidates
-                .get(&(site, binding_index))
-                .map_or(&[][..], Vec::as_slice);
-            for (operand_index, (operand, atom, operation_effect)) in operands.iter().enumerate() {
-                if !is_managed(&atom.ty) {
-                    continue;
-                }
-                let effect = if *operation_effect == OperationEffect::Borrow
-                    || !operation_requires_owner_successors
-                {
-                    UseEffect::Borrow
-                } else if optimizations.takes_unique_capture(atom.id) {
-                    UseEffect::Consume
-                } else if let Some(id) = atom.binding() {
-                    let has_later_same_source = operands[operand_index + 1..]
-                        .iter()
-                        .any(|(_, later, _)| later.binding() == Some(id));
-                    if local_bindings.contains(&id) && dead.contains(&id) && !has_later_same_source
-                    {
-                        UseEffect::Consume
-                    } else {
-                        UseEffect::Share
-                    }
-                } else {
-                    UseEffect::Share
-                };
-                uses.insert(
-                    UseId {
-                        state: site,
-                        location: UseLocation::Binding {
-                            binding: binding_index,
-                            operand: *operand,
-                        },
-                    },
-                    effect,
-                );
-            }
-        }
-        let effective_argument = calls
-            .forwarded_self_argument(site)
-            .or_else(|| terminator_argument(&state.terminator));
-        let mut terminator_uses = terminator_operands(&state.terminator, effective_argument);
-        if let Terminator::Jump { target, .. } = &state.terminator
-            && let Some((_, _, effect)) = terminator_uses
-                .iter_mut()
-                .find(|(operand, _, _)| *operand == TerminatorOperand::JumpValue)
-        {
-            *effect = jump_value_effect(
-                input_destinations
-                    .get(target)
-                    .expect("every jump target has an input handoff"),
-            );
-        }
-        let mode = calls.mode(site);
-        let uses_common_control = regions
-            .site_region(site)
-            .is_some_and(|region| calls.requires_common_control(region));
-        let common_region_transition =
-            mode == Some(ControlCallMode::Dispatch) && uses_common_control;
-        let frame = frames.frame(site);
-        let callee_is_successor = uses_common_control
-            && matches!(
-                mode,
-                Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
-            );
-        let argument_is_successor = !parameter_borrows.call_sites.contains(&site)
-            && (frame.is_some()
-                || parameter_borrows.owned.sites.contains(&site)
-                || matches!(
-                    mode,
-                    Some(ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_))
-                )
-                || common_region_transition);
-        for (operand, _, effect) in &mut terminator_uses {
-            if matches!(
-                operand,
-                TerminatorOperand::CallCallee | TerminatorOperand::TailCallee
-            ) && callee_is_successor
-            {
-                *effect = UseEffect::Share;
-            }
-            if matches!(
-                operand,
-                TerminatorOperand::CallArgument | TerminatorOperand::TailArgument
-            ) && argument_is_successor
-            {
-                *effect = UseEffect::Share;
-            }
-        }
+    local_bindings
+}
 
-        let mut owner_successors = Vec::new();
-        if let Some(frame) = frame {
-            for (field_index, field) in frame.fields.iter().enumerate() {
-                if is_managed(&field.ty) && !borrowed_bindings.contains(&field.id) {
-                    owner_successors.push((
-                        UseId {
-                            state: site,
-                            location: UseLocation::FrameField(field_index),
-                        },
-                        Some(field.id),
-                    ));
-                }
-            }
+fn collect_binding_effects(
+    inputs: &UseInputs<'_>,
+    local_bindings: &HashSet<ValueId>,
+    site: StateId,
+    binding_index: usize,
+    binding: &crate::control::ast::Binding,
+    uses: &mut HashMap<UseId, UseEffect>,
+) {
+    let operands = binding_operands(&binding.operation);
+    let result_has_owner_successor = inputs
+        .binding_destinations
+        .get(&(site, binding_index))
+        .is_some_and(PatternDestination::has_owner_successor);
+    let operation_requires_owner_successors = !matches!(
+        binding.operation,
+        Operation::Atom(_) | Operation::Product(_) | Operation::SumInjection { .. }
+    ) || result_has_owner_successor;
+    let dead = inputs
+        .drop_candidates
+        .get(&(site, binding_index))
+        .map_or(&[][..], Vec::as_slice);
+    for (operand_index, (operand, atom, operation_effect)) in operands.iter().enumerate() {
+        if !is_managed(&atom.ty) {
+            continue;
         }
-        for (operand, atom, effect) in &terminator_uses {
-            if *effect == UseEffect::Share && is_managed(&atom.ty) {
+        let effect = if *operation_effect == OperationEffect::Borrow
+            || !operation_requires_owner_successors
+        {
+            UseEffect::Borrow
+        } else if inputs.optimizations.takes_unique_capture(atom.id) {
+            UseEffect::Consume
+        } else if let Some(id) = atom.binding() {
+            let has_later_same_source = operands[operand_index + 1..]
+                .iter()
+                .any(|(_, later, _)| later.binding() == Some(id));
+            if local_bindings.contains(&id) && dead.contains(&id) && !has_later_same_source {
+                UseEffect::Consume
+            } else {
+                UseEffect::Share
+            }
+        } else {
+            UseEffect::Share
+        };
+        uses.insert(
+            UseId {
+                state: site,
+                location: UseLocation::Binding {
+                    binding: binding_index,
+                    operand: *operand,
+                },
+            },
+            effect,
+        );
+    }
+}
+
+fn collect_terminator_effects(
+    inputs: &UseInputs<'_>,
+    local_bindings: &HashSet<ValueId>,
+    site: StateId,
+    terminator: &Terminator,
+    uses: &mut HashMap<UseId, UseEffect>,
+) {
+    let effective_argument = inputs
+        .calls
+        .forwarded_self_argument(site)
+        .or_else(|| terminator_argument(terminator));
+    let mut terminator_uses = terminator_operands(terminator, effective_argument);
+    if let Terminator::Jump { target, .. } = terminator
+        && let Some((_, _, effect)) = terminator_uses
+            .iter_mut()
+            .find(|(operand, _, _)| *operand == TerminatorOperand::JumpValue)
+    {
+        *effect = jump_value_effect(
+            inputs
+                .input_destinations
+                .get(target)
+                .expect("every jump target has an input handoff"),
+        );
+    }
+    let mode = inputs.calls.mode(site);
+    let uses_common_control = inputs
+        .regions
+        .site_region(site)
+        .is_some_and(|region| inputs.calls.requires_common_control(region));
+    let common_region_transition = mode == Some(ControlCallMode::Dispatch) && uses_common_control;
+    let frame = inputs.frames.frame(site);
+    let callee_is_successor = uses_common_control
+        && matches!(
+            mode,
+            Some(ControlCallMode::DirectRegion(_) | ControlCallMode::Dispatch)
+        );
+    let argument_is_successor = !inputs.parameter_borrows.call_sites.contains(&site)
+        && (frame.is_some()
+            || inputs.parameter_borrows.owned.sites.contains(&site)
+            || matches!(
+                mode,
+                Some(ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_))
+            )
+            || common_region_transition);
+    for (operand, _, effect) in &mut terminator_uses {
+        if matches!(
+            operand,
+            TerminatorOperand::CallCallee | TerminatorOperand::TailCallee
+        ) && callee_is_successor
+        {
+            *effect = UseEffect::Share;
+        }
+        if matches!(
+            operand,
+            TerminatorOperand::CallArgument | TerminatorOperand::TailArgument
+        ) && argument_is_successor
+        {
+            *effect = UseEffect::Share;
+        }
+    }
+
+    let mut owner_successors = Vec::new();
+    if let Some(frame) = frame {
+        for (field_index, field) in frame.fields.iter().enumerate() {
+            if is_managed(&field.ty) && !inputs.borrowed_bindings.contains(&field.id) {
                 owner_successors.push((
                     UseId {
                         state: site,
-                        location: UseLocation::Terminator(*operand),
+                        location: UseLocation::FrameField(field_index),
                     },
-                    atom.binding()
-                        .filter(|id| local_bindings.contains(id))
-                        .filter(|id| {
-                            dies_at_terminator(
-                                &state.terminator,
-                                frame.is_some(),
-                                live_in,
-                                borrows,
-                                *id,
-                            )
-                        }),
+                    Some(field.id),
                 ));
             }
         }
-        let mut seen_sources = HashSet::new();
-        let mut owner_effects = HashMap::new();
-        for (use_id, source) in owner_successors.into_iter().rev() {
-            let effect = match source {
-                Some(id) if seen_sources.insert(id) => UseEffect::Consume,
-                _ => UseEffect::Share,
-            };
-            owner_effects.insert(use_id, effect);
-        }
-        for (use_id, effect) in &owner_effects {
-            if matches!(use_id.location, UseLocation::FrameField(_)) {
-                uses.insert(*use_id, *effect);
-            }
-        }
-
-        for (operand, atom, mut effect) in terminator_uses {
-            if is_managed(&atom.ty) {
-                effect = owner_effects
-                    .get(&UseId {
-                        state: site,
-                        location: UseLocation::Terminator(operand),
-                    })
-                    .copied()
-                    .unwrap_or(effect);
-                if operand == TerminatorOperand::Return
-                    && atom
-                        .binding()
-                        .is_some_and(|id| local_bindings.contains(&id))
-                {
-                    effect = UseEffect::Consume;
-                }
-                if operand == TerminatorOperand::JumpValue
-                    && effect != UseEffect::Borrow
-                    && atom.binding().is_some_and(|id| {
-                        local_bindings.contains(&id)
-                            && match &state.terminator {
-                                Terminator::Jump { target, .. } => !live_in[target.0].contains(&id),
-                                _ => false,
-                            }
-                    })
-                {
-                    effect = UseEffect::Consume;
-                }
-                uses.insert(
-                    UseId {
-                        state: site,
-                        location: UseLocation::Terminator(operand),
-                    },
-                    effect,
-                );
-            }
-        }
-        if let Terminator::Case { scrutinee, arms } = &state.terminator
-            && let Type::Sum(members) = &scrutinee.ty
-        {
-            for (arm_ordinal, arm) in arms.iter().enumerate() {
-                let member = members.get(arm.index).expect("checked case member");
-                if is_managed(member)
-                    && input_destinations
-                        .get(&arm.target)
-                        .is_some_and(PatternDestination::has_owner_successor)
-                {
-                    let effect = if scrutinee.binding().is_some_and(|id| {
-                        local_bindings.contains(&id) && !live_in[arm.target.0].contains(&id)
-                    }) {
-                        UseEffect::Consume
-                    } else {
-                        UseEffect::Share
-                    };
-                    uses.insert(
-                        UseId {
-                            state: site,
-                            location: UseLocation::CasePayload(arm_ordinal),
-                        },
-                        effect,
-                    );
-                }
-            }
+    }
+    for (operand, atom, effect) in &terminator_uses {
+        if *effect == UseEffect::Share && is_managed(&atom.ty) {
+            owner_successors.push((
+                UseId {
+                    state: site,
+                    location: UseLocation::Terminator(*operand),
+                },
+                atom.binding()
+                    .filter(|id| local_bindings.contains(id))
+                    .filter(|id| {
+                        dies_at_terminator(
+                            terminator,
+                            frame.is_some(),
+                            inputs.live_in,
+                            inputs.borrows,
+                            *id,
+                        )
+                    }),
+            ));
         }
     }
-    uses
+    let mut seen_sources = HashSet::new();
+    let mut owner_effects = HashMap::new();
+    for (use_id, source) in owner_successors.into_iter().rev() {
+        let effect = match source {
+            Some(id) if seen_sources.insert(id) => UseEffect::Consume,
+            _ => UseEffect::Share,
+        };
+        owner_effects.insert(use_id, effect);
+    }
+    for (use_id, effect) in &owner_effects {
+        if matches!(use_id.location, UseLocation::FrameField(_)) {
+            uses.insert(*use_id, *effect);
+        }
+    }
+
+    for (operand, atom, mut effect) in terminator_uses {
+        if is_managed(&atom.ty) {
+            effect = owner_effects
+                .get(&UseId {
+                    state: site,
+                    location: UseLocation::Terminator(operand),
+                })
+                .copied()
+                .unwrap_or(effect);
+            if operand == TerminatorOperand::Return
+                && atom
+                    .binding()
+                    .is_some_and(|id| local_bindings.contains(&id))
+            {
+                effect = UseEffect::Consume;
+            }
+            if operand == TerminatorOperand::JumpValue
+                && effect != UseEffect::Borrow
+                && atom.binding().is_some_and(|id| {
+                    local_bindings.contains(&id)
+                        && match terminator {
+                            Terminator::Jump { target, .. } => {
+                                !inputs.live_in[target.0].contains(&id)
+                            }
+                            _ => false,
+                        }
+                })
+            {
+                effect = UseEffect::Consume;
+            }
+            uses.insert(
+                UseId {
+                    state: site,
+                    location: UseLocation::Terminator(operand),
+                },
+                effect,
+            );
+        }
+    }
+}
+
+fn collect_case_payload_effects(
+    inputs: &UseInputs<'_>,
+    local_bindings: &HashSet<ValueId>,
+    site: StateId,
+    terminator: &Terminator,
+    uses: &mut HashMap<UseId, UseEffect>,
+) {
+    let Terminator::Case { scrutinee, arms } = terminator else {
+        return;
+    };
+    let Type::Sum(members) = &scrutinee.ty else {
+        return;
+    };
+    for (arm_ordinal, arm) in arms.iter().enumerate() {
+        let member = members.get(arm.index).expect("checked case member");
+        if is_managed(member)
+            && inputs
+                .input_destinations
+                .get(&arm.target)
+                .is_some_and(PatternDestination::has_owner_successor)
+        {
+            let effect = if scrutinee.binding().is_some_and(|id| {
+                local_bindings.contains(&id) && !inputs.live_in[arm.target.0].contains(&id)
+            }) {
+                UseEffect::Consume
+            } else {
+                UseEffect::Share
+            };
+            uses.insert(
+                UseId {
+                    state: site,
+                    location: UseLocation::CasePayload(arm_ordinal),
+                },
+                effect,
+            );
+        }
+    }
 }
 
 pub(super) fn exclude_consumed_sources(
