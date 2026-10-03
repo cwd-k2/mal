@@ -136,9 +136,9 @@ containerが要求する。
   productで足りるが、Ix/Imで同じstate algebraとcontainer invariantを使う利点との比較になる。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
-- [`Storable`の拡張](model/identity.md#storableの原理)を採択仕様へ移す際のdecision。現行Bufferのelement semanticsと
-  [D075](../../history/decisions/active/D075.md)を後続decisionで置き換え、external opaque carrier、Buffer、IxPool、ImPoolのadmission、
-  generic requirement、diagnostic、conformance testを一度に揃える必要がある。functionとempty sumは今回の範囲では除外する。
+- [`Storable`の拡張](model/identity.md#storableの原理)のうち、Buffer handleは
+  [D096](../../history/decisions/active/D096.md)で先に採択した。残るdecisionはexternal opaque carrierのruntime-value Trivial storageと、
+  Pool採択時のIxPool、ImPool admissionである。functionとempty sumは今回の範囲では除外する。
 - transitive snapshot、serialization、Map keyなどに共通するstability judgmentが実際に必要か。ImPoolのstructural snapshotと
   handle nestingには不要なので、名称だけを先に追加しない。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。

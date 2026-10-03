@@ -9,19 +9,18 @@ use mal_frontend::check::ast::Type;
 use super::super::{EmittedValue, FunctionEmitter};
 pub(in crate::backend::llvm::body) use managed::ManagedBufferElements;
 
-/// How a Buffer keeps one element. An element with a canonical memory representation is stored in it, so that `from`
-/// and `into` can copy the storage. An element that owns a `Symbol` has none and is stored as its runtime value; the
-/// runtime then retains and releases stored elements through the callbacks of [`ManagedBufferElements`].
+/// How a Buffer keeps one element. Canonical storage exists for host copy; runtime-owned storage keeps an internal
+/// carrier and preserves its lifecycle through the callbacks of [`ManagedBufferElements`].
 #[derive(Clone, Copy)]
 pub(in crate::backend::llvm::body) enum ElementStorage {
     Canonical { stride: usize },
-    Managed { stride: usize, alignment: usize },
+    RuntimeOwned { stride: usize, alignment: usize },
 }
 
 impl ElementStorage {
     fn stride(self) -> usize {
         match self {
-            Self::Canonical { stride } | Self::Managed { stride, .. } => stride,
+            Self::Canonical { stride } | Self::RuntimeOwned { stride, .. } => stride,
         }
     }
 
@@ -30,7 +29,7 @@ impl ElementStorage {
     fn runtime(self, operation: &str) -> String {
         match self {
             Self::Canonical { .. } => format!("mal_runtime_buffer_{operation}"),
-            Self::Managed { .. } => format!("mal_runtime_buffer_{operation}_managed"),
+            Self::RuntimeOwned { .. } => format!("mal_runtime_buffer_{operation}_managed"),
         }
     }
 }
@@ -55,7 +54,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let buffer = self.register();
-                if let ElementStorage::Managed { .. } = storage {
+                if let ElementStorage::RuntimeOwned { .. } = storage {
                     let number = self.index.managed_buffer_elements.number(element)?;
                     emit_instruction! {
                         self;
@@ -132,7 +131,7 @@ impl FunctionEmitter<'_> {
                 let data = self.active_buffer_data(buffer);
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
                 match storage {
-                    ElementStorage::Managed { alignment, .. } => {
+                    ElementStorage::RuntimeOwned { alignment, .. } => {
                         self.emit_managed_element_get(&pointer, element, alignment)
                     }
                     ElementStorage::Canonical { .. } => {
@@ -155,7 +154,7 @@ impl FunctionEmitter<'_> {
                     let data = self.active_buffer_data(buffer);
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
                     match storage {
-                        ElementStorage::Managed { alignment, .. } => {
+                        ElementStorage::RuntimeOwned { alignment, .. } => {
                             self.emit_managed_element_put(&pointer, value, alignment)?;
                         }
                         ElementStorage::Canonical { .. } => {
@@ -253,7 +252,7 @@ impl FunctionEmitter<'_> {
             return None;
         }
         let value = self.types.value(element)?;
-        Some(ElementStorage::Managed {
+        Some(ElementStorage::RuntimeOwned {
             stride: value.size,
             alignment: value.alignment,
         })

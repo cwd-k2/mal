@@ -102,7 +102,7 @@ impl Checker {
                     .with_primary(
                         span,
                         format!(
-                            "`{}` is not known to be an immutable value that a Buffer can hold",
+                            "`{}` is not known to satisfy the Buffer element lifecycle contract",
                             super::super::types::type_name(element)
                         ),
                     )

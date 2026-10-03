@@ -18,7 +18,8 @@ target幅のunsigned量である。両者は別のsource typeで、literal suffi
 
 ## Storable
 
-Buffer elementはmal-ownedなimmutable値だけである。compilerは閉じた`Storable(A)` judgmentを持つ。
+Buffer elementは、Buffer storageがcarrierのlifetimeを保持し、read、replace、relocation、place終了を完結できる型である。
+compilerは閉じた`Storable(A)` judgmentを持つ。
 
 ```text
 Storable(Unit)
@@ -29,15 +30,21 @@ Storable(USize)
 Storable(Symbol)
 Storable((A...))       if all Storable(A)
 Storable([A...])       if the sum has at least two variants and all Storable(A)
+Storable(Buffer<A>)    if Storable(A)
 ```
 
-function、external opaque type、`Buffer<A>`、empty sumはstorableでない。transparent aliasは展開後に判定し、file-local opaque typeは
-hidden representationから判定する。
+function、external opaque type、empty sumはstorableでない。transparent aliasは展開後に判定し、file-local opaque typeは
+hidden representationから判定する。nested Bufferも同じ規則を再帰的に満たさなければならない。
 `Buffer<A>`は`Storable(A)`の場合だけwell-formedである。
 
-storableな要素は`Buffer`とfunctionを含まないので、Buffer storageから別のBufferやclosureへのedgeは生じず、要素の
-aliasが後の変更を観測することもない。`Symbol`はimmutableなbytesであり、Bufferは格納した`Symbol`をBufferが到達不能に
-なるか要素が上書きされるまで保持する。
+Buffer elementのread、append、replace、fill、copyはcarrierについてshallowである。要素がBuffer handleなら、返した値と格納された値は
+同じ内側identityを指し、そのidentityへの変更を共有観測する。外側Bufferのreplaceは格納したhandleだけを置き換え、内側Bufferを
+deep copyしない。
+Bufferは格納した`Symbol`またはBuffer handleのresponsibilityを外側Bufferが到達不能になるか要素が上書きされるまで保持する。
+
+functionを除く理由はmutable identityではない。closure environmentの型にはcapture edgeが現れず、同じBufferをcaptureしたclosureを
+そのBufferへ格納するとreference-counted ownership cycleを型から検出できない。Buffer handleの入れ子は、表現に寄与するrecursive
+typeがなくfile-local opaque representationの再帰も拒否されるため、このhidden back-edgeを導入しない。
 
 ## Representable
 
@@ -128,8 +135,9 @@ receiver-firstでない形は`fill(buffer, offset, length, value)`と
 operationのoperandはsource順に一度だけ評価する。count、capacity、range末尾、stride、allocation byte数をtargetで表現できない場合と
 allocationに失敗した場合はtrapする。stride 0でもcountとrange末尾のoverflowはtrapする。
 
-Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argumentに置ける。Buffer elementは
-[Storable](#storable)に限る。`get`は格納された値を返し、`put`、`fill`、`copy`が上書きした要素は以後Bufferから到達できない。
+Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argument、別のBufferのelementに置ける。
+Buffer elementは[Storable](#storable)に限る。`get`は格納されたcarrierを返し、`put`、`fill`、`copy`が上書きしたcarrierは以後その
+placeから到達できない。handle elementではcarrierの複製が同じreferentへのauthorityを保存し、referentを複製しない。
 canonical layoutを持たないstorableな要素のBuffer storageは実装が決め、mal codeからもC hostからも観測できない。
 
 ## Symbol conversion

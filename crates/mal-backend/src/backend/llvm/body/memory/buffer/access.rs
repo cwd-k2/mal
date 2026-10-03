@@ -56,7 +56,7 @@ impl FunctionEmitter<'_> {
                 };
                 self.emit_aligned_source_store_at(storage, value)?;
             }
-            ElementStorage::Managed { alignment, .. } => {
+            ElementStorage::RuntimeOwned { alignment, .. } => {
                 let value_type = self.types.value(&value.ty)?;
                 emit_instruction! {
                     self;

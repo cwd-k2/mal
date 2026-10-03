@@ -2,7 +2,7 @@
 
 Status: Exploratory support document
 
-この文書は、compilerを変えずにPool案を動かした二つの試作と、その結果を管理する（2026-09-30から10-01）。試作のsourceはrepositoryに含めず、
+この文書は、compilerを変えずにPool案を動かした二つの試作と、その結果を管理する（2026-09-30から10-03）。試作のsourceはrepositoryに含めず、
 結論と、その結論が依拠する条件だけを記録する。IxPool APIは[Pool primitive](api/pool.md)、試作から抜き出したcodeは
 [列のcontainer](containers/sequences.md)と[keyで引くcontainer](containers/keyed.md)を正とする。
 
@@ -20,6 +20,8 @@ step 6から8の一部に当たる。
 
 ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
 知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。
+同じ理由で、両試作の`freeze`と`thaw`もcopyする。productionではresponsibility planが一意な最終利用を証明した場合だけstorageを
+moveできるが、その情報を観測できない試作で共有やmoveを仮定しない。
 
 核はpoolのconstructor `F`をkeyに持つoperation familyとして書き、IxPoolとImPoolで一つの名前を共有した。更新はどれもpoolを
 返し、IxPoolは同じidentityへのhandleを、ImPoolはsuccessor snapshotを返す。周辺は`F`の上に一度だけ書け、IxPool上のcontainerとImPool上の
@@ -40,8 +42,9 @@ loopの向きを選ぶ。同じBufferで前後どちらへ重なる`copy`も、�
 
 Buffer上のemulationで、[Vector](containers/sequences.md#vector)の`Vector<T>`をImPoolの上に書いた。更新は前の値を変えず、`freeze`の
 後のIxPoolへの書き込みも、`thaw`したIxPoolへの書き込みも、値と他のIxPoolから観測されないことを確かめた。`Symbol`を要素に
-しても、valgrindで全allocationの解放とerror 0を確かめた。現行仕様ではemulationのImPoolはBufferを含むため`Storable`にならず、
-`Vector<Vector<T>>`は確かめていない。proposalの[拡張後の`Storable`](model/identity.md#storableの原理)ではこの制限を外す。
+しても、valgrindで全allocationの解放とerror 0を確かめた。D096の採択後は`Vector<Vector<T>>`も動かし、外側の更新が内側Vectorを
+変更しないことを確かめた。Buffer handleを要素にしたVectorでは、外側snapshotがhandle carrierを保存し、内側identityの変更を
+共有観測することも確かめた。
 要素を`takeAt`で取り出して更新し、戻す`vectorUpdate`は、外側のplaceにreferenceを残さず
 responsibilityを移す更新経路として動いた。内側への別aliasまで排除するものではない。
 
@@ -50,9 +53,8 @@ responsibilityを移す更新経路として動いた。内側への別aliasま�
 Buffer上のemulationで、binary heapを核と周辺の返すpoolを引き回す形でconstructor `F`について一度だけ書き、IxPoolとImPoolの
 両方で動かした。IxPool上では返り値を捨ててaliasから同じheapを観測でき、ImPool上では途中の値が後のpushとpopで変わらなかった。
 擬似乱数の300個をpushしてpopした結果は両方で減少せず、valgrindで全allocationの解放とerror 0を確かめた。handle版とsnapshot版の
-containerに別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。現行仕様ではemulationのImPoolが`Storable`にならないため、
-snapshot版のheapを実際に入れ子にすることは確かめていない。proposal採択時にはhandle elementのstructural snapshotと合わせて
-再検証する。
+containerに別のsourceは要らない（[入れ子](model/identity.md#入れ子)）。snapshot版heap自体の入れ子はまだ確かめていないが、同じ
+representationを使うnested Vectorとhandle elementのstructural snapshotはD096採択後の試作で検証した。
 
 ## slot遷移とcontainer
 
@@ -66,14 +68,28 @@ snapshot版のheapを実際に入れ子にすることは確かめていない�
 - Buffer上のemulationで`Symbol`を要素にしたMap、Deque、heap、SlotMapを動かし、valgrindで全allocationの解放とerror 0を
   確かめた。`takeAt`と`initAt`による移動は、managed valueのresponsibilityを一つに保った。
 
-## `peek`とstorageの共有
+## `peek`とsnapshot変換
 
-C host試作ではbyte IxPoolのstorageを`Symbol`相当のtextと共有した。snapshotはO(1)で、以後どちらかへ書いた側だけがcopyした。
-逆向きの変換は、textが一つの葉ならstorageを貸し、それ以外は一度だけflattenした。
+C host試作の初版ではbyte IxPoolのstorageを`Symbol`相当のtextと共有し、以後の書き込みでcopy-on-writeした。この方式はsnapshotの
+意味を満たすが、liveなIxPoolの全ての書き込みにstorageの一意性検査を課す。選択した実装方針では、共有中のIxPoolとsnapshotを
+同時に残さず、通常はcopyし、一意な最終利用だけstorageをmoveする。このため試作も両方向の変換をcopyへ改めた。external handleを
+使うC hostもBuffer上のemulationもsource responsibilityを観測できず、move可能な場合を測定しない。
 
-読み出しを書き込みの組で派生させると、読むだけで共有storageのcopyが起き、読み出しだけのscenarioでcopy-on-writeのcopyが二回から
-三回に増え、探索ごとのhost callも倍になった。`peek`は書き込まず、copyは書いた側の二回だけである。[区分](api/pool.md#区分)が`peek`を
-計算量の核に置くのはこのためである。
+`peek`はこのstorage戦略とは独立に、slotを変更しない読み出しである。読み出しを書き込みの組で派生させると、探索ごとのhost callと
+lifecycle処理が増える。[区分](api/pool.md#区分)が`peek`を計算量の核に置く理由は、copy-on-writeの有無ではなく、readをslot交換から
+独立させることにある。
+
+## 現行Bufferから見た導入境界
+
+現行実装の照合では、`Buffer<Buffer<T>>`に必要なBuffer handleの再帰的retain/releaseとmanaged element callbackが既にあった。
+D096はfrontend admissionを開き、alias、上書き、成長、重なるcopy、解放を通すpositive testを追加した。試作でもnested Vectorと
+Buffer handle elementが同じruntime-owned pathで動く。
+
+external opaque carrierはlifecycle上はTrivialだが、canonical representationを持たない。現行Buffer storageの分類はcanonical elementと
+runtime-owned elementの二択なので、この型を置くruntime-value storageを表せない。こちらはfrontendの拒否を外す前に、
+`ElementStorage = Canonical(layout) | Runtime(layout, Lifecycle)`という分離が必要になる。詳細と導入順は
+[compilerとruntimeの実装](runtime/implementation.md#現行bufferから分離する実装境界)を正とする。試作ではこの拒否をtransition
+probeとして固定し、実装後はTrivial carrierのpositive testへ置き換える。
 
 ## Vectorとhostとの交換
 
@@ -89,8 +105,8 @@ offsetより前の範囲を読み戻して書き直しており、本物のprimi
 
 同じtextの操作を、AVL木のropeと、現在の`Symbol`のflatなbyte ownerの方式で比べた。flatな方式では、consumingな`+`が一意な
 ownerをその場で伸ばす。1.4 MBの行の反転、split、比較、書き出しはflatが4〜12倍速く、ropeが勝ったのは大きなtextの中央への
-挿入の反復だけだった。IxPoolとのstorage共有とcopy-on-writeはどちらでも成り立つため、`Symbol`の表現はflatのままでよく、
-ropeはIxPool上の別containerとして持つ方が合う。
+挿入の反復だけだった。immutableなtext内部のstorage共有はどちらでも成り立ち、Poolとのsnapshot変換とは独立である。
+`Symbol`の表現はflatのままでよく、ropeはIxPool上の別containerとして持つ方が合う。
 
 ## IxPoolとBufferの非対称
 

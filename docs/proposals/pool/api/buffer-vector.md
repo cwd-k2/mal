@@ -103,8 +103,9 @@ host storageのdereferenceと`Symbol`の専用表現の構築だけはmalで書�
 
 Pool案の正規形では、BufferはIxPoolへdense sequence invariantとgrowth policyを加えたpreludeのopaque型である。参照実装は
 [Buffer実装](../containers/buffer.md)が定める。`make`、`new`、`get`、`put`、`fill`、`copy`、`#`の意味、評価順、alias、
-未検査precondition、overflow trapは現行仕様から変えない。elementの型形成だけは
-[拡張後の`Storable`](../model/identity.md#storableの原理)へ揃え、BufferやPool handleも要素にできる。
+未検査precondition、overflow trapは現行仕様から変えない。elementの型形成は既に
+[place lifecycleとしての`Storable`](../model/identity.md#storableの原理)へ揃い、Buffer handleを要素にできる。Pool採択時にはPool handleも
+同じ規則で要素に加える。
 
 | operation | 参照実装上の位置 |
 |---|---|

@@ -88,12 +88,12 @@ fn checks_storable_requirements_of_a_selected_implementation() {
 
     let rejected = check_ok(&format!(
         "{header}main :: Unit -> Int32 := () -> {{\n\
-             inner :: Buffer<Int32> := make(1usize);\n\
-             wrap<Id>(inner);\n\
+             callback :: Int32 -> Int32 := (value) -> value;\n\
+             wrap<Id>(callback);\n\
              0i32;\n\
          }};"
     ));
-    let error = check::specialize(rejected).expect_err("a Buffer element");
+    let error = check::specialize(rejected).expect_err("a function element");
     assert_eq!(
         error.message,
         "operation instance violates a Storable requirement"

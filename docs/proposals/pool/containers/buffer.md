@@ -158,14 +158,16 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 
 ## 現行Bufferとの差分
 
-- elementの型形成をplace lifecycleとしての`Storable`へ揃え、`Buffer<Buffer<T>>`、`Buffer<IxPool<M, V>>`、
-  `Buffer<ImPool<M, V>>`、external opaque carrierを認める。handle elementの`get`、`fill`、`copy`は同じidentityへのauthorityを保存する
-  shallowなcarrier operationである。functionはclosure cycleのため引き続き除外する。
+- elementの型形成は[D096](../../../history/decisions/active/D096.md)でplace lifecycleとしての`Storable`へ揃い、
+  `Buffer<Buffer<T>>`を認めた。Pool採択時には`Buffer<IxPool<M, V>>`と`Buffer<ImPool<M, V>>`を同じ規則へ加える。external opaque
+  carrierはruntime-value Trivial storageの後続decisionに分ける。handle elementの`get`、`fill`、`copy`は同じidentityへのauthorityを
+  保存するshallowなcarrier operationであり、functionはclosure cycleのため引き続き除外する。
 - `from`と`into`の意味はVectorのadmissionとobservationから導ける。既存名を残すかは互換性のdecisionとし、他のoperationの意味、
   評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolとVectorのprimitiveを持つ。
-- 現行runtimeはBuffer storageをSymbolと同じbyte ownerで持つため、`*symbol`でstorageを共有できる。`IxPool<Meta, UInt8>`は
-  [canonical layout](../runtime/contract.md#runtime-representation)のbyte列を持つので、slot storageをbyte ownerにすれば共有を保てる。
+- 現行runtimeはBuffer storageをSymbolと同じ形のbyte ownerで持つが、`*`の意味は独立したsnapshotであり、通常はcopyする。
+  `IxPool<Meta, UInt8>`もcanonical byte列を持てるため、last useとruntime上の一意性を証明できる場合だけownerを移す。同時にliveな
+  Buffer aliasとSymbolまたはVectorの間でwritable storageを共有することは要求しない。
 - `*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
   representation選択とMeta=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
 - predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。

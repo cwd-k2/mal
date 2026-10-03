@@ -510,3 +510,24 @@ main :: Unit -> Int32 := () -> {
     options.fill(0usize, 2usize, [none, some] => some(value(options.get([index] => index(1usize))) + 1i32));
     if (value(options.get(0usize)) == 5i32 && value(options.get(1usize)) == 5i32) then 0 else 1
 };
+### nested_buffers_preserve_handle_identity_and_lifetime | run:0
+main :: Unit -> Int32 := () -> {
+    first := make<UInt64>(1usize);
+    first.new(10u64);
+    second := make<UInt64>(1usize);
+    second.new(20u64);
+    outer := make<Buffer<UInt64>>(1usize);
+    outer.new(first);
+    outer.fill(1usize, 2usize, first);
+    outer.new(second);
+    held := outer.get(0usize);
+    outer.put(0usize, second);
+    outer.copy(1usize, outer, 0usize, 3usize);
+    held.put(0usize, 31u64);
+    aliasObserved := outer.get(3usize).get(0usize) == 31u64;
+    replacementObserved := outer.get(0usize).get(0usize) == 20u64;
+    outer.put(3usize, second);
+    if (aliasObserved && replacementObserved && held.get(0usize) == 31u64 && #outer == 4usize)
+    then 0
+    else 1
+};

@@ -199,13 +199,16 @@ fn forms_buffers_of_symbols_and_aggregates_of_symbols() {
 
 #[test]
 fn keeps_c_host_copy_limited_to_representable_elements() {
-    let error = check_error(
+    for source in [
         "read :: Address -> Buffer<Symbol> := (address) -> from<Symbol>(address, 0usize, 1usize);",
-    );
-    assert_eq!(
-        error.message,
-        "memory intrinsic requires a Representable element type"
-    );
+        "read :: Address -> Buffer<Buffer<Int32>> := (address) -> from<Buffer<Int32>>(address, 0usize, 1usize);",
+    ] {
+        let error = check_error(source);
+        assert_eq!(
+            error.message,
+            "memory intrinsic requires a Representable element type"
+        );
+    }
 
     let error = check_error(
         "read<A> :: Address -> Buffer<A> := (address) -> from<A>(address, 0usize, 1usize);",

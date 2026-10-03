@@ -6,8 +6,9 @@ Status: Exploratory support document
 `Storable`、`Representable`、`HostMappable`の境界を管理する。Pool全体のauthorityは
 [根本モデル](foundations.md#authority)、responsibilityの遷移は
 [runtime contract](../runtime/contract.md#responsibility)、ImPoolのAPIは[Pool primitive](../api/pool.md#impool)を正とする。
-現行仕様の`Storable`は[AddressとBuffer](../../../spec/memory.md#storable)に定める。本書の拡張案を採択する場合は、
-[D075](../../../history/decisions/active/D075.md)を後続decisionで置き換え、現行仕様を同じ変更で更新する。
+現行仕様の`Storable`は[AddressとBuffer](../../../spec/memory.md#storable)に定める。Buffer handleのadmissionは
+[D096](../../../history/decisions/active/D096.md)で先に採択した。本書に残る拡張はexternal opaque carrierとPool carrierであり、
+それぞれ実装可能性とPool採択に対応する後続decisionで現行仕様を更新する。
 
 ## 判定が答える問い
 
@@ -63,7 +64,7 @@ local  ──┘
 - physical relocationでsource上のauthorityと観測を変えない。
 - 現在の回収方式で、型から見えないowner back-edgeをstorageへ導入しない。
 
-Pool proposalでは、現行`Storable`を次へ広げる。
+現在のBuffer規則とPool proposalを合わせた到達形は次になる。
 
 ```text
 Storable(Unit | numeric scalar | Address | ByteSize | USize | Symbol)
@@ -80,14 +81,15 @@ not Storable(empty sum)
 transparent aliasは展開後、file-local opaque型はhidden representationから判定する。external opaque carrierを保存してもhost
 resourceのlifetimeは延長しない。これは`Address`を保存する場合と同じであり、保存されたcarrierの有効性は元のextern contractに従う。
 
-`Buffer<Buffer<T>>`、IxPool handleを要素にするIxPool、mutable containerをpayloadに持つMapは、この規則でwell-formedになる。
+`Buffer<Buffer<T>>`は既にこの規則でwell-formedである。IxPool handleを要素にするIxPool、mutable containerをpayloadに持つMapも、
+Pool採択後は同じ規則でwell-formedになる。
 readが返すhandleは同じidentityを指し、`fill`と`copy`もhandle carrierのshallow copyになる。この観測はIxPoolと現行Bufferの
 handle semanticsから直接決まり、特別なnested-container semanticsを追加しない。
 
 functionを除く理由はmutable identityではなく、closure environmentの型にcaptureが現れないことである。containerにclosureを保存し、
 そのclosureが同じcontainerをcaptureすると、型構造から検出できないowner cycleを作れる。BufferやPoolのhandle nestingは、表現に寄与する
-再帰型がなくfile-local opaque representationの再帰も拒否されるため、owner edgeの型構造が真に小さくなる。したがってD075が一緒に
-扱っていたhandle aliasとclosure cycleは分離できる。
+再帰型がなくfile-local opaque representationの再帰も拒否されるため、owner edgeの型構造が真に小さくなる。D096はD075が一緒に
+扱っていたhandle aliasとclosure cycleをこの理由で分離した。
 
 将来、cycleを回収するmechanismまたはcapture effectを導入すればfunctionの`Storable`を再検討できる。これはhandle nestingの採択条件
 ではない。plugin-defined Engram leafは自動的にStorableにしない。trusted extensionがlayout、Share、Drop、relocationと、保持するMal owner edgeを
@@ -97,8 +99,8 @@ carrierなので、このplugin条件とは別である。
 ## `Managed`へ改名しない理由
 
 `Storable`を`Managed`へ単に改名しない。現在のimplementationでmanaged valueとは、ownerを持ちShareとDropのglueを必要とする
-carrierを指す。scalarと`Address`はStorableだがmanagedでなく、functionとBufferはmanagedだが現行仕様ではStorableでないため、
-二つは同じ集合ではない。
+carrierを指す。scalarと`Address`はStorableだがmanagedでなく、functionはmanagedだがStorableでない。Bufferは両方だが、これだけで
+二つの判定は同一にならない。
 
 実装は型ごとに次のlifecycle planを持てばよい。
 
@@ -180,9 +182,9 @@ serializationやMap keyには、extern capabilityを含まないこと、equalit
 - closure cycleはfunctionのstorage admissionとして個別に残し、mutable identity一般を除外しない。
 - deep snapshotやkey stabilityの要求が複数のAPIで一致するまで`Stable`をcompiler judgmentにしない。
 
-現行Bufferのelement restrictionは、Bufferだけの局所的な制限として残すより、Pool採択前の独立段階でD075を後続decisionにより
-置き換え、同じ`Storable`へ揃える。
-そうしなければIxPool上のBufferだけがhandleを保存でき、primitive Bufferが保存できないという二つのstorage modelが残る。
+Buffer handleのelement restrictionは[D096](../../../history/decisions/active/D096.md)でPool採択前に外し、place lifecycleとしての
+`Storable`へ揃えた。これによりIxPoolだけがhandleを保存できる二つのstorage modelは避けられた。残るexternal opaqueのadmissionは
+`Runtime(_, Trivial)` storageを実装・検証してから別に採択する。
 
 ## 入れ子
 

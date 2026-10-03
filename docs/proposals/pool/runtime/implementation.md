@@ -33,6 +33,50 @@ runtimeが型ごとに必要とするglueは、上の表で「primitive内」に
 LLVM backendにはmanaged valueの型再帰的なretain/release、managed placeのinitialize/replace/vacate、Buffer elementごとの
 callback生成が既にある。IxPoolはこのloweringの新しい利用者になり、別の型再帰を持たない。
 
+## 現行Bufferから分離する実装境界
+
+現行BufferをPool導入の起点として読むと、変更は一枚岩ではない。既にあるmechanismと、現在の分類では表せない部分を分ける。
+
+| 現行箇所 | 既にあるもの | 導入前に必要な整理 |
+|---|---|---|
+| frontend `types/properties` | place lifecycleとしての`Storable`、nested Bufferのadmission、requirementの再帰 | external opaque carrierをadmitする。functionとempty sumは拒否を保つ |
+| execution ownership | product、sum、Symbol、Buffer、functionを再帰するmanaged判定 | `Storable`とmanagedを同じ判定にせず、後者をlifecycle planとして明示する |
+| LLVM value lifetime | Buffer handleを含むproductとsumの再帰的retain/release | nested Bufferのelement callbackから同じ処理を再利用する。Pool handle追加時も別の型再帰を作らない |
+| LLVM Buffer storage | `Canonical`と、callbackを持つ`RuntimeOwned`の二分類。nested Bufferは後者で動作する | non-RepresentableだがTrivialなexternal opaque carrierを置けるruntime-value storageを分離する |
+| C Buffer runtime | plain storageと、element retain/release callbackを持つstorage。nested Bufferは既存managed pathを使う | Trivialなruntime-value elementにはcallbackを課さない |
+| Buffer host operation | canonical layoutだけを扱う`from`と`into` | `Representable`制限を保ち、Storable拡張から独立させる |
+
+特にstorage分類は、canonical representationとlifecycleを一つの二択へ押し込まない。導入時の概念形は次である。
+
+```text
+ElementStorage(T) = Canonical(layout)
+                  | Runtime(layout, Lifecycle(T))
+
+Lifecycle(T) = Trivial
+             | Owned(share glue, drop glue)
+```
+
+`Buffer<Buffer<T>>`は`Runtime(_, Owned)`となり、[D096](../../../history/decisions/active/D096.md)でfrontend admissionと
+positive runtime testまで採択した。external opaque carrierは`Runtime(_, Trivial)`となる。現在は非Representableかつ
+非managedな型を`ElementStorage`へ分類できないため、frontendだけを緩めるとartifact emissionで失敗する。
+
+この分解を先に現行Bufferへ適用すると、Pool固有のoccupancy、Meta、`Store`を導入する前に、`Storable`とlifecycle planの境界を
+検証できる。`Canonical`を`Runtime(_, Trivial)`へ統合する必要はない。前者はhost bulk copyと既存の最適化を所有し、後者は
+canonical memoryへ出せないruntime carrierを保持する。
+
+残る導入は次の依存順に分ける。一つの`Storable`緩和として同時に着手しない。
+
+1. callbackのない`Runtime(_, Trivial)`を追加してexternal opaque carrierをadmitする。`from`と`into`は引き続き`Representable`だけを
+   受け、external carrierをhost bulk copyへ通さない。
+2. 現行の型再帰的なmanaged判定を、Pool loweringも消費する時点で`Lifecycle` planとして名前付きにする。通常値のretain/release、
+   Buffer element callback、Pool element callbackが同じplanを使い、別の型再帰を持たない。
+3. このBufferで確かめた`Lifecycle`と`ElementStorage`をIxPoolとImPoolのMetaおよびslotへ使う。Pool用に第三の型分類や別のglue再帰を
+   作らない。
+
+D096では既存の`RuntimeOwned` mechanismだけでnested Bufferを通せたため、利用者が一つしかない段階で抽象的な`Lifecycle` data typeを
+先行追加しなかった。残る順序では、欠けているrepresentation category、複数consumerが生じるlifecycle plan、Pool固有のstate machineを
+別々に失敗へ局所化できる。
+
 ## lowering boundary
 
 Pool operationはsource primitive、LLVM instruction、C runtime functionを一対一に対応させない。各層は次を所有する。
@@ -165,9 +209,9 @@ Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表�
 ## 検証の段階
 
 1. opaque identity、file-local representation view、別fileからの構築と分解の拒否をfrontend testで固定する。
-2. `Lifecycle(T) = Trivial | Owned(share, drop)`を通常値、現行Bufferのelement callback、closure environment destructorで共有し、
-   `Buffer<Buffer<T>>`、managed aggregate、external opaque carrierを現行Buffer上で検証する。これは拡張`Storable`を採択仕様へ移す
-   独立decisionを必要とするが、Pool primitiveの実装には依存しない。
+2. D096で検証済みの`Buffer<Buffer<T>>`とmanaged aggregateに加え、external opaque carrierを`Runtime(_, Trivial)`として現行Buffer上で
+   検証する。その後`Lifecycle(T) = Trivial | Owned(share, drop)`を通常値、Buffer element callback、closure environment destructorで
+   共有する。external opaqueのadmissionはPool primitiveに依存しない独立decisionとする。
 3. backend内部にIxPoolの核と周辺operationを置き、unmanaged Metaとelementで実行する。
    zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
 4. `Symbol`、nested Buffer、nested Pool handleとmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの

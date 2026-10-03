@@ -4,9 +4,10 @@ This directory lowers core `BufferOperation` values. The C runtime owns capacity
 owns element representation, reference-counting callbacks, and typed loads and stores.
 
 `ElementStorage` is the central classification. `Canonical` elements use the source-memory layout and can be
-copied through the host-memory primitives. Managed elements without a canonical representation use their LLVM
-runtime layout and the retain/release callbacks collected by `ManagedBufferElements`. An element must fit one of
-those categories before emission.
+copied through the host-memory primitives. `RuntimeOwned` elements use their LLVM runtime layout and the
+retain/release callbacks collected by `ManagedBufferElements`; this includes `Symbol` and nested `Buffer` carriers.
+An element must fit one of those categories before emission. Whether a source type is `Storable` remains a frontend
+admission rule and is not inferred from this representation choice.
 
 The implementation is split as follows:
 

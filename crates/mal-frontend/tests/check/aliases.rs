@@ -148,12 +148,12 @@ fn allows_source_aliases_named_index() {
 
 #[test]
 fn forms_buffer_types_only_for_storable_elements() {
+    check_ok("Inner :: Buffer<UInt8>; Outer :: Buffer<(Int32, Inner)>;");
+
     for source in [
         "Callback :: Int32 -> Int32; value :: Buffer<Callback> := 0;",
         "value :: Buffer<[]> := 0;",
-        "value :: Buffer<Buffer<UInt8>> := 0;",
         "extern Handle; value :: Buffer<Handle> := 0;",
-        "value :: Buffer<(Int32, Buffer<UInt8>)> := 0;",
         "value :: Buffer<[Unit, Unit -> Unit]> := 0;",
     ] {
         assert_eq!(

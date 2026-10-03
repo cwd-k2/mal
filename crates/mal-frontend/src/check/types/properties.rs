@@ -13,15 +13,15 @@ pub(in crate::check) fn ensure_buffer_storable(ty: &Type, span: Span) -> Result<
         Diagnostic::error("buffer element type is not storable").with_primary(
             span,
             format!(
-                "`{}` is not an immutable value that a Buffer can hold",
+                "`{}` does not satisfy the Buffer element lifecycle contract",
                 type_name(offending)
             ),
         ),
     )
 }
 
-/// A Buffer element is an immutable value: it holds no `Buffer`, function, or external opaque value, so element
-/// storage forms no ownership cycle and no alias observes a later mutation.
+/// A Buffer element has a lifecycle the runtime can preserve through place operations. Buffer handles recurse into
+/// their element type; functions remain excluded because their hidden captures can create ownership cycles.
 fn first_unstorable_type(ty: &Type) -> Option<&Type> {
     let mut pending = vec![ty];
     let mut visited = HashSet::new();
@@ -34,7 +34,8 @@ fn first_unstorable_type(ty: &Type) -> Option<&Type> {
             Type::Product(elements) | Type::Sum(elements) if !elements.is_empty() => {
                 pending.extend(elements.iter().rev());
             }
-            Type::External { .. } | Type::Function { .. } | Type::Buffer(_) | Type::Sum(_) => {
+            Type::Buffer(element) => pending.push(element),
+            Type::External { .. } | Type::Function { .. } | Type::Sum(_) => {
                 return Some(ty);
             }
             Type::Abstraction { .. } => return Some(ty),
@@ -153,6 +154,7 @@ fn satisfies_requirement(ty: &Type, available: &[Type], symbols: bool) -> bool {
             | Type::ByteSize
             | Type::USize => {}
             Type::Symbol if symbols => {}
+            Type::Buffer(element) if symbols => pending.push(element),
             _ => return false,
         }
     }
