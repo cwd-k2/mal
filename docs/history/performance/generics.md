@@ -56,10 +56,17 @@ Callgrind上のinstruction比ほどwall-clock差は大きくない。採択判�
 
 `control`は最終LTO moduleが`main`一つ、callとallocationが0になり、generic callback、sum branch、closure carrierは残らない。
 CとMalのpre-codegen IRはいずれも同じrecurrenceを8 step展開するが、最終machine loopはCが8 instruction、Malが13 instructionである。
-C source由来のSSAではaffine recurrenceが一つのmultiplyへまとまり、Malのfunction inline後のSSAでは二つのmultiplyと追加のindex updateが
-残る。pre-codegen IRへの二度目の`-O2`と`llvm.loop.mustprogress`追加では形が変わらなかった。したがって差はruntime generic dispatchや
-loop stateの意味ではなく、同値なscalar recurrenceのinstruction placementに対するLLVM machine combineの感度である。
-Rustの命令数はMalとほぼ同じだった。
+後続調査では、二つの最終IRに残る漸化式そのものではなく、loop headerに並ぶ二つの`phi i64`の順序まで原因を狭めた。Cはindex、state、
+Malはstate、indexの順である。Malの最終IRでこの二行だけを入れ替えて同じLLVM 21へ渡すと、演算やmetadataを変えずにCと同じ
+8 instruction形になった。exit blockの配置、`llvm.loop.mustprogress`、`min-legal-vector-width`、callbackの`alwaysinline`は結果を
+変えなかった。したがって差はruntime generic dispatch、sum、closure、loop stateの意味、あるいはMalの漸化式の消去失敗ではなく、
+同値なSSAのPHI worklist順序に対するLLVM MachineCombinerの感度である。Rustの命令数はMalとほぼ同じだった。
+
+現行backendは自己末尾parameterをentry allocaへ分解して更新し、LLVMのSROAとmem2regが後からPHIを作る。この経路ではsource productの
+field順を最終PHI順として保証できない。store順の反転や無意味な先行loadを加える修正はLLVMのworklistへ依存する別のheuristicにすぎず、
+採用しない。一般的な改善境界は、自己末尾parameterのunmanaged leafをbackendで明示的なSSA loop carrierへlowerし、複数tail edge、
+managed leaf、drop edgeを従来slotへfallbackさせることである。この変更はgeneric消去ではなくself-tail loweringの責務として扱い、
+artifact testでPHIの意味上のfield順を固定してから全再帰corpusを測る。
 
 `map`も最終moduleは`main`、trap、Buffer destructorの3 definitionだけで、operation dictionaryやtype inspectionはない。
 初期化、put、getはdirect loopへinlineされている。Malのinstruction差は48-byteのtagged slot、Buffer countとprobe終了条件、
@@ -202,8 +209,9 @@ representationとlifecycleを再帰できることを確認している。
 2. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
    任意capacity co-allocationを繰り返さない。byte ownerへ変換されないこととaccess patternを区別できるprogram factを得てから別案を測る。
    shared identity、独立lifetime、growth後のdata pointer再取得を保つ。
-3. `control`の13-instruction recurrenceをCの8-instruction形と比較し、callback inline後の同値なSSAをmachine combineが認識する
-   canonical formへ置けるかを調べる。generic消去やloop semanticsの変更ではなくscalar IR canonicalizationとして扱う。
+3. `control`の13-instruction recurrenceはPHI順序だけでCの8-instruction形へ変わることを確認した。局所的なstore順調整は採らず、
+   自己末尾parameterのunmanaged leafを明示的なSSA loop carrierへするbackend変更として扱う。generic消去やloop semanticsは
+   変更せず、複数tail edgeとmanaged fallbackを先に定義する。
 
 IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorやclosure arenaへ拡張しない。Pool source semanticsとLLVM loweringを
 導入する時点では、今回のBuffer lifecycle、allocation分布、generic erasureを比較基準に使うが、無関係なoptimizer責務をIxPoolへ
