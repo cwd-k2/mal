@@ -44,7 +44,7 @@ fn serves_initialize_and_shutdown_over_stdio() {
 }
 
 #[test]
-fn invalid_source_hover_is_an_empty_result_not_a_protocol_error() {
+fn check_error_keeps_healthy_hover_available_over_stdio() {
     let mut child = Command::new(env!("CARGO_BIN_EXE_mal-lsp"))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -57,7 +57,7 @@ fn invalid_source_hover_is_an_empty_result_not_a_protocol_error() {
             "jsonrpc": "2.0", "method": "textDocument/didOpen",
             "params": {"textDocument": {
                 "uri": "file:///invalid.mal", "languageId": "mal", "version": 1,
-                "text": "good :: Int32 := 1;\nbad :: Int32 := ;\n"
+                "text": "good :: Int32 := 1;\nbroken :: Unit -> Int32 := () -> { bad := (value) -> value; 0 };\n"
             }}
         }),
         json!({
@@ -90,7 +90,12 @@ fn invalid_source_hover_is_an_empty_result_not_a_protocol_error() {
         1
     );
     let hover = messages.iter().find(|message| message["id"] == 2).unwrap();
-    assert_eq!(hover["result"], Value::Null);
+    assert!(
+        hover["result"]["contents"]["value"]
+            .as_str()
+            .is_some_and(|contents| contents.contains("good :: Int32")),
+        "unexpected hover: {hover}"
+    );
     assert!(hover.get("error").is_none());
 }
 

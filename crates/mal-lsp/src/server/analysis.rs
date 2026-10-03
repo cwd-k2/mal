@@ -100,17 +100,18 @@ impl Server {
             return document.analyze_single(uri);
         };
         match mal_syntax::graph::load_with_overlays(&path, &document.text, &overlays) {
-            Ok(graph) => match mal_frontend::analysis::analyze_graph(&graph) {
+            Ok(graph) => match mal_frontend::analysis::analyze_graph_for_editor(&graph) {
                 Ok(analysis) => {
-                    // The program type-checks, so editor queries stay available beside a specialization error.
-                    let diagnostics =
-                        mal_frontend::analysis::specialization_error(&analysis.checked)
-                            .map(|diagnostic| graph_diagnostic(&graph, diagnostic))
-                            .into_iter()
-                            .collect();
+                    let diagnostics = analysis
+                        .check_diagnostic()
+                        .cloned()
+                        .or_else(|| analysis.specialization_error())
+                        .map(|diagnostic| graph_diagnostic(&graph, diagnostic))
+                        .into_iter()
+                        .collect();
                     document.analysis = AnalysisState::Ready {
                         graph: Some(graph),
-                        analysis,
+                        analysis: Box::new(analysis),
                         semantic: None,
                     };
                     diagnostics
@@ -168,8 +169,10 @@ impl Document {
         };
         if semantic.is_none() {
             *semantic = Some(Box::new(graph.as_ref().map_or_else(
-                || mal_frontend::editor::from_analysis_for_file(analysis, self.id),
-                |graph| mal_frontend::editor::from_graph_analysis(graph, analysis, graph.root()),
+                || mal_frontend::editor::from_editor_analysis_for_file(analysis, self.id),
+                |graph| {
+                    mal_frontend::editor::from_graph_editor_analysis(graph, analysis, graph.root())
+                },
             )));
         }
         semantic.as_deref()
@@ -177,15 +180,18 @@ impl Document {
 
     fn analyze_single(&mut self, uri: &str) -> Vec<Value> {
         let source = self.source(uri);
-        match mal_frontend::analysis::analyze(&source) {
+        match mal_frontend::analysis::analyze_for_editor(&source) {
             Ok(analysis) => {
-                let diagnostics = mal_frontend::analysis::specialization_error(&analysis.checked)
+                let diagnostics = analysis
+                    .check_diagnostic()
+                    .cloned()
+                    .or_else(|| analysis.specialization_error())
                     .map(|diagnostic| lsp_diagnostic(&source, diagnostic))
                     .into_iter()
                     .collect();
                 self.analysis = AnalysisState::Ready {
                     graph: None,
-                    analysis,
+                    analysis: Box::new(analysis),
                     semantic: None,
                 };
                 diagnostics

@@ -121,9 +121,10 @@ cargo run -p mal-lsp --locked
 module責務は[`crates/mal-lsp/README.md`](../../crates/mal-lsp/README.md)を正とする。
 
 full document sync、compiler diagnostic、document formattingに加え、hover、definition、references、rename、
-document symbol、completion、semantic token、inlay hintを提供する。semantic requestはsource全体がparse、resolve、checkに
-成功したときに利用できる。compiler diagnosticの範囲は`malc check`と同じであり、`main`を持つprogramのspecialization errorも
-報告するが、semantic requestは止めない。documentを開く、変更する、閉じるたびに、そのdocumentと、直前の解析でそのfileを
+document symbol、completion、semantic token、inlay hintを提供する。source全体がparse、resolveに成功すれば、check diagnosticが
+あっても最新versionのresolved identityと、top-level item単位でcheckに成功した型情報からsemantic requestへ応答する。
+compiler diagnosticの範囲は`malc check`と同じであり、`main`を持つprogramのspecialization errorも報告するが、semantic requestは
+止めない。documentを開く、変更する、閉じるたびに、そのdocumentと、直前の解析でそのfileを
 source graphから読んだopen document、およびsource graphを読み込めなかったopen documentだけを再解析する。`require`を含むsourceでは同じsource graphを解析し、definition、references、renameは
 `.mal` file境界を跨ぐ。document symbolとsemantic tokenはrequest対象fileだけを返し、completionはそのfile自身の名前と
 直接requireしたfileの公開名を返す。
@@ -148,13 +149,18 @@ diagnostic内容が直前のpublishから変わった場合だけpublishする�
 documentのsemantic analysis cacheは`Stale`、`Failed`、`Ready`のいずれかであり、source graphとsemantic indexはその状態に
 付随する。独立したfreshness flagとoptional resultの組合せは持たず、編集時には状態全体を`Stale`へ戻す。
 
-frontend analysisに失敗したversionでは、そのversionに対するsemantic requestをJSON-RPC errorにせず、hover、definition、renameは
+checkでtop-level itemが失敗したversionでは、そのitemを検査する間のchecker stateをrollbackし、後続の独立したitemを検査する。
+semantic indexはcurrent versionのresolved program全体からidentityを、成功したchecked fragmentだけから型、generic call-site detail、
+control exitを得る。したがってdefinition、references、renameは型を確定できないitemでもresolved identityを使えるが、hoverとinlay hintは
+確定した情報がないrequestだけ空結果にする。失敗itemをchecked programのerror nodeやunknown typeで埋めず、partial checked fragmentは
+editor専用analysisからcompilerのspecializationやloweringへ渡せない。
+
+parseまたはresolveに失敗したversionでは、そのversionに対するsemantic requestをJSON-RPC errorにせず、hover、definition、renameは
 結果なし、referencesとdocument symbolは空の結果として返す。semantic tokenはcurrent sourceのsyntax indexによる分類へfallbackし、
-completionは上記のreceiver-first contextに限ってsyntax indexから候補を返す。一度失敗した同一versionをsemantic
-requestごとに再解析しない。直前に成功したversionのsemantic indexは、編集やrequire先の変更で名前解決や型が変化している可能性が
-あるため再利用しない。syntax fallbackは型、parameter identity、参照先を推測せず、現在のtokenとtop-level function declarationだけを
-扱う。それ以上のpartial semantic resultには、parser、resolver、checkerがrecovery済み領域と依存関係を明示する別のadmitted表現を
-導入する。
+completionは上記のreceiver-first contextに限ってsyntax indexから候補を返す。一度失敗した同一versionをsemantic requestごとに
+再解析しない。直前に成功したversionのsemantic indexは、編集やrequire先の変更で名前解決や型が変化している可能性があるため
+再利用しない。syntax fallbackは型、parameter identity、参照先を推測せず、現在のtokenとtop-level function declarationだけを扱う。
+parser recovery ASTまたはresolved identityがない領域へsemantic resultを推測しない。
 
 ### inlay hint
 
@@ -172,7 +178,8 @@ result blockを越えて外側を完了するので、移り先の名前がそ�
 繰り返すだけなので示さない。一方、単位の途中の文にある`when`や直和除去は、そこで抜けるか下へ続くかが分かれる地点であり、
 外側の単位がどう終わるかにかかわらず、それぞれ示す。
 
-要求されたrangeに末尾が入るものだけを返し、semantic analysisに失敗しているversionでは空の結果を返す。
+要求されたrangeに末尾が入るものだけを返す。parseまたはresolveに失敗しているversionでは空の結果を返し、check diagnosticがある
+versionでは成功したchecked fragmentに属するhintだけを返す。
 
 ### hover
 

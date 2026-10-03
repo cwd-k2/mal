@@ -195,6 +195,118 @@ fn serves_cross_file_semantics_from_open_dependency_buffers() {
 }
 
 #[test]
+fn required_file_check_error_keeps_unaffected_graph_semantics() {
+    let files = TestFiles::new();
+    let root_text = "require \"library.mal\";\n\
+                     local :: Int32 := 2;\n\
+                     dependent :: Int32 := after;\n";
+    let library_text = "healthy :: Int32 := 1;\n\
+                        broken :: Unit -> Int32 := () -> {\n\
+                          bad := (value) -> value;\n\
+                          0\n\
+                        };\n\
+                        after :: Int32 := healthy;\n";
+    let root_path = files.write("program.mal", root_text);
+    let library_path = files.write("library.mal", library_text);
+    let root_uri = path_to_uri(&root_path);
+    let library_uri = path_to_uri(&library_path);
+    let mut server = Server::new();
+
+    let opened = server.handle(did_open(&root_uri, root_text));
+    assert!(
+        !opened.messages[0]["params"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+
+    let local = request_at(
+        &mut server,
+        36,
+        "textDocument/hover",
+        &root_uri,
+        root_text,
+        root_text.find("local").unwrap(),
+    );
+    assert!(
+        local["result"]["contents"]["value"]
+            .as_str()
+            .is_some_and(|contents| contents.contains("local :: Int32")),
+        "unexpected local hover: {local}"
+    );
+    assert!(local.get("error").is_none());
+
+    let reference = root_text.rfind("after").unwrap();
+    let dependency = request_at(
+        &mut server,
+        37,
+        "textDocument/hover",
+        &root_uri,
+        root_text,
+        reference,
+    );
+    assert!(
+        dependency["result"]["contents"]["value"]
+            .as_str()
+            .is_some_and(|contents| contents.contains("after :: Int32")),
+        "unexpected dependency hover: {dependency}"
+    );
+    assert!(dependency.get("error").is_none());
+
+    let definition = request_at(
+        &mut server,
+        38,
+        "textDocument/definition",
+        &root_uri,
+        root_text,
+        reference,
+    );
+    assert_eq!(definition["result"]["uri"], library_uri);
+    assert_eq!(
+        definition["result"]["range"]["start"],
+        text_position(library_text, library_text.find("after").unwrap())
+    );
+    assert!(definition.get("error").is_none());
+
+    let position = text_position(root_text, reference);
+    let references = server.handle(json!({
+        "jsonrpc": "2.0", "id": 39, "method": "textDocument/references",
+        "params": {
+            "textDocument": {"uri": root_uri}, "position": position,
+            "context": {"includeDeclaration": true}
+        }
+    }));
+    assert_eq!(
+        references.messages[0]["result"].as_array().unwrap().len(),
+        2
+    );
+    assert!(references.messages[0].get("error").is_none());
+
+    let rename = server.handle(json!({
+        "jsonrpc": "2.0", "id": 40, "method": "textDocument/rename",
+        "params": {
+            "textDocument": {"uri": root_uri}, "position": position,
+            "newName": "renamed"
+        }
+    }));
+    assert_eq!(
+        rename.messages[0]["result"]["changes"][&root_uri]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        rename.messages[0]["result"]["changes"][&library_uri]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert!(rename.messages[0].get("error").is_none());
+}
+
+#[test]
 fn does_not_republish_unchanged_diagnostics_for_open_dependents() {
     let files = TestFiles::new();
     let root_path = files.write(
