@@ -29,4 +29,4 @@ is enabled.
 | `symbolic` | symbolic values, branch results, and capture-context transport used during fusion |
 | `fuse` | demand-driven symbolic evaluation of calls, creators, products, branches, and lexical joins |
 | `worker` | capture-free worker signatures and bodies built from symbolic evaluation |
-| `rewrite` | capture-free worker construction and atomic redirection of the producer-consumer pair |
+| `rewrite` | top-level worker bindings and atomic redirection of the producer-consumer pair |
