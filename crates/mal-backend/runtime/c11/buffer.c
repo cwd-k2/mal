@@ -13,7 +13,7 @@ static MalBuffer *mal_buffer_allocate(
 
 static void mal_buffer_destroy(void *opaque_buffer) {
     MalBuffer *buffer = opaque_buffer;
-    mal_bytes_release(buffer->owner);
+    mal_bytes_release(mal_buffer_owner(buffer));
 }
 
 static void mal_managed_buffer_destroy(void *opaque_buffer) {
@@ -35,11 +35,10 @@ static MalBuffer *mal_buffer_allocate(
         size,
         destroy
     );
-    buffer->owner = NULL;
+    buffer->storage.owner = NULL;
     buffer->data = NULL;
     buffer->count = 0;
     buffer->stride = stride;
-    buffer->zeroed_until = 0;
     return buffer;
 }
 
@@ -61,19 +60,24 @@ static MalBuffer *mal_buffer_make(
     size_t size,
     void (*destroy)(void *)
 ) {
-    MalBuffer *buffer = mal_buffer_allocate(context, stride, size, destroy);
     size_t bytes = mal_buffer_bytes(context, capacity, stride);
-    if (bytes != 0) {
-        MalBytesFlat *flat = mal_bytes_flat_allocate_zeroed(
-            context,
-            0,
-            bytes,
-            "buffer allocation failed"
-        );
-        buffer->owner = &flat->header;
-        buffer->data = flat->bytes;
-        buffer->zeroed_until = bytes;
+    MalBuffer *buffer = mal_buffer_allocate(context, stride, size, destroy);
+    if (bytes <= sizeof buffer->storage.inline_bytes) {
+        if (bytes != 0) {
+            memset(buffer->storage.inline_bytes, 0, sizeof buffer->storage.inline_bytes);
+            buffer->data = buffer->storage.inline_bytes;
+        }
+        return buffer;
     }
+    MalBytesFlat *flat = mal_bytes_flat_allocate_zeroed(
+        context,
+        0,
+        bytes,
+        "buffer allocation failed"
+    );
+    flat->zeroed_until = bytes;
+    buffer->storage.owner = &flat->header;
+    buffer->data = flat->bytes;
     return buffer;
 }
 
@@ -114,39 +118,59 @@ void *mal_runtime_buffer_make_managed(
 void *mal_buffer_adopt(MalContext *context, MalBytesFlat *flat, size_t count) {
     MalBuffer *buffer = mal_buffer_allocate(context, 1, sizeof(MalBuffer), mal_buffer_destroy);
     flat->header.length = (uint64_t)count;
-    buffer->owner = &flat->header;
+    flat->zeroed_until = count;
+    buffer->storage.owner = &flat->header;
     buffer->data = flat->bytes;
     buffer->count = count;
-    buffer->zeroed_until = count;
     return buffer;
 }
 
-__attribute__((noinline))
-MalBytesFlat *mal_buffer_grow_unique(
+__attribute__((always_inline))
+void mal_buffer_reserve(
     MalContext *context,
-    MalBytesFlat *flat,
+    MalBuffer *buffer,
     size_t required
 ) {
-    size_t capacity = mal_bytes_capacity(required);
+    int was_inline = mal_buffer_is_inline(buffer);
+    MalBytesFlat *flat = (MalBytesFlat *)mal_buffer_owner(buffer);
+    size_t capacity = was_inline ? sizeof buffer->storage.inline_bytes : 0;
+    if (flat != NULL) {
+        capacity = flat->capacity;
+    }
+    if (required <= capacity) {
+        if (flat != NULL) {
+            flat->header.length = (uint64_t)required;
+        }
+        return;
+    }
+
+    size_t zeroed_until = mal_buffer_zeroed_until(buffer);
+    capacity = mal_bytes_capacity(required);
     if (capacity > SIZE_MAX - sizeof(MalBytesFlat)) {
         mal_trap(context, "byte owner allocation size overflow");
     }
     if (flat == NULL) {
-        return mal_bytes_flat_allocate(
+        flat = mal_bytes_flat_allocate(
             context,
             required,
             capacity,
             0,
             "buffer allocation failed"
         );
+        flat->zeroed_until = zeroed_until;
+        if (was_inline && zeroed_until != 0) {
+            memcpy(flat->bytes, buffer->data, zeroed_until);
+        }
+    } else {
+        flat = realloc(flat, sizeof(MalBytesFlat) + capacity);
+        if (flat == NULL) {
+            mal_trap(context, "buffer allocation failed");
+        }
+        flat->capacity = capacity;
+        flat->header.length = (uint64_t)required;
     }
-    flat = realloc(flat, sizeof(MalBytesFlat) + capacity);
-    if (flat == NULL) {
-        mal_trap(context, "buffer allocation failed");
-    }
-    flat->capacity = capacity;
-    flat->header.length = (uint64_t)required;
-    return flat;
+    buffer->storage.owner = &flat->header;
+    buffer->data = flat->bytes;
 }
 
 __attribute__((always_inline))
@@ -163,12 +187,7 @@ static inline size_t mal_buffer_append(
         }
         size_t length = buffer->count * stride;
         size_t required = (buffer->count + 1) * stride;
-        MalBytesFlat *flat = (MalBytesFlat *)buffer->owner;
-        if (flat == NULL || required > flat->capacity) {
-            flat = mal_buffer_grow_unique(context, flat, required);
-        } else {
-            flat->header.length = (uint64_t)required;
-        }
+        mal_buffer_reserve(context, buffer, required);
         int value_is_zero = 1;
         const unsigned char *value_bytes = value;
         for (size_t byte = 0; byte < stride; ++byte) {
@@ -177,11 +196,9 @@ static inline size_t mal_buffer_append(
                 break;
             }
         }
-        if (!value_is_zero || required > buffer->zeroed_until) {
-            memcpy(flat->bytes + length, value, stride);
+        if (!value_is_zero || required > mal_buffer_zeroed_until(buffer)) {
+            memcpy(buffer->data + length, value, stride);
         }
-        buffer->owner = &flat->header;
-        buffer->data = flat->bytes;
     } else if (buffer->count == SIZE_MAX) {
         mal_trap(context, "buffer count overflow");
     }

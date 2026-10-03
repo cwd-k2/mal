@@ -1,6 +1,7 @@
 # LLVM Buffer lowering
 
-This directory lowers core `BufferOperation` values. The C runtime owns capacity changes and byte storage; LLVM
+This directory lowers core `BufferOperation` values. The C runtime owns capacity changes and the choice between small
+inline storage and a flat byte owner; LLVM
 owns element representation, reference-counting callbacks, and typed loads and stores.
 
 `ElementStorage` is the central classification. `Canonical` elements use the source-memory layout and can be

@@ -9,7 +9,7 @@ Program-specific behavior, such as frame layout, resume targets, and owner trans
 | `core.c` | the mechanisms every program links: reference-counted closure environments and the trap terminal |
 | `control.c` | growable control storage and the native recursion bound |
 | `bytes.c`, `bytes_internal.h` | byte owners, and the header layout static owners share with LLVM |
-| `buffer.c`, `buffer_internal.h` | `Buffer` storage and the ownership of managed elements |
+| `buffer.c`, `buffer_internal.h` | stable `Buffer` objects, small inline storage, flat-storage growth, and managed-element ownership |
 | `buffer_range.c` | `fill` and `copy` |
 | `buffer_host.c` | Buffers exchanged with the host: `from`, `into`, and the process arguments |
 | `buffer_symbol.c` | byte `*` at the operand's last use |

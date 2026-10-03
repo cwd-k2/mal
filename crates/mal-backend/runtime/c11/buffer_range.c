@@ -31,14 +31,7 @@ static int mal_buffer_fill_extend(
     }
 
     size_t required = mal_buffer_bytes(context, new_count, stride);
-    MalBytesFlat *flat = (MalBytesFlat *)buffer->owner;
-    if (flat == NULL || required > flat->capacity) {
-        flat = mal_buffer_grow_unique(context, flat, required);
-    } else {
-        flat->header.length = (uint64_t)required;
-    }
-    buffer->owner = &flat->header;
-    buffer->data = flat->bytes;
+    mal_buffer_reserve(context, buffer, required);
     buffer->count = new_count;
     return 1;
 }
@@ -80,9 +73,6 @@ void mal_runtime_buffer_fill(
     if (!mal_buffer_fill_extend(context, buffer, offset, count, stride, &old_count)) {
         return;
     }
-    size_t end = offset + count;
-    MalBytesFlat *flat = (MalBytesFlat *)buffer->owner;
-
     size_t start_byte = offset * stride;
     size_t byte_count = count * stride;
     const unsigned char *value_bytes = value;
@@ -94,29 +84,31 @@ void mal_runtime_buffer_fill(
         }
     }
     if (value_is_zero) {
+        size_t end = offset + count;
         size_t existing_end = old_count < end ? old_count : end;
         size_t existing_count = existing_end - offset;
         if (existing_count != 0) {
-            memset(flat->bytes + start_byte, 0, existing_count * stride);
+            memset(buffer->data + start_byte, 0, existing_count * stride);
         }
         size_t existing_bytes = existing_count * stride;
         size_t unwritten_start = start_byte + existing_bytes;
         size_t range_end = start_byte + byte_count;
-        if (range_end > buffer->zeroed_until) {
-            size_t zero_start = unwritten_start > buffer->zeroed_until
+        size_t zeroed_until = mal_buffer_zeroed_until(buffer);
+        if (range_end > zeroed_until) {
+            size_t zero_start = unwritten_start > zeroed_until
                 ? unwritten_start
-                : buffer->zeroed_until;
+                : zeroed_until;
             if (zero_start < range_end) {
-                memset(flat->bytes + zero_start, 0, range_end - zero_start);
+                memset(buffer->data + zero_start, 0, range_end - zero_start);
             }
         }
         return;
     }
     if (stride == 1) {
-        memset(flat->bytes + start_byte, value_bytes[0], count);
+        memset(buffer->data + start_byte, value_bytes[0], count);
         return;
     }
-    unsigned char *destination = flat->bytes + start_byte;
+    unsigned char *destination = buffer->data + start_byte;
     memcpy(destination, value, stride);
     size_t initialized = stride;
     while (initialized < byte_count) {
@@ -162,14 +154,7 @@ static int mal_buffer_copy_extend(
     }
 
     size_t required = mal_buffer_bytes(context, new_count, stride);
-    MalBytesFlat *flat = (MalBytesFlat *)destination->owner;
-    if (flat == NULL || required > flat->capacity) {
-        flat = mal_buffer_grow_unique(context, flat, required);
-    } else {
-        flat->header.length = (uint64_t)required;
-    }
-    destination->owner = &flat->header;
-    destination->data = flat->bytes;
+    mal_buffer_reserve(context, destination, required);
     destination->count = new_count;
     return 1;
 }

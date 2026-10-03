@@ -8,6 +8,11 @@ typedef struct {
     void (*destroy)(void *);
 } MalEnvironmentHeader;
 
+_Static_assert(
+    sizeof(MalEnvironmentHeader) % _Alignof(max_align_t) == 0,
+    "environment payload alignment is insufficient"
+);
+
 void *mal_runtime_allocate(MalContext *context, size_t size) {
     if (size == 0) {
         return NULL;

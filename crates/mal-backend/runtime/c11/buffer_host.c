@@ -24,7 +24,6 @@ void *mal_runtime_buffer_from(
     size_t source_offset = offset * stride;
     size_t bytes = count * stride;
     memcpy(buffer->data, (const unsigned char *)source + source_offset, bytes);
-    ((MalBytesFlat *)buffer->owner)->header.length = (uint64_t)bytes;
     buffer->count = count;
     return buffer;
 }
@@ -68,7 +67,6 @@ void *mal_runtime_buffer_from_arguments(
         memcpy(element + length_offset, &length, sizeof length);
         buffer->count = index + 1;
     }
-    ((MalBytesFlat *)buffer->owner)->header.length = (uint64_t)(count * stride);
     return managed;
 }
 

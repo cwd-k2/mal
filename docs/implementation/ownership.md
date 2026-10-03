@@ -18,23 +18,24 @@ snapshot copyである。closureはcode pointerとnullable environment pointer�
 完成したbyte ownerのdataはownerのlifetime中不変である。view構築時にdataを確定し、index、slice、比較はowner representationを再解釈しない。
 storage再利用を判断するSymbol concatだけがownerに対するdataのoffsetを導出する。
 
-Buffer objectとelement storageは別allocationである。LLVMはobject field accessとelement accessの非aliasをscope内で表してよいが、
-growthでactive dataを置き換えるruntime writeはそのscope外に置き、slot loadをclobberする。LLVM emitterだけが持つTBAA treeを
-C runtimeのwriteへ暗黙に適用してはならない。functionのinliningでlocal alias scopeが分離されてもこのallocation境界を失わないよう、
-object fieldとelement storageのaccessは同じemitter-owned TBAA rootの異なる型として表す。runtime callはこのTBAAを持たないため、
-growth後はactive dataを再取得する。
+Buffer objectのmetadataとelement storageは重ならないbyte regionである。pointer一個分以下の初期storageはobject内のunionへ置き、
+それより大きい初期storageとgrowth後のstorageは交換可能なflat byte ownerへ置く。この物理配置はprivate ABIであり、Buffer identityと
+element placeの区別を変えない。LLVMはobject metadata accessとelement accessの非aliasをscope内で表してよいが、growthでactive dataを
+置き換えるruntime writeはそのscope外に置き、slot loadをclobberする。同じallocation内のinline storageにも、別allocationのflat storageにも
+同じ規則を使う。LLVM emitterだけが持つTBAA treeをC runtimeのwriteへ暗黙に適用せず、runtime call後はactive dataを再取得する。
 
 ## Bufferのelement
 
 canonical layoutを持つ要素はそのlayoutで、`Symbol`を含む要素はruntime valueのlayoutでBuffer storageに置く。後者のBufferは
-`make`の時点で、その要素型のretainとreleaseを行うprogram固有のcallbackをruntimeへ渡す。runtimeはBufferが書く要素ごとに
-一つのreferenceを取り、要素が上書きされるかBufferが破棄されるときに手放す。`new`、`fill`、`copy`はcallbackを呼ぶ
+`make`の時点で、その要素型のretainとreleaseを行うprogram固有のcallbackをruntimeへ渡す。各Live element placeは一つの
+responsibilityを持ち、要素が上書きされるかBufferが破棄されるときに手放す。`fill`と`copy`はcallbackを呼ぶ
 専用のruntime関数へ出力し、canonical要素のBufferはcallbackを持たない関数を使う。callbackを持つ領域とその判定はmanaged要素の
-Bufferだけが負い、canonical要素のBufferの大きさ、確保、`new`の命令数は変わらない。`copy`はsourceのreferenceを全て取ってから
-destinationのreferenceを手放すので、範囲が重なっても要素は先に解放されない。
+Bufferだけが負う。`copy`はsourceのreferenceを全て取ってからdestinationのreferenceを手放すので、範囲が重なっても要素は先に
+解放されない。
 `get`は取り出した値をretainしたownedなresultとして返す。Bufferは共有mutableであり、後続の`put`が要素を手放し得るため、
-borrowとして返さない。`put`は新しい値をretainしてから旧要素をreleaseする。Buffer operandはすべて`Borrow`であり、
-格納する値のretainはBuffer operationが行う。
+borrowとして返さない。`new`と`put`のvalue operandは`Store`であり、execution ownershipが後続useの有無に応じて`Share`または
+`Consume`したresponsibilityをstorageへ渡す。`put`は新しいresponsibilityをplaceへ移してから旧要素をreleaseする。`fill`は一つの
+operandから複数要素を作るため`Borrow`のままで、runtimeが書く要素ごとにretainする。Buffer handle、coordinate、rangeは`Borrow`である。
 
 ## slotとoperation
 

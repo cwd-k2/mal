@@ -7,13 +7,16 @@
 void *mal_runtime_buffer_into_symbol(MalContext *context, void *opaque_buffer) {
     MalBuffer *buffer = opaque_buffer;
     size_t count = buffer->count;
+    MalBytes *buffer_owner = mal_buffer_owner(buffer);
     MalBytes *owner;
     if (count != 0
+        && buffer_owner != NULL
         && mal_runtime_environment_is_unique(buffer)
-        && buffer->owner->references == 1) {
-        owner = buffer->owner;
+        && buffer_owner->references == 1) {
+        ((MalBytesFlat *)buffer_owner)->start = 0;
+        owner = buffer_owner;
         owner->length = (uint64_t)count;
-        buffer->owner = NULL;
+        buffer->storage.owner = NULL;
         buffer->data = NULL;
         buffer->count = 0;
     } else {

@@ -181,3 +181,32 @@ allocation数とrequested bytesは変わらず、Mal nestedは2,050 allocation�
 したがって次の主対象は、一般のmanaged storeのretain/releaseではなく、内側identityを保ったままの
 compact stable object、Buffer objectとbacking ownerのallocation統合、およびnull/tag checkの必要性をlifecycle planから
 より狭く出力することである。
+
+## small-buffer storage
+
+同日に、stableなBuffer objectを残したままpointer一個分以下の初期storageをobject内のunionへ置き、growth時にflat byte ownerへ
+昇格するsmall-buffer表現を導入した。これはidentityとbackingを論理的に分けた上で、物理allocationまで常に分ける必要はないことを
+現行Bufferで検証するものである。大きい初期capacity、small storageからのgrowth、`Symbol`からadoptしたstorageは従来どおりflat ownerを
+使う。inline storageはdetachable ownerではないため、`Symbol`への変換時はcopyする。
+
+先に初期capacity全体をstable objectの末尾へ置く方式も測定した。allocationは1,025回、82,000 byteになったが、内側objectのallocation
+strideが広がり、縮小workloadのL1 data read missが約6%増えた。任意capacityのco-allocationは採用せず、既存のowner pointer一個分を
+inline storageと共用する方式へ限定した。Buffer objectの`zeroed_until` fieldは削除したが、大容量のzero `fill`に有効な既存最適化は
+残した。flat ownerをBufferが保持する間はSymbol view用の`start` wordをzeroed boundaryとして使い、ownerをSymbolへ移すとき`start = 0`へ
+戻す。inline storageのboundaryは固定容量から導く。
+
+102,400,000 swapの20回medianはMal nestedが169.7 ms、同時測定のC `owned-move`が138.1 msで1.23xだった。直前の169.7 msから
+wall-clockは変わらず、allocation削減をhot-loop高速化とは評価できない。1,024,000 iterationでは42,548,691 instruction、
+9,323,456 data read、2,106,324 data write、7,264,379 conditional branchとなった。直前からinstructionは約1.6%、data readは約11.6%
+増え、data writeとbranchは約2.0%、0.7%減った。L1 data read missは1,154,510で約5.8%増えた。small objectが連続allocationになった
+配置とinline判定を含め、cache localityと生成命令は改善していない。内側identityを個別のreference-counted objectとして1024個辿るcostも
+残る。
+
+Memcheckではallocationが2,050回から1,026回、requested bytesが123,000 byteから57,456 byteへ減り、errorとleakは0だった。外側の
+大容量Bufferだけがobjectとflat ownerを別々に確保し、1024個の一要素Bufferは一allocationになる。ELF section totalは4,622 byteから
+4,757 byte、`main`は993 byteから1,359 byteへ増えた。reserveのinline判定と昇格pathのcode sizeとの交換であり、heap削減を
+instruction消去として誤って説明しない。
+
+Poolへの含意は、stable identity、logical backing、C allocation objectを一対一対応させないことである。small payloadはidentity object内に
+置けるが、growth後のflat ownerは新しいallocation objectであり、backendはdata pointerを再取得する。将来のPoolでもHeader、occupancy、
+payloadの論理的な分離からallocation数を導かず、実測したelement sizeとaccess patternに応じてinline、分離、arenaを選べる。

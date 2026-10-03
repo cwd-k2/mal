@@ -22,7 +22,12 @@ typedef struct {
 typedef struct {
     MalBytes header;
     size_t capacity;
-    size_t start;
+    union {
+        // Offset of the active immutable view while a MalBytes owner holds this allocation.
+        size_t start;
+        // End of the initially zeroed storage; bytes past the Buffer's logical end up to this boundary remain zero.
+        size_t zeroed_until;
+    };
     _Alignas(max_align_t) unsigned char bytes[];
 } MalBytesFlat;
 

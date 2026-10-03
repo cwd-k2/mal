@@ -207,8 +207,9 @@ deep copyではない。`freeze`の実装には次の三つがある。
 | storageを共有し、IxPool側の後の書き込みでcopyする | O(1) | 毎回、共有中かを確認する |
 | inputがlast useで区別可能なaliasがなければstorageを移し、それ以外はcopyする | 移せればO(1)、それ以外はO(n) | 追加なし |
 
-二つ目は、全要素型のIxPoolの全書き込みに確認を課し、IxPoolを安い可変primitiveとする前提と衝突する。現在のBufferは
-`Symbol`と同じ形のbyte ownerにstorageを持つが、`*`の両方向でcopyし、共有しない。
+二つ目は、全要素型のIxPoolの全書き込みに確認を課し、IxPoolを安い可変primitiveとする前提と衝突する。現在のBufferも
+`*`の両方向でwritable storageを共有しない。small-buffer storageはcopyし、flat ownerはlast useとruntime上の一意性を確認できた
+場合だけ移す。
 
 三つ目は`thaw`と対称であり、組み立ててから公開する主な用途、例えばBufferを`*`で`Symbol`にして
 捨てる形ではcopyも確認も起きない。copyが残るのは、`freeze`した後もIxPoolを使い続ける場合である。そのとき二つ目は

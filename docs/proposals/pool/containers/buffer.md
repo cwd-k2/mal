@@ -165,7 +165,8 @@ _toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(
 - `from`と`into`の意味はVectorのadmissionとobservationから導ける。既存名を残すかは互換性のdecisionとし、他のoperationの意味、
   評価順、alias、trap条件は変えない。trapのmessageはruntimeではなくBuffer fileが決める。
 - growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolとVectorのprimitiveを持つ。
-- 現行runtimeはBuffer storageをSymbolと同じ形のbyte ownerで持つが、`*`の意味は独立したsnapshotであり、通常はcopyする。
+- 現行runtimeは小容量の初期Buffer storageをobjectへinline化し、それ以外をSymbolと同じ形のbyte ownerで持つが、`*`の意味は
+  物理表現によらず独立したsnapshotである。inline storageはcopyし、flat ownerはlast useと一意性を確認できたときだけ移す。
   `IxPool<Meta, UInt8>`もcanonical byte列を持てるため、last useとruntime上の一意性を証明できる場合だけownerを移す。同時にliveな
   Buffer aliasとSymbolまたはVectorの間でwritable storageを共有することは要求しない。
 - `*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの

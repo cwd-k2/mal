@@ -84,8 +84,9 @@ D096では既存の`RuntimeOwned` mechanismだけでnested Bufferを通せたた
 先行追加しなかった。残る順序では、欠けているrepresentation category、複数consumerが生じるlifecycle plan、Pool固有のstate machineを
 別々に失敗へ局所化できる。
 現行実装のallocation、動的instruction、LLVMのalias証明の限界は
-[Buffer生成物とownership cost](../../../history/performance/buffer.md)で測定した。そこで観測した二重allocationと、
-同一slotへの書き戻しが消えないことは、nested identityの意味論的なcostではない。`Store`とmove-based `swap`の
+[Buffer生成物とownership cost](../../../history/performance/buffer.md)で測定した。そこで最初に観測した小容量Bufferの二重allocationと、
+同一slotへの書き戻しが消えないことは、nested identityの意味論的なcostではない。前者はstable object内のsmall-buffer storage、
+後者はtyped operationの恒等変換で削減できた。`Store`とmove-based `swap`の
 採用判断では、現行`get` / `put`のownership trafficからこれらの実装costを分けて比較する。
 
 ## lowering boundary
@@ -121,8 +122,10 @@ Pool object
 ```
 
 このfield一覧はprivate ABIの要求を示す模式であり、固定layoutではない。Header、occupancy、payloadを別allocationに分けても、
-zero-sized payloadをallocationなしで表してもよい。sourceから観測できるのはIxPoolではsemantic identity、ImPoolではstructural stateと、
-両者に共通するoperation lawだけである。
+small payloadをstable objectの末尾またはunionへinline化しても、zero-sized payloadをallocationなしで表してもよい。logical backingを
+object metadataから分けることは、常に別のC allocationへ置くという意味ではない。sourceから観測できるのはIxPoolではsemantic identity、
+ImPoolではstructural stateと、両者に共通するoperation lawだけである。現行Bufferはpointer一個分以下の初期storageをobjectへinline化し、
+growth時にflat ownerへ昇格する。この境界を先に検証している。
 
 growthは次のtransactionとして実装する。
 

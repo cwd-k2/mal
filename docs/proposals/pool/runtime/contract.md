@@ -86,16 +86,17 @@ C runtime contextと同じくthread-confinedであり、物理relocation中の�
 | 現行runtime | Pool上の意味 |
 |---|---|
 | `count` | Meta |
-| byte ownerの物理容量 | slot数`n`。`make`のcapacityは確保量の要求であり、sourceから観測できない |
+| inlineまたはflat storageの物理容量 | slot数`n`。`make`のcapacityは確保量の要求であり、sourceから観測できない |
 | 占有tagを持たない | invariant `[0, count)`がLiveからslot状態が決まる |
 | managed要素の`retain`と`release` callback | 要素型ごとのlifecycle glue |
 | 終了時に`[0, count)`をrelease | IxPool終了時のLive slotのDrop。tagを走査しない |
-| `put`が新しい値をretainしてから旧値をrelease | placeのwrite |
+| `put`が新しいresponsibilityを移してから旧値をrelease | placeのwrite |
 | `fill`、`copy`がcountを範囲末尾まで延ばす | 参照実装の`initAt`、`putAt`のloopとMetaの更新 |
 | `from`、`into` | Vector admission後の`thaw`と、`freeze`、`slice`後のobservationを一段のcopyにまとめたcompatibility operation |
-| `zeroed_until` | 0で確保した範囲へ0を書かない物理的な最適化 |
 
-Bufferのstorageは`Symbol`と同じ形のflatなbyte ownerである。`Symbol`は`(owner, data, length)`という不変のviewであり、
+pointer一個分以下の初期Buffer storageはstable object内に置き、それより大きい初期storageとgrowth後のstorageは`Symbol`と同じ形の
+flatなbyte ownerに置く。inline storageはgrowth時にflat ownerへ移る。このsmall-buffer表現は、semantic identityとbacking storageを
+概念として分けることが別allocationを要求しない例である。`Symbol`は`(owner, data, length)`という不変のviewであり、
 Vectorも要素型について一般化した`(owner, data, count)`で表せる。element carrierの列は不変なので、`slice`はcopyせずviewとして作ってよい。
 その代わり、sliceは`Symbol`と同じく元のstorage全体を生かし続ける。実装上は`Symbol`と`Vector<UInt8>`でowner/view表現を共有できるが、
 source-levelの型同一性は要求しない。`Representable`な要素のVectorは`[0, length)`をcanonical layoutの密な列として置き、
@@ -103,7 +104,8 @@ hostとの交換を一括copyにできる。
 
 `freeze`と`thaw`はこの二つの表現の間でbyte ownerを受け渡す。inputがlast useで、Bufferのidentityとbyte ownerに区別可能なaliasが
 ないとruntimeが確認できる
-とき、`freeze`はownerをviewへ移し、`thaw`はviewが先頭から全体を覆うflatなownerを新しいBufferへ移す。それ以外はcopyする
+とき、`freeze`はflat ownerをviewへ移し、`thaw`はviewが先頭から全体を覆うflatなownerを新しいBufferへ移す。inline storageを含む
+それ以外はcopyする
 （[freezeとthaw](../api/pool.md#freezeとthaw)）。byte列の`*`の両方向がこの規則の最初の例であり、現行runtimeは`*`の意味を変えずにこの形で実装している
 （[managed valueのownership](../../../implementation/ownership.md)）。
 
