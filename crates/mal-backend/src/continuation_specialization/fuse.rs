@@ -144,7 +144,8 @@ impl Evaluator<'_> {
                 let mut rewritten = Vec::with_capacity(arms.len());
                 for arm in arms {
                     let mut arm_environment = environment.clone();
-                    let pattern = self.fresh_pattern(&arm.pattern, &mut arm_environment);
+                    let pattern =
+                        super::binding::fresh_pattern(&arm.pattern, &mut arm_environment, self.ids);
                     let mut bindings = Vec::new();
                     let value =
                         self.block(&arm.value, joins, arm_environment, None, &mut bindings)?;
@@ -441,68 +442,18 @@ impl Evaluator<'_> {
         environment: &mut Environment,
         output: &mut Vec<Binding>,
     ) -> Option<()> {
-        match (pattern, value) {
-            (Pattern::Binding { id, .. }, value) => {
-                environment.values.insert(*id, value);
-                Some(())
-            }
-            (Pattern::Wildcard { .. }, value) => {
-                if matches!(value, Value::Closure { .. }) {
-                    None
-                } else {
-                    Some(())
-                }
-            }
-            (Pattern::Product { elements, .. }, Value::Product(values, _, _))
-                if elements.len() == values.len() =>
-            {
-                for (element, value) in elements.iter().zip(values) {
-                    self.bind(element, value, environment, output)?;
-                }
-                Some(())
-            }
-            (Pattern::Product { .. }, value) => {
-                let atom = self.materialize(value, output)?;
-                let span = atom.span;
-                let pattern = self.fresh_pattern(pattern, environment);
-                output.push(Binding {
-                    pattern,
-                    operation: Operation::Atom(atom),
-                    span,
-                });
-                Some(())
-            }
-        }
+        super::binding::bind(
+            pattern,
+            value,
+            environment,
+            output,
+            self.ids,
+            self.fallback_span,
+        )
     }
 
     fn resolve(&mut self, atom: &Atom, environment: &Environment) -> Option<Value> {
-        match atom.kind {
-            AtomKind::Reference(Reference::Binding(binding)) => {
-                environment.values.get(&binding).cloned().or_else(|| {
-                    self.known
-                        .get(&binding)
-                        .copied()
-                        .map(|function| Value::Closure {
-                            function,
-                            captures: Vec::new(),
-                            ty: atom.ty.clone(),
-                        })
-                })
-            }
-            AtomKind::Reference(Reference::Capture(index)) => {
-                environment.captures.get(index).cloned()
-            }
-            AtomKind::Reference(Reference::SelfClosure(function)) => Some(Value::Closure {
-                function,
-                captures: environment.captures.clone(),
-                ty: atom.ty.clone(),
-            }),
-            _ => Some(Value::Literal(
-                atom.kind.clone(),
-                atom.ty.clone(),
-                atom.span,
-            )),
-        }
+        super::binding::resolve(atom, environment, &self.known)
     }
 
     fn resolve_concrete(
@@ -519,33 +470,6 @@ impl Evaluator<'_> {
 
     pub(super) fn materialize(&mut self, value: Value, output: &mut Vec<Binding>) -> Option<Atom> {
         super::materialize::value(value, output, self.ids, self.fallback_span)
-    }
-
-    fn fresh_pattern(&mut self, pattern: &Pattern, environment: &mut Environment) -> Pattern {
-        match pattern {
-            Pattern::Binding { id, ty } => {
-                let fresh = self.ids.value();
-                environment
-                    .values
-                    .insert(*id, Value::Bound(fresh, ty.clone()));
-                Pattern::Binding {
-                    id: fresh,
-                    ty: ty.clone(),
-                }
-            }
-            Pattern::Wildcard { ty, span } => Pattern::Wildcard {
-                ty: ty.clone(),
-                span: *span,
-            },
-            Pattern::Product { elements, ty, span } => Pattern::Product {
-                elements: elements
-                    .iter()
-                    .map(|element| self.fresh_pattern(element, environment))
-                    .collect(),
-                ty: ty.clone(),
-                span: *span,
-            },
-        }
     }
 
     fn concrete_operation(
