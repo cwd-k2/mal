@@ -98,7 +98,7 @@ Vacantなslotは`Unit`しか持たない。IxPoolの上にmalで書くSlotMapと
 空きslotに情報を置く必要があるcontainerは、要素を`[USize, T]`のような直和にして、Liveなslotの第一項で空きと次の空きcoordinateを表す。
 
 Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の全要素を訪れるには`peek`でcapacity全体を走査するか、container自身が
-要素の並びを持つ。live slot iterationをどの層が持つかは[README](../README.md#未決定事項)の未決定事項である。
+要素の並びを持つ。live slot iterationをどの層が持つかは[README](../README.md#後続段階で決める事項)の後続判断である。
 
 ## IxPoolの輪郭
 

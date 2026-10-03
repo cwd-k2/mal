@@ -148,7 +148,7 @@ familyは一つのsignatureを持つため、表の形のままでは一つに�
 一度だけ書けるが、IxPoolだけを使うcallにもmanaged resultが現れる。IxPoolのinput responsibilityをresultへ移せるcallでは追加costを
 持たない一方、元のbindingを後でも使うcallでは`Share`とresultの`Drop`が必要になり得る。Unitを返す形はIxPool固有のcallを小さくするが、
 Ix/Imのcontainer sourceを分ける。どちらを採るかは生成物のresponsibilityとcall costを測って決める
-（[README](../README.md#未決定事項)）。
+（[README](../README.md#後続段階で決める事項)）。
 
 ImPoolのMetaは、意味の上では`(Meta, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
 IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。

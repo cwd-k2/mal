@@ -2,6 +2,11 @@
 
 Status: Exploratory support document
 
+2026-10-03に現行compilerで全prototypeを2 GiBのcgroup内でもう一度実行した。C hostの正常系5件とprecondition違反2件、
+Buffer emulationの8件がすべて期待どおり終了した。Memcheckを通したBuffer emulationは全allocationを解放し、error 0だった。
+最大の`generic-check`は23,935 allocation、51,931,056 requested bytesであり、制限内で完走した。この再確認は意味論とlifecycleの
+回帰検査であって、後述の過去のwall-clock値を更新する測定ではない。
+
 この文書は、compilerを変えずにPool案を動かした二つの試作と、その結果を管理する（2026-09-30から10-03）。試作のsourceはrepositoryに含めず、
 結論と、その結論が依拠する条件だけを記録する。IxPool APIは[Pool primitive](api/pool.md)、試作から抜き出したcodeは
 [列のcontainer](containers/sequences.md)と[keyで引くcontainer](containers/keyed.md)を正とする。

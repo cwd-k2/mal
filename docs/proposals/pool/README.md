@@ -124,25 +124,47 @@ containerが要求する。
   - [keyで引くcontainer](containers/keyed.md)：open addressing Map、SlotMap、木
 - [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
 
-## 未決定事項
+## 推奨する最小採択単位
 
-- IxPoolとImPoolをsourceへ見せるか、見せる場合にpreludeへ常に置くか、`builtin "ixpool";`のように宣言したfileだけへ導入するか。
-  後者は組み込みmoduleの提供という仕組みを[program](../../spec/programs.md)へ新たに持ち込む。直接見せる場合、IxPoolとImPoolは
-  containerを書く利用者のAPIになるため、名前、signatureの形、周辺operationの集合をAPIとして設計し直す。
-  [試作](prototypes.md#二つの試作)では、更新がpoolを返す形にsignatureを揃え、constructorをkeyに持つ
-  [operation family](../../spec/operation-families.md)で一つの名前にまとめられ、containerを一度書けばsnapshot版も得られた
-  （[入れ子](model/identity.md#入れ子)）。ImPoolを見せる場合は、uniqueness検査をruntimeへ置く範囲も決める。
-- [Header](model/semantics.md#headerをpoolに置く理由)をPoolに融合したまま持つか、別identityとの組へ分離するか。ImPoolのHeaderは
-  productで足りるが、Ix/Imで同じstate algebraとcontainer invariantを使う利点との比較になる。
-- 核と周辺の名前、特にMetaの呼び方。周辺の意味のauthorityは通常のmal definitionに置き、backendの費用specializationは
+最初のlanguage changeは`IxPool<Header, V>`だけに切る。共有identity、indexed place、occupancy、containerと同じidentityに属する
+Headerが、現行Bufferから分離する必要のある最小の意味である。`pool`、`grow`、`capacity`、`peek`、`swap`、`header`、
+`swapHeader`を核とし、Live/Vacantを仮定するoperationはmalで書く周辺に置く。現在の文書とprototypeで`Meta`と書いている型parameterと
+operation名は、採択時にはこの`Header`語彙へ揃える。
+
+Headerを別identityへ分ける案は採らない。malにはproductの一fieldだけを更新するoperationがなく、Bufferのcount、Dequeの両端、
+free-list headなどをslot storageとは別のshared identityに置くと、containerごとに二つのidentityのlifetimeと同期を規定することになる。
+常に値を持つHeader placeとVacantになり得るslot placeを一つのidentityへ含める方が、authorityとinvariantの境界を小さくする。
+
+最初の採択には次を含めない。
+
+- `ImPool`、`freeze`、`thaw`、およびpublic `Vector`。structural snapshotの意味は本proposalで維持するが、copy、storage transfer、
+  writable successorという独立したcost contractをIxPool導入の条件にしない。
+- `moveRange`、snapshotのrange operation、live slot iterator。核のloopで意味を検証し、実際のIxPool loweringで定数倍または
+  計算量が問題になるものだけを追加する。
+- allocator parameter、arena、plugin crateによるruntime差し替え。C runtimeはbacking mechanismであり、source authorityではない。
+- 現行Bufferのhost operation削除。IxPool上のBufferが現行semanticsとcost gateを満たしてから、Vectorを正規host valueにする変更を
+  別に判断する。
+
+この切り方でもImPoolを破棄するわけではない。IxPool kernelでStorable handle、managed payload、growth、終了時走査、occupancy表現を
+検証した後、同じstate algebraへstructural snapshotを加える第二段階とする。Rust寄りのaffine responsibilityはcompiler内部の
+`Store`/`Consume`、Haskell寄りのsnapshotはImPoolのsource semanticsに属し、両方を一つの初回primitiveへ束ねない。
+
+`IxPool`は現行Bufferと同じpredefined mechanismとして全fileから参照可能にする。専用の`builtin`宣言や組み込みmodule機構は
+IxPoolだけのためには追加しない。未検査preconditionを直接使う範囲は通常のAPI設計で狭め、file-local opaque型がcontainer invariantを
+閉じる。更新operationは`Unit`または古いcarrierを返し、同じhandleを返すImPool共通signatureには揃えない。
+
+## 後続段階で決める事項
+
+- 周辺operationの公開名。周辺の意味のauthorityは通常のmal definitionに置き、backendの費用specializationは
   as-if loweringとする。どの周辺をspecializeするかと、Liveを仮定する除去を`unreachable :: Unit -> []`のような言語の
   primitiveへ寄せるかは、production kernelの生成物を測って決める。
 - [`Storable`の拡張](model/identity.md#storableの原理)のうち、Buffer handleは
   [D096](../../history/decisions/active/D096.md)で、external opaque carrierは
-  [D097](../../history/decisions/active/D097.md)で先に採択した。残るdecisionはPool採択時のIxPool、
-  ImPool admissionである。functionとempty sumは今回の範囲では除外する。
+  [D097](../../history/decisions/active/D097.md)で先に採択した。IxPool admissionは最初のPool decisionに含め、ImPool admissionは
+  第二段階に残す。functionとempty sumは今回の範囲では除外する。
 - transitive snapshot、serialization、Map keyなどに共通するstability judgmentが実際に必要か。ImPoolのstructural snapshotと
   handle nestingには不要なので、名称だけを先に追加しない。
+- 第二段階でImPoolをpublicにするか。採る場合はuniqueness検査、Ix/Im共通source、`freeze`/`thaw`のcopy gateを一緒に決める。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
 - Vectorの公開API、現行Bufferのhost operationとの互換性、`Symbol`との型関係は
   [BufferとVectorの採択前に残る判断](api/buffer-vector.md#採択前に残る判断)を正とする。
@@ -151,4 +173,5 @@ containerが要求する。
   測定ではbitmapを初期表現に選んだが、managed payload、growth、終了時走査と実際のcontainerを含む再測定が要る。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callback emitterから一般化するか、共通`Lifecycle`を消費する別のemitterとして置くか。
-- plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。
+- plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontractはPool採択条件にしない。trusted extensionを
+  外部配布する要求が生じたときのplugin設計が所有する。
