@@ -58,6 +58,33 @@ fn follows_a_direct_call_result_to_its_closure_creator() {
 }
 
 #[test]
+fn follows_every_result_join_predecessor() {
+    let plan = plan(
+        "first :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
+         second :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured - value;
+         choose :: (Bool, Int32) -> (Int32 -> Int32) := (condition, captured) ->
+             if (condition) then first(captured) else second(captured);
+         main :: Unit -> Int32 := () -> choose(true, 40i32)(2i32) - 42i32;",
+    );
+
+    assert_eq!(plan.demands.len(), 1);
+    assert_eq!(
+        plan.steps
+            .iter()
+            .filter(|step| matches!(step.result, ProducerResult::Call(_)))
+            .count(),
+        2
+    );
+    assert_eq!(
+        plan.steps
+            .iter()
+            .filter(|step| matches!(step.result, ProducerResult::Closure(_)))
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn rejects_a_result_applied_more_than_once() {
     let plan = plan(
         "create :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
@@ -143,6 +170,14 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
         plan.demands
             .iter()
             .any(|demand| matches!(demand.argument.kind, AtomKind::Integer(0)))
+    );
+    assert_eq!(plan.steps.len(), 4, "{:#?}", plan.steps);
+    assert_eq!(
+        plan.steps
+            .iter()
+            .filter(|step| matches!(step.result, ProducerResult::Call(_)))
+            .count(),
+        2
     );
 }
 

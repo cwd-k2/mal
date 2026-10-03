@@ -5,12 +5,12 @@ use crate::closure::ast::{
     Atom, AtomId, AtomKind, FunctionId, Operation, Pattern, Program, Reference,
 };
 
-use super::plan::{Demand, ProducerResult, ProducerStep};
+use super::plan::{Demand, ProducerStep};
 
 pub(super) fn analyze(program: &Program) -> (Vec<Demand>, Vec<ProducerStep>) {
     let index = Index::new(program);
     let demands = index.demands(program);
-    let steps = index.producer_steps(program, &demands);
+    let steps = super::trace::producer_steps(&index, program, &demands);
     (demands, steps)
 }
 
@@ -21,8 +21,8 @@ enum Use {
     Escape,
 }
 
-struct Index {
-    definitions: HashMap<ValueId, Operation>,
+pub(super) struct Index {
+    pub(super) definitions: HashMap<ValueId, Operation>,
     aliases: HashMap<ValueId, ValueId>,
     uses: HashMap<ValueId, Vec<Use>>,
     functions: HashMap<ValueId, FunctionId>,
@@ -155,11 +155,11 @@ impl Index {
         self.uses.entry(origin).or_default().push(usage);
     }
 
-    fn origin(&self, binding: ValueId) -> ValueId {
+    pub(super) fn origin(&self, binding: ValueId) -> ValueId {
         self.aliases.get(&binding).copied().unwrap_or(binding)
     }
 
-    fn function(&self, callee: &Atom) -> Option<FunctionId> {
+    pub(super) fn function(&self, callee: &Atom) -> Option<FunctionId> {
         match callee.kind {
             AtomKind::Reference(Reference::Binding(binding)) => {
                 self.functions.get(&self.origin(binding)).copied()
@@ -167,46 +167,6 @@ impl Index {
             AtomKind::Reference(Reference::SelfClosure(function)) => Some(function),
             _ => None,
         }
-    }
-
-    fn producer_steps(&self, program: &Program, demands: &[Demand]) -> Vec<ProducerStep> {
-        let functions = program
-            .functions
-            .iter()
-            .map(|function| (function.id, function))
-            .collect::<HashMap<_, _>>();
-        let mut pending = demands
-            .iter()
-            .map(|demand| demand.producer)
-            .collect::<Vec<_>>();
-        let mut visited = HashSet::new();
-        let mut steps = Vec::new();
-        while let Some(function) = pending.pop() {
-            if !visited.insert(function) {
-                continue;
-            }
-            let Some(body) = functions.get(&function).map(|function| &function.body) else {
-                continue;
-            };
-            let Some(result) = body.result.binding().map(|binding| self.origin(binding)) else {
-                continue;
-            };
-            let result = match self.definitions.get(&result) {
-                Some(Operation::Call { callee, .. }) => {
-                    let Some(target) = self.function(callee) else {
-                        continue;
-                    };
-                    pending.push(target);
-                    ProducerResult::Call(target)
-                }
-                Some(Operation::MakeClosure {
-                    function: target, ..
-                }) => ProducerResult::Closure(*target),
-                _ => continue,
-            };
-            steps.push(ProducerStep { function, result });
-        }
-        steps
     }
 }
 

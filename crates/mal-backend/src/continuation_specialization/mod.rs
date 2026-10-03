@@ -2,6 +2,7 @@
 
 mod index;
 mod plan;
+mod trace;
 
 pub(crate) use plan::Plan;
 
