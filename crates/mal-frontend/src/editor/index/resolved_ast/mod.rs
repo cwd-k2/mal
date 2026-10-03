@@ -156,37 +156,13 @@ impl Index {
         use resolved::Expression;
         match &expression.kind {
             Expression::Reference(reference) => {
-                let detail = self.instantiated_generic_type_name(
-                    reference.id,
-                    reference.name.span,
-                    &[],
-                    false,
-                );
-                self.add_raw_with_detail(
-                    SymbolId::Value(self.canonical_value(reference.id)),
-                    &reference.name,
-                    OccurrenceRole::Reference,
-                    None,
-                    detail,
-                );
+                self.collect_resolved_value_reference(reference, &[]);
             }
             Expression::GenericReference {
                 reference,
                 arguments,
             } => {
-                let detail = self.instantiated_generic_type_name(
-                    reference.id,
-                    reference.name.span,
-                    arguments,
-                    false,
-                );
-                self.add_raw_with_detail(
-                    SymbolId::Value(self.canonical_value(reference.id)),
-                    &reference.name,
-                    OccurrenceRole::Reference,
-                    None,
-                    detail,
-                );
+                self.collect_resolved_value_reference(reference, arguments);
                 for argument in arguments {
                     self.collect_resolved_type(argument);
                 }
@@ -262,6 +238,21 @@ impl Index {
             | Expression::Symbol(_)
             | Expression::Unit => {}
         }
+    }
+
+    fn collect_resolved_value_reference(
+        &mut self,
+        reference: &resolved::ValueReference,
+        explicit_arguments: &[mal_syntax::ast::Node<resolved::TypeExpression>],
+    ) {
+        let detail = self.instantiated_generic_type_name(reference, explicit_arguments, false);
+        self.add_raw_with_detail(
+            SymbolId::Value(self.canonical_value(reference.id)),
+            &reference.name,
+            OccurrenceRole::Reference,
+            None,
+            detail,
+        );
     }
 
     fn collect_resolved_continuation(

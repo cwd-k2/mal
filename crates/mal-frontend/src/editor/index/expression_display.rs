@@ -91,35 +91,14 @@ impl Index {
         expression: &mal_syntax::ast::Node<resolved::Expression>,
     ) -> Option<String> {
         use resolved::Expression;
+        if let Some((reference, arguments)) = generic_reference(expression) {
+            return self.instantiated_generic_type_name(reference, arguments, false);
+        }
         match &expression.kind {
-            Expression::Reference(reference) => {
-                self.instantiated_generic_type_name(reference.id, reference.name.span, &[], false)
-            }
-            Expression::GenericReference {
-                reference,
-                arguments,
-            } => self.instantiated_generic_type_name(
-                reference.id,
-                reference.name.span,
-                arguments,
-                false,
-            ),
             Expression::Parenthesized(inner) => self.inferred_expression_display_name(inner),
             Expression::Call { callee, .. } => {
-                let (reference, arguments) = match &callee.kind {
-                    Expression::Reference(reference) => (reference, &[][..]),
-                    Expression::GenericReference {
-                        reference,
-                        arguments,
-                    } => (reference, arguments.as_slice()),
-                    _ => return None,
-                };
-                self.instantiated_generic_type_name(
-                    reference.id,
-                    reference.name.span,
-                    arguments,
-                    true,
-                )
+                let (reference, arguments) = generic_reference(callee)?;
+                self.instantiated_generic_type_name(reference, arguments, true)
             }
             Expression::Block(block) => self.inferred_expression_display_name(&block.result),
             Expression::ResultBlock { body, .. } => {
@@ -138,13 +117,12 @@ impl Index {
 
     pub(super) fn instantiated_generic_type_name(
         &self,
-        id: resolved::ValueId,
-        span: Span,
+        reference: &resolved::ValueReference,
         explicit_arguments: &[mal_syntax::ast::Node<resolved::TypeExpression>],
         call_result: bool,
     ) -> Option<String> {
-        let signature = self.generic_value_types.get(&id)?;
-        let arguments = self.inferred_type_arguments.get(&span)?;
+        let signature = self.generic_value_types.get(&reference.id)?;
+        let arguments = self.inferred_type_arguments.get(&reference.name.span)?;
         let mut substitutions = signature
             .parameters
             .iter()
@@ -166,5 +144,21 @@ impl Index {
             ty,
             &substitutions,
         ))
+    }
+}
+
+fn generic_reference(
+    expression: &mal_syntax::ast::Node<resolved::Expression>,
+) -> Option<(
+    &resolved::ValueReference,
+    &[mal_syntax::ast::Node<resolved::TypeExpression>],
+)> {
+    match &expression.kind {
+        resolved::Expression::Reference(reference) => Some((reference, &[])),
+        resolved::Expression::GenericReference {
+            reference,
+            arguments,
+        } => Some((reference, arguments)),
+        _ => None,
     }
 }

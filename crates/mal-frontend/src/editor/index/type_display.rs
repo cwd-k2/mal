@@ -107,7 +107,7 @@ pub(super) fn substitute(
                 .map(|argument| substitute(argument, substitutions))
                 .collect();
             if let Some(replacement) = substitutions.get(&constructor.id) {
-                return apply(replacement, arguments, ty.span);
+                return apply_type_arguments(replacement, arguments, ty.span);
             }
             TypeExpression::Application {
                 constructor: constructor.clone(),
@@ -147,7 +147,7 @@ fn applied_type_name(constructor: &str, arguments: impl Iterator<Item = String>)
     }
 }
 
-fn apply(
+fn apply_type_arguments(
     constructor: &Node<TypeExpression>,
     mut arguments: Vec<Node<TypeExpression>>,
     span: mal_syntax::source::Span,
@@ -174,7 +174,7 @@ fn apply(
                 span,
             )
         }
-        TypeExpression::Parenthesized(inner) => apply(inner, arguments, span),
+        TypeExpression::Parenthesized(inner) => apply_type_arguments(inner, arguments, span),
         _ => unreachable!("checked constructor substitution must remain applicable"),
     }
 }
