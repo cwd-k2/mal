@@ -18,6 +18,7 @@ pub(crate) struct Request {
     pub(crate) workers: Vec<Worker>,
     pub(crate) creators: Vec<ValueId>,
     pub(crate) sites: Vec<AtomId>,
+    pub(crate) targets: Vec<(AtomId, FunctionId)>,
 }
 
 impl Request {
@@ -105,11 +106,23 @@ pub(super) fn prepare(program: &Program, plan: &Plan) -> Option<Request> {
         .collect::<Vec<_>>();
     sites.sort_by_key(|site| site.0);
     sites.dedup();
+    let mut targets = plan
+        .call_sites
+        .iter()
+        .filter_map(|call| {
+            let [target] = call.targets.as_slice() else {
+                return None;
+            };
+            Some((call.site, *target))
+        })
+        .collect::<Vec<_>>();
+    targets.sort_by_key(|(site, _)| site.0);
     Some(Request {
         demand: demand.clone(),
         workers,
         creators,
         sites,
+        targets,
     })
 }
 

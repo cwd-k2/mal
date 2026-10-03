@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use mal_frontend::check::ast::Type;
 
@@ -15,48 +15,45 @@ use super::request::Request;
 pub(super) fn apply(program: &Program, request: &Request) -> Option<Program> {
     let mut rewritten = program.clone();
     let mut ids = Identities::after(&mut rewritten);
-    let worker_id = request
+    for worker in &request.workers {
+        if ids.function() != worker.worker {
+            return None;
+        }
+    }
+    let demanded_type = request.demand.argument.ty.clone();
+    let targets = request.targets.iter().copied().collect::<HashMap<_, _>>();
+    let workers = request
         .workers
         .iter()
-        .find(|worker| worker.original == request.demand.producer)?
-        .worker;
-    while ids.function() != worker_id {}
-    let worker = super::fuse::worker(program, &request.demand, worker_id, &mut ids)?;
+        .map(|worker| (worker.original, (worker.worker, ids.value())))
+        .collect::<HashMap<_, _>>();
+    let (worker_id, worker_binding) = workers.get(&request.demand.producer).copied()?;
+    let generated = super::fuse::workers(
+        program,
+        request.demand.producer,
+        &demanded_type,
+        &workers,
+        &targets,
+        &mut ids,
+    )?;
+    let root = generated.iter().find(|worker| worker.id == worker_id)?;
     let worker_type = Type::Function {
-        parameter: worker.parameter.ty.clone().into(),
-        result: worker.body.result.ty.clone().into(),
+        parameter: root.parameter.ty.clone().into(),
+        result: root.body.result.ty.clone().into(),
     };
-    let worker_binding = ids.value();
-    let creator = ids.value();
-    let span = worker.body.span;
-    let top_level = TopLevelBinding {
-        pattern: TopLevelPattern::Binding {
-            id: worker_binding,
-            name: format!("continuation${}", function_number(worker_id)),
-            ty: worker_type.clone(),
-        },
-        value: Block {
-            bindings: vec![Binding {
-                pattern: Pattern::Binding {
-                    id: creator,
-                    ty: worker_type.clone(),
-                },
-                operation: Operation::MakeClosure {
-                    function: worker_id,
-                    captures: Vec::new(),
-                },
-                span,
-            }],
-            result: Atom {
-                id: ids.atom(),
-                kind: AtomKind::Reference(Reference::Binding(creator)),
-                ty: worker_type.clone(),
-                span,
-            },
-            span,
-        },
-        span,
-    };
+    let top_levels = generated
+        .iter()
+        .map(|worker| {
+            let binding = workers[&request
+                .workers
+                .iter()
+                .find(|candidate| candidate.worker == worker.id)
+                .expect("generated worker belongs to the request")
+                .original]
+                .1;
+            worker_top_level(worker, binding, &mut ids)
+        })
+        .collect::<Vec<_>>();
 
     let mut redirected = 0;
     for binding in &mut rewritten.bindings {
@@ -92,10 +89,51 @@ pub(super) fn apply(program: &Program, request: &Request) -> Option<Program> {
     if redirected != 1 {
         return None;
     }
-    rewritten.bindings.push(top_level);
-    rewritten.functions.push(worker);
+    rewritten.bindings.extend(top_levels);
+    rewritten.functions.extend(generated);
     debug_assert!(are_unique(&mut rewritten.clone()));
     Some(rewritten)
+}
+
+fn worker_top_level(
+    worker: &crate::closure::ast::Function,
+    binding: ValueId,
+    ids: &mut Identities,
+) -> TopLevelBinding {
+    let ty = Type::Function {
+        parameter: worker.parameter.ty.clone().into(),
+        result: worker.body.result.ty.clone().into(),
+    };
+    let creator = ids.value();
+    let span = worker.body.span;
+    TopLevelBinding {
+        pattern: TopLevelPattern::Binding {
+            id: binding,
+            name: format!("continuation${}", function_number(worker.id)),
+            ty: ty.clone(),
+        },
+        value: Block {
+            bindings: vec![Binding {
+                pattern: Pattern::Binding {
+                    id: creator,
+                    ty: ty.clone(),
+                },
+                operation: Operation::MakeClosure {
+                    function: worker.id,
+                    captures: Vec::new(),
+                },
+                span,
+            }],
+            result: Atom {
+                id: ids.atom(),
+                kind: AtomKind::Reference(Reference::Binding(creator)),
+                ty,
+                span,
+            },
+            span,
+        },
+        span,
+    }
 }
 
 fn redirect_block(

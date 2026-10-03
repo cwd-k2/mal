@@ -280,7 +280,7 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
             .all(|worker| worker.original != worker.worker)
     );
     let copied = request.apply(&program).expect("fused State worker");
-    assert_eq!(copied.functions.len(), program.functions.len() + 1);
+    assert!(copied.functions.len() > program.functions.len());
     assert!(copied.functions.iter().any(|function| {
         request.workers.iter().any(|worker| {
             worker.original == request.demand.producer && function.id == worker.worker
@@ -288,6 +288,11 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
     }));
     assert!(crate::closure::rewrite::are_unique(&mut copied.clone()));
     request.workers.clear();
+    assert!(!request.is_valid(&program, &plan));
+    request = plan
+        .request(&program)
+        .expect("closed State rewrite request");
+    request.targets.clear();
     assert!(!request.is_valid(&program, &plan));
 }
 
