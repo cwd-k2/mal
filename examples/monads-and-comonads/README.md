@@ -31,9 +31,9 @@ constructor is a file-local opaque type, so `program.mal` sees the operations bu
 representation.
 
 > [!NOTE]
-> `duplicate<Focus>` would put a `Focus` inside a Buffer, and `Focus` holds a Buffer, which is not
-> `Storable`. Specialization rejects that use. The example therefore applies `duplicate` only to `Env`
-> and `Store`.
+> `duplicate<Focus>` specializes to a `Focus<Focus<A>>`: its result Buffer stores opaque `Focus<A>`
+> carriers, and each carrier shares the original inner Buffer identity. This exercises recursive
+> `Storable(Buffer<A>)`; it does not copy the inner elements or flatten the two identities.
 
 ```nu
 nix develop --command cargo run -p mal-compiler -- build examples/monads-and-comonads/program.mal --output /tmp/mal-monads-and-comonads

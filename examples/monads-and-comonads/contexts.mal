@@ -130,5 +130,10 @@ focusScenario :: Unit -> Int32 := () -> [return] => {
     smoothed := extend<Focus>(readings, _average);
     when (!_holds(smoothed, _five(15i32, 20i32, 30i32, 40i32, 45i32), 0usize)) return(16);
     when (extract<Focus>(smoothed) != 30i32 || focusAt(readings, 0usize) != 10i32) return(17);
+    nested := duplicate<Focus>(readings);
+    centered := extract<Focus>(nested);
+    first := focusAt(nested, 0usize);
+    when (focusIndex(centered) != 2usize || extract<Focus>(centered) != 30i32) return(18);
+    when (focusIndex(first) != 0usize || extract<Focus>(first) != 10i32) return(19);
     return(0);
 };
