@@ -1,6 +1,8 @@
 # editor
 
 Builds what editor queries need from the current text and, when analysis succeeds, from resolved and checked programs.
+After a top-level checking error, the semantic index combines all identities from the current resolved program with
+types from only the successfully checked top-level items.
 
 | Module | Responsibility |
 |---|---|

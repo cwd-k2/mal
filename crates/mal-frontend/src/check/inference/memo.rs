@@ -15,6 +15,7 @@ use super::super::{CheckResult, Checker};
 /// argument that succeeded with less information, reaching type `T`, also elaborates the same way when later checked
 /// against `T`: the expectation only adds a constraint that the first elaboration already satisfies. A failure is
 /// reused only under the same expectation, because more information may let the argument check.
+#[derive(Clone)]
 pub(in crate::check) struct ArgumentMemo {
     entries: HashMap<usize, Vec<Outcome>>,
 }
@@ -34,6 +35,7 @@ impl Expectation {
     }
 }
 
+#[derive(Clone)]
 struct Outcome {
     expectation: Expectation,
     result: CheckResult<Expression>,
@@ -41,6 +43,7 @@ struct Outcome {
 }
 
 /// Checker state a probe changed and that a reused outcome must replay.
+#[derive(Clone)]
 struct Effects {
     operations: Vec<OperationRequirement>,
     kinds: Vec<KindRequirement>,

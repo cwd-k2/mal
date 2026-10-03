@@ -3,6 +3,10 @@
 Type checking, and the specialization that follows it. Checking admits resolved programs into typed programs
 with a `Value` or `Abrupt` completion for every expression.
 
+The compiler entry point rejects the whole program on the first checking error. The editor entry point uses the same
+rules but rolls back a failing top-level item and retains later independent items in a partial program that is private
+to editor analysis; specialization and lowering cannot consume it.
+
 | Module | Responsibility |
 |---|---|
 | `mod` | the checking entry points and the state shared while checking one program |

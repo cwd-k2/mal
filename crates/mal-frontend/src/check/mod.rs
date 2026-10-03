@@ -40,16 +40,13 @@ use self::types::{GenericAliasDefinition, Kinds};
 
 /// Applies every type and completion rule to a resolved program while retaining generic declarations.
 pub fn check(program: &resolved::Program) -> Result<Program, Diagnostic> {
-    Checker::new()
-        .check_program(program)
-        .map_err(|error| match error {
-            CheckFailure::Diagnostic(diagnostic) => diagnostic,
-            CheckFailure::Abrupt(abrupt) => Diagnostic::error("abrupt completion outside a lambda")
-                .with_primary(
-                    abrupt.span,
-                    "this control expression has no return boundary",
-                ),
-        })
+    Checker::new().check_program(program).map_err(diagnostic)
+}
+
+pub(crate) fn check_for_editor(
+    program: &resolved::Program,
+) -> Result<(Program, Option<Diagnostic>), Diagnostic> {
+    Checker::new().check_program_for_editor(program)
 }
 
 /// Instantiates the generic bindings reachable from `main` once per concrete type argument list.
@@ -100,6 +97,7 @@ impl From<Diagnostic> for CheckFailure {
 
 type CheckResult<T> = Result<T, CheckFailure>;
 
+#[derive(Clone)]
 struct Checker {
     kinds: Kinds,
     next_kind_variable: u32,
@@ -127,6 +125,17 @@ struct Checker {
     used_result_targets: HashSet<ValueId>,
     /// One memo per generic call being inferred, innermost last.
     argument_memos: Vec<inference::ArgumentMemo>,
+}
+
+fn diagnostic(error: CheckFailure) -> Diagnostic {
+    match error {
+        CheckFailure::Diagnostic(diagnostic) => diagnostic,
+        CheckFailure::Abrupt(abrupt) => Diagnostic::error("abrupt completion outside a lambda")
+            .with_primary(
+                abrupt.span,
+                "this control expression has no return boundary",
+            ),
+    }
 }
 
 #[derive(Clone)]

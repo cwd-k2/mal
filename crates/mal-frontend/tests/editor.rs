@@ -13,3 +13,5 @@ mod exits;
 mod hover;
 #[path = "editor/navigation.rs"]
 mod navigation;
+#[path = "editor/recovery.rs"]
+mod recovery;

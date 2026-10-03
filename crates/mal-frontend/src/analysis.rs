@@ -12,6 +12,29 @@ pub struct Analysis {
     pub checked: crate::check::ast::Program,
 }
 
+/// Editor analysis for the current source version. Its checked program may contain only successfully admitted
+/// top-level items and is intentionally not exposed to compiler lowering or specialization.
+pub struct EditorAnalysis {
+    pub(crate) resolved: crate::resolve::ast::Program,
+    pub(crate) checked: crate::check::ast::Program,
+    check_diagnostic: Option<Diagnostic>,
+}
+
+impl EditorAnalysis {
+    /// Returns the first top-level checking diagnostic, if checking recovered after an invalid item.
+    pub fn check_diagnostic(&self) -> Option<&Diagnostic> {
+        self.check_diagnostic.as_ref()
+    }
+
+    /// Returns a specialization diagnostic only when the complete program passed checking.
+    pub fn specialization_error(&self) -> Option<Diagnostic> {
+        self.check_diagnostic
+            .is_none()
+            .then(|| specialization_error(&self.checked))
+            .flatten()
+    }
+}
+
 /// Parses, resolves, and checks one file. `require` declarations are not followed; use `analyze_graph` for several files.
 pub fn analyze(source: &SourceFile) -> Result<Analysis, Diagnostic> {
     let parsed = mal_syntax::parser::parse(source)?;
@@ -30,6 +53,35 @@ pub fn analyze_graph(graph: &SourceGraph) -> Result<Analysis, Diagnostic> {
     let resolved = crate::resolve::resolve_graph(graph, &parsed)?;
     let checked = crate::check::check(&resolved)?;
     Ok(Analysis { resolved, checked })
+}
+
+/// Parses and resolves one file, then retains successfully checked top-level items if another item has a type error.
+/// Parse, resolution, and checker-wide declaration failures are returned as errors.
+pub fn analyze_for_editor(source: &SourceFile) -> Result<EditorAnalysis, Diagnostic> {
+    let parsed = mal_syntax::parser::parse(source)?;
+    let resolved = crate::resolve::resolve(&parsed)?;
+    editor_analysis(resolved)
+}
+
+/// Parses and resolves a source graph, then retains successfully checked top-level items if another item has a type
+/// error. Parse, resolution, and checker-wide declaration failures are returned as errors.
+pub fn analyze_graph_for_editor(graph: &SourceGraph) -> Result<EditorAnalysis, Diagnostic> {
+    let parsed = graph
+        .files()
+        .iter()
+        .map(mal_syntax::parser::parse)
+        .collect::<Result<Vec<_>, _>>()?;
+    let resolved = crate::resolve::resolve_graph(graph, &parsed)?;
+    editor_analysis(resolved)
+}
+
+fn editor_analysis(resolved: crate::resolve::ast::Program) -> Result<EditorAnalysis, Diagnostic> {
+    let (checked, check_diagnostic) = crate::check::check_for_editor(&resolved)?;
+    Ok(EditorAnalysis {
+        resolved,
+        checked,
+        check_diagnostic,
+    })
 }
 
 /// The source error that specialization reports for an executable program, such as a reached operation key without an

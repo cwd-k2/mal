@@ -132,9 +132,23 @@ pub fn from_analysis(analysis: &crate::analysis::Analysis) -> SemanticDocument {
     index::build(&analysis.resolved, &analysis.checked, None, None)
 }
 
+/// Builds a program-wide index from editor analysis, including resolved identities from top-level items that failed
+/// checking and types only from the successfully checked fragments.
+pub fn from_editor_analysis(analysis: &crate::analysis::EditorAnalysis) -> SemanticDocument {
+    index::build(&analysis.resolved, &analysis.checked, None, None)
+}
+
 /// Builds an index whose document-local queries are restricted to `file` while definitions remain program-wide.
 pub fn from_analysis_for_file(
     analysis: &crate::analysis::Analysis,
+    file: FileId,
+) -> SemanticDocument {
+    index::build(&analysis.resolved, &analysis.checked, Some(file), None)
+}
+
+/// Builds a file-restricted index from editor analysis while keeping definitions program-wide.
+pub fn from_editor_analysis_for_file(
+    analysis: &crate::analysis::EditorAnalysis,
     file: FileId,
 ) -> SemanticDocument {
     index::build(&analysis.resolved, &analysis.checked, Some(file), None)
@@ -145,6 +159,27 @@ pub fn from_analysis_for_file(
 pub fn from_graph_analysis(
     graph: &SourceGraph,
     analysis: &crate::analysis::Analysis,
+    file: FileId,
+) -> SemanticDocument {
+    let visible = graph
+        .requirements(file)
+        .iter()
+        .map(|requirement| requirement.target)
+        .chain(std::iter::once(file))
+        .collect::<HashSet<_>>();
+    index::build(
+        &analysis.resolved,
+        &analysis.checked,
+        Some(file),
+        Some(&visible),
+    )
+}
+
+/// Builds a graph index from editor analysis. Only the selected file and its direct requirements contribute
+/// completion candidates, while navigation retains all resolved identities.
+pub fn from_graph_editor_analysis(
+    graph: &SourceGraph,
+    analysis: &crate::analysis::EditorAnalysis,
     file: FileId,
 ) -> SemanticDocument {
     let visible = graph
