@@ -225,4 +225,8 @@ impl Plan {
     pub(crate) fn is_valid(&self, program: &Program) -> bool {
         *self == Self::new(program)
     }
+
+    pub(crate) fn request(&self, program: &Program) -> Option<super::request::Request> {
+        super::request::prepare(program, self)
+    }
 }

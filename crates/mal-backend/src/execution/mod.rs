@@ -59,6 +59,9 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
     {
         let demands = crate::continuation_specialization::Plan::new(&lowered);
         debug_assert!(demands.is_valid(&lowered));
+        if let Some(request) = demands.request(&lowered) {
+            debug_assert!(request.is_valid(&lowered, &demands));
+        }
     }
     let closure_uses = ClosureUsePlan::new(&lowered);
     debug_assert!(closure_uses.is_valid(&lowered));

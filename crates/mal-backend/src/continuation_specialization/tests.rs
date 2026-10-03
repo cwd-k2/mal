@@ -4,7 +4,7 @@ use super::Plan;
 use super::plan::ProducerResult;
 use crate::closure::ast::AtomKind;
 
-fn plan(text: &str) -> Plan {
+fn analyze(text: &str) -> (crate::closure::ast::Program, Plan) {
     let source = SourceFile::new(
         FileId::new(99),
         "continuation-specialization.mal",
@@ -16,7 +16,13 @@ fn plan(text: &str) -> Plan {
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
-    Plan::new(&crate::call_pattern::specialize(closure))
+    let program = crate::call_pattern::specialize(closure);
+    let plan = Plan::new(&program);
+    (program, plan)
+}
+
+fn plan(text: &str) -> Plan {
+    analyze(text).1
 }
 
 #[test]
@@ -181,7 +187,7 @@ fn reports_a_slice_with_an_uncovered_call_site_as_open() {
 
 #[test]
 fn admits_a_closure_origin_packed_only_for_local_transport() {
-    let plan = plan(
+    let (program, plan) = analyze(
         "increment :: Int32 -> Int32 := (value) -> value + 1i32;
          create :: (Int32 -> Int32) -> (Int32 -> Int32) := (callback) -> (value) -> {
              kept := (callback, value);
@@ -194,11 +200,12 @@ fn admits_a_closure_origin_packed_only_for_local_transport() {
     assert_eq!(plan.demands.len(), 1);
     assert!(plan.closed, "{plan:#?}");
     assert!(plan.transport_closed, "{plan:#?}");
+    assert!(plan.request(&program).is_some());
 }
 
 #[test]
 fn reports_capture_by_a_closure_outside_the_slice_as_open_transport() {
-    let plan = plan(
+    let (program, plan) = analyze(
         "increment :: Int32 -> Int32 := (value) -> value + 1i32;
          create :: (Int32 -> Int32) -> (Int32 -> Int32) := (callback) -> (value) -> {
              unused :: Unit -> (Int32 -> Int32) := () -> callback;
@@ -210,11 +217,12 @@ fn reports_capture_by_a_closure_outside_the_slice_as_open_transport() {
     assert_eq!(plan.demands.len(), 1);
     assert!(plan.closed, "{plan:#?}");
     assert!(!plan.transport_closed, "{plan:#?}");
+    assert!(plan.request(&program).is_none());
 }
 
 #[test]
 fn finds_the_final_consumer_of_a_recursive_state_chain() {
-    let plan = plan(
+    let (program, plan) = analyze(
         "opaque State<S, A> :: S -> (S, A);
          pureState<S, A> :: A -> State<S, A> := (value) -> (state) -> (state, value);
          bindState<S, A, B> :: (State<S, A>, A -> State<S, B>) -> State<S, B> :=
@@ -256,6 +264,19 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
     assert!(plan.closed, "{plan:#?}");
     assert!(plan.creators_complete, "{plan:#?}");
     assert!(plan.transport_closed, "{plan:#?}");
+    let mut request = plan
+        .request(&program)
+        .expect("closed State rewrite request");
+    assert!(request.is_valid(&program, &plan));
+    assert!(!request.workers.is_empty());
+    assert!(
+        request
+            .workers
+            .iter()
+            .all(|worker| worker.original != worker.worker)
+    );
+    request.workers.clear();
+    assert!(!request.is_valid(&program, &plan));
 }
 
 #[test]

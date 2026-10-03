@@ -21,3 +21,4 @@ is enabled.
 | `application` | closure-flow candidates reached while executing demanded closure targets |
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
 | `provenance` | creator and self-closure origins reaching each use, with transport and escape destinations |
+| `request` | all-or-nothing worker identities under the shared closure-copy budget |
