@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, AtomId, AtomKind, Program, Reference};
 use crate::closure::rewrite::{
-    Identities,
+    Identities, copy_top_level,
     walk::{self, Visitor},
 };
 
-use super::clone::{copy_function, copy_top_level};
+use super::clone::copy_function;
 use super::plan::Request;
 
 /// Copies the requested functions and points their call sites at the copies; reports whether anything changed.

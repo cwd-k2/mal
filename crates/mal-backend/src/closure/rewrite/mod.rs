@@ -1,8 +1,10 @@
 //! Mechanical support for policy-owning closure IR rewrites.
 
+mod copy;
 mod identities;
 pub(crate) mod walk;
 
+pub(crate) use copy::{copy_functions, copy_top_level};
 pub(crate) use identities::{Identities, are_unique};
 
 const GROWTH_FACTOR: usize = 4;
