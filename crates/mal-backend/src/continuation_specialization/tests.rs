@@ -244,11 +244,16 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
              checksum.u8.i32;
          };",
     );
-
     assert!(
         plan.demands
             .iter()
             .any(|demand| matches!(demand.argument.kind, AtomKind::Integer(0)))
+    );
+    assert!(
+        plan.result_applications.iter().any(|application| {
+            application.producer_site.0 == 97 && application.consumer.0 == 100
+        }),
+        "{plan:#?}"
     );
     assert_eq!(plan.steps.len(), 4, "{:#?}", plan.steps);
     assert_eq!(
@@ -311,6 +316,9 @@ fn validates_the_exact_demand_set() {
 
     assert!(plan.is_valid(&closure));
     plan.demands.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    plan.result_applications.clear();
     assert!(!plan.is_valid(&closure));
     plan = Plan::new(&closure);
     plan.steps.clear();

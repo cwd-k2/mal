@@ -21,6 +21,19 @@ pub(crate) struct Demand {
     pub(crate) argument: Atom,
 }
 
+/// One call result consumed immediately and exactly once as another call's callee.
+///
+/// Unlike [`Demand`], the producer may itself be a function parameter. Its concrete
+/// targets are therefore recovered from the program-wide call-site inventory.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ResultApplication {
+    pub(crate) producer_result: ValueId,
+    pub(crate) producer_site: AtomId,
+    pub(crate) producer_argument: Atom,
+    pub(crate) consumer: AtomId,
+    pub(crate) argument: Atom,
+}
+
 /// One direct edge followed while propagating an application demand through producer results.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ProducerStep {
@@ -121,6 +134,7 @@ pub(crate) enum ClosureUseKind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     pub(in crate::continuation_specialization) demands: Vec<Demand>,
+    pub(in crate::continuation_specialization) result_applications: Vec<ResultApplication>,
     pub(in crate::continuation_specialization) steps: Vec<ProducerStep>,
     pub(in crate::continuation_specialization) applications: Vec<ApplicationStep>,
     pub(in crate::continuation_specialization) creators: Vec<Creator>,
@@ -133,7 +147,7 @@ pub(crate) struct Plan {
 
 impl Plan {
     pub(crate) fn new(program: &Program) -> Self {
-        let (demands, steps) = index::analyze(program);
+        let (demands, result_applications, steps) = index::analyze(program);
         let applications = super::application::trace(program, &steps);
         let (creators, call_sites, uses) =
             super::inventory::collect(program, &steps, &applications);
@@ -211,6 +225,7 @@ impl Plan {
         });
         Self {
             demands,
+            result_applications,
             steps,
             applications,
             creators,

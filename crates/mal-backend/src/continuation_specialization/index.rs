@@ -5,13 +5,33 @@ use crate::closure::ast::{
     Atom, AtomId, AtomKind, FunctionId, Operation, Pattern, Program, Reference,
 };
 
-use super::plan::{Demand, ProducerStep};
+use super::plan::{Demand, ProducerStep, ResultApplication};
 
-pub(super) fn analyze(program: &Program) -> (Vec<Demand>, Vec<ProducerStep>) {
+pub(super) fn analyze(
+    program: &Program,
+) -> (Vec<Demand>, Vec<ResultApplication>, Vec<ProducerStep>) {
     let index = Index::new(program);
-    let demands = index.demands(program);
+    let result_applications = index.result_applications(program);
+    let demands = result_applications
+        .iter()
+        .filter_map(|application| {
+            let Operation::Call { callee, .. } =
+                index.definitions.get(&application.producer_result)?
+            else {
+                return None;
+            };
+            Some(Demand {
+                producer_result: application.producer_result,
+                producer: index.function(callee)?,
+                producer_site: application.producer_site,
+                producer_argument: application.producer_argument.clone(),
+                consumer: application.consumer,
+                argument: application.argument.clone(),
+            })
+        })
+        .collect::<Vec<_>>();
     let steps = super::trace::producer_steps(&index, program, &demands);
-    (demands, steps)
+    (demands, result_applications, steps)
 }
 
 #[derive(Clone, Copy)]
@@ -60,8 +80,8 @@ impl Index {
         index
     }
 
-    fn demands(&self, program: &Program) -> Vec<Demand> {
-        let mut demands = Vec::new();
+    fn result_applications(&self, program: &Program) -> Vec<ResultApplication> {
+        let mut applications = Vec::new();
         for_each_block(program, &mut |block| {
             for (consumer_index, binding) in block.bindings.iter().enumerate() {
                 let Operation::Call { callee, argument } = &binding.operation else {
@@ -76,9 +96,6 @@ impl Index {
                     argument: producer_argument,
                 }) = self.definitions.get(&origin)
                 else {
-                    continue;
-                };
-                let Some(producer) = self.function(producer_callee) else {
                     continue;
                 };
                 let Some(producer_index) = block.bindings.iter().position(
@@ -106,9 +123,8 @@ impl Index {
                     })
                     .collect::<Vec<_>>();
                 if consumers.as_slice() == [callee.id] {
-                    demands.push(Demand {
+                    applications.push(ResultApplication {
                         producer_result: origin,
-                        producer,
                         producer_site: producer_callee.id,
                         producer_argument: producer_argument.clone(),
                         consumer: callee.id,
@@ -117,7 +133,7 @@ impl Index {
                 }
             }
         });
-        demands
+        applications
     }
 
     fn index_block(&mut self, block: &crate::closure::ast::Block) {
