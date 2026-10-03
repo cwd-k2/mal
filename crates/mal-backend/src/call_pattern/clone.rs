@@ -9,9 +9,10 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::{
     Atom, AtomKind, Function, FunctionId, Program, Reference, TopLevelBinding,
 };
-
-use super::ids::Identities;
-use super::walk::{self, Visitor};
+use crate::closure::rewrite::{
+    Identities,
+    walk::{self, Visitor},
+};
 
 /// The function `root` and every closure it creates, transitively, copied under new identities.
 pub(super) struct FunctionCopy {

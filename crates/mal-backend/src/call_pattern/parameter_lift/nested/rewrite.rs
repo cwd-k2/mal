@@ -3,8 +3,9 @@ use mal_frontend::check::ast::Type;
 use crate::closure::ast::{
     Atom, AtomKind, Binding, Block, CaptureField, Operation, Pattern, Program, Reference,
 };
+use crate::closure::rewrite::Identities;
 
-use super::super::super::{ids::Identities, lambda_lift};
+use super::super::super::lambda_lift;
 use super::Use;
 
 pub(in crate::call_pattern::parameter_lift) fn prepare_function(

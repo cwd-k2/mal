@@ -6,14 +6,14 @@ use crate::closure::ast::{Atom, AtomId, AtomKind, FunctionId, Program, Reference
 use super::walk::{self, Visitor};
 
 /// Source of identities no part of the program uses yet.
-pub(super) struct Identities {
+pub(crate) struct Identities {
     lambda: u32,
     temporary: u32,
     atom: usize,
 }
 
 impl Identities {
-    pub(super) fn after(program: &mut Program) -> Self {
+    pub(crate) fn after(program: &mut Program) -> Self {
         let mut ids = Self {
             lambda: 0,
             temporary: 0,
@@ -23,23 +23,23 @@ impl Identities {
         ids
     }
 
-    pub(super) fn function(&mut self) -> FunctionId {
+    pub(crate) fn function(&mut self) -> FunctionId {
         self.lambda += 1;
         FunctionId::Lambda(LambdaId(self.lambda))
     }
 
-    pub(super) fn value(&mut self) -> ValueId {
+    pub(crate) fn value(&mut self) -> ValueId {
         self.temporary += 1;
         ValueId::Temporary(self.temporary)
     }
 
-    pub(super) fn atom(&mut self) -> AtomId {
+    pub(crate) fn atom(&mut self) -> AtomId {
         self.atom += 1;
         AtomId(self.atom)
     }
 
     /// Copies atoms to a new use site. Each copy gets its own identity, since facts are keyed by atom identity.
-    pub(super) fn copy_atoms(&mut self, atoms: &[Atom]) -> Vec<Atom> {
+    pub(crate) fn copy_atoms(&mut self, atoms: &[Atom]) -> Vec<Atom> {
         atoms
             .iter()
             .map(|atom| Atom {
@@ -87,7 +87,7 @@ impl Visitor for Identities {
 }
 
 /// Whether every binder and atom of the program has an identity no other occurrence shares.
-pub(super) fn are_unique(program: &mut Program) -> bool {
+pub(crate) fn are_unique(program: &mut Program) -> bool {
     #[derive(Default)]
     struct Occurrences {
         binders: std::collections::HashSet<ValueId>,

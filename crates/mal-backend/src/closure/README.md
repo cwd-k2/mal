@@ -8,6 +8,7 @@ from free references.
 |---|---|
 | `mod` | conversion of lambdas into lifted functions and closure construction |
 | `ast` | the closure-converted program and direct operation-operand traversal |
+| `rewrite` | fresh identities and mutable traversal shared by policy-owning rewrites |
 
 The stage does not choose direct calls, recursive regions, frames, or ownership. Those decisions require whole-program
 flow and belong to `execution`.

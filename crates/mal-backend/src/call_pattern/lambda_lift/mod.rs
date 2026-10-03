@@ -8,9 +8,10 @@ use crate::anf::ast::ValueId;
 use crate::closure::ast::{
     Atom, AtomKind, Binding, Block, FunctionId, Operation, Parameter, Pattern, Program, Reference,
 };
-
-use super::ids::Identities;
-use super::walk::{self, Visitor};
+use crate::closure::rewrite::{
+    Identities,
+    walk::{self, Visitor},
+};
 
 mod lift;
 mod uses;

@@ -8,7 +8,7 @@ use crate::closure::ast::{
 
 /// Callbacks for the identities of one walk. Binders are reported where they bind, so a rewrite that renames
 /// them sees each binder before the references that follow it in the same scope.
-pub(super) trait Visitor {
+pub(crate) trait Visitor {
     fn binder(&mut self, _id: &mut ValueId) {}
     fn atom(&mut self, _atom: &mut Atom) {}
     /// The function a closure creation instantiates.
@@ -17,7 +17,7 @@ pub(super) trait Visitor {
     fn defined(&mut self, _function: &mut FunctionId) {}
 }
 
-pub(super) fn program(program: &mut Program, visitor: &mut impl Visitor) {
+pub(crate) fn program(program: &mut Program, visitor: &mut impl Visitor) {
     for binding in &mut program.bindings {
         top_level(binding, visitor);
     }
@@ -26,12 +26,12 @@ pub(super) fn program(program: &mut Program, visitor: &mut impl Visitor) {
     }
 }
 
-pub(super) fn top_level(binding: &mut TopLevelBinding, visitor: &mut impl Visitor) {
+pub(crate) fn top_level(binding: &mut TopLevelBinding, visitor: &mut impl Visitor) {
     top_level_pattern(&mut binding.pattern, visitor);
     block(&mut binding.value, visitor);
 }
 
-pub(super) fn function(function: &mut Function, visitor: &mut impl Visitor) {
+pub(crate) fn function(function: &mut Function, visitor: &mut impl Visitor) {
     visitor.defined(&mut function.id);
     if let Some(binding) = &mut function.parameter.binding {
         visitor.binder(binding);

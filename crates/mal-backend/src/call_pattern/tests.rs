@@ -2,7 +2,9 @@ use mal_syntax::source::{FileId, SourceFile};
 
 use crate::closure::ast::Program;
 
-use super::{ids, specialize};
+use crate::closure::rewrite::are_unique;
+
+use super::specialize;
 
 fn closure_program(text: &str) -> Program {
     let source = SourceFile::new(FileId::new(98), "call-pattern.mal", text.into());
@@ -52,7 +54,7 @@ fn gives_every_copied_binder_and_atom_an_identity_of_its_own() {
     let program = specialize(closure_program(&format!(
         "{FUNCTIONS}main :: Unit -> Int32 := () -> {{ apply(inc, 1i32) + apply(dec, 2i32) + apply((value) -> {{ value * 2i32; }}, 3i32); }};"
     )));
-    assert!(ids::are_unique(&mut program.clone()));
+    assert!(are_unique(&mut program.clone()));
 }
 
 #[test]
@@ -68,7 +70,7 @@ fn gives_captures_copied_to_each_direct_call_their_own_identities() {
 \
          };",
     ));
-    assert!(ids::are_unique(&mut program.clone()));
+    assert!(are_unique(&mut program.clone()));
 }
 
 #[test]
@@ -128,7 +130,7 @@ fn lifts_a_captured_callback_through_a_recursive_parameter() {
             .all(|function| function.captures.is_empty()),
         "the callback captures travel through the loop parameter"
     );
-    assert!(ids::are_unique(&mut program.clone()));
+    assert!(are_unique(&mut program.clone()));
 }
 
 #[test]
@@ -202,7 +204,7 @@ fn lifts_a_callback_captured_by_a_recursive_callback() {
             .map(|function| (function.id, function.captures.len()))
             .collect::<Vec<_>>()
     );
-    assert!(ids::are_unique(&mut program.clone()));
+    assert!(are_unique(&mut program.clone()));
 }
 
 #[test]

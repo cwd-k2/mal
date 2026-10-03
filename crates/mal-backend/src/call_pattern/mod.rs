@@ -8,16 +8,15 @@
 //! functions it calls, and it stops at a fixed point or when the program has grown past its budget.
 
 use crate::closure::ast::Program;
+use crate::closure::rewrite::are_unique;
 use crate::control;
 use crate::flow::{ClosureFlow, CompatibleTargets};
 
 mod clone;
-mod ids;
 mod lambda_lift;
 mod parameter_lift;
 mod plan;
 mod rewrite;
-mod walk;
 
 #[cfg(test)]
 mod tests;
@@ -40,6 +39,6 @@ pub(crate) fn specialize(mut program: Program) -> Program {
     }
     while parameter_lift::closure_parameters(&mut program) {}
     lambda_lift::direct_closures(&mut program);
-    debug_assert!(ids::are_unique(&mut program.clone()));
+    debug_assert!(are_unique(&mut program.clone()));
     program
 }

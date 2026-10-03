@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::anf::ast as anf;
 
 pub(crate) mod ast;
+pub(crate) mod rewrite;
 
 use self::ast::{
     Atom, AtomId, AtomKind, Binding, Block, CaptureField, Function, FunctionId, Operation, Pattern,

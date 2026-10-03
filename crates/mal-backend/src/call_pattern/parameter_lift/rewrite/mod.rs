@@ -7,8 +7,9 @@ use crate::closure::ast::{
     Atom, AtomId, AtomKind, Binding, Block, FunctionId, Operation, Pattern, Program, Reference,
     TopLevelPattern,
 };
+use crate::closure::rewrite::Identities;
 
-use super::super::{ids::Identities, lambda_lift};
+use super::super::lambda_lift;
 use super::Candidate;
 
 mod pattern;

@@ -2,11 +2,13 @@ use std::collections::HashMap;
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, AtomId, AtomKind, Program, Reference};
+use crate::closure::rewrite::{
+    Identities,
+    walk::{self, Visitor},
+};
 
 use super::clone::{copy_function, copy_top_level};
-use super::ids::Identities;
 use super::plan::Request;
-use super::walk::{self, Visitor};
 
 /// Copies the requested functions and points their call sites at the copies; reports whether anything changed.
 pub(super) fn apply(program: &mut Program, requests: Vec<Request>, budget: usize) -> bool {
