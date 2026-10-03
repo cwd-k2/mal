@@ -10,7 +10,6 @@ mod anf;
 mod backend;
 mod call_pattern;
 mod closure;
-#[cfg(any(debug_assertions, test))]
 mod continuation_specialization;
 mod control;
 mod core;
