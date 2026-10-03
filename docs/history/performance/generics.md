@@ -172,10 +172,12 @@ representationとlifecycleを再帰できることを確認している。
 
 1. `State`のspecialized producer-consumer chainについて、関数型resultが途中のfunction resultと再帰をどう通り、最終consumer以外へ
    escapeしないかを証明するreturn-flow factを先に定義する。そのfactからproducerとconsumerを同じworkerへ融合できる場合だけ
-   captureをparameterへdeforestし、独立fixtureでallocation、IR、Memcheckを採択条件にする。
+   captureをparameterへdeforestする。元の関数値を作るwrapperはescapeするcall用に残し、workerの追加application parameterを通常call、
+   tail result、self-recursive edgeへ同じsignatureで伝播する。copy budget、identity一意性、exact validatorを`call_pattern`の既存contractに
+   合わせ、独立fixtureでallocation、IR、Memcheckを採択条件にする。
 2. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
-   任意capacity co-allocationを繰り返さず、多数の小identity向けallocation policyを別案として測る。shared identityとgrowth後の
-   data pointer再取得を保つ。
+   任意capacity co-allocationを繰り返さない。byte ownerへ変換されないこととaccess patternを区別できるprogram factを得てから別案を測る。
+   shared identity、独立lifetime、growth後のdata pointer再取得を保つ。
 3. `control`の13-instruction recurrenceをCの8-instruction形と比較し、callback inline後の同値なSSAをmachine combineが認識する
    canonical formへ置けるかを調べる。generic消去やloop semanticsの変更ではなくscalar IR canonicalizationとして扱う。
 

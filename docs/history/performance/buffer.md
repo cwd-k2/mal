@@ -224,3 +224,12 @@ backing、growthのいずれも永続fieldを必要としない。managed Buffer
 Rust 3.4 msだが、短時間caseなのでこの値だけを高速化の根拠にはしない。二重allocationと64-byte backingは残るため、allocation policyの
 代替ではない。一方、plain Bufferがelement lifecycleのための情報を持たないという分離は、Poolでもpayload layoutとmanaged destructorの
 authorityを混同しない基準になる。
+
+残る二重allocationをruntime policyだけで一律に統合する案は採らない。object末尾への任意capacity co-allocationは前節のhot identityで
+cache localityを悪化させた。Buffer専用のcompact backingを新設するとheaderは縮むが、現行`MalBytesFlat`が担うlast-use時の
+`Buffer<UInt8> -> Symbol` owner transferと、逆方向のunique flat owner adoptionをcopyへ戻す。arenaはBufferごとの独立lifetimeを
+program終了まで引き延ばすとpeak memoryを増やし、free listやsize classまで持てばruntime全体のallocatorになる。
+
+したがって次にallocation数を減らすには、少なくともbyte ownerへ変換されないこと、growth後のpointer再取得、objectのaccess patternを
+区別するprogram-level factと測定gateが要る。IxPoolをこのfactのない汎用arenaへ拡張したり、短いbenchmarkの`malloc`回数だけから
+Buffer全体のallocation policyを選んだりしない。
