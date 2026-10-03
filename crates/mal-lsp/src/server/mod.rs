@@ -111,122 +111,118 @@ impl Server {
         let id = message.get("id").cloned();
         let params = message.get("params").cloned().unwrap_or(Value::Null);
         let mut messages = Vec::new();
-        let mut exit = None;
 
-        match (method, id) {
-            (Some("initialize"), Some(id)) => messages.push(success(
-                id,
-                json!({
-                    "capabilities": {
-                        "positionEncoding": "utf-16",
-                        "textDocumentSync": 1,
-                        "documentFormattingProvider": true,
-                        "hoverProvider": true,
-                        "inlayHintProvider": true,
-                        "definitionProvider": true,
-                        "documentLinkProvider": {},
-                        "referencesProvider": true,
-                        "renameProvider": true,
-                        "documentSymbolProvider": true,
-                        "completionProvider": {"triggerCharacters": [".", "\"", "/"]},
-                        "semanticTokensProvider": {
-                            "legend": {
-                                "tokenTypes": ["type", "variable", "parameter", "function"],
-                                "tokenModifiers": ["declaration"]
-                            },
-                            "full": true
-                        }
-                    },
-                    "serverInfo": {"name": "mal-lsp", "version": env!("CARGO_PKG_VERSION")}
-                }),
-            )),
-            (Some("shutdown"), Some(id)) => {
-                self.shutdown = true;
-                messages.push(success(id, Value::Null));
+        let exit = match (method, id) {
+            (Some(method), Some(id)) => {
+                messages.push(self.handle_request(method, id, params));
+                None
             }
-            (Some("textDocument/formatting"), Some(id)) => {
-                messages.push(self.formatting(id, params));
-            }
-            (Some("textDocument/hover"), Some(id)) => {
-                messages.push(self.hover(id, params));
-            }
-            (Some("textDocument/definition"), Some(id)) => {
-                messages.push(self.definition(id, params));
-            }
-            (Some("textDocument/documentLink"), Some(id)) => {
-                messages.push(self.document_links(id, params));
-            }
-            (Some("textDocument/references"), Some(id)) => {
-                messages.push(self.references(id, params));
-            }
-            (Some("textDocument/rename"), Some(id)) => {
-                messages.push(self.rename(id, params));
-            }
-            (Some("textDocument/documentSymbol"), Some(id)) => {
-                messages.push(self.document_symbols(id, params));
-            }
-            (Some("textDocument/completion"), Some(id)) => {
-                messages.push(self.completion(id, params));
-            }
-            (Some("textDocument/inlayHint"), Some(id)) => {
-                messages.push(self.inlay_hints(id, params));
-            }
-            (Some("textDocument/semanticTokens/full"), Some(id)) => {
-                messages.push(self.semantic_tokens(id, params));
-            }
-            (Some(_), Some(id)) => messages.push(error(id, -32601, "method not found")),
-            (Some("initialized"), None) => {}
-            (Some("exit"), None) => exit = Some(self.shutdown),
-            (Some("textDocument/didOpen"), None) => {
-                if let Ok(params) = serde_json::from_value::<DidOpenParams>(params) {
-                    let item = params.text_document;
-                    let id = FileId::new(self.next_file_id);
-                    self.next_file_id = self.next_file_id.wrapping_add(1);
-                    self.documents.insert(
-                        item.uri.clone(),
-                        Document {
-                            id,
-                            version: item.version,
-                            text: item.text,
-                            analysis: AnalysisState::Stale,
-                            published_diagnostics: None,
-                        },
-                    );
-                    self.invalidate_analyses_reading(&item.uri);
-                    self.publish_workspace_diagnostics(Some(&item.uri), &mut messages);
-                }
-            }
-            (Some("textDocument/didChange"), None) => {
-                if let Ok(params) = serde_json::from_value::<DidChangeParams>(params)
-                    && let Some(text) = params.content_changes.last()
-                    && let Some(document) = self.documents.get_mut(&params.text_document.uri)
-                    && params.text_document.version > document.version
-                {
-                    document.version = params.text_document.version;
-                    document.text.clone_from(&text.text);
-                    self.invalidate_analyses_reading(&params.text_document.uri);
-                    self.publish_workspace_diagnostics(
-                        Some(&params.text_document.uri),
-                        &mut messages,
-                    );
-                }
-            }
-            (Some("textDocument/didClose"), None) => {
-                if let Ok(params) = serde_json::from_value::<DidCloseParams>(params) {
-                    // Documents that read the closed buffer now read the file on disk instead.
-                    self.invalidate_analyses_reading(&params.text_document.uri);
-                    self.documents.remove(&params.text_document.uri);
-                    messages.push(publish_diagnostics(
-                        &params.text_document.uri,
-                        None,
-                        Vec::new(),
-                    ));
-                    self.publish_workspace_diagnostics(None, &mut messages);
-                }
-            }
-            _ => {}
-        }
+            (Some(method), None) => self.handle_notification(method, params, &mut messages),
+            (None, _) => None,
+        };
         Outcome { messages, exit }
+    }
+
+    fn handle_request(&mut self, method: &str, id: Value, params: Value) -> Value {
+        match method {
+            "initialize" => success(id, initialize_result()),
+            "shutdown" => {
+                self.shutdown = true;
+                success(id, Value::Null)
+            }
+            "textDocument/formatting" => self.formatting(id, params),
+            "textDocument/hover" => self.hover(id, params),
+            "textDocument/definition" => self.definition(id, params),
+            "textDocument/documentLink" => self.document_links(id, params),
+            "textDocument/references" => self.references(id, params),
+            "textDocument/rename" => self.rename(id, params),
+            "textDocument/documentSymbol" => self.document_symbols(id, params),
+            "textDocument/completion" => self.completion(id, params),
+            "textDocument/inlayHint" => self.inlay_hints(id, params),
+            "textDocument/semanticTokens/full" => self.semantic_tokens(id, params),
+            _ => error(id, -32601, "method not found"),
+        }
+    }
+
+    fn handle_notification(
+        &mut self,
+        method: &str,
+        params: Value,
+        messages: &mut Vec<Value>,
+    ) -> Option<bool> {
+        match method {
+            "initialized" => None,
+            "exit" => Some(self.shutdown),
+            "textDocument/didOpen" => {
+                self.did_open(params, messages);
+                None
+            }
+            "textDocument/didChange" => {
+                self.did_change(params, messages);
+                None
+            }
+            "textDocument/didClose" => {
+                self.did_close(params, messages);
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn did_open(&mut self, params: Value, messages: &mut Vec<Value>) {
+        let Ok(params) = serde_json::from_value::<DidOpenParams>(params) else {
+            return;
+        };
+        let item = params.text_document;
+        let id = FileId::new(self.next_file_id);
+        self.next_file_id = self.next_file_id.wrapping_add(1);
+        self.documents.insert(
+            item.uri.clone(),
+            Document {
+                id,
+                version: item.version,
+                text: item.text,
+                analysis: AnalysisState::Stale,
+                published_diagnostics: None,
+            },
+        );
+        self.invalidate_analyses_reading(&item.uri);
+        self.publish_workspace_diagnostics(Some(&item.uri), messages);
+    }
+
+    fn did_change(&mut self, params: Value, messages: &mut Vec<Value>) {
+        let Ok(params) = serde_json::from_value::<DidChangeParams>(params) else {
+            return;
+        };
+        let Some(text) = params.content_changes.last() else {
+            return;
+        };
+        let Some(document) = self.documents.get_mut(&params.text_document.uri) else {
+            return;
+        };
+        if params.text_document.version <= document.version {
+            return;
+        }
+
+        document.version = params.text_document.version;
+        document.text.clone_from(&text.text);
+        self.invalidate_analyses_reading(&params.text_document.uri);
+        self.publish_workspace_diagnostics(Some(&params.text_document.uri), messages);
+    }
+
+    fn did_close(&mut self, params: Value, messages: &mut Vec<Value>) {
+        let Ok(params) = serde_json::from_value::<DidCloseParams>(params) else {
+            return;
+        };
+        // Documents that read the closed buffer now read the file on disk instead.
+        self.invalidate_analyses_reading(&params.text_document.uri);
+        self.documents.remove(&params.text_document.uri);
+        messages.push(publish_diagnostics(
+            &params.text_document.uri,
+            None,
+            Vec::new(),
+        ));
+        self.publish_workspace_diagnostics(None, messages);
     }
 
     fn formatting(&self, id: Value, params: Value) -> Value {
@@ -254,6 +250,32 @@ impl Server {
             }]),
         )
     }
+}
+
+fn initialize_result() -> Value {
+    json!({
+        "capabilities": {
+            "positionEncoding": "utf-16",
+            "textDocumentSync": 1,
+            "documentFormattingProvider": true,
+            "hoverProvider": true,
+            "inlayHintProvider": true,
+            "definitionProvider": true,
+            "documentLinkProvider": {},
+            "referencesProvider": true,
+            "renameProvider": true,
+            "documentSymbolProvider": true,
+            "completionProvider": {"triggerCharacters": [".", "\"", "/"]},
+            "semanticTokensProvider": {
+                "legend": {
+                    "tokenTypes": ["type", "variable", "parameter", "function"],
+                    "tokenModifiers": ["declaration"]
+                },
+                "full": true
+            }
+        },
+        "serverInfo": {"name": "mal-lsp", "version": env!("CARGO_PKG_VERSION")}
+    })
 }
 
 fn uri_to_path(uri: &str) -> Option<PathBuf> {
