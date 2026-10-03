@@ -114,6 +114,20 @@ fn inferred_call_results_and_callback_parameters_preserve_specialized_aliases() 
 }
 
 #[test]
+fn nested_opaque_carriers_keep_the_nominal_type_without_exposing_representation() {
+    let text = "opaque Focus<A> :: (Buffer<A>, USize);\n\
+                inspect :: Focus<Focus<Int32>> -> USize := (nested) -> 0usize;\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+
+    let declaration = document.hover_at(text.find("Focus").unwrap()).unwrap();
+    assert_eq!(declaration.ty, "Focus");
+
+    let parameter = document.hover_at(text.find("nested").unwrap()).unwrap();
+    assert_eq!(parameter.ty, "Focus<Focus<Int32>>");
+    assert!(!parameter.ty.contains("Buffer"));
+}
+
+#[test]
 fn external_function_references_share_the_declaration_identity() {
     let text = "extern output :: UInt8 -> Unit;\nrun :: Unit -> Unit := () -> { selected := output; selected(1u8) };\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");

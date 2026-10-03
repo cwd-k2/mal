@@ -135,6 +135,43 @@ fn preserves_specialized_aliases_for_inferred_results_and_callbacks() {
 }
 
 #[test]
+fn preserves_nested_opaque_carriers_without_exposing_their_representation() {
+    let text = "opaque Focus<A> :: (Buffer<A>, USize);\n\
+                inspect :: Focus<Focus<Int32>> -> USize := (nested) -> 0usize;\n";
+    let uri = "file:///nested-opaque-hover.mal";
+    let mut server = open_document(uri, text);
+
+    let parameter = request_at(
+        &mut server,
+        152,
+        "textDocument/hover",
+        uri,
+        text,
+        text.find("nested").unwrap(),
+    );
+    assert!(
+        parameter["result"]["contents"]["value"]
+            .as_str()
+            .unwrap()
+            .starts_with("```mal\nnested :: Focus<Focus<Int32>>\n```")
+    );
+
+    let inner = text.rfind("Focus<Int32>").unwrap();
+    let definition = request_at(
+        &mut server,
+        153,
+        "textDocument/definition",
+        uri,
+        text,
+        inner,
+    );
+    assert_eq!(
+        definition["result"]["range"]["start"],
+        text_position(text, text.find("Focus").unwrap())
+    );
+}
+
+#[test]
 fn expands_a_sum_result_type_hover_by_exactly_one_alias_layer() {
     let text = "Payload :: Int32;\nChoice :: [Unit, Payload];\ncreate :: Payload -> Choice := (value) -> [none, some] => { some(value) };\nread :: Unit -> Choice := () -> { create(1) };\n";
     let uri = "file:///sum-result-hover.mal";

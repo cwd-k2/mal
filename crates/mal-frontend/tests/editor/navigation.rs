@@ -254,6 +254,30 @@ fn phantom_alias_arguments_keep_type_navigation_and_source_hover() {
 }
 
 #[test]
+fn every_nested_opaque_constructor_use_navigates_to_its_nominal_declaration() {
+    let text = "opaque Focus<A> :: (Buffer<A>, USize);\n\
+                inspect :: Focus<Focus<Int32>> -> USize := (nested) -> 0usize;\n";
+    let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
+    let declaration_offset = text.find("Focus").unwrap();
+    let annotation = &text[text.find("inspect").unwrap()..];
+    let annotation_start = text.len() - annotation.len();
+    let outer_offset = annotation_start + annotation.find("Focus").unwrap();
+    let inner_offset = annotation_start + annotation.rfind("Focus").unwrap();
+
+    for offset in [outer_offset, inner_offset] {
+        let occurrence = document
+            .occurrence_at(offset)
+            .expect("nested opaque type occurrence");
+        assert_eq!(occurrence.kind, SymbolKind::Type);
+        assert_eq!(occurrence.role, OccurrenceRole::Reference);
+        assert_eq!(
+            document.definition(occurrence.id).unwrap().span.start(),
+            declaration_offset
+        );
+    }
+}
+
+#[test]
 fn graph_analysis_keeps_navigation_global_and_document_features_local() {
     let root_text =
         "require \"library.mal\";\nanswer :: Unit -> Int32 := () -> { publicValue; };\n";
