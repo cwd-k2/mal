@@ -55,9 +55,11 @@ Callgrind上のinstruction比ほどwall-clock差は大きくない。採択判�
 | `focus` | 46,425,194 | 24,145,664 | 35,507,544 | 1.92x | 1.31x |
 
 `control`は最終LTO moduleが`main`一つ、callとallocationが0になり、generic callback、sum branch、closure carrierは残らない。
-CとMalはいずれも8 stepずつ進むloopになったが、Cのloop bodyは8 instruction、Malは13 instructionである。Cはaffine recurrenceを
-一つのmultiplyへまとめ、Mal由来のIRでは二つのmultiplyと追加のindex updateが残る。したがって差はruntime generic dispatchではなく、
-control lowering後のscalar recurrenceをClangが認識できる形の差である。Rustの命令数はMalとほぼ同じだった。
+CとMalのpre-codegen IRはいずれも同じrecurrenceを8 step展開するが、最終machine loopはCが8 instruction、Malが13 instructionである。
+C source由来のSSAではaffine recurrenceが一つのmultiplyへまとまり、Malのfunction inline後のSSAでは二つのmultiplyと追加のindex updateが
+残る。pre-codegen IRへの二度目の`-O2`と`llvm.loop.mustprogress`追加では形が変わらなかった。したがって差はruntime generic dispatchや
+loop stateの意味ではなく、同値なscalar recurrenceのinstruction placementに対するLLVM machine combineの感度である。
+Rustの命令数はMalとほぼ同じだった。
 
 `map`も最終moduleは`main`、trap、Buffer destructorの3 definitionだけで、operation dictionaryやtype inspectionはない。
 初期化、put、getはdirect loopへinlineされている。Malのinstruction差は48-byteのtagged slot、Buffer countとprobe終了条件、
@@ -166,8 +168,8 @@ representationとlifecycleを再帰できることを確認している。
    captureをparameterへdeforestする。独立fixtureでallocation、IR、Memcheckを採択条件にする。
 2. nested Bufferは既に試して退けた任意capacity co-allocationを繰り返さず、多数の小identity向けcompact headerまたはallocation policyを
    別案として測る。shared identityとgrowth後のdata pointer再取得を保つ。
-3. `control`の13-instruction recurrenceをCの8-instruction形と比較し、control loweringが保持する余分なstate fieldまたはindex conversionを
-   特定する。generic消去とは別のscalar loop canonicalizationとして扱う。
+3. `control`の13-instruction recurrenceをCの8-instruction形と比較し、callback inline後の同値なSSAをmachine combineが認識する
+   canonical formへ置けるかを調べる。generic消去やloop semanticsの変更ではなくscalar IR canonicalizationとして扱う。
 
 IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorやclosure arenaへ拡張しない。Pool source semanticsとLLVM loweringを
 導入する時点では、今回のBuffer lifecycle、allocation分布、generic erasureを比較基準に使うが、無関係なoptimizer責務をIxPoolへ
