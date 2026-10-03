@@ -554,72 +554,8 @@ impl Evaluator<'_> {
         environment: &Environment,
         output: &mut Vec<Binding>,
     ) -> Option<Operation> {
-        let mut atom =
-            |this: &mut Self, value: &Atom| this.resolve_concrete(value, environment, output);
-        Some(match operation {
-            Operation::Symbol {
-                primitive,
-                operands,
-            } => Operation::Symbol {
-                primitive: *primitive,
-                operands: operands
-                    .iter()
-                    .map(|value| atom(self, value))
-                    .collect::<Option<_>>()?,
-            },
-            Operation::Memory {
-                primitive,
-                operands,
-            } => Operation::Memory {
-                primitive: *primitive,
-                operands: operands
-                    .iter()
-                    .map(|value| atom(self, value))
-                    .collect::<Option<_>>()?,
-            },
-            Operation::Buffer {
-                operation,
-                element,
-                operands,
-            } => Operation::Buffer {
-                operation: *operation,
-                element: element.clone(),
-                operands: operands
-                    .iter()
-                    .map(|value| atom(self, value))
-                    .collect::<Option<_>>()?,
-            },
-            Operation::ExternalCall { id, argument } => Operation::ExternalCall {
-                id: *id,
-                argument: atom(self, argument)?,
-            },
-            Operation::NumericConversion { operand } => Operation::NumericConversion {
-                operand: atom(self, operand)?,
-            },
-            Operation::SumInjection { index, value } => Operation::SumInjection {
-                index: *index,
-                value: atom(self, value)?,
-            },
-            Operation::PrimitiveUnary { operator, operand } => Operation::PrimitiveUnary {
-                operator: *operator,
-                operand: atom(self, operand)?,
-            },
-            Operation::PrimitiveBinary {
-                operator,
-                left,
-                right,
-            } => Operation::PrimitiveBinary {
-                operator: *operator,
-                left: atom(self, left)?,
-                right: atom(self, right)?,
-            },
-            Operation::Atom(_)
-            | Operation::Goto { .. }
-            | Operation::MakeClosure { .. }
-            | Operation::Call { .. }
-            | Operation::Product(_)
-            | Operation::Case { .. }
-            | Operation::PrimitiveBranch { .. } => return None,
+        super::concrete::operation(operation, |value| {
+            self.resolve_concrete(value, environment, output)
         })
     }
 }
