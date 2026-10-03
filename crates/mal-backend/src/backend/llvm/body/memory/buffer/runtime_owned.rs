@@ -4,11 +4,11 @@ use mal_frontend::check::ast::Type;
 
 use super::super::super::{EmittedFunction, FunctionEmitter};
 
-/// The element types whose Buffers use runtime-owned storage. Each has one retain and one release
-/// callback, numbered by position.
-pub(in crate::backend::llvm::body) struct RuntimeOwnedBufferElements(Vec<Type>);
+/// The element types whose Buffer places own responsibilities. Each has one retain and one release callback,
+/// numbered by position; runtime-represented trivial carriers are deliberately absent.
+pub(in crate::backend::llvm::body) struct OwnedBufferElements(Vec<Type>);
 
-impl RuntimeOwnedBufferElements {
+impl OwnedBufferElements {
     pub(in crate::backend::llvm::body) fn collect(execution: &crate::execution::Program) -> Self {
         let mut elements = Vec::new();
         for binding in execution
@@ -39,13 +39,13 @@ impl RuntimeOwnedBufferElements {
 impl FunctionEmitter<'_> {
     /// Defines the callbacks that let the runtime retain and release one stored element of each
     /// runtime-owned element type.
-    pub(in crate::backend::llvm::body) fn emit_runtime_owned_buffer_element_callbacks(
+    pub(in crate::backend::llvm::body) fn emit_owned_buffer_element_callbacks(
         &mut self,
     ) -> Option<EmittedFunction> {
         let index = self.index;
-        for (number, element) in index.runtime_owned_buffer_elements.0.iter().enumerate() {
-            self.emit_runtime_owned_element_callback(number, element, true)?;
-            self.emit_runtime_owned_element_callback(number, element, false)?;
+        for (number, element) in index.owned_buffer_elements.0.iter().enumerate() {
+            self.emit_owned_element_callback(number, element, true)?;
+            self.emit_owned_element_callback(number, element, false)?;
         }
         (!self.emission_failed).then(|| EmittedFunction {
             globals: std::mem::take(&mut self.globals),
@@ -53,7 +53,7 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    fn emit_runtime_owned_element_callback(
+    fn emit_owned_element_callback(
         &mut self,
         number: usize,
         element: &Type,

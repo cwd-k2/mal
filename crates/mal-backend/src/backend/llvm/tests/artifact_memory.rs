@@ -205,3 +205,26 @@ fn keeps_canonical_storage_for_elements_without_managed_values() {
     assert!(module.contains("call ptr @mal_runtime_buffer_make("));
     assert!(!module.contains("mal_buffer_retain_"));
 }
+
+#[test]
+fn stores_external_carriers_in_trivial_runtime_storage() {
+    let module = generate_module(
+        "extern Handle;
+         extern create :: UInt64 -> Handle;
+         main :: Unit -> Int32 := () -> {
+           values := make<Handle>(1usize);
+           values.new(create(1u64));
+           values.fill(1usize, 1usize, create(2u64));
+           values.copy(0usize, values, 1usize, 1usize);
+           values.put(0usize, values.get(0usize));
+           (#values).i32 - 2i32;
+         };",
+    );
+
+    assert!(module.contains("call ptr @mal_runtime_buffer_make("));
+    assert!(module.contains("call i64 @mal_runtime_buffer_new("));
+    assert!(module.contains("call void @mal_runtime_buffer_fill("));
+    assert!(module.contains("call void @mal_runtime_buffer_copy("));
+    assert!(!module.contains("mal_buffer_retain_"));
+    assert!(!module.contains("call ptr @mal_runtime_buffer_make_managed"));
+}

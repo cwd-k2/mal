@@ -137,8 +137,9 @@ containerが要求する。
 - 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
   `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
 - [`Storable`の拡張](model/identity.md#storableの原理)のうち、Buffer handleは
-  [D096](../../history/decisions/active/D096.md)で先に採択した。残るdecisionはexternal opaque carrierのruntime-value Trivial storageと、
-  Pool採択時のIxPool、ImPool admissionである。functionとempty sumは今回の範囲では除外する。
+  [D096](../../history/decisions/active/D096.md)で、external opaque carrierは
+  [D097](../../history/decisions/active/D097.md)で先に採択した。残るdecisionはPool採択時のIxPool、
+  ImPool admissionである。functionとempty sumは今回の範囲では除外する。
 - transitive snapshot、serialization、Map keyなどに共通するstability judgmentが実際に必要か。ImPoolのstructural snapshotと
   handle nestingには不要なので、名称だけを先に追加しない。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。

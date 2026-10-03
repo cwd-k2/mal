@@ -183,8 +183,8 @@ serializationやMap keyには、extern capabilityを含まないこと、equalit
 - deep snapshotやkey stabilityの要求が複数のAPIで一致するまで`Stable`をcompiler judgmentにしない。
 
 Buffer handleのelement restrictionは[D096](../../../history/decisions/active/D096.md)でPool採択前に外し、place lifecycleとしての
-`Storable`へ揃えた。これによりIxPoolだけがhandleを保存できる二つのstorage modelは避けられた。残るexternal opaqueのadmissionは
-`Runtime(_, Trivial)` storageを実装・検証してから別に採択する。
+`Storable`へ揃えた。external opaque carrierも[D097](../../../history/decisions/active/D097.md)で`Runtime(_, Trivial)` storageとともに採択した。これによりIxPoolだけがhandleを
+保存できる二つのstorage modelは避けられた。
 
 ## 入れ子
 

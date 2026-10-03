@@ -56,7 +56,7 @@ impl FunctionEmitter<'_> {
                 };
                 self.emit_aligned_source_store_at(storage, value)?;
             }
-            ElementStorage::RuntimeOwned { alignment, .. } => {
+            ElementStorage::Runtime { alignment, .. } => {
                 let value_type = self.types.value(&value.ty)?;
                 emit_instruction! {
                     self;
@@ -72,13 +72,13 @@ impl FunctionEmitter<'_> {
         Some(storage.into())
     }
 
-    /// The buffer keeps its own reference to the element, and a later `put` can drop it while the result is live, so
-    /// the result takes a reference of its own.
-    pub(super) fn emit_runtime_owned_element_get(
+    /// Loads an internal carrier and creates the result responsibility only when the stored lifecycle owns one.
+    pub(super) fn emit_runtime_element_get(
         &mut self,
         pointer: &str,
         element: &Type,
         alignment: usize,
+        lifecycle: ElementLifecycle,
     ) -> Option<EmittedValue> {
         let value_type = self.types.value(element)?;
         let loaded = self.register();
@@ -91,23 +91,44 @@ impl FunctionEmitter<'_> {
                 metadata: #{ buffer_element_metadata() },
             };
         };
-        self.retain_value(element, &loaded)?;
+        if lifecycle == ElementLifecycle::Owned {
+            self.retain_value(element, &loaded)?;
+        }
         Some(EmittedValue {
             ty: element.clone(),
             representation: loaded,
-            owned: true,
+            owned: lifecycle == ElementLifecycle::Owned,
         })
     }
 
-    /// The value carries the responsibility transferred into the place. Storing it before releasing the previous
-    /// responsibility keeps self-assignment live without taking another reference.
-    pub(super) fn emit_runtime_owned_element_put(
+    /// Stores an internal carrier. Owned values transfer a responsibility into the place; trivial values need only a
+    /// typed store because replacing their bits has no lifecycle effect.
+    pub(super) fn emit_runtime_element_put(
         &mut self,
         pointer: &str,
         value: &EmittedValue,
         alignment: usize,
+        lifecycle: ElementLifecycle,
     ) -> Option<()> {
-        self.move_into_managed_place(pointer, value, alignment, &buffer_element_metadata())
+        if lifecycle == ElementLifecycle::Owned {
+            return self.move_into_managed_place(
+                pointer,
+                value,
+                alignment,
+                &buffer_element_metadata(),
+            );
+        }
+        let value_type = self.types.value(&value.ty)?;
+        emit_instruction! {
+            self;
+            store {
+                value: typed(#{ value_type.llvm }, #{ value.representation.clone() }),
+                pointer: #{ pointer },
+                alignment: #{ alignment },
+                metadata: #{ buffer_element_metadata() },
+            };
+        };
+        Some(())
     }
 
     pub(super) fn buffer_element_pointer(

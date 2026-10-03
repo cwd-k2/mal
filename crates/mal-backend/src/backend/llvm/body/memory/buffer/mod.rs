@@ -7,20 +7,39 @@ use crate::core::ast::BufferOperation;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
-pub(in crate::backend::llvm::body) use runtime_owned::RuntimeOwnedBufferElements;
+pub(in crate::backend::llvm::body) use runtime_owned::OwnedBufferElements;
 
-/// How a Buffer keeps one element. Canonical storage exists for host copy; runtime-owned storage keeps an internal
-/// carrier and preserves its lifecycle through the callbacks of [`RuntimeOwnedBufferElements`].
+/// How a Buffer keeps one element. Representation determines the stored layout independently from whether the place
+/// must preserve an owned lifecycle through callbacks collected by [`OwnedBufferElements`].
 #[derive(Clone, Copy)]
 pub(in crate::backend::llvm::body) enum ElementStorage {
-    Canonical { stride: usize },
-    RuntimeOwned { stride: usize, alignment: usize },
+    Canonical {
+        stride: usize,
+    },
+    Runtime {
+        stride: usize,
+        alignment: usize,
+        lifecycle: ElementLifecycle,
+    },
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(in crate::backend::llvm::body) enum ElementLifecycle {
+    Trivial,
+    Owned,
 }
 
 impl ElementStorage {
     fn stride(self) -> usize {
         match self {
-            Self::Canonical { stride } | Self::RuntimeOwned { stride, .. } => stride,
+            Self::Canonical { stride } | Self::Runtime { stride, .. } => stride,
+        }
+    }
+
+    fn lifecycle(self) -> ElementLifecycle {
+        match self {
+            Self::Canonical { .. } => ElementLifecycle::Trivial,
+            Self::Runtime { lifecycle, .. } => lifecycle,
         }
     }
 
@@ -28,8 +47,15 @@ impl ElementStorage {
     /// for the references its elements own; the plain function stays free of that cost.
     fn runtime(self, operation: &str) -> String {
         match self {
-            Self::Canonical { .. } => format!("mal_runtime_buffer_{operation}"),
-            Self::RuntimeOwned { .. } => format!("mal_runtime_buffer_{operation}_managed"),
+            Self::Canonical { .. }
+            | Self::Runtime {
+                lifecycle: ElementLifecycle::Trivial,
+                ..
+            } => format!("mal_runtime_buffer_{operation}"),
+            Self::Runtime {
+                lifecycle: ElementLifecycle::Owned,
+                ..
+            } => format!("mal_runtime_buffer_{operation}_managed"),
         }
     }
 }
@@ -54,8 +80,8 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let buffer = self.register();
-                if let ElementStorage::RuntimeOwned { .. } = storage {
-                    let number = self.index.runtime_owned_buffer_elements.number(element)?;
+                if storage.lifecycle() == ElementLifecycle::Owned {
+                    let number = self.index.owned_buffer_elements.number(element)?;
                     emit_instruction! {
                         self;
                         let #{ buffer.clone() } = call {
@@ -95,14 +121,14 @@ impl FunctionEmitter<'_> {
                 if buffer.ty != buffer_type || value.ty != *element || *result_type != Type::USize {
                     return None;
                 }
-                if matches!(storage, ElementStorage::RuntimeOwned { .. }) && !value.owned {
+                if storage.lifecycle() == ElementLifecycle::Owned && !value.owned {
                     return None;
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
-                let function = match storage {
-                    ElementStorage::Canonical { .. } => "mal_runtime_buffer_new",
-                    ElementStorage::RuntimeOwned { .. } => "mal_runtime_buffer_new_managed_move",
+                let function = match storage.lifecycle() {
+                    ElementLifecycle::Trivial => "mal_runtime_buffer_new",
+                    ElementLifecycle::Owned => "mal_runtime_buffer_new_managed_move",
                 };
                 emit_instruction! {
                     self;
@@ -137,9 +163,11 @@ impl FunctionEmitter<'_> {
                 let data = self.active_buffer_data(buffer);
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
                 match storage {
-                    ElementStorage::RuntimeOwned { alignment, .. } => {
-                        self.emit_runtime_owned_element_get(&pointer, element, alignment)
-                    }
+                    ElementStorage::Runtime {
+                        alignment,
+                        lifecycle,
+                        ..
+                    } => self.emit_runtime_element_get(&pointer, element, alignment, lifecycle),
                     ElementStorage::Canonical { .. } => {
                         self.emit_aligned_buffer_load_at(&pointer, element)
                     }
@@ -160,8 +188,12 @@ impl FunctionEmitter<'_> {
                     let data = self.active_buffer_data(buffer);
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
                     match storage {
-                        ElementStorage::RuntimeOwned { alignment, .. } => {
-                            self.emit_runtime_owned_element_put(&pointer, value, alignment)?;
+                        ElementStorage::Runtime {
+                            alignment,
+                            lifecycle,
+                            ..
+                        } => {
+                            self.emit_runtime_element_put(&pointer, value, alignment, lifecycle)?;
                         }
                         ElementStorage::Canonical { .. } => {
                             self.emit_aligned_buffer_store_at(&pointer, value)?;
@@ -254,13 +286,15 @@ impl FunctionEmitter<'_> {
                 stride: layout.stride,
             });
         }
-        if !crate::execution::ownership::is_managed(element) {
-            return None;
-        }
         let value = self.types.value(element)?;
-        Some(ElementStorage::RuntimeOwned {
+        Some(ElementStorage::Runtime {
             stride: value.size,
             alignment: value.alignment,
+            lifecycle: if crate::execution::ownership::is_managed(element) {
+                ElementLifecycle::Owned
+            } else {
+                ElementLifecycle::Trivial
+            },
         })
     }
 }

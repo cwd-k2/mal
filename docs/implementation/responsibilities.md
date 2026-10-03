@@ -129,7 +129,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | core以降 | kind、type constructor、open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
-| LLVM Buffer element | canonical storageとruntime-owned storageを選び、`Symbol`またはnested Bufferを含むowned carrierにはretainとreleaseのcallbackを生成してruntimeへ渡す。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
+| LLVM Buffer element | canonicalまたはruntime representationと、TrivialまたはOwned lifecycleを独立に選ぶ。external opaque carrierは`Runtime(_, Trivial)`、`Symbol`またはnested Bufferを含むcarrierは`Runtime(_, Owned)`となり、後者だけretainとreleaseのcallbackを生成する。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
 | C interface | HostMappableな型だけをABI 0x000900のfile headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
 | process shim | `argv + 1`をcopyして作ったargument Bufferを`Buffer<Symbol>` rootへ渡し、return後に解放する |

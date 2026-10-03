@@ -28,12 +28,14 @@ Storable(Address)
 Storable(ByteSize)
 Storable(USize)
 Storable(Symbol)
+Storable(external opaque type)
 Storable((A...))       if all Storable(A)
 Storable([A...])       if the sum has at least two variants and all Storable(A)
 Storable(Buffer<A>)    if Storable(A)
 ```
 
-function、external opaque type、empty sumはstorableでない。transparent aliasは展開後に判定し、file-local opaque typeは
+functionとempty sumはstorableでない。external opaque valueはpointer-widthのtrivialなcarrierとして保存し、Bufferへの格納や
+Bufferからの取得はhost referentのlifetimeを延長せず、closeなどのresource operationも暗黙に行わない。transparent aliasは展開後に判定し、file-local opaque typeは
 hidden representationから判定する。nested Bufferも同じ規則を再帰的に満たさなければならない。
 `Buffer<A>`は`Storable(A)`の場合だけwell-formedである。
 

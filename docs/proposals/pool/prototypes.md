@@ -85,11 +85,11 @@ lifecycle処理が増える。[区分](api/pool.md#区分)が`peek`を計算量�
 D096はfrontend admissionを開き、alias、上書き、成長、重なるcopy、解放を通すpositive testを追加した。試作でもnested Vectorと
 Buffer handle elementが同じruntime-owned pathで動く。
 
-external opaque carrierはlifecycle上はTrivialだが、canonical representationを持たない。現行Buffer storageの分類はcanonical elementと
-runtime-owned elementの二択なので、この型を置くruntime-value storageを表せない。こちらはfrontendの拒否を外す前に、
-`ElementStorage = Canonical(layout) | Runtime(layout, Lifecycle)`という分離が必要になる。詳細と導入順は
-[compilerとruntimeの実装](runtime/implementation.md#現行bufferから分離する実装境界)を正とする。試作ではこの拒否をtransition
-probeとして固定し、実装後はTrivial carrierのpositive testへ置き換える。
+external opaque carrierはlifecycle上はTrivialだが、canonical representationを持たない。
+[D097](../../history/decisions/active/D097.md)でBuffer storageを
+`ElementStorage = Canonical(layout) | Runtime(layout, Lifecycle)`へ分け、`Runtime(_, Trivial)`としてadmitした。試作のtransition
+probeもpositive storage probeへ置き換えた。詳細は
+[compilerとruntimeの実装](runtime/implementation.md#現行bufferから分離する実装境界)を正とする。
 
 ## Vectorとhostとの交換
 

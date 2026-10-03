@@ -74,9 +74,16 @@ B :: Buffer<[Unit, Int32 -> Int32]>;
 B :: Buffer<Buffer<Int32>>;
 ### buffer_of_fn | err:
 B :: Buffer<Int32 -> Int32>;
-### buffer_of_opaque | err:
+### buffer_of_opaque | ok
 extern Mem;
 B :: Buffer<Mem>;
+### buffer_of_opaque_aggregate | ok
+extern Mem;
+B :: Buffer<(Mem, [Unit, Mem])>;
+### generic_buffer_of_opaque | ok
+extern Mem;
+makeOpaque<A> :: A -> Buffer<A> := (value) -> make<A>(1usize);
+useOpaque :: Mem -> Buffer<Mem> := (value) -> makeOpaque<Mem>(value);
 ### buffer_of_empty_sum | err:
 B :: Buffer<[]>;
 ### buffer_of_unit_ok | ok

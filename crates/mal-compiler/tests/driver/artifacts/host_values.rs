@@ -323,6 +323,53 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
 }
 
 #[test]
+fn stores_external_opaque_values_in_buffers_without_a_lifecycle_callback() {
+    let directory = NativeFixture::new("driver-buffer-external-carrier");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern Handle;\n\
+         extern create :: UInt64 -> Handle;\n\
+         extern inspect :: Handle -> UInt64;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           values := make<Handle>(1usize);\n\
+           values.new(create(1u64));\n\
+           values.fill(1usize, 2usize, create(2u64));\n\
+           values.put(0usize, create(40u64));\n\
+           values.copy(1usize, values, 0usize, 2usize);\n\
+           total := inspect(values.get(0usize)) + inspect(values.get(1usize))\n\
+             + inspect(values.get(2usize));\n\
+           (total - 82u64).i32;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_create(call, value) {\n\
+             return mal_Handle_return(call, mal_Handle_from_bits((uintptr_t)value));\n\
+         }\n\
+         MAL_DEFINE_inspect(call, value) {\n\
+             return mal_UInt64_return(call, (uint64_t)mal_Handle_to_bits(value));\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn owns_symbols_nested_in_products_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-symbol-product");
     let source = directory.join("program.mal");

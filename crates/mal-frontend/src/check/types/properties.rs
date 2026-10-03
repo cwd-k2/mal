@@ -35,7 +35,7 @@ fn first_unstorable_type(ty: &Type) -> Option<&Type> {
                 pending.extend(elements.iter().rev());
             }
             Type::Buffer(element) => pending.push(element),
-            Type::External { .. } | Type::Function { .. } | Type::Sum(_) => {
+            Type::Function { .. } | Type::Sum(_) => {
                 return Some(ty);
             }
             Type::Abstraction { .. } => return Some(ty),
@@ -160,6 +160,7 @@ fn satisfies_requirement(ty: &Type, available: &[Type], requirement: Requirement
             | Type::ByteSize
             | Type::USize => {}
             Type::Symbol if requirement == Requirement::Storable => {}
+            Type::External { .. } if requirement == Requirement::Storable => {}
             Type::Buffer(element) if requirement == Requirement::Storable => pending.push(element),
             _ => return false,
         }
