@@ -18,3 +18,4 @@ inside a demanded closure. Creator provenance must also close before any calling
 | `trace` | direct call, closure creator, branch, and result-join edges followed from demanded producers |
 | `application` | closure-flow candidates reached while executing demanded closure targets |
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
+| `provenance` | creator and self-closure origins reaching each inventoried call site |

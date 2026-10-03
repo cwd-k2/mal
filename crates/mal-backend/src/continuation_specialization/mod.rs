@@ -4,6 +4,7 @@ mod application;
 mod index;
 mod inventory;
 mod plan;
+mod provenance;
 mod trace;
 
 pub(crate) use plan::Plan;

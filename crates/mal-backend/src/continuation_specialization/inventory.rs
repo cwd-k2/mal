@@ -13,8 +13,23 @@ pub(super) fn collect(
     applications: &[ApplicationStep],
 ) -> (Vec<Creator>, Vec<CallSite>) {
     let functions = slice_functions(producers, applications);
-    let creators = creators(program, &functions);
     let call_sites = call_sites(program, &functions);
+    let reached = call_sites
+        .iter()
+        .flat_map(|call| &call.sources)
+        .filter_map(|source| match source {
+            super::plan::ClosureSource::Creator { binding, function } => {
+                Some((*binding, *function))
+            }
+            super::plan::ClosureSource::SelfClosure(_) | super::plan::ClosureSource::Unbound(_) => {
+                None
+            }
+        })
+        .collect::<HashSet<_>>();
+    let creators = creators(program, &functions)
+        .into_iter()
+        .filter(|creator| reached.contains(&(creator.binding, creator.function)))
+        .collect();
     (creators, call_sites)
 }
 
@@ -93,6 +108,7 @@ fn call_sites(program: &Program, relevant: &HashSet<FunctionId>) -> Vec<CallSite
     let control = crate::control::lower(program);
     let mut compatible = CompatibleTargets::new(program);
     let flow = ClosureFlow::new(program, &control, &mut compatible);
+    let provenance = super::provenance::CalleeSources::new(&control, &flow);
     let scopes = call_scopes(program);
     control
         .states
@@ -114,6 +130,11 @@ fn call_sites(program: &Program, relevant: &HashSet<FunctionId>) -> Vec<CallSite
                 scope: scopes[&callee.id],
                 site: callee.id,
                 targets,
+                sources: provenance
+                    .at(StateId(index))
+                    .into_iter()
+                    .filter(|source| relevant.contains(&source.function()))
+                    .collect(),
             })
         })
         .collect()

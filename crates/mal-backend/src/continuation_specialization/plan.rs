@@ -4,7 +4,7 @@ use crate::closure::ast::{Atom, AtomId, FunctionId, Program};
 use super::index;
 
 /// The lexical scope containing a creator or application site.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) enum Scope {
     TopLevel(usize),
     Function(FunctionId),
@@ -52,12 +52,34 @@ pub(crate) struct Creator {
     pub(crate) captures: Vec<AtomId>,
 }
 
+/// A concrete closure origin reaching an application site.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(crate) enum ClosureSource {
+    Creator {
+        binding: ValueId,
+        function: FunctionId,
+    },
+    SelfClosure(FunctionId),
+    Unbound(FunctionId),
+}
+
+impl ClosureSource {
+    pub(crate) fn function(self) -> FunctionId {
+        match self {
+            Self::Creator { function, .. }
+            | Self::SelfClosure(function)
+            | Self::Unbound(function) => function,
+        }
+    }
+}
+
 /// One program-wide call site that can invoke code participating in the candidate slice.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CallSite {
     pub(crate) scope: Scope,
     pub(crate) site: AtomId,
     pub(crate) targets: Vec<FunctionId>,
+    pub(crate) sources: Vec<ClosureSource>,
 }
 
 /// Closed application demands admitted from a closure program.
@@ -69,6 +91,7 @@ pub(crate) struct Plan {
     pub(in crate::continuation_specialization) creators: Vec<Creator>,
     pub(in crate::continuation_specialization) call_sites: Vec<CallSite>,
     pub(in crate::continuation_specialization) closed: bool,
+    pub(in crate::continuation_specialization) creators_complete: bool,
 }
 
 impl Plan {
@@ -85,6 +108,27 @@ impl Plan {
                 .iter()
                 .any(|application| application.site == call.site)
         });
+        let creators_complete = call_sites
+            .iter()
+            .flat_map(|call| &call.sources)
+            .all(|source| match source {
+                ClosureSource::Creator { binding, function } => creators
+                    .iter()
+                    .any(|creator| creator.binding == *binding && creator.function == *function),
+                ClosureSource::SelfClosure(_) => true,
+                ClosureSource::Unbound(_) => false,
+            })
+            && creators.iter().all(|creator| {
+                call_sites.iter().any(|call| {
+                    call.sources.iter().any(|source| {
+                        matches!(
+                            source,
+                            ClosureSource::Creator { binding, function }
+                                if *binding == creator.binding && *function == creator.function
+                        )
+                    })
+                })
+            });
         Self {
             demands,
             steps,
@@ -92,6 +136,7 @@ impl Plan {
             creators,
             call_sites,
             closed,
+            creators_complete,
         }
     }
 

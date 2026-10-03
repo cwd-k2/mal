@@ -157,6 +157,7 @@ fn inventories_every_creator_and_call_site_for_slice_code() {
     assert_eq!(plan.creators.len(), 2, "{:#?}", plan.creators);
     assert_eq!(plan.call_sites.len(), 4, "{:#?}", plan.call_sites);
     assert!(plan.closed);
+    assert!(plan.creators_complete);
 }
 
 #[test]
@@ -217,6 +218,7 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
     assert!(!plan.creators.is_empty(), "{:#?}", plan.creators);
     assert!(!plan.call_sites.is_empty(), "{:#?}", plan.call_sites);
     assert!(plan.closed, "{plan:#?}");
+    assert!(plan.creators_complete, "{plan:#?}");
 }
 
 #[test]
@@ -256,6 +258,12 @@ fn validates_the_exact_demand_set() {
     plan.call_sites.clear();
     assert!(!plan.is_valid(&closure));
     plan = Plan::new(&closure);
+    plan.call_sites[0].sources.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
     plan.closed = !plan.closed;
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    plan.creators_complete = !plan.creators_complete;
     assert!(!plan.is_valid(&closure));
 }
