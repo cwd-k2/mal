@@ -63,10 +63,14 @@ Malはstate、indexの順である。Malの最終IRでこの二行だけを入�
 同値なSSAのPHI worklist順序に対するLLVM MachineCombinerの感度である。Rustの命令数はMalとほぼ同じだった。
 
 現行backendは自己末尾parameterをentry allocaへ分解して更新し、LLVMのSROAとmem2regが後からPHIを作る。この経路ではsource productの
-field順を最終PHI順として保証できない。store順の反転や無意味な先行loadを加える修正はLLVMのworklistへ依存する別のheuristicにすぎず、
-採用しない。一般的な改善境界は、自己末尾parameterのunmanaged leafをbackendで明示的なSSA loop carrierへlowerし、複数tail edge、
-managed leaf、drop edgeを従来slotへfallbackさせることである。この変更はgeneric消去ではなくself-tail loweringの責務として扱い、
-artifact testでPHIの意味上のfield順を固定してから全再帰corpusを測る。
+field順を最終PHI順として保証できない。後続試作では、自己末尾parameterのunmanaged product leafをbackendでsource field順の明示PHIへ
+変え、managed leafだけを従来slotへ残した。pre-LTO IRはindex、state、保存値の順になったが、LTO後にLLVMが再びstate、indexへ
+並べ替え、machine loopは13 instructionのままだった。この試作は複雑さだけを増やすため撤回した。store順の反転、無意味な先行load、
+明示PHI順のいずれも最終machine combineを制御するcontractではない。
+
+従ってこの差をMalのself-tail lowering defectとして独自に矯正しない。同じLLVM versionで最終SSAの二行を交換すると8 instructionになる
+ことはoptimizer regression用のreproducerとして残せるが、source semanticsやbackend IRへPHI順序の疑似contractを追加する根拠には
+ならない。実行時間と命令差は引き続き比較表へ記録し、LLVM側のcanonicalizationが変わったときに再測定する。
 
 `map`も最終moduleは`main`、trap、Buffer destructorの3 definitionだけで、operation dictionaryやtype inspectionはない。
 初期化、put、getはdirect loopへinlineされている。Malのinstruction差は48-byteのtagged slot、Buffer countとprobe終了条件、
@@ -209,9 +213,8 @@ representationとlifecycleを再帰できることを確認している。
 2. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
    任意capacity co-allocationを繰り返さない。byte ownerへ変換されないこととaccess patternを区別できるprogram factを得てから別案を測る。
    shared identity、独立lifetime、growth後のdata pointer再取得を保つ。
-3. `control`の13-instruction recurrenceはPHI順序だけでCの8-instruction形へ変わることを確認した。局所的なstore順調整は採らず、
-   自己末尾parameterのunmanaged leafを明示的なSSA loop carrierへするbackend変更として扱う。generic消去やloop semanticsは
-   変更せず、複数tail edgeとmanaged fallbackを先に定義する。
+3. `control`の13-instruction recurrenceはPHI順序だけでCの8-instruction形へ変わるが、明示的なsource field順のPHIもLTOが
+   並べ替えることを確認した。Mal IRへheuristicな順序付けを追加せず、LLVM optimizerの比較reproducerとして監視する。
 
 IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorやclosure arenaへ拡張しない。Pool source semanticsとLLVM loweringを
 導入する時点では、今回のBuffer lifecycle、allocation分布、generic erasureを比較基準に使うが、無関係なoptimizer責務をIxPoolへ
