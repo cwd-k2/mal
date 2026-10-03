@@ -256,3 +256,26 @@ growth、終了時の走査を含めて再測定する。その際はMap、Deque
    trusted crate境界を別々に判断する。
 
 compilerを変えない二つの試作が、step 6から8の一部を先取りした。結果は[試作で確かめたこと](../prototypes.md)に置く。
+
+## 実装を再開する位置
+
+step 1と2に必要だったopaque identity、nested Buffer、external opaque element、`ElementStorage`の分離は現行実装とactive decisionへ
+反映済みである。step 3と4のruntime側についても、非公開C kernelがbitmap occupancy、stable identity、owner末尾のHeader、growth、
+trivial/managed payloadのreadとexchange、終了時drop、overflow trapを実行し、直接harnessで検証している。growthはlogical payloadを
+一括relocationし、occupancyだけをLive authorityとして保つ。
+
+未実装なのは、このkernelをMalのsource semanticsへ接続する境界である。次回は次の順に再開する。
+
+1. [推奨する最小採択単位](../README.md#推奨する最小採択単位)の`IxPool<Header, V>`とprimitive `trap`について、source rule、
+   operation signature、未検査preconditionをspec decisionとして確定する。`ImPool`、Vector、allocator parameterは含めない。
+2. predefined typeとoperationをfrontend、formatter、editor/LSPへ一つの集合として追加し、`Storable(Header)`と`Storable(V)`、
+   opaque representation authority、unsupported syntaxの拒否をfocused testで固定する。
+3. checked IxPool operationをLLVM lowering、runtime requirement収集、`Lifecycle` callbackへ接続する。handleの通常値とslot/closure内保存が
+   同じshare/drop authorityを使い、`grow`後にcached backing addressを使わないことをartifact testで検査する。
+4. `Store` effectとowned native entryを接続し、last-useのIxPool argumentだけを`Consume`できることをbaseline/productionの
+   observable一致とexact validatorで確かめる。
+5. IxPool上のmal製Bufferを現行Bufferと比較する。semantic parityのC/Rust referenceに加えてhand-lowered lower boundを別枠で測り、
+   occupancy、allocation policy、generic erasureのcostを混ぜない。
+
+この順序より前に非公開kernelを汎用allocator、closure arena、public plugin ABIへ拡張しない。既存kernelはsource contractが採択される
+まで実装可能性とlifecycleのprobeであり、IxPoolが既に言語機能として実装済みであることを意味しない。

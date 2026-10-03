@@ -16,13 +16,13 @@ Intel Core Ultra 7 258Vである。MalとCは`-O2 -flto`、Rustは`-C opt-level=
 
 同じ最終checksumを得る五つのworkloadを用意した。
 
-| Case | 反復と意味 | 比較上の位置づけ |
+| Case | 反復と意味 | 比較の分類 |
 |:---|:---|:---|
-| `control` | genericなsum protocolによる1,000万回のLCG fold | C loop、Rust iterator foldと同じscalar recurrence |
-| `nested-buffer` | 65,536個の8要素identityを外側containerへ保持し、半数をaliasへ置換して変更 | Cの手書きreference count、Rustの`Rc<RefCell<[u64; 8]>>`と同じshared mutable identity |
-| `map` | generic operation familyを使う131,072 entryのopen-addressing map | CとRustも同じcapacity、hash、slot algorithm。標準library mapは使わない |
-| `state` | `State<USize>`と`foldEach<State<USize>>`で20万要素を畳む | CとRustは同じstate transitionの直接loopであり、抽象消去後の下限。関数値representationは再現しない |
-| `focus` | `extend<Focus>`で50万要素の3点移動平均を作る | CとRustは同じ二配列計算であり、comonad抽象消去後の下限 |
+| `control` | genericなsum protocolによる1,000万回のLCG fold | semantic parity。C loop、Rust iterator foldと同じscalar recurrence |
+| `nested-buffer` | 65,536個の8要素identityを外側containerへ保持し、半数をaliasへ置換して変更 | semantic parityだがrepresentation contrast。CとRustはheaderとpayloadを一allocationに詰める |
+| `map` | generic operation familyを使う131,072 entryのopen-addressing map | semantic parityだがrepresentation contrast。同じcapacity、hash、slot algorithmを使う |
+| `state` | `State<USize>`と`foldEach<State<USize>>`で20万要素を畳む | hand-lowered lower bound。CとRustは関数値representationを持たない直接loop |
+| `focus` | `extend<Focus>`で50万要素の3点移動平均を作る | mixed lower bound。Cだけが既知inputを定数化して一方の配列を消した |
 
 `state`のC入力は`volatile` storage、Rust入力は`black_box`を通し、closed expression全体の定数畳み込みを防いだ。
 最初のC版が5 instructionまで定数化されたためである。Rustは`std::process::exit`ではなく`main -> ExitCode`を使い、
@@ -32,6 +32,10 @@ Intel Core Ultra 7 258Vである。MalとCは`-O2 -flto`、Rustは`-C opt-level=
 wall-clockは3 warmup後、Mal、C、Rustの順をroundごとに回転して20回測った。次表はmedianである。
 Callgrindは`main`からcollectionを始めた。Rustの`main`には標準runtime初期化が約10万instruction含まれるが、
 反復量の大きいcaseの結論には影響しない。
+
+表の倍率は測定結果の記録であって、五件を一つの言語rankingへまとめるものではない。`state`と`focus`は上表のlower boundであり、
+Malに対するprimaryなcross-language比ではない。`nested-buffer`も次回はpacked referenceだけでなくstable objectとbackingを分けた
+referenceを併記し、shared identityとallocation policyのcostを分離する。
 
 | Case | Mal | C | Rust | Mal / C | Mal / Rust |
 |:---|---:|---:|---:|---:|---:|
@@ -204,7 +208,8 @@ specialization、call-pattern rewrite、LTOで型と高階dispatchを消せる�
 `duplicate<Focus>`がnested opaque carrierとして動いたことは、`Managed`を`Storable`の代わりのsource predicateへ持ち上げずとも、
 representationとlifecycleを再帰できることを確認している。
 
-次の改善候補は優先順に次の三つである。
+この測定から残った実装境界は次の三つである。再調査の順序とcross-language比較の現在のgateは
+[generated program最適化policy](../../development/generated-program-optimization.md#再調査の入口)を正とする。
 
 1. `State`のspecialized producer-consumer chainについて、単独のresult-application worker案は不採択とする。関数型resultがresult join、
    callback call、self-recursive edgeをどう通るかを一つのcontinuation demandとして証明し、`_foldFrom`、`bind<State>`、step callbackを
