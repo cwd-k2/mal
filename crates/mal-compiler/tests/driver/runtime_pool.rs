@@ -62,6 +62,9 @@ int main(int argc, char **argv) {
             void *failure = mal_runtime_pool_make(&context, &failure_metadata, 0, 1);
             mal_runtime_pool_grow(&context, failure, SIZE_MAX);
         }
+        if (argv[1][0] == 'm') {
+            (void)mal_runtime_pool_make(&context, &failure_metadata, SIZE_MAX, 1);
+        }
         return 99;
     }
     Header header = {3, 5, 7};
@@ -209,6 +212,7 @@ int main(int argc, char **argv) {
         ("capacity", "mal trap: pool capacity overflow"),
         ("payload", "mal trap: pool payload size overflow"),
         ("allocation", "mal trap: pool allocation size overflow"),
+        ("metadata", "mal trap: pool metadata size overflow"),
     ] {
         let trapped = Command::new(fixture.join("pool-check"))
             .arg(mode)

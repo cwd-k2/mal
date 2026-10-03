@@ -129,8 +129,8 @@ ImPoolではstructural stateと、両者に共通するoperation lawだけであ
 growth時にflat ownerへ昇格する。この境界を先に検証している。
 
 現在の非公開kernelは`runtime/c11/pool.c`にあり、source constructからはまだ選択されない。stableなreference-counted objectが
-Header carrierと、bitmapおよびpayloadを一つにした交換可能なbacking allocationを所有する。Headerはpointer幅以下ならobject内、
-それより大きければstableな別allocationへ置く。logical capacityと倍増するphysical capacityは分離し、physical capacity内の
+Header carrierと、bitmapおよびpayloadを一つにした交換可能なbacking allocationを所有する。Headerは大きさによらずstable objectの
+末尾へ整列して置き、objectと同じlifetimeのためだけに別allocationを作らない。logical capacityと倍増するphysical capacityは分離し、physical capacity内の
 `grow`はallocationもpayload relocationも行わない。physical growthは新backingを完成させてからpointerと両capacityをcommitし、Liveな
 carrierだけを移す。direct C boundary testはaliasから同じidentityを観測できること、Header交換、Vacant/Live交換、zero-stride、
 growth前後のcoordinate保存を検査する。managed variantは既存Bufferと同じ`retain(context, carrier)`と`release(carrier)`の

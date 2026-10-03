@@ -5,18 +5,16 @@
 
 #include <stdint.h>
 
-// The stable object owns one replaceable allocation containing the occupancy bitmap followed by payload storage.
-// Small metadata stays in the object; larger metadata has its own stable allocation because growth must not move it.
+// The stable object stores metadata in its trailing allocation and owns one replaceable allocation containing the
+// occupancy bitmap followed by payload storage. Growth moves only the replaceable backing.
 typedef struct {
     unsigned char *backing;
     unsigned char *payload;
     unsigned char *metadata;
-    void *metadata_owner;
     size_t capacity;
     size_t physical_capacity;
     size_t stride;
     size_t metadata_size;
-    uintptr_t inline_metadata;
 } MalPool;
 
 // Callback pairs are NULL for a trivial metadata or element carrier. The base stays first so operations that only move

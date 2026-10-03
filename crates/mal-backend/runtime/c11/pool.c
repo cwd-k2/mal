@@ -9,6 +9,14 @@ static size_t mal_pool_bitmap_size(size_t capacity) {
     return capacity / 8 + (capacity % 8 != 0);
 }
 
+static size_t mal_pool_metadata_offset(MalContext *context, size_t object_size) {
+    size_t padding = alignof(max_align_t) - 1;
+    if (object_size > SIZE_MAX - padding) {
+        mal_trap(context, "pool metadata size overflow");
+    }
+    return (object_size + padding) & ~padding;
+}
+
 static size_t mal_pool_payload_offset(MalContext *context, size_t capacity) {
     size_t bitmap_size = mal_pool_bitmap_size(capacity);
     size_t padding = alignof(max_align_t) - 1;
@@ -58,7 +66,6 @@ static void mal_pool_set_live(MalPool *pool, size_t index, int live) {
 
 static void mal_pool_destroy(void *opaque_pool) {
     MalPool *pool = opaque_pool;
-    free(pool->metadata_owner);
     free(pool->backing);
 }
 
@@ -86,26 +93,24 @@ static MalPool *mal_pool_make(
     size_t object_size,
     void (*destroy)(void *)
 ) {
+    size_t metadata_offset = mal_pool_metadata_offset(context, object_size);
+    if (metadata_size > SIZE_MAX - metadata_offset) {
+        mal_trap(context, "pool metadata size overflow");
+    }
     MalPool *pool = mal_runtime_owner_allocate(
         context,
-        object_size,
+        metadata_offset + metadata_size,
         destroy
     );
     pool->backing = NULL;
     pool->payload = NULL;
-    pool->metadata_owner = NULL;
+    pool->metadata = metadata_size == 0
+        ? NULL
+        : (unsigned char *)pool + metadata_offset;
     pool->capacity = 0;
     pool->physical_capacity = 0;
     pool->stride = stride;
     pool->metadata_size = metadata_size;
-    pool->inline_metadata = 0;
-
-    if (metadata_size <= sizeof pool->inline_metadata) {
-        pool->metadata = (unsigned char *)&pool->inline_metadata;
-    } else {
-        pool->metadata_owner = mal_runtime_allocate(context, metadata_size);
-        pool->metadata = pool->metadata_owner;
-    }
     if (metadata_size != 0) {
         memcpy(pool->metadata, metadata, metadata_size);
     }
