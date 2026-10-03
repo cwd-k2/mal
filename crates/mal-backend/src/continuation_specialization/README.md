@@ -6,10 +6,11 @@ exists before the producer call. Aggregate storage, another function argument, a
 make the value escape and reject the demand.
 
 The stage runs after `call_pattern` and before control lowering. It does not recognize source operation names such as
-`State`, `bind`, or `fmap`. The initial plan records demand seeds and validates exact reconstruction; extending a seed
-through producer results, joins, callbacks, and self-recursive edges precedes any calling-convention rewrite.
+`State`, `bind`, or `fmap`. The plan records demand seeds, follows direct function results to calls or closure creators,
+and validates exact reconstruction. Join, callback, and self-recursive edges must join the same closed slice before any
+calling-convention rewrite is enabled.
 
 | Module | Responsibility |
 |---|---|
 | `plan` | admitted application demands and exact reconstruction |
-| `index` | binding definitions, canonical aliases, uses, escape classification, and effect intervals |
+| `index` | binding definitions, canonical aliases, uses, escape classification, effect intervals, and direct producer-result edges |

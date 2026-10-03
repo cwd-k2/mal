@@ -1,6 +1,7 @@
 use mal_syntax::source::{FileId, SourceFile};
 
 use super::Plan;
+use super::plan::ProducerResult;
 use crate::closure::ast::AtomKind;
 
 fn plan(text: &str) -> Plan {
@@ -30,6 +31,30 @@ fn admits_one_application_of_a_function_valued_call_result() {
     );
 
     assert_eq!(plan.demands.len(), 1);
+    assert_eq!(plan.steps.len(), 1);
+    assert!(matches!(plan.steps[0].result, ProducerResult::Closure(_)));
+}
+
+#[test]
+fn follows_a_direct_call_result_to_its_closure_creator() {
+    let plan = plan(
+        "create :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
+         forward :: Int32 -> (Int32 -> Int32) := (captured) -> create(captured);
+         main :: Unit -> Int32 := () -> forward(40i32)(2i32) - 42i32;",
+    );
+
+    assert_eq!(plan.demands.len(), 1);
+    assert_eq!(plan.steps.len(), 2);
+    assert!(
+        plan.steps
+            .iter()
+            .any(|step| matches!(step.result, ProducerResult::Call(_)))
+    );
+    assert!(
+        plan.steps
+            .iter()
+            .any(|step| matches!(step.result, ProducerResult::Closure(_)))
+    );
 }
 
 #[test]

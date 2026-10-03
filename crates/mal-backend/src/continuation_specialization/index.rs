@@ -1,12 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::anf::ast::ValueId;
-use crate::closure::ast::{Atom, AtomId, Operation, Pattern, Program};
+use crate::closure::ast::{
+    Atom, AtomId, AtomKind, FunctionId, Operation, Pattern, Program, Reference,
+};
 
-use super::plan::Demand;
+use super::plan::{Demand, ProducerResult, ProducerStep};
 
-pub(super) fn demands(program: &Program) -> Vec<Demand> {
-    Index::new(program).demands(program)
+pub(super) fn analyze(program: &Program) -> (Vec<Demand>, Vec<ProducerStep>) {
+    let index = Index::new(program);
+    let demands = index.demands(program);
+    let steps = index.producer_steps(program, &demands);
+    (demands, steps)
 }
 
 #[derive(Clone, Copy)]
@@ -20,6 +25,7 @@ struct Index {
     definitions: HashMap<ValueId, Operation>,
     aliases: HashMap<ValueId, ValueId>,
     uses: HashMap<ValueId, Vec<Use>>,
+    functions: HashMap<ValueId, FunctionId>,
 }
 
 impl Index {
@@ -44,6 +50,11 @@ impl Index {
             definitions,
             aliases,
             uses: HashMap::new(),
+            functions: program
+                .bindings
+                .iter()
+                .filter_map(|binding| binding.known_function())
+                .collect(),
         };
         for_each_block(program, &mut |block| index.index_block(block));
         index
@@ -60,9 +71,16 @@ impl Index {
                     continue;
                 };
                 let origin = self.origin(binding);
-                if !matches!(self.definitions.get(&origin), Some(Operation::Call { .. })) {
+                let Some(Operation::Call {
+                    callee: producer_callee,
+                    argument: producer_argument,
+                }) = self.definitions.get(&origin)
+                else {
                     continue;
-                }
+                };
+                let Some(producer) = self.function(producer_callee) else {
+                    continue;
+                };
                 let Some(producer_index) = block.bindings.iter().position(
                     |binding| matches!(binding.pattern, Pattern::Binding { id, .. } if id == origin),
                 ) else {
@@ -90,6 +108,8 @@ impl Index {
                 if consumers.as_slice() == [callee.id] {
                     demands.push(Demand {
                         producer_result: origin,
+                        producer,
+                        producer_argument: producer_argument.clone(),
                         consumer: callee.id,
                         argument: argument.clone(),
                     });
@@ -137,6 +157,56 @@ impl Index {
 
     fn origin(&self, binding: ValueId) -> ValueId {
         self.aliases.get(&binding).copied().unwrap_or(binding)
+    }
+
+    fn function(&self, callee: &Atom) -> Option<FunctionId> {
+        match callee.kind {
+            AtomKind::Reference(Reference::Binding(binding)) => {
+                self.functions.get(&self.origin(binding)).copied()
+            }
+            AtomKind::Reference(Reference::SelfClosure(function)) => Some(function),
+            _ => None,
+        }
+    }
+
+    fn producer_steps(&self, program: &Program, demands: &[Demand]) -> Vec<ProducerStep> {
+        let functions = program
+            .functions
+            .iter()
+            .map(|function| (function.id, function))
+            .collect::<HashMap<_, _>>();
+        let mut pending = demands
+            .iter()
+            .map(|demand| demand.producer)
+            .collect::<Vec<_>>();
+        let mut visited = HashSet::new();
+        let mut steps = Vec::new();
+        while let Some(function) = pending.pop() {
+            if !visited.insert(function) {
+                continue;
+            }
+            let Some(body) = functions.get(&function).map(|function| &function.body) else {
+                continue;
+            };
+            let Some(result) = body.result.binding().map(|binding| self.origin(binding)) else {
+                continue;
+            };
+            let result = match self.definitions.get(&result) {
+                Some(Operation::Call { callee, .. }) => {
+                    let Some(target) = self.function(callee) else {
+                        continue;
+                    };
+                    pending.push(target);
+                    ProducerResult::Call(target)
+                }
+                Some(Operation::MakeClosure {
+                    function: target, ..
+                }) => ProducerResult::Closure(*target),
+                _ => continue,
+            };
+            steps.push(ProducerStep { function, result });
+        }
+        steps
     }
 }
 
