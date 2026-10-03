@@ -199,6 +199,18 @@ fn buffer_element_ownership_across_program_shapes() {
     }
 }
 
+/// Continuation specialization and its baseline preserve results, effects, traps, and managed capture ownership.
+#[test]
+fn recursive_function_results_across_optimization_levels() {
+    for optimization in ["baseline", "production"] {
+        run_all_configured(
+            include_str!("spec/continuation_specialization.txt"),
+            &[],
+            &["--optimization", optimization],
+        );
+    }
+}
+
 #[test]
 fn operator_and_literal_rules() {
     run_all(include_str!("spec/operators.txt"));

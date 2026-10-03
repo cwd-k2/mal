@@ -1,0 +1,50 @@
+### recursive_state_preserves_effect_order_and_owned_capture | run:20
+opaque State<S, A> :: S -> (S, A);
+pureState<S, A> :: A -> State<S, A> := (value) -> (state) -> (state, value);
+bindState<S, A, B> :: (State<S, A>, A -> State<S, B>) -> State<S, B> :=
+    (action, following) -> (state) -> {
+        (middle, value) := action(state);
+        next := following(value);
+        next(middle);
+    };
+fresh :: Buffer<Int32> -> State<USize, USize> := (log) -> (state) -> {
+    _ := log.new(state.i32);
+    (state + 1usize, state);
+};
+step :: (Buffer<Int32>, USize, USize) -> State<USize, USize> := (log, sum, value) ->
+    bindState<USize, USize, USize>(fresh(log), (label) -> pureState<USize, USize>(sum + value + label));
+fold :: (Buffer<Int32>, USize, USize, USize) -> State<USize, USize> := (log, index, count, sum) -> [return] => {
+    when (index == count) return(pureState<USize, USize>(sum));
+    return(bindState<USize, USize, USize>(step(log, sum, 1usize), (next) -> fold(log, index + 1usize, count, next)));
+};
+main :: Unit -> Int32 := () -> {
+    log := make<Int32>(4usize);
+    action := fold(log, 0usize, 4usize, 0usize);
+    (state, checksum) := action(0usize);
+    if (state == 4usize && checksum == 10usize && #log == 4usize && log.get(0usize) == 0i32 && log.get(1usize) == 1i32 && log.get(2usize) == 2i32 && log.get(3usize) == 3i32)
+        then 20i32
+        else 1i32;
+};
+
+### recursive_state_preserves_trap | trap
+opaque State<S, A> :: S -> (S, A);
+pureState<S, A> :: A -> State<S, A> := (value) -> (state) -> (state, value);
+bindState<S, A, B> :: (State<S, A>, A -> State<S, B>) -> State<S, B> :=
+    (action, following) -> (state) -> {
+        (middle, value) := action(state);
+        next := following(value);
+        next(middle);
+    };
+fail :: Unit -> State<USize, USize> := () -> (state) -> {
+    values := make<UInt64>(18446744073709551615usize);
+    (state, #values);
+};
+fold :: USize -> State<USize, USize> := (count) ->
+    if (count == 0usize)
+        then fail()
+        else bindState<USize, USize, USize>(pureState<USize, USize>(count), (_) -> fold(count - 1usize));
+main :: Unit -> Int32 := () -> {
+    action := fold(4usize);
+    (_, result) := action(0usize);
+    result.i32;
+};
