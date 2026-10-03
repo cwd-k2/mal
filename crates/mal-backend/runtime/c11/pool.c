@@ -206,15 +206,11 @@ void mal_runtime_pool_grow(
     if (pool->capacity != 0) {
         memcpy(next_backing, pool->backing, mal_pool_bitmap_size(pool->capacity));
         if (pool->stride != 0) {
-            for (size_t index = 0; index < pool->capacity; ++index) {
-                if (mal_pool_is_live(pool, index)) {
-                    memcpy(
-                        next_payload + index * pool->stride,
-                        pool->payload + index * pool->stride,
-                        pool->stride
-                    );
-                }
-            }
+            memcpy(
+                next_payload,
+                pool->payload,
+                pool->capacity * pool->stride
+            );
         }
     }
 

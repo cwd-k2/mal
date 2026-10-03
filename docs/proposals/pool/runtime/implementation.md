@@ -130,9 +130,10 @@ growth時にflat ownerへ昇格する。この境界を先に検証している�
 
 現在の非公開kernelは`runtime/c11/pool.c`にあり、source constructからはまだ選択されない。stableなreference-counted objectが
 Header carrierと、bitmapおよびpayloadを一つにした交換可能なbacking allocationを所有する。Headerは大きさによらずstable objectの
-末尾へ整列して置き、objectと同じlifetimeのためだけに別allocationを作らない。logical capacityと倍増するphysical capacityは分離し、physical capacity内の
-`grow`はallocationもpayload relocationも行わない。physical growthは新backingを完成させてからpointerと両capacityをcommitし、Liveな
-carrierだけを移す。direct C boundary testはaliasから同じidentityを観測できること、Header交換、Vacant/Live交換、zero-stride、
+末尾へ整列して置き、objectと同じlifetimeのためだけに別allocationを作らない。logical capacityと倍増するphysical capacityは分離し、
+physical capacity内の`grow`はallocationもpayload relocationも行わない。physical growthは新backingを完成させ、occupancyとlogical
+capacity分のpayload byteを一括で移してからpointerと両capacityをcommitする。Vacant payloadは解釈せず、occupancyだけがLive carrierの存在を決める。
+direct C boundary testはaliasから同じidentityを観測できること、Header交換、Vacant/Live交換、zero-stride、
 growth前後のcoordinate保存を検査する。managed variantは既存Bufferと同じ`retain(context, carrier)`と`release(carrier)`の
 callback型をHeaderとpayloadで共有し、readだけがShare、exchangeとrelocationはMove、最後のPool handleだけがHeaderと全Live slotを
 Dropすることも同じboundary testで検査する。source APIとLLVM loweringはまだ接続しない。
