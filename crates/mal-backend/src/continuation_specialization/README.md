@@ -22,3 +22,4 @@ is enabled.
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
 | `provenance` | creator and self-closure origins reaching each use, with transport and escape destinations |
 | `request` | all-or-nothing worker identities under the shared closure-copy budget |
+| `rewrite` | fresh worker copies and the eventual atomic calling-convention rewrite |

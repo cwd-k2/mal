@@ -275,6 +275,18 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
             .iter()
             .all(|worker| worker.original != worker.worker)
     );
+    let copied = request.copy_workers(&program);
+    assert_eq!(
+        copied.functions.len(),
+        program.functions.len() + request.workers.len()
+    );
+    assert!(request.workers.iter().all(|worker| {
+        copied
+            .functions
+            .iter()
+            .any(|function| function.id == worker.worker)
+    }));
+    assert!(crate::closure::rewrite::are_unique(&mut copied.clone()));
     request.workers.clear();
     assert!(!request.is_valid(&program, &plan));
 }

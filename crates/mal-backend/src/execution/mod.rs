@@ -61,6 +61,11 @@ pub(crate) fn lower(lowered: closure_ast::Program, enabled: OptimizationSet) -> 
         debug_assert!(demands.is_valid(&lowered));
         if let Some(request) = demands.request(&lowered) {
             debug_assert!(request.is_valid(&lowered, &demands));
+            let preview = request.copy_workers(&lowered);
+            debug_assert_eq!(
+                preview.functions.len(),
+                lowered.functions.len() + request.workers.len()
+            );
         }
     }
     let closure_uses = ClosureUsePlan::new(&lowered);

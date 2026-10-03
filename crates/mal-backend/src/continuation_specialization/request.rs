@@ -24,6 +24,10 @@ impl Request {
     pub(crate) fn is_valid(&self, program: &Program, plan: &Plan) -> bool {
         prepare(program, plan).as_ref() == Some(self)
     }
+
+    pub(crate) fn copy_workers(&self, program: &Program) -> Program {
+        super::rewrite::copy_workers(program, self)
+    }
 }
 
 pub(super) fn prepare(program: &Program, plan: &Plan) -> Option<Request> {
