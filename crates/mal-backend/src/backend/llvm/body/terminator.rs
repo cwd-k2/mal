@@ -110,215 +110,14 @@ impl FunctionEmitter<'_> {
                 right,
                 otherwise,
                 then,
-            } => {
-                self.require_terminator_borrow(
-                    site,
-                    crate::execution::ownership::TerminatorOperand::BranchLeft,
-                    left,
-                )?;
-                self.require_terminator_borrow(
-                    site,
-                    crate::execution::ownership::TerminatorOperand::BranchRight,
-                    right,
-                )?;
-                let left = self.atom(left)?;
-                let right = self.atom(right)?;
-                if left.ty != right.ty {
-                    return None;
-                }
-                let condition = self.register();
-                let predicate = comparison_predicate(*operator)?;
-                let scalar = scalar_type(&left.ty, self.types.index_size())?;
-                let (kind, predicate) = predicate.for_scalar(scalar);
-                emit_instruction! {
-                    self;
-                    let #{ condition.clone() } = compare {
-                        kind: #{ kind },
-                        predicate: #{ predicate },
-                        ty: #{ scalar.llvm_type() },
-                        left: #{ left.representation },
-                        right: #{ right.representation },
-                    };
-                };
-                let then_drops = !self
-                    .ownership
-                    .drops_on_edge(site, crate::execution::ownership::ControlPath::BranchThen)
-                    .is_empty();
-                let otherwise_drops = !self
-                    .ownership
-                    .drops_on_edge(
-                        site,
-                        crate::execution::ownership::ControlPath::BranchOtherwise,
-                    )
-                    .is_empty();
-                let then_label = if then_drops {
-                    format!("mal_edge_{}_then", site.0)
-                } else {
-                    format!("mal_state_{}", then.0)
-                };
-                let otherwise_label = if otherwise_drops {
-                    format!("mal_edge_{}_otherwise", site.0)
-                } else {
-                    format!("mal_state_{}", otherwise.0)
-                };
-                emit_terminator! {
-                    self;
-                    branch {
-                        condition: #{ condition },
-                        then: #{ then_label },
-                        otherwise: #{ otherwise_label },
-                    };
-                };
-                if then_drops {
-                    self.block(format!("mal_edge_{}_then", site.0));
-                    self.emit_edge_drops(
-                        site,
-                        crate::execution::ownership::ControlPath::BranchThen,
-                    )?;
-                    emit_terminator! {
-                        self;
-                        branch {
-                            target: #{ format!("mal_state_{}", then.0) },
-                        };
-                    };
-                }
-                if otherwise_drops {
-                    self.block(format!("mal_edge_{}_otherwise", site.0));
-                    self.emit_edge_drops(
-                        site,
-                        crate::execution::ownership::ControlPath::BranchOtherwise,
-                    )?;
-                    emit_terminator! {
-                        self;
-                        branch {
-                            target: #{ format!("mal_state_{}", otherwise.0) },
-                        };
-                    };
-                }
-            }
+            } => self.emit_primitive_branch(site, *operator, left, right, *otherwise, *then)?,
             Terminator::Call {
                 callee,
                 argument,
                 resume,
-            } => match self.execution.control_calls.mode(site)? {
-                ControlCallMode::Direct(target) => {
-                    let result = self.emit_call(site, target, callee, argument, false)?;
-                    self.store_input_pattern(*resume, Some(&result))?;
-                    self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    emit_terminator! {
-                        self;
-                        branch {
-                            target: #{ format!("mal_state_{}", resume.0) },
-                        };
-                    };
-                }
-                ControlCallMode::DirectRegion(_) if self.mode == EmissionMode::Native => {
-                    self.emit_native_self_call(site, callee, argument)?;
-                }
-                ControlCallMode::Dispatch
-                    if self.execution.control_frames.frame(site).is_some() =>
-                {
-                    self.emit_frame_call(site, callee, argument)?;
-                }
-                ControlCallMode::DirectRegion(_)
-                    if self.execution.control_frames.frame(site).is_some() =>
-                {
-                    self.emit_frame_call(site, callee, argument)?;
-                }
-                ControlCallMode::Dispatch => {
-                    let Terminator::Call { callee, .. } = terminator else {
-                        unreachable!()
-                    };
-                    let result = self.emit_indirect_call(site, callee, argument, false)?;
-                    self.store_input_pattern(*resume, Some(&result))?;
-                    self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
-                    emit_terminator! {
-                        self;
-                        branch {
-                            target: #{ format!("mal_state_{}", resume.0) },
-                        };
-                    };
-                }
-                ControlCallMode::DirectSelfTail => return None,
-                ControlCallMode::DirectRegion(_) => return None,
-            },
+            } => self.emit_call_terminator(site, callee, argument, *resume)?,
             Terminator::TailCall { callee, argument } => {
-                match self.execution.control_calls.mode(site)? {
-                    ControlCallMode::DirectSelfTail => {
-                        let argument = self
-                            .execution
-                            .control_calls
-                            .forwarded_self_argument(site)
-                            .unwrap_or(argument);
-                        let effect = self.ownership.terminator_operand_use(
-                            site,
-                            crate::execution::ownership::TerminatorOperand::TailArgument,
-                            argument,
-                        )?;
-                        let value = self.prepare_atom_for_use(argument, effect)?;
-                        let function = self.current_function()?.clone();
-                        if function.parameter.ty != value.value.ty {
-                            return None;
-                        }
-                        self.commit_consumes(&value)?;
-                        let self_tail_parameter = self
-                            .optimizations
-                            .self_tail_parameter(function.id)
-                            .then(|| self.execution.self_tail_parameters.get(function.id))
-                            .flatten()
-                            .cloned();
-                        if let Some(parameter) = &self_tail_parameter {
-                            self.store_self_tail_pattern(&parameter.pattern, &value.value)?;
-                        } else {
-                            self.emit_parameter_handoff(
-                                function.id,
-                                &value.value,
-                                crate::execution::ownership::ParameterEntry::OwnedHandoff,
-                            )?;
-                        }
-                        self.emit_edge_drops(
-                            site,
-                            crate::execution::ownership::ControlPath::Single,
-                        )?;
-                        let target = if self_tail_parameter.is_some() {
-                            self_tail_entry_label(function.id)
-                        } else {
-                            format!("mal_state_{}", function.entry.0)
-                        };
-                        emit_terminator! {
-                            self;
-                            branch {
-                                target: #{ target },
-                            };
-                        };
-                    }
-                    ControlCallMode::Direct(target) => {
-                        let result = self.emit_call(site, target, callee, argument, true)?;
-                        self.emit_edge_drops(
-                            site,
-                            crate::execution::ownership::ControlPath::Single,
-                        )?;
-                        self.emit_continuation_return(site, &result)?;
-                    }
-                    ControlCallMode::DirectRegion(_) => {
-                        self.emit_region_transition(site, callee, argument, false, &[])?;
-                    }
-                    ControlCallMode::Dispatch => {
-                        if self.common_region.is_some()
-                            && self.execution.control_regions.site_region(site)
-                                == self.common_region
-                        {
-                            self.emit_region_transition(site, callee, argument, false, &[])?;
-                        } else {
-                            let result = self.emit_indirect_call(site, callee, argument, true)?;
-                            self.emit_edge_drops(
-                                site,
-                                crate::execution::ownership::ControlPath::Single,
-                            )?;
-                            self.emit_continuation_return(site, &result)?;
-                        }
-                    }
-                }
+                self.emit_tail_call_terminator(site, callee, argument)?;
             }
             Terminator::Case { scrutinee, arms } => {
                 self.require_terminator_borrow(
@@ -331,4 +130,246 @@ impl FunctionEmitter<'_> {
         }
         Some(())
     }
+
+    fn emit_primitive_branch(
+        &mut self,
+        site: StateId,
+        operator: crate::core::ast::BinaryPrimitive,
+        left: &crate::closure::ast::Atom,
+        right: &crate::closure::ast::Atom,
+        otherwise: StateId,
+        then: StateId,
+    ) -> Option<()> {
+        self.require_terminator_borrow(
+            site,
+            crate::execution::ownership::TerminatorOperand::BranchLeft,
+            left,
+        )?;
+        self.require_terminator_borrow(
+            site,
+            crate::execution::ownership::TerminatorOperand::BranchRight,
+            right,
+        )?;
+        let left = self.atom(left)?;
+        let right = self.atom(right)?;
+        if left.ty != right.ty {
+            return None;
+        }
+        let condition = self.register();
+        let predicate = comparison_predicate(operator)?;
+        let scalar = scalar_type(&left.ty, self.types.index_size())?;
+        let (kind, predicate) = predicate.for_scalar(scalar);
+        emit_instruction! {
+            self;
+            let #{ condition.clone() } = compare {
+                kind: #{ kind },
+                predicate: #{ predicate },
+                ty: #{ scalar.llvm_type() },
+                left: #{ left.representation },
+                right: #{ right.representation },
+            };
+        };
+        let then_label = self.branch_edge_label(
+            site,
+            crate::execution::ownership::ControlPath::BranchThen,
+            then,
+        );
+        let otherwise_label = self.branch_edge_label(
+            site,
+            crate::execution::ownership::ControlPath::BranchOtherwise,
+            otherwise,
+        );
+        emit_terminator! {
+            self;
+            branch {
+                condition: #{ condition },
+                then: #{ then_label },
+                otherwise: #{ otherwise_label },
+            };
+        };
+        self.emit_branch_edge_drops(
+            site,
+            crate::execution::ownership::ControlPath::BranchThen,
+            then,
+        )?;
+        self.emit_branch_edge_drops(
+            site,
+            crate::execution::ownership::ControlPath::BranchOtherwise,
+            otherwise,
+        )
+    }
+
+    fn branch_edge_label(
+        &self,
+        site: StateId,
+        path: crate::execution::ownership::ControlPath,
+        target: StateId,
+    ) -> String {
+        if self.ownership.drops_on_edge(site, path).is_empty() {
+            format!("mal_state_{}", target.0)
+        } else {
+            branch_edge_name(site, path)
+        }
+    }
+
+    fn emit_branch_edge_drops(
+        &mut self,
+        site: StateId,
+        path: crate::execution::ownership::ControlPath,
+        target: StateId,
+    ) -> Option<()> {
+        if self.ownership.drops_on_edge(site, path).is_empty() {
+            return Some(());
+        }
+        self.block(branch_edge_name(site, path));
+        self.emit_edge_drops(site, path)?;
+        emit_terminator! {
+            self;
+            branch {
+                target: #{ format!("mal_state_{}", target.0) },
+            };
+        };
+        Some(())
+    }
+
+    fn emit_call_terminator(
+        &mut self,
+        site: StateId,
+        callee: &crate::closure::ast::Atom,
+        argument: &crate::closure::ast::Atom,
+        resume: StateId,
+    ) -> Option<()> {
+        match self.execution.control_calls.mode(site)? {
+            ControlCallMode::Direct(target) => {
+                let result = self.emit_call(site, target, callee, argument, false)?;
+                self.resume_after_call(site, resume, &result)
+            }
+            ControlCallMode::DirectRegion(_) if self.mode == EmissionMode::Native => {
+                self.emit_native_self_call(site, callee, argument)
+            }
+            ControlCallMode::Dispatch | ControlCallMode::DirectRegion(_)
+                if self.execution.control_frames.frame(site).is_some() =>
+            {
+                self.emit_frame_call(site, callee, argument)
+            }
+            ControlCallMode::Dispatch => {
+                let result = self.emit_indirect_call(site, callee, argument, false)?;
+                self.resume_after_call(site, resume, &result)
+            }
+            ControlCallMode::DirectSelfTail | ControlCallMode::DirectRegion(_) => None,
+        }
+    }
+
+    fn resume_after_call(
+        &mut self,
+        site: StateId,
+        resume: StateId,
+        result: &EmittedValue,
+    ) -> Option<()> {
+        self.store_input_pattern(resume, Some(result))?;
+        self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
+        emit_terminator! {
+            self;
+            branch {
+                target: #{ format!("mal_state_{}", resume.0) },
+            };
+        };
+        Some(())
+    }
+
+    fn emit_tail_call_terminator(
+        &mut self,
+        site: StateId,
+        callee: &crate::closure::ast::Atom,
+        argument: &crate::closure::ast::Atom,
+    ) -> Option<()> {
+        match self.execution.control_calls.mode(site)? {
+            ControlCallMode::DirectSelfTail => self.emit_self_tail_call(site, argument),
+            ControlCallMode::Direct(target) => {
+                let result = self.emit_call(site, target, callee, argument, true)?;
+                self.return_tail_call(site, &result)
+            }
+            ControlCallMode::DirectRegion(_) => {
+                self.emit_region_transition(site, callee, argument, false, &[])
+            }
+            ControlCallMode::Dispatch
+                if self.common_region.is_some()
+                    && self.execution.control_regions.site_region(site) == self.common_region =>
+            {
+                self.emit_region_transition(site, callee, argument, false, &[])
+            }
+            ControlCallMode::Dispatch => {
+                let result = self.emit_indirect_call(site, callee, argument, true)?;
+                self.return_tail_call(site, &result)
+            }
+        }
+    }
+
+    fn return_tail_call(&mut self, site: StateId, result: &EmittedValue) -> Option<()> {
+        self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
+        self.emit_continuation_return(site, result)
+    }
+
+    fn emit_self_tail_call(
+        &mut self,
+        site: StateId,
+        argument: &crate::closure::ast::Atom,
+    ) -> Option<()> {
+        let argument = self
+            .execution
+            .control_calls
+            .forwarded_self_argument(site)
+            .unwrap_or(argument);
+        let effect = self.ownership.terminator_operand_use(
+            site,
+            crate::execution::ownership::TerminatorOperand::TailArgument,
+            argument,
+        )?;
+        let value = self.prepare_atom_for_use(argument, effect)?;
+        let function = self.current_function()?.clone();
+        if function.parameter.ty != value.value.ty {
+            return None;
+        }
+        self.commit_consumes(&value)?;
+        let self_tail_parameter = self
+            .optimizations
+            .self_tail_parameter(function.id)
+            .then(|| self.execution.self_tail_parameters.get(function.id))
+            .flatten()
+            .cloned();
+        if let Some(parameter) = &self_tail_parameter {
+            self.store_self_tail_pattern(&parameter.pattern, &value.value)?;
+        } else {
+            self.emit_parameter_handoff(
+                function.id,
+                &value.value,
+                crate::execution::ownership::ParameterEntry::OwnedHandoff,
+            )?;
+        }
+        self.emit_edge_drops(site, crate::execution::ownership::ControlPath::Single)?;
+        let target = if self_tail_parameter.is_some() {
+            self_tail_entry_label(function.id)
+        } else {
+            format!("mal_state_{}", function.entry.0)
+        };
+        emit_terminator! {
+            self;
+            branch {
+                target: #{ target },
+            };
+        };
+        Some(())
+    }
+}
+
+fn branch_edge_name(site: StateId, path: crate::execution::ownership::ControlPath) -> String {
+    let suffix = match path {
+        crate::execution::ownership::ControlPath::BranchThen => "then",
+        crate::execution::ownership::ControlPath::BranchOtherwise => "otherwise",
+        crate::execution::ownership::ControlPath::Single
+        | crate::execution::ownership::ControlPath::CaseArm(_) => {
+            unreachable!("only primitive branch paths need edge blocks")
+        }
+    };
+    format!("mal_edge_{}_{}", site.0, suffix)
 }
