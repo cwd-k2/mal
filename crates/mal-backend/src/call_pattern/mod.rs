@@ -8,7 +8,7 @@
 //! functions it calls, and it stops at a fixed point or when the program has grown past its budget.
 
 use crate::closure::ast::Program;
-use crate::closure::rewrite::are_unique;
+use crate::closure::rewrite::{are_unique, copy_budget};
 use crate::control;
 use crate::flow::{ClosureFlow, CompatibleTargets};
 
@@ -22,12 +22,8 @@ mod rewrite;
 mod tests;
 
 const MAX_ROUNDS: usize = 8;
-/// A program may grow to this multiple of its function count, plus `GROWTH_SLACK`.
-const GROWTH_FACTOR: usize = 4;
-const GROWTH_SLACK: usize = 64;
-
 pub(crate) fn specialize(mut program: Program) -> Program {
-    let budget = program.functions.len() * GROWTH_FACTOR + GROWTH_SLACK;
+    let budget = copy_budget(program.functions.len());
     for _ in 0..MAX_ROUNDS {
         let lowered = control::lower(&program);
         let mut compatible = CompatibleTargets::new(&program);
