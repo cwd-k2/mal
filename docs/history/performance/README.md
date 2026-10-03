@@ -12,6 +12,7 @@ Status: Historical records
 | backend世代と生成program | [backend](backend/) | 退役したgenerated Cと、その後のLLVM backendを分離した時系列記録 |
 | 現在のexample corpus | [example corpus](examples.md) | baseline / productionと採択済みclosure optimizationの比較 |
 | recursionとloop combinator | [loop combinator](loop-combinators.md) | native recursion、stack bound、persistent parameterの調査 |
+| genericsとmanaged container | [generics](generics.md) | HKT、monad、nested BufferのC/Rust比較と抽象消去の境界 |
 | managed value | [managed Engram](managed-engrams.md) | C backend当時のownership costと回帰条件 |
 | Buffer element storage | [Buffer](buffer.md) | LLVM backendのcanonical elementとruntime-owned handleのC比較 |
 | C host boundary | [C host ABI](c-host-abi.md) | headerとadapter生成の測定 |

@@ -1,0 +1,177 @@
+# genericsとmanaged containerの生成物
+
+Status: Historical measurement record
+
+この文書は、2026-10-03のLLVM backendでgenerics、higher-kinded operation family、nested Bufferが
+どこまで消去され、どこにruntime costが残るかをCおよびRustの対応programと比較した記録である。
+言語規則は[generics](../../spec/generics.md)、[operation family](../../spec/operation-families.md)、
+[AddressとBuffer](../../spec/memory.md)を正とし、Buffer単体の以前の測定は
+[Buffer生成物とownership cost](buffer.md)を参照する。
+
+## 測定条件
+
+対象は`60f4840d`、malc 0.6.0-dev、Clang 21.1.8、Rust 1.97.1、Valgrind 3.27.1、
+Intel Core Ultra 7 258Vである。MalとCは`-O2 -flto`、Rustは`-C opt-level=3 -C lto=fat
+-C codegen-units=1 -C panic=abort`でbuildした。全buildと測定processをsystemd cgroupの2 GiBに制限した。
+
+同じ最終checksumを得る五つのworkloadを用意した。
+
+| Case | 反復と意味 | 比較上の位置づけ |
+|:---|:---|:---|
+| `control` | genericなsum protocolによる1,000万回のLCG fold | C loop、Rust iterator foldと同じscalar recurrence |
+| `nested-buffer` | 65,536個の8要素identityを外側containerへ保持し、半数をaliasへ置換して変更 | Cの手書きreference count、Rustの`Rc<RefCell<[u64; 8]>>`と同じshared mutable identity |
+| `map` | generic operation familyを使う131,072 entryのopen-addressing map | CとRustも同じcapacity、hash、slot algorithm。標準library mapは使わない |
+| `state` | `State<USize>`と`foldEach<State<USize>>`で20万要素を畳む | CとRustは同じstate transitionの直接loopであり、抽象消去後の下限。関数値representationは再現しない |
+| `focus` | `extend<Focus>`で50万要素の3点移動平均を作る | CとRustは同じ二配列計算であり、comonad抽象消去後の下限 |
+
+`state`のC入力は`volatile` storage、Rust入力は`black_box`を通し、closed expression全体の定数畳み込みを防いだ。
+最初のC版が5 instructionまで定数化されたためである。Rustは`std::process::exit`ではなく`main -> ExitCode`を使い、
+局所containerを通常どおりdropしてから終了する。前者を使った初回測定では`focus`の2 MB allocationが解放されず、
+言語間比較ではなくharnessの欠陥になった。
+
+wall-clockは3 warmup後、Mal、C、Rustの順をroundごとに回転して20回測った。次表はmedianである。
+Callgrindは`main`からcollectionを始めた。Rustの`main`には標準runtime初期化が約10万instruction含まれるが、
+反復量の大きいcaseの結論には影響しない。
+
+| Case | Mal | C | Rust | Mal / C | Mal / Rust |
+|:---|---:|---:|---:|---:|---:|
+| `control` | 3.68 ms | 1.98 ms | 3.71 ms | 1.86x | 0.99x |
+| `nested-buffer` | 7.42 ms | 3.57 ms | 3.94 ms | 2.08x | 1.88x |
+| `map` | 5.63 ms | 5.16 ms | 4.45 ms | 1.09x | 1.26x |
+| `state` | 4.64 ms | 1.55 ms | 1.64 ms | 3.00x | 2.84x |
+| `focus` | 3.88 ms | 2.53 ms | 3.57 ms | 1.53x | 1.09x |
+
+絶対時間はprocess起動とCPU frequencyの影響を受ける。特に`state`はnative allocatorが小さいallocationを速く処理するため、
+Callgrind上のinstruction比ほどwall-clock差は大きくない。採択判断には時間だけでなく、次の命令、allocation、IRを使う。
+
+## 動的instruction
+
+| Case | Mal | C | Rust | Mal / C | Mal / Rust |
+|:---|---:|---:|---:|---:|---:|
+| `control` | 16,250,027 | 10,000,013 | 16,350,163 | 1.63x | 0.99x |
+| `nested-buffer` | 51,983,790 | 21,881,457 | 22,390,932 | 2.38x | 2.32x |
+| `map` | 7,603,641 | 3,671,943 | 4,382,386 | 2.07x | 1.74x |
+| `state` | 106,588,003 | 717,022 | 800,806 | 148.65x | 133.10x |
+| `focus` | 46,425,194 | 24,145,664 | 35,507,544 | 1.92x | 1.31x |
+
+`control`は最終LTO moduleが`main`一つ、callとallocationが0になり、generic callback、sum branch、closure carrierは残らない。
+CとMalはいずれも8 stepずつ進むloopになったが、Cのloop bodyは8 instruction、Malは13 instructionである。Cはaffine recurrenceを
+一つのmultiplyへまとめ、Mal由来のIRでは二つのmultiplyと追加のindex updateが残る。したがって差はruntime generic dispatchではなく、
+control lowering後のscalar recurrenceをClangが認識できる形の差である。Rustの命令数はMalとほぼ同じだった。
+
+`map`も最終moduleは`main`、trap、Buffer destructorの3 definitionだけで、operation dictionaryやtype inspectionはない。
+初期化、put、getはdirect loopへinlineされている。Malのinstruction差は48-byteのtagged slot、Buffer countとprobe終了条件、
+trap可能なstorage pathにあり、generic operation familyのdispatch costではない。native medianがCの1.09倍に留まることも、
+specialization後のhot pathが直接実行されていることと整合する。
+
+`focus`はpre-LTOの11 definitionが3 definitionになり、closure environment allocationは残らない。`extend<Focus>`とrule callbackは
+二つのBuffer loopへinlineされた。Cは全要素が定数3であることから入力配列のallocationを消し、MalとRustは入力と出力を保持するため、
+Cを意味論上必要なmemory costとはみなさない。Rustと比べた1.31倍のinstruction、1.09倍の時間が、同じ二配列を保持した場合の
+より近い比較である。
+
+## allocationとmemory
+
+Memcheckのrequested bytesとallocation回数、Massifで同時にliveだったheap、allocator overhead、native stackの合計を示す。
+
+| Case | 実装 | Allocations | Requested bytes | Peak total | Native peak RSS |
+|:---|:---|---:|---:|---:|---:|
+| `control` | Mal / C / Rust | 0 / 0 / 9 | 0 / 0 / 2,620 | 7,744 / 7,744 / 7,744 B | 1,440 / 1,436 / 2,272 KiB |
+| `nested-buffer` | Mal / C / Rust | 131,074 / 65,537 / 65,546 | 11,010,160 / 5,242,880 / 6,294,076 | 12,059,216 / 6,235,472 / 7,334,320 B | 14,108 / 6,936 / 8,628 KiB |
+| `map` | Mal / C / Rust | 2 / 1 / 10 | 6,291,552 / 6,291,456 / 6,294,076 | 6,295,968 / 6,295,896 / 6,296,712 B | 7,452 / 7,448 / 8,276 KiB |
+| `state` | Mal / C / Rust | 600,003 / 1 / 10 | 38,400,120 / 1,600,000 / 1,602,620 | 1,601,264 / 1,600,408 / 1,601,256 B | 2,972 / 2,968 / 3,568 KiB |
+| `focus` | Mal / C / Rust | 4 / 1 / 11 | 4,000,192 / 2,000,000 / 4,002,620 | 4,000,768 / 2,000,424 / 4,001,344 B | 5,276 / 3,352 / 5,972 KiB |
+
+MalとCは全allocationを終了時までに解放し、Memcheck errorは0だった。Rustは全caseで標準runtimeのthread情報544 bytesを
+still reachableとして残すが、definitely、indirectly、possibly lostはいずれも0だった。表のRust allocationにはこの固定costを含む。
+
+`nested-buffer`のMalは各inner Bufferについてstable objectと64-byte payloadのflat ownerを別々に確保するため、
+innerごとに2 allocationとなる。外側Bufferもobjectとbackingの2 allocationで、合計は`2 * 65,536 + 2`である。
+Cはreference countと8要素を一つのobjectに置き、Rustの`Rc`も一つのallocationへ置くため約半数になる。CallgrindではMalの
+65,537回ずつの`malloc`と`calloc`が全instructionの約60%、終了時のmanaged destructionとalias置換時のreleaseが約27%を占めた。
+
+これはshared identityや`Storable(Buffer<A>)`の下限ではなくrepresentation costである。ただし
+[small-buffer storage](buffer.md#small-buffer-storage)で記録したとおり、任意の初期capacityをstable object末尾へ置く案は、
+allocationを半減してもcache missを増やし、対象workloadの時間を改善しなかった。nested identityをflat valueへ変えることもできない。
+compact header、size class、arenaなど別のallocation policyは候補だが、現測定だけからruntime全体へ導入しない。
+
+`map`ではMalのobjectとbackingを分ける96 bytes以外、Cとrequested bytesおよびpeakがほぼ同じである。
+`focus`のMalとRustも約4 MBで一致する。したがってBufferが常に大きいmemory倍率を課すのではなく、多数の小さい独立identityを作る
+`nested-buffer`でstable objectの固定costが顕在化する。
+
+## State monadで消えないもの
+
+`state`ではgeneric constructor、`pure`、`bind`、`fmap`のinstance選択はcompile時に完了し、runtime dictionaryはない。
+それでもStateのrepresentation自体が`S -> (S, A)`であり、各stepはcaptureを持つState actionを返す。
+specializationとdirect-call selectionだけでは、返された関数値のenvironment lifetimeを消せない。
+
+pre-LTO IRには19 function definition、3箇所のenvironment allocation siteがあり、LTO後にも11 definitionと24-byteまたは
+80-byteの`malloc` pathが残る。20万stepで3個ずつ、Buffer本体を含め600,003 allocationとなった。Callgrindではhot worker
+`mal_function_26`が全instructionの98.5%を占め、そこから20万回のowner allocation、40万回の`free`、20万回の次action生成を呼ぶ。
+さらにcallee内のallocationとreleaseを合わせ、requested bytesは38.4 MBになる。同時liveなのは短命environmentと1.6 MBの入力Bufferなので、
+peakは約1.6 MBに留まる。
+
+この差を解く変換は、operation family specializationの追加ではない。関数を返す`bind` / `fmap`と、その関数を直後に適用するconsumerを
+一体にしたclosure deforestation、またはcaptureとapplicationを通常parameterへ変えるwhole-program rewriteが必要である。
+arbitraryなState actionを保存または返せる意味は保ち、直後に適用されるspecialized chainだけを対象にしなければならない。
+environmentを一律stackへ置くことや、reference countを一律省くことはlifetimeを証明しないため不正である。
+
+## LLVM IRとbinary
+
+Mal compilerが出力したpre-LTO IRと、runtime Cを含めたLLDのpre-codegen bitcodeを再びLLVM textへ出した結果である。
+
+| Case | Pre-LTO bytes / definitions | LTO bytes / definitions / calls | Mal text | C text | Rust text |
+|:---|---:|---:|---:|---:|---:|
+| `control` | 19,573 / 6 | 4,062 / 1 / 0 | 1,633 B | 1,262 B | 295,232 B |
+| `nested-buffer` | 19,248 / 6 | 48,976 / 6 / 77 | 5,087 B | 1,756 B | 295,540 B |
+| `map` | 65,486 / 14 | 24,125 / 3 / 15 | 3,117 B | 1,631 B | 295,600 B |
+| `state` | 50,534 / 19 | 48,653 / 11 / 83 | 4,811 B | 1,549 B | 295,536 B |
+| `focus` | 39,417 / 11 | 42,017 / 3 / 60 | 5,001 B | 1,946 B | 296,672 B |
+
+LTO IR bytesはruntime helperのinlineとlibc declarationを含むため、pre-LTOから増える場合があり、性能指標にはならない。
+definitionの減少と、最終IRに残るallocation、direct/indirect callを対応づけるdiagnosticとして使う。Rust textは静的にlinkされた
+標準runtimeを含み、Mal/Cの小さいC entryと同条件のcode-size比較ではない。Rust間の固定cost確認のため記録した。
+
+## 現行example corpus
+
+今回のsynthetic workloadだけでなく、generic機能を主に使う現行example 5件を同じ2 GiB制限でbuildし、実行した。
+`monads-and-comonads`には`duplicate<Focus>`を追加し、opaque `Focus<A>` carrierをnested Bufferに保持して、元のinner Buffer identityを
+共有する経路まで通した。全exampleはexit 0、Memcheck error 0、終了時live allocation 0だった。
+
+| Example | Instructions | Allocations / requested | Peak total | Pre-LTO IR bytes / definitions | ELF text |
+|:---|---:|---:|---:|---:|---:|
+| `language-tour` | 6,082 | 5 / 4,276 B | 7,744 B | 32,747 / 13 | 3,427 B |
+| `control-and-iteration` | 4,001,266 | 2 / 120 B | 7,744 B | 48,597 / 11 | 3,708 B |
+| `generic-map` | 7,535 | 9 / 890 B | 7,744 B | 218,704 / 33 | 11,925 B |
+| `monads-and-comonads` | 110,757 | 42 / 4,200 B | 7,744 B | 502,629 / 112 | 28,096 B |
+| `indexed-graph` | 7,397 | 15 / 1,080 B | 7,744 B | 122,428 / 15 | 20,356 B |
+
+小さいexampleのwall-clockはprocess起動が支配するので記録しない。pre-LTO IRはspecialized instanceを明示するため、特にoperation familyを
+多数組み合わせる二件で大きい。一方、実行時memoryは全件でnative stackを含む7,744 bytes以下のsnapshotが最大であり、
+source abstractionの数に比例するdictionaryやtype descriptorは存在しない。
+
+## モデルと実装課題の分離
+
+今回の結果から、genericsやmonadのために新しいruntime根本モデルを加える理由はない。`control`、`map`、`focus`は既存の
+specialization、call-pattern rewrite、LTOで型と高階dispatchを消せる。`State`は型の消去ではなく、関数を値として返すrepresentationの
+消去が未実装である。これはPoolのoccupancy、authority、coordinate modelとも、Buffer elementの`Storable`判定とも別の問題である。
+
+`Storable`は「placeがcarrier lifecycleを完結できるか」というsource admission、`Lifecycle = Trivial | Owned`はその実装計画、
+`Representable`はcanonical memory copy、`HostMappable`はpublic C boundaryという現在の分離を保つ。
+`duplicate<Focus>`がnested opaque carrierとして動いたことは、`Managed`を`Storable`の代わりのsource predicateへ持ち上げずとも、
+representationとlifecycleを再帰できることを確認している。
+
+次の改善候補は優先順に次の三つである。
+
+1. `State`のspecialized producer-consumer chainについて、返されたclosureが直後のdirect application以外へescapeしないことを証明し、
+   captureをparameterへdeforestする。独立fixtureでallocation、IR、Memcheckを採択条件にする。
+2. nested Bufferは既に試して退けた任意capacity co-allocationを繰り返さず、多数の小identity向けcompact headerまたはallocation policyを
+   別案として測る。shared identityとgrowth後のdata pointer再取得を保つ。
+3. `control`の13-instruction recurrenceをCの8-instruction形と比較し、control loweringが保持する余分なstate fieldまたはindex conversionを
+   特定する。generic消去とは別のscalar loop canonicalizationとして扱う。
+
+IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorやclosure arenaへ拡張しない。Pool source semanticsとLLVM loweringを
+導入する時点では、今回のBuffer lifecycle、allocation分布、generic erasureを比較基準に使うが、無関係なoptimizer責務をIxPoolへ
+集めないことがminimalityである。
+
+raw CSV、Callgrind、Massif、Memcheck、pre-codegen bitcode、比較source、Nushell runnerはignored
+`.scratch/performance/generics-audit/`に保存した。

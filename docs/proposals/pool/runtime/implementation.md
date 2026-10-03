@@ -84,6 +84,12 @@ D096では既存の`RuntimeOwned` mechanismだけでnested Bufferを通せたた
 後者はtyped operationの恒等変換で削減できた。`Store`とmove-based `swap`の
 採用判断では、現行`get` / `put`のownership trafficからこれらの実装costを分けて比較する。
 
+[genericsとmanaged containerの生成物](../../../history/performance/generics.md)では、operation family、generic control、
+`extend<Focus>`の高階呼出しがspecializationとLTOでdictionaryもclosure allocationも残さず消える一方、
+関数を値として返す`State`だけが反復ごとにclosure environmentを確保した。これはPool storageの不足ではなく、
+specialized producer-consumer間のclosure deforestationというcompiler課題である。IxPoolの非公開kernelをclosure arenaや
+汎用allocatorへ広げず、Pool loweringが所有するのはslot、occupancy、growth、carrier lifecycleに限る。
+
 ## lowering boundary
 
 Pool operationはsource primitive、LLVM instruction、C runtime functionを一対一に対応させない。各層は次を所有する。
