@@ -122,6 +122,13 @@ object metadataから分けることは、常に別のC allocationへ置くと�
 ImPoolではstructural stateと、両者に共通するoperation lawだけである。現行Bufferはpointer一個分以下の初期storageをobjectへinline化し、
 growth時にflat ownerへ昇格する。この境界を先に検証している。
 
+現在の非公開kernelは`runtime/c11/pool.c`にあり、source constructからはまだ選択されない。stableなreference-counted objectが
+Header carrierと、bitmapおよびpayloadを一つにした交換可能なbacking allocationを所有する。Headerはpointer幅以下ならobject内、
+それより大きければstableな別allocationへ置く。`grow`は新backingを完成させてからpointerとlogical capacityをcommitし、Liveな
+carrierだけを移す。direct C boundary testはaliasから同じidentityを観測できること、Header交換、Vacant/Live交換、zero-stride、
+growth前後のcoordinate保存を検査する。この段階のentryはcarrierをbyteとして移すだけであり、source API、LLVM lowering、managed
+Headerとpayloadのcallbackはまだ接続しない。
+
 growthは次のtransactionとして実装する。
 
 1. logical capacity、payload size、occupancy sizeのoverflowを判定する。
