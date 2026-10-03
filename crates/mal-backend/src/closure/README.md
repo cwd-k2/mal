@@ -7,7 +7,7 @@ from free references.
 | Module | Responsibility |
 |---|---|
 | `mod` | conversion of lambdas into lifted functions and closure construction |
-| `ast` | the closure-converted program |
+| `ast` | the closure-converted program and direct operation-operand traversal |
 
 The stage does not choose direct calls, recursive regions, frames, or ownership. Those decisions require whole-program
 flow and belong to `execution`.

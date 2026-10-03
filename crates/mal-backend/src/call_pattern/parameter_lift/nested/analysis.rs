@@ -5,7 +5,7 @@ use mal_frontend::check::ast::Type;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::{Atom, AtomKind, Block, Operation, Pattern, Program, Reference};
 
-use super::super::analysis::{Index, operation_atoms, origin};
+use super::super::analysis::{Index, origin};
 use super::Use;
 
 pub(in crate::call_pattern::parameter_lift) fn find(
@@ -111,9 +111,9 @@ fn capture_is_only_called(
                     direct |= is_capture(callee);
                     other |= is_capture(argument);
                 }
-                _ if !alias => {
-                    operation_atoms(&item.operation, &mut |atom| other |= is_capture(atom))
-                }
+                _ if !alias => item
+                    .operation
+                    .for_each_atom(|atom| other |= is_capture(atom)),
                 _ => {}
             }
         }

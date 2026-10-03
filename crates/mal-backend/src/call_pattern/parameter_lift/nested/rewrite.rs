@@ -143,7 +143,7 @@ fn rewrite_block(
             }
             _ => {}
         }
-        rewrite_atoms(&mut binding.operation, |atom| {
+        binding.operation.for_each_atom_mut(|atom| {
             if nested_atom(atom, nested) {
                 atom.ty = shape.closure_type.clone();
             } else if atom.kind == AtomKind::Reference(Reference::Capture(nested.capture)) {
@@ -215,37 +215,5 @@ fn rewrite_alias_pattern(pattern: &mut Pattern, nested: &Use, replacement: &Type
             );
         }
         _ => {}
-    }
-}
-
-fn rewrite_atoms(operation: &mut Operation, mut visit: impl FnMut(&mut Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::Goto { value: atom, .. }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. }
-        | Operation::Product(captures)
-        | Operation::Memory {
-            operands: captures, ..
-        }
-        | Operation::Symbol {
-            operands: captures, ..
-        }
-        | Operation::Buffer {
-            operands: captures, ..
-        } => captures.iter_mut().for_each(visit),
-        Operation::Call { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Operation::Case { scrutinee, .. } => visit(scrutinee),
-        Operation::PrimitiveBranch { left, right, .. }
-        | Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
     }
 }

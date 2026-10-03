@@ -13,7 +13,6 @@ use super::ids::Identities;
 use super::walk::{self, Visitor};
 
 mod lift;
-mod operation;
 mod uses;
 
 use lift::rewrite_block;

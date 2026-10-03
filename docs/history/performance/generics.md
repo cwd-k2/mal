@@ -123,6 +123,13 @@ local alias graphにあるclosureを対象にする現行lambda liftや、known 
 arbitraryなState actionを保存または返せる意味は保ち、最終consumer以外へescapeしないspecialized chainだけを対象にしなければならない。
 environmentを一律stackへ置くことや、reference countを一律省くことはlifetimeを証明しないため不正である。
 
+既存`ClosureFlow`のauthorityは、call siteへ到達し得るfunction codeを`FunctionId`の集合として求めるところまでである。同じfunctionを
+異なるcaptureで生成したclosure instanceは意図的に同一視するため、callee selectionには十分でもenvironment消去の証明にはならない。
+continuation specializationには別の解析として、creator identity、result / join / parameterを通る伝播、唯一のapplication demand、
+escape不在を保持する必要がある。この解析を一つのoperation variant一覧に基づかせるため、closure ASTへdirect atom operand traversalを
+集約し、call-pattern内の重複実装を削除した。この責務整理だけでは最適化を有効にせず、`state`は引き続きpre-LTO 50,534 bytes、
+19 definitions、600,003 allocations、38,400,112 requested bytesである。
+
 ### result application workerの不採択
 
 同日に、`f(argument)`が返す関数値をuse-count 1のaliasだけを経て適用する形について、元wrapperを残したまま

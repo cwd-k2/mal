@@ -194,6 +194,93 @@ pub(crate) enum Operation {
     },
 }
 
+impl Operation {
+    /// Visits the direct atom operands in source evaluation order. Atoms in nested branch blocks belong to those
+    /// blocks and are intentionally not included.
+    pub(crate) fn for_each_atom(&self, mut visit: impl FnMut(&Atom)) {
+        match self {
+            Self::Atom(atom)
+            | Self::Goto { value: atom, .. }
+            | Self::ExternalCall { argument: atom, .. }
+            | Self::NumericConversion { operand: atom }
+            | Self::SumInjection { value: atom, .. }
+            | Self::PrimitiveUnary { operand: atom, .. } => visit(atom),
+            Self::MakeClosure {
+                captures: atoms, ..
+            }
+            | Self::Product(atoms)
+            | Self::Memory {
+                operands: atoms, ..
+            }
+            | Self::Symbol {
+                operands: atoms, ..
+            }
+            | Self::Buffer {
+                operands: atoms, ..
+            } => atoms.iter().for_each(visit),
+            Self::Call { callee, argument } => {
+                visit(callee);
+                visit(argument);
+            }
+            Self::Case { scrutinee, .. } => visit(scrutinee),
+            Self::PrimitiveBranch { left, right, .. }
+            | Self::PrimitiveBinary { left, right, .. } => {
+                visit(left);
+                visit(right);
+            }
+        }
+    }
+
+    /// Mutable counterpart of [`Self::for_each_atom`].
+    pub(crate) fn for_each_atom_mut(&mut self, mut visit: impl FnMut(&mut Atom)) {
+        match self {
+            Self::Atom(atom)
+            | Self::Goto { value: atom, .. }
+            | Self::ExternalCall { argument: atom, .. }
+            | Self::NumericConversion { operand: atom }
+            | Self::SumInjection { value: atom, .. }
+            | Self::PrimitiveUnary { operand: atom, .. } => visit(atom),
+            Self::MakeClosure {
+                captures: atoms, ..
+            }
+            | Self::Product(atoms)
+            | Self::Memory {
+                operands: atoms, ..
+            }
+            | Self::Symbol {
+                operands: atoms, ..
+            }
+            | Self::Buffer {
+                operands: atoms, ..
+            } => atoms.iter_mut().for_each(visit),
+            Self::Call { callee, argument } => {
+                visit(callee);
+                visit(argument);
+            }
+            Self::Case { scrutinee, .. } => visit(scrutinee),
+            Self::PrimitiveBranch { left, right, .. }
+            | Self::PrimitiveBinary { left, right, .. } => {
+                visit(left);
+                visit(right);
+            }
+        }
+    }
+
+    /// Visits branch blocks directly owned by this operation, excluding the current block and descendants.
+    pub(crate) fn for_each_nested_block(&self, mut visit: impl FnMut(&Block)) {
+        match self {
+            Self::Case { arms, .. } => arms.iter().for_each(|arm| visit(&arm.value)),
+            Self::PrimitiveBranch {
+                otherwise, then, ..
+            } => {
+                visit(otherwise);
+                visit(then);
+            }
+            _ => {}
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct CaseArm {
     pub index: usize,

@@ -208,7 +208,7 @@ fn rewrite_pattern_type(pattern: &mut Pattern, closure_types: &HashMap<ValueId, 
 }
 
 fn rewrite_operation_atoms(operation: &mut Operation, closure_types: &HashMap<ValueId, Type>) {
-    operation::for_atoms_mut(operation, |atom| rewrite_atom_type(atom, closure_types));
+    operation.for_each_atom_mut(|atom| rewrite_atom_type(atom, closure_types));
 }
 
 fn rewrite_atom_type(atom: &mut Atom, closure_types: &HashMap<ValueId, Type>) {

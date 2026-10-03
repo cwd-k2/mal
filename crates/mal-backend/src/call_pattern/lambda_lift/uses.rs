@@ -46,7 +46,7 @@ pub(super) fn collect_definitions(
             }
             _ => {}
         }
-        operation::for_nested_blocks(&binding.operation, |nested| {
+        binding.operation.for_each_nested_block(|nested| {
             collect_definitions(nested, origins, creators, disqualified)
         });
     }
@@ -105,9 +105,7 @@ pub(super) fn operation_uses(
             collect_uses(otherwise, origins, uses, disqualified);
             collect_uses(then, origins, uses, disqualified);
         }
-        other => operation::for_atoms(other, |atom| {
-            atom_use(atom, false, origins, uses, disqualified)
-        }),
+        other => other.for_each_atom(|atom| atom_use(atom, false, origins, uses, disqualified)),
     }
 }
 

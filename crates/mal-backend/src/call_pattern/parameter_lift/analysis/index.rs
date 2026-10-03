@@ -10,7 +10,7 @@ use crate::closure::ast::{
 };
 
 use super::super::Definition;
-use super::{aliases, for_each_block, operation_atoms, origin};
+use super::{aliases, for_each_block, origin};
 
 pub(in crate::call_pattern::parameter_lift) struct Index<'a> {
     pub(in crate::call_pattern::parameter_lift) definitions: HashMap<ValueId, Definition>,
@@ -95,7 +95,7 @@ impl<'a> Index<'a> {
                     }
                     _ => {}
                 }
-                operation_atoms(&binding.operation, &mut |atom| index.atom(atom));
+                binding.operation.for_each_atom(|atom| index.atom(atom));
             }
         });
         index

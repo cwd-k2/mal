@@ -133,7 +133,7 @@ fn rewrite_block(
     let mut output = Vec::with_capacity(block.bindings.len());
     for mut binding in std::mem::take(&mut block.bindings) {
         rewrite_nested(&mut binding.operation, batch, types, ids);
-        rewrite_atoms(&mut binding.operation, |atom| {
+        binding.operation.for_each_atom_mut(|atom| {
             if let Some(ty) = atom.binding().and_then(|binding| types.get(&binding)) {
                 atom.ty = ty.clone();
             } else if let AtomKind::Reference(Reference::SelfClosure(function)) = atom.kind
@@ -166,7 +166,7 @@ fn rewrite_block(
         }
 
         let mut capture_products = Vec::new();
-        rewrite_atoms(&mut binding.operation, |atom| {
+        binding.operation.for_each_atom_mut(|atom| {
             let (plan, elements) = if let Some(&plan) = batch.by_replacement.get(&atom.id) {
                 let captures = &batch.plans[plan].candidate.replacements[&atom.id];
                 (plan, ids.copy_atoms(captures))
@@ -279,37 +279,5 @@ fn rewrite_nested(
             rewrite_block(then, batch, types, ids);
         }
         _ => {}
-    }
-}
-
-fn rewrite_atoms(operation: &mut Operation, mut visit: impl FnMut(&mut Atom)) {
-    match operation {
-        Operation::Atom(atom)
-        | Operation::Goto { value: atom, .. }
-        | Operation::ExternalCall { argument: atom, .. }
-        | Operation::NumericConversion { operand: atom }
-        | Operation::SumInjection { value: atom, .. }
-        | Operation::PrimitiveUnary { operand: atom, .. } => visit(atom),
-        Operation::MakeClosure { captures, .. }
-        | Operation::Product(captures)
-        | Operation::Memory {
-            operands: captures, ..
-        }
-        | Operation::Symbol {
-            operands: captures, ..
-        }
-        | Operation::Buffer {
-            operands: captures, ..
-        } => captures.iter_mut().for_each(visit),
-        Operation::Call { callee, argument } => {
-            visit(callee);
-            visit(argument);
-        }
-        Operation::Case { scrutinee, .. } => visit(scrutinee),
-        Operation::PrimitiveBranch { left, right, .. }
-        | Operation::PrimitiveBinary { left, right, .. } => {
-            visit(left);
-            visit(right);
-        }
     }
 }

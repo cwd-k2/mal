@@ -13,7 +13,7 @@ mod walk;
 
 pub(super) use aliases::{aliases, origin};
 pub(super) use index::Index;
-pub(super) use walk::{for_each_block, operation_atoms};
+pub(super) use walk::for_each_block;
 
 pub(super) fn parameter_callbacks(
     function: &crate::closure::ast::Function,
