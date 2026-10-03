@@ -132,3 +132,52 @@ referent lifetime、共有されるinner identityを壊す。growthまたはalia
 導入順は、これらを「managedは遅い」と一つにまとめず、まず現行Bufferの`Runtime(_, Owned)`で
 representationとlifecycle glueを分け、次に`Store`と`swap`でresponsibility transferを表し、その後に
 profileに基づいてcompact representationやbackendのalias factを追加する。
+
+## `Store`とidentity消去後の比較
+
+2026-10-03に、上の測定を基準commit `3cff1e3e`として次の改善を行い、同じ環境とinputで再測定した。
+
+- Buffer `new`と`put`のelement operandをoperation-levelの`Store`とし、use planの`Share`または`Consume`で
+  storageへresponsibilityを渡した。`fill`は複数elementを作るため`Borrow`のままとした。
+- runtime-owned element accessにcanonical elementと同じTBAAとBuffer objectに対するno-alias scopeを付けた。
+- 同じBufferとcoordinateの`get`から、moveだけのalias bindingを経て同じplaceへ戻す`put`までを、
+  optional backend techniqueで除去した。baselineは引き続きこの変換を行わない。
+
+direct Cには、従来のborrowed `put`を模す`owned`に加え、getが作ったresponsibilityをputへ移す
+`owned-move`を追加した。wall-clockは20回を交互実行したmedianである。
+
+| Carrier | Direct C | Mal Buffer | Mal / C |
+|---|---:|---:|---:|
+| raw `UInt64` | 59.9 ms | 89.6 ms | 1.50x |
+| borrowed reference-counted handle | 159.3 ms | 169.7 ms | 1.07x |
+| moved reference-counted handle | 136.7 ms | 169.7 ms | 1.24x |
+| identity round trip | 1.06 ms | 1.13 ms | 1.07x |
+
+raw pairは変更対象外であり、元の比率と同じである。nested Malは233.6 msから169.7 msへ約27%短縮した。
+borrowed Cよりもまだ遅いという元の比較はほぼ解消したが、同じresponsibility transferを行うmoved Cと比べると
+24%の差が残る。identityの1 ms前後はprocess起動が支配し、時間の倍率を採否根拠には使わない。
+
+1,024,000 iterationのCachegrind結果は次のように変化した。
+
+| Workload | Instructions before | Instructions after | Conditional branches before | Conditional branches after |
+|---|---:|---:|---:|---:|
+| Mal nested | 60,351,655 | 41,896,612 | 12,440,834 | 7,316,633 |
+| Mal identity | 26,805,363 | 180,690 | 6,175,966 | 31,857 |
+
+nestedは動的instructionが約31%、conditional branchが約41%減った。C `owned-move`は18,927,784 instructionと
+3,151,544 conditional branchであり、現行representationとlifecycle checkにはまだ差がある。Mal nestedのL1 data
+read missは1,091,535で変わらない。これは、ownership trafficを減らしても内側Bufferの大きいheaderと
+二重allocationは変わらないという分離を裏付ける。
+
+identityはCと170,143、Malと180,690 instructionとなり、両方とも1024000回のloopを除去した。これにより、
+元の差はshared identityの必然なcostではなく、typed operationで証明可能な恒等式をLLVMへ渡す前に失っていた
+ことが確認できた。
+
+allocation数とrequested bytesは変わらず、Mal nestedは2,050 allocationと123,000 byte、identityは4 allocationと
+240 byteで、errorとleakは0だった。ELF section sizeはMal nestedが5,107 byteから4,622 byte、identityが
+4,093 byteから3,684 byteへ減った。`main`のmachine codeもnestedが1,365 byteから993 byte、identityが767 byteから473 byteへ
+減った。
+
+したがって次の主対象は、一般のmanaged storeのretain/releaseではなく、内側identityを保ったままの
+compact stable object、Buffer objectとbacking ownerのallocation統合、およびnull/tag checkの必要性をlifecycle planから
+より狭く出力することである。

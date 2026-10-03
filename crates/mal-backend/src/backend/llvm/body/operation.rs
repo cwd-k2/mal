@@ -124,20 +124,28 @@ impl FunctionEmitter<'_> {
                 element,
                 operands,
             } => {
-                let operands = operands
+                let prepared = operands
                     .iter()
                     .enumerate()
                     .map(|(index, operand)| {
-                        self.require_binding_borrow(
+                        let effect = self.ownership.binding_operand_use(
                             site,
                             binding,
                             BindingOperand::BufferOperand(index),
                             operand,
                         )?;
-                        self.atom(operand)
+                        self.prepare_atom_for_use(operand, effect)
                     })
                     .collect::<Option<Vec<_>>>()?;
-                self.emit_buffer(*operation, element, &operands, result_type?)
+                let values = prepared
+                    .iter()
+                    .map(|prepared| prepared.value.clone())
+                    .collect::<Vec<_>>();
+                let result = self.emit_buffer(*operation, element, &values, result_type?)?;
+                for prepared in &prepared {
+                    self.commit_consumes(prepared)?;
+                }
+                Some(result)
             }
             Operation::Product(elements) => {
                 let effects = elements

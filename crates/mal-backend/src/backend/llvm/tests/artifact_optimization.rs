@@ -44,6 +44,47 @@ fn selects_symbol_storage_reuse_only_when_enabled() {
 }
 
 #[test]
+fn elides_an_identity_buffer_round_trip_only_when_enabled() {
+    let source = SourceFile::new(
+        FileId::new(111),
+        "buffer-identity-optimization.mal",
+        "main :: Unit -> Int32 := () -> { inner := make<UInt64>(1usize); inner.new(1u64); outer := make<Buffer<UInt64>>(1usize); outer.new(inner); value := outer.get(0usize); outer.put(0usize, value); 0i32; };"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check Buffer identity fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution =
+        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
+    let target = || Target {
+        triple: "x86_64-unknown-linux-gnu",
+        data_layout: "e-p:64:64",
+    };
+    let baseline = generate(&execution, target(), OptimizationSet::none())
+        .expect("baseline Buffer identity fixture is supported");
+    let optimized = generate(&execution, target(), OptimizationSet::production())
+        .expect("optimized Buffer identity fixture is supported");
+
+    assert_eq!(
+        baseline
+            .module
+            .matches("call ptr @mal_runtime_buffer_data_slot")
+            .count(),
+        2
+    );
+    assert_eq!(
+        optimized
+            .module
+            .matches("call ptr @mal_runtime_buffer_data_slot")
+            .count(),
+        0
+    );
+}
+
+#[test]
 fn scalarizes_preserved_self_tail_parameter_fields_only_when_enabled() {
     let source = SourceFile::new(
         FileId::new(99),

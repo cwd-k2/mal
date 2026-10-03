@@ -199,16 +199,14 @@ size_t mal_runtime_buffer_new(
     return mal_buffer_append(context, buffer, value, stride);
 }
 
-size_t mal_runtime_buffer_new_managed(
+size_t mal_runtime_buffer_new_managed_move(
     MalContext *context,
     void *opaque_buffer,
     const void *value,
     size_t stride
 ) {
     MalManagedBuffer *managed = opaque_buffer;
-    size_t index = mal_buffer_append(context, &managed->buffer, value, stride);
-    managed->retain(context, managed->buffer.data + index * stride);
-    return index;
+    return mal_buffer_append(context, &managed->buffer, value, stride);
 }
 
 

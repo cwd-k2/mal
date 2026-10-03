@@ -22,7 +22,7 @@ responsibilities. The derivation order and its rules are documented in
 | `frame/replacement` | retired frame capacity that a later frame can reuse |
 | `native_recursion` | the self-recursive functions that also get a native version, and the worker ABI they use |
 | `derived` | managed values that may share their lifetime with a root value |
-| [`ownership`](ownership/README.md) | the managed responsibility plan and its exact validator |
+| [`ownership`](ownership/README.md) | operation-level `Borrow` / `Store`, the resulting managed responsibility plan, and its exact validator |
 
 Every materialized plan can rebuild its expected content from its authority and is checked by an exact
 validator in debug builds and focused tests.

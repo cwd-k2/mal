@@ -60,7 +60,7 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | `core` / `anf` / `closure` / `control` | desugaring、evaluation order、closure representation、applicationの明示的control遷移 |
 | `call_pattern` | closure-converted programを書き換える唯一のstage。closureを受け取るtop-level functionを、call siteが渡すclosure集合ごとに複製し、続いてknown parameterを通るclosureと直接呼ぶlocal closureのcaptureをparameterへlambda liftする。複製や書換えで作るbinder、atom、functionへ新しい識別子を与える。`Technique::CallPattern`が有効な時だけ、`execution`がcontrolへ下げる前に一度実行する |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
-| `execution` | closure-converted programを保持し、semantic application factsと明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、managed responsibility factをtarget layoutに依存しない実行計画として構成 |
+| `execution` | closure-converted programを保持し、operation-levelの`Borrow` / `Store`、semantic application facts、明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、`Share` / `Consume`を含むmanaged responsibility factをtarget layoutに依存しない実行計画として構成 |
 | `backend/c` | file別`ProgramInterface`からpublic C file header、build用umbrella header、host stubへの変換 |
 | `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、canonical storage、runtime slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
@@ -129,7 +129,7 @@ genericsとexternal memoryも既存stageのadmission責務に従う。
 | core以降 | kind、type constructor、open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
 | execution ownership | `Buffer`をmanaged valueとして分類し、elementのAddress referentへownershipを拡張しない |
-| LLVM Buffer element | canonical storageとruntime-owned storageを選び、`Symbol`またはnested Bufferを含むowned carrierにはretainとreleaseのcallbackを生成してruntimeへ渡し、`get`と`put`のreference操作を出力する。`Storable` admissionは再判定しない |
+| LLVM Buffer element | canonical storageとruntime-owned storageを選び、`Symbol`またはnested Bufferを含むowned carrierにはretainとreleaseのcallbackを生成してruntimeへ渡す。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
 | C interface | HostMappableな型だけをABI 0x000900のfile headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
 | process shim | `argv + 1`をcopyして作ったargument Bufferを`Buffer<Symbol>` rootへ渡し、return後に解放する |

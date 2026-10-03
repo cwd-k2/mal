@@ -103,3 +103,24 @@ fn transfers_only_byte_conversions_whose_operand_dies_there() {
     plan.byte_conversions.clear();
     assert!(!plan.is_valid(&execution, enabled));
 }
+
+#[test]
+fn elides_only_an_adjacent_identity_buffer_store() {
+    let execution = execution(
+        91,
+        "llvm-buffer-identity.mal",
+        "main :: Unit -> Int32 := () -> { inner := make<UInt64>(1usize); inner.new(1u64); outer := make<Buffer<UInt64>>(1usize); outer.new(inner); same := outer.get(0usize); outer.put(0usize, same); kept := outer.get(0usize); outer.put(0usize, inner); kept.get(0usize).i32; };",
+    );
+    let enabled = OptimizationSet::none().with(Technique::BufferIdentityStoreElision);
+    let mut plan = OptimizationPlan::new(&execution, enabled);
+
+    assert_eq!(plan.buffer_identity_bindings.len(), 3);
+    assert!(plan.is_valid(&execution, enabled));
+    assert!(
+        OptimizationPlan::new(&execution, OptimizationSet::none())
+            .buffer_identity_bindings
+            .is_empty()
+    );
+    plan.buffer_identity_bindings.clear();
+    assert!(!plan.is_valid(&execution, enabled));
+}

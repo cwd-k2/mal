@@ -11,14 +11,31 @@ impl FunctionEmitter<'_> {
             .cloned();
         self.block(format!("mal_state_{}", site.0));
         for (binding_index, binding) in state.bindings.iter().enumerate() {
-            let value = self.emit_operation(
-                site,
-                binding_index,
-                &binding.operation,
-                Some(binding.pattern.ty()),
-                self.optimizations.symbol_concat_mode(site, binding_index),
-            )?;
-            self.store_binding_pattern(site, binding_index, &binding.pattern, Some(&value))?;
+            match self
+                .optimizations
+                .buffer_identity_binding(site, binding_index)
+            {
+                Some(super::super::optimization::BufferIdentityBinding::Value) => {}
+                Some(super::super::optimization::BufferIdentityBinding::Put) => {
+                    let unit = super::memory::emitted_unit();
+                    self.store_binding_pattern(site, binding_index, &binding.pattern, Some(&unit))?;
+                }
+                None => {
+                    let value = self.emit_operation(
+                        site,
+                        binding_index,
+                        &binding.operation,
+                        Some(binding.pattern.ty()),
+                        self.optimizations.symbol_concat_mode(site, binding_index),
+                    )?;
+                    self.store_binding_pattern(
+                        site,
+                        binding_index,
+                        &binding.pattern,
+                        Some(&value),
+                    )?;
+                }
+            }
             let mut drops = self
                 .ownership
                 .drops_after_binding(site, binding_index)

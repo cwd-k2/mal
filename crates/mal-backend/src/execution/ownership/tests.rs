@@ -109,6 +109,84 @@ fn shares_duplicate_owner_successors_before_consuming_the_source() {
 }
 
 #[test]
+fn shares_then_consumes_a_value_stored_in_a_buffer() {
+    let source = SourceFile::new(
+        FileId::new(98),
+        "execution-ownership-buffer-store.mal",
+        "main :: Unit -> Int32 := () -> { value := \"a\" + \"b\"; values := make<Symbol>(1usize); values.new(value); values.put(0usize, value); (#values).i32; };"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check Buffer store fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize Buffer store fixture"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution = crate::execution::lower(closure, super::super::OptimizationSet::production());
+
+    let stores = execution
+        .control
+        .states
+        .iter()
+        .enumerate()
+        .flat_map(|(state_index, state)| {
+            state
+                .bindings
+                .iter()
+                .enumerate()
+                .filter_map(move |(binding_index, binding)| {
+                    let Operation::Buffer {
+                        operation,
+                        operands,
+                        ..
+                    } = &binding.operation
+                    else {
+                        return None;
+                    };
+                    let value_index = match operation {
+                        crate::core::ast::BufferOperation::New => 1,
+                        crate::core::ast::BufferOperation::Put => 2,
+                        _ => return None,
+                    };
+                    Some((
+                        StateId(state_index),
+                        binding_index,
+                        operands[value_index]
+                            .binding()
+                            .expect("stored local Buffer value"),
+                    ))
+                })
+        })
+        .collect::<Vec<_>>();
+    let [
+        (new_site, new_binding, source),
+        (put_site, put_binding, put_source),
+    ] = stores.as_slice()
+    else {
+        panic!("one new and one put");
+    };
+    assert_eq!(source, put_source);
+    assert_eq!(
+        execution
+            .ownership
+            .binding_use(*new_site, *new_binding, BindingOperand::BufferOperand(1)),
+        Some(UseEffect::Share)
+    );
+    assert_eq!(
+        execution
+            .ownership
+            .binding_use(*put_site, *put_binding, BindingOperand::BufferOperand(2)),
+        Some(UseEffect::Consume)
+    );
+    assert!(
+        !execution
+            .ownership
+            .drops_after_binding(*put_site, *put_binding)
+            .contains(source)
+    );
+}
+
+#[test]
 fn drops_an_unused_managed_binding_immediately() {
     let source = SourceFile::new(
         FileId::new(95),

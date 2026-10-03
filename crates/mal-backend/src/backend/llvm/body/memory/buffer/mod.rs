@@ -95,9 +95,15 @@ impl FunctionEmitter<'_> {
                 if buffer.ty != buffer_type || value.ty != *element || *result_type != Type::USize {
                     return None;
                 }
+                if matches!(storage, ElementStorage::RuntimeOwned { .. }) && !value.owned {
+                    return None;
+                }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
-                let function = storage.runtime("new");
+                let function = match storage {
+                    ElementStorage::Canonical { .. } => "mal_runtime_buffer_new",
+                    ElementStorage::RuntimeOwned { .. } => "mal_runtime_buffer_new_managed_move",
+                };
                 emit_instruction! {
                     self;
                     let #{ index.clone() } = call {
@@ -267,7 +273,7 @@ pub(super) fn emitted_buffer(representation: String, ty: Type) -> EmittedValue {
     }
 }
 
-fn emitted_unit() -> EmittedValue {
+pub(in crate::backend::llvm::body) fn emitted_unit() -> EmittedValue {
     EmittedValue {
         ty: Type::Unit,
         representation: "0".into(),

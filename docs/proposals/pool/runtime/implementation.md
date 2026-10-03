@@ -8,7 +8,8 @@ Status: Exploratory support document
 
 ## compilerとruntimeの分担
 
-compilerのexecution ownershipに新しく要るのは、operand effectの`Store`だけである。
+Poolがexecution ownershipで使うoperand effectは`Store`である。このeffectはPool導入に先立って、現行Bufferの
+`new`と`put`のvalue operandで実装済みである。
 
 source functionをaffineにするのではなく、type checking後のuse graphをresponsibility planへelaborateする。source valueは再利用でき、
 planだけが各edgeを`Borrow`、`Share`、`Consume`、`Drop`として扱う。したがってRustの`Box`に似たexclusive ownerが生成物に現れても、
@@ -21,8 +22,9 @@ planだけが各edgeを`Borrow`、`Share`、`Consume`、`Drop`として扱う。
   parameterをreturnやcaptureと同じく保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
 - IxPool handle、index、lengthは`Borrow`である。resultは全てownedである。
 
-現行のBuffer operandは全て`Borrow`で、保存に必要なretainはruntimeが行う。これは`Store`を常にruntime内の`Share`として扱うことに
-当たり、`Store`を導入するとlast useのvalueを`Consume`してruntime内のretainとcall site側のreleaseを省ける。
+現行Bufferの`new`と`put`は`Store`をuse planの`Share`または`Consume`へlowerし、owned responsibilityを
+storageへ渡す。`fill`は一のoperandから複数elementを作り得るため`Borrow`のままであり、runtimeが各elementを
+`Share`する。Bufferで検証したこの分解をPool operationにも使い、第二のresponsibility plannerを作らない。
 
 runtimeが型ごとに必要とするglueは、上の表で「primitive内」に数えたものだけである。`share<V>`はread、一括処理の`fill`と`copy`、
 共有時のwritable successorとIxPoolの複製が、`drop<V>`はwriteの旧値とIxPoolの終了が使う。relocationとswapはcarrierを移動する
@@ -40,7 +42,7 @@ callback生成が既にある。IxPoolはこのloweringの新しい利用者に�
 | 現行箇所 | 既にあるもの | 導入前に必要な整理 |
 |---|---|---|
 | frontend `types/properties` | place lifecycleとしての`Storable`、nested Bufferのadmission、requirementの再帰 | external opaque carrierをadmitする。functionとempty sumは拒否を保つ |
-| execution ownership | product、sum、Symbol、Buffer、functionを再帰するmanaged判定 | `Storable`とmanagedを同じ判定にせず、後者をlifecycle planとして明示する |
+| execution ownership | product、sum、Symbol、Buffer、functionを再帰するmanaged判定と、Buffer `new` / `put`の`Store` | `Storable`とmanagedを同じ判定にせず、後者をlifecycle planとして明示する |
 | LLVM value lifetime | Buffer handleを含むproductとsumの再帰的retain/release | nested Bufferのelement callbackから同じ処理を再利用する。Pool handle追加時も別の型再帰を作らない |
 | LLVM Buffer storage | `Canonical`と、callbackを持つ`RuntimeOwned`の二分類。nested Bufferは後者で動作する | non-RepresentableだがTrivialなexternal opaque carrierを置けるruntime-value storageを分離する |
 | C Buffer runtime | plain storageと、element retain/release callbackを持つstorage。nested Bufferは既存managed pathを使う | Trivialなruntime-value elementにはcallbackを課さない |
@@ -225,7 +227,8 @@ Buffer上の実装と比べる。tagの費用が目立つ場合は、tagの表�
    zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
 4. `Symbol`、nested Buffer、nested Pool handleとmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの
    書き戻し、同じBufferで範囲が重なる`copy`でDrop済みのreferentを読まず、IxPool終了時のlive allocationは0になる。
-5. `Store`へ渡るparameterを持つmal wrapperがowned native entryになり、last-use argumentを`Consume`する。
+5. Bufferで検証済みの`Store`をPool primitiveへ付与する。`Store`へ渡るparameterを持つmal wrapperがowned native entryになり、
+   last-use argumentを`Consume`する。
 6. IxPool上のBufferを現在のBufferとalias、range、overlap、trap semanticsで比べ、範囲と占有tagを検査するtest用runtimeで公開
    preconditionを満たすprogramがIxPool preconditionへ違反しないことを確かめる。canonical host copyはpaddingや非選択sum payloadへ
    依存せずround-tripする。これはas-ifで実装するBufferが参照実装と一致することの検査を兼ねる。

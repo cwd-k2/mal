@@ -131,10 +131,10 @@ void *mal_runtime_buffer_make(
     size_t stride,
     size_t capacity
 );
-/* Buffers of elements that own managed values. `retain` and `release` act on one stored element in place: the buffer
- * takes a reference for every element it writes and drops it when the element is overwritten or the buffer dies. Only
- * `make_managed` takes them; the `_managed` variants of `new`, `fill`, and `copy` account for those references, and the
- * plain operations must not be used on such a buffer. */
+/* Buffers of elements that own managed values. `retain` and `release` act on one stored element in place. Only
+ * `make_managed` takes them. `new_managed_move` adopts one responsibility supplied by the caller; `fill_managed` and
+ * `copy_managed` create and drop the references required by their ranges. Plain operations must not be used on such a
+ * buffer. */
 void *mal_runtime_buffer_make_managed(
     MalContext *context,
     size_t stride,
@@ -142,7 +142,7 @@ void *mal_runtime_buffer_make_managed(
     void (*retain)(MalContext *, void *element),
     void (*release)(void *element)
 );
-size_t mal_runtime_buffer_new_managed(
+size_t mal_runtime_buffer_new_managed_move(
     MalContext *context,
     void *buffer,
     const void *value,

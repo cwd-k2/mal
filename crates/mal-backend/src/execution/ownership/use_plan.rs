@@ -12,7 +12,7 @@ use super::destination::PatternDestination;
 use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
 use super::liveness::insert_pattern_bindings;
 use super::managed::is_managed;
-use super::operand::{binding_operands, terminator_argument, terminator_operands};
+use super::operand::{OperationEffect, binding_operands, terminator_argument, terminator_operands};
 use super::parameter::ParameterBorrows;
 
 pub(super) fn jump_value_effect(destination: &PatternDestination) -> UseEffect {
@@ -88,11 +88,13 @@ pub(super) fn collect_use_effects(inputs: UseInputs<'_>) -> HashMap<UseId, UseEf
             let dead = drop_candidates
                 .get(&(site, binding_index))
                 .map_or(&[][..], Vec::as_slice);
-            for (operand_index, (operand, atom, owner_successor)) in operands.iter().enumerate() {
+            for (operand_index, (operand, atom, operation_effect)) in operands.iter().enumerate() {
                 if !is_managed(&atom.ty) {
                     continue;
                 }
-                let effect = if !owner_successor || !operation_requires_owner_successors {
+                let effect = if *operation_effect == OperationEffect::Borrow
+                    || !operation_requires_owner_successors
+                {
                     UseEffect::Borrow
                 } else if optimizations.takes_unique_capture(atom.id) {
                     UseEffect::Consume

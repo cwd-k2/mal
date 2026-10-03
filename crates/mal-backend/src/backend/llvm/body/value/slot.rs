@@ -3,6 +3,7 @@
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
+use crate::backend::llvm::syntax::MetadataAttachment;
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn load_slot(
@@ -78,17 +79,18 @@ impl FunctionEmitter<'_> {
         Some(())
     }
 
-    pub(in crate::backend::llvm::body) fn replace_managed_place(
+    /// Replaces a managed place by transferring the responsibility carried by `value` into it.
+    pub(in crate::backend::llvm::body) fn move_into_managed_place(
         &mut self,
         pointer: &str,
         value: &EmittedValue,
         alignment: usize,
+        metadata: &[MetadataAttachment],
     ) -> Option<()> {
-        if !crate::execution::ownership::is_managed(&value.ty) {
+        if !crate::execution::ownership::is_managed(&value.ty) || !value.owned {
             return None;
         }
         let value_type = self.types.value(&value.ty)?;
-        self.retain_value(&value.ty, &value.representation)?;
         let previous = self.register();
         emit_instruction! {
             self;
@@ -96,19 +98,19 @@ impl FunctionEmitter<'_> {
                 ty: #{ value_type.llvm.clone() },
                 pointer: #{ pointer },
                 alignment: #{ alignment },
-                metadata: [],
+                metadata: #{ metadata.iter().copied() },
             };
         };
-        self.release_value(&value.ty, &previous)?;
         emit_instruction! {
             self;
             store {
                 value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
                 pointer: #{ pointer },
                 alignment: #{ alignment },
-                metadata: [],
+                metadata: #{ metadata.iter().copied() },
             };
         };
+        self.release_value(&value.ty, &previous)?;
         Some(())
     }
 

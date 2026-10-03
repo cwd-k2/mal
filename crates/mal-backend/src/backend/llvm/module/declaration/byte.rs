@@ -56,7 +56,10 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
             llvm_type!(ptr),
         ],
     );
-    for name in ["mal_runtime_buffer_new_managed", "mal_runtime_buffer_new"] {
+    for name in [
+        "mal_runtime_buffer_new_managed_move",
+        "mal_runtime_buffer_new",
+    ] {
         add_declaration(
             module,
             index.clone(),

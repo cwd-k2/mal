@@ -148,7 +148,7 @@ fn stores_nested_buffer_handles_as_runtime_owned_elements() {
     assert!(module.contains(
         "call ptr @mal_runtime_buffer_make_managed(ptr %mal_context, i64 8, i64 2, ptr @mal_buffer_retain_0, ptr @mal_buffer_release_0)"
     ));
-    assert!(module.contains("call i64 @mal_runtime_buffer_new_managed("));
+    assert!(module.contains("call i64 @mal_runtime_buffer_new_managed_move("));
     assert!(module.contains("call void @mal_runtime_buffer_fill_managed("));
     assert!(module.contains("call void @mal_runtime_buffer_copy_managed("));
     assert!(
@@ -172,7 +172,7 @@ fn accounts_for_element_references_only_in_managed_buffer_operations() {
            (#names).i32 - 1i32;
          };",
     );
-    assert!(managed.contains("call i64 @mal_runtime_buffer_new_managed("));
+    assert!(managed.contains("call i64 @mal_runtime_buffer_new_managed_move("));
     assert!(managed.contains("call void @mal_runtime_buffer_fill_managed("));
     assert!(managed.contains("call void @mal_runtime_buffer_copy_managed("));
     assert!(!managed.contains("call i64 @mal_runtime_buffer_new("));

@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::closure::ast::FunctionId;
 use crate::control::ast::StateId;
 
+mod buffer_identity;
 mod byte_conversion;
 mod control_storage;
 mod control_top;
@@ -18,6 +19,7 @@ pub(crate) enum Technique {
     SelfTailParameter,
     SymbolConcatReuse,
     ByteConversionTransfer,
+    BufferIdentityStoreElision,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -35,6 +37,7 @@ impl OptimizationSet {
             .with(Technique::SelfTailParameter)
             .with(Technique::SymbolConcatReuse)
             .with(Technique::ByteConversionTransfer)
+            .with(Technique::BufferIdentityStoreElision)
     }
 
     pub(crate) const fn with(self, technique: Technique) -> Self {
@@ -53,6 +56,7 @@ pub(super) struct OptimizationPlan {
     self_tail_parameters: HashSet<FunctionId>,
     symbol_concatenations: HashMap<(StateId, usize), SymbolConcatMode>,
     byte_conversions: HashSet<(StateId, usize)>,
+    buffer_identity_bindings: HashMap<(StateId, usize), BufferIdentityBinding>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -60,6 +64,12 @@ pub(super) enum SymbolConcatMode {
     Borrow,
     ConsumeLeft,
     ConsumeRight,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum BufferIdentityBinding {
+    Value,
+    Put,
 }
 
 impl OptimizationPlan {
@@ -89,12 +99,18 @@ impl OptimizationPlan {
         } else {
             HashSet::new()
         };
+        let buffer_identity_bindings = if enabled.contains(Technique::BufferIdentityStoreElision) {
+            buffer_identity::plan(&execution.control, &execution.ownership)
+        } else {
+            HashMap::new()
+        };
         Self {
             local_control_storage_functions,
             local_control_top_functions,
             self_tail_parameters,
             symbol_concatenations,
             byte_conversions,
+            buffer_identity_bindings,
         }
     }
 
@@ -115,6 +131,14 @@ impl OptimizationPlan {
 
     pub(super) fn transfers_byte_conversion(&self, site: StateId, binding: usize) -> bool {
         self.byte_conversions.contains(&(site, binding))
+    }
+
+    pub(super) fn buffer_identity_binding(
+        &self,
+        site: StateId,
+        binding: usize,
+    ) -> Option<BufferIdentityBinding> {
+        self.buffer_identity_bindings.get(&(site, binding)).copied()
     }
 
     pub(super) fn localizes_control_top(&self, function: FunctionId) -> bool {

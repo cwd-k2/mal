@@ -88,7 +88,7 @@ impl FunctionEmitter<'_> {
                 ty: #{ value_type.llvm },
                 pointer: #{ pointer },
                 alignment: #{ alignment },
-                metadata: [],
+                metadata: #{ buffer_element_metadata() },
             };
         };
         self.retain_value(element, &loaded)?;
@@ -99,15 +99,15 @@ impl FunctionEmitter<'_> {
         })
     }
 
-    /// The stored value operand keeps its own reference through the call, so the old element may be the same value
-    /// without being freed; the new reference is still taken first so the buffer never holds an element without one.
+    /// The value carries the responsibility transferred into the place. Storing it before releasing the previous
+    /// responsibility keeps self-assignment live without taking another reference.
     pub(super) fn emit_runtime_owned_element_put(
         &mut self,
         pointer: &str,
         value: &EmittedValue,
         alignment: usize,
     ) -> Option<()> {
-        self.replace_managed_place(pointer, value, alignment)
+        self.move_into_managed_place(pointer, value, alignment, &buffer_element_metadata())
     }
 
     pub(super) fn buffer_element_pointer(
@@ -141,4 +141,8 @@ impl FunctionEmitter<'_> {
         };
         Some(pointer)
     }
+}
+
+fn buffer_element_metadata() -> [MetadataAttachment; 2] {
+    [MetadataAttachment::Tbaa(3), MetadataAttachment::NoAlias(6)]
 }
