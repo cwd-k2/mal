@@ -6,7 +6,6 @@
 
 static MalBuffer *mal_buffer_allocate(
     MalContext *context,
-    size_t stride,
     size_t size,
     void (*destroy)(void *)
 );
@@ -19,14 +18,13 @@ static void mal_buffer_destroy(void *opaque_buffer) {
 static void mal_managed_buffer_destroy(void *opaque_buffer) {
     MalManagedBuffer *managed = opaque_buffer;
     for (size_t index = 0; index < managed->buffer.count; ++index) {
-        managed->release(managed->buffer.data + index * managed->buffer.stride);
+        managed->release(managed->buffer.data + index * managed->stride);
     }
     mal_buffer_destroy(&managed->buffer);
 }
 
 static MalBuffer *mal_buffer_allocate(
     MalContext *context,
-    size_t stride,
     size_t size,
     void (*destroy)(void *)
 ) {
@@ -38,7 +36,6 @@ static MalBuffer *mal_buffer_allocate(
     buffer->storage.owner = NULL;
     buffer->data = NULL;
     buffer->count = 0;
-    buffer->stride = stride;
     return buffer;
 }
 
@@ -61,7 +58,7 @@ static MalBuffer *mal_buffer_make(
     void (*destroy)(void *)
 ) {
     size_t bytes = mal_buffer_bytes(context, capacity, stride);
-    MalBuffer *buffer = mal_buffer_allocate(context, stride, size, destroy);
+    MalBuffer *buffer = mal_buffer_allocate(context, size, destroy);
     if (bytes <= sizeof buffer->storage.inline_bytes) {
         if (bytes != 0) {
             memset(buffer->storage.inline_bytes, 0, sizeof buffer->storage.inline_bytes);
@@ -109,6 +106,7 @@ void *mal_runtime_buffer_make_managed(
         sizeof(MalManagedBuffer),
         mal_managed_buffer_destroy
     );
+    managed->stride = stride;
     managed->retain = retain;
     managed->release = release;
     return managed;
@@ -116,7 +114,7 @@ void *mal_runtime_buffer_make_managed(
 
 
 void *mal_buffer_adopt(MalContext *context, MalBytesFlat *flat, size_t count) {
-    MalBuffer *buffer = mal_buffer_allocate(context, 1, sizeof(MalBuffer), mal_buffer_destroy);
+    MalBuffer *buffer = mal_buffer_allocate(context, sizeof(MalBuffer), mal_buffer_destroy);
     flat->header.length = (uint64_t)count;
     flat->zeroed_until = count;
     buffer->storage.owner = &flat->header;

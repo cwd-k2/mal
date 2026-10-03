@@ -6,6 +6,11 @@ names one closure at each call the copy makes. The copying stops at a fixed poin
 budget; parameter lift and lambda lift then turn the captures of closures that reach only known calls into parameters.
 The stage runs when `Technique::CallPattern` is enabled, before the program is lowered to control.
 
+The direct-call proof follows creators and local aliases, and parameter lift follows callbacks through known input
+parameters. It does not change a function-valued result into a different calling convention. A closure returned through
+several function results and applied only by a later consumer needs a separately admitted producer-consumer
+deforestation: changing only its final creator would preserve the environment chain rather than remove it.
+
 | Module | Responsibility |
 |---|---|
 | `mod` | the round loop and the growth budget |

@@ -112,9 +112,15 @@ pre-LTO IRには19 function definition、3箇所のenvironment allocation site�
 さらにcallee内のallocationとreleaseを合わせ、requested bytesは38.4 MBになる。同時liveなのは短命environmentと1.6 MBの入力Bufferなので、
 peakは約1.6 MBに留まる。
 
-この差を解く変換は、operation family specializationの追加ではない。関数を返す`bind` / `fmap`と、その関数を直後に適用するconsumerを
-一体にしたclosure deforestation、またはcaptureとapplicationを通常parameterへ変えるwhole-program rewriteが必要である。
-arbitraryなState actionを保存または返せる意味は保ち、直後に適用されるspecialized chainだけを対象にしなければならない。
+closure ASTをspecializationと現行`call_pattern`の後で監査すると、`bind<State>`は`action`、`next`などをcaptureしたactionを返し、
+`_foldFrom<State>`はその関数値を再帰resultとして運び、最外の`main`だけが完成したactionを適用していた。creatorとdirect callが同じ
+local alias graphにあるclosureを対象にする現行lambda liftや、known input parameterを辿るparameter liftの証明範囲には入らない。
+最後のcreatorだけをtupleへ変えても、20万回の遷移で繰り返すenvironment生成は別表現で残る。
+
+この差を解く変換は、operation family specializationの追加ではない。関数を返す`bind` / `fmap`、再帰resultを運ぶ`foldEach`、最終的に
+関数を適用するconsumerを一体にしたclosure deforestation、またはcaptureとapplicationを通常parameterへ変えるwhole-program rewriteが
+必要である。
+arbitraryなState actionを保存または返せる意味は保ち、最終consumer以外へescapeしないspecialized chainだけを対象にしなければならない。
 environmentを一律stackへ置くことや、reference countを一律省くことはlifetimeを証明しないため不正である。
 
 ## LLVM IRとbinary
@@ -164,10 +170,12 @@ representationとlifecycleを再帰できることを確認している。
 
 次の改善候補は優先順に次の三つである。
 
-1. `State`のspecialized producer-consumer chainについて、返されたclosureが直後のdirect application以外へescapeしないことを証明し、
-   captureをparameterへdeforestする。独立fixtureでallocation、IR、Memcheckを採択条件にする。
-2. nested Bufferは既に試して退けた任意capacity co-allocationを繰り返さず、多数の小identity向けcompact headerまたはallocation policyを
-   別案として測る。shared identityとgrowth後のdata pointer再取得を保つ。
+1. `State`のspecialized producer-consumer chainについて、関数型resultが途中のfunction resultと再帰をどう通り、最終consumer以外へ
+   escapeしないかを証明するreturn-flow factを先に定義する。そのfactからproducerとconsumerを同じworkerへ融合できる場合だけ
+   captureをparameterへdeforestし、独立fixtureでallocation、IR、Memcheckを採択条件にする。
+2. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
+   任意capacity co-allocationを繰り返さず、多数の小identity向けallocation policyを別案として測る。shared identityとgrowth後の
+   data pointer再取得を保つ。
 3. `control`の13-instruction recurrenceをCの8-instruction形と比較し、callback inline後の同値なSSAをmachine combineが認識する
    canonical formへ置けるかを調べる。generic消去やloop semanticsの変更ではなくscalar IR canonicalizationとして扱う。
 

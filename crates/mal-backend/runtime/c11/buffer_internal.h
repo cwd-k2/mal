@@ -10,7 +10,6 @@ typedef struct {
     } storage;
     unsigned char *data;
     size_t count;
-    size_t stride;
 } MalBuffer;
 
 static inline int mal_buffer_is_inline(const MalBuffer *buffer) {
@@ -30,9 +29,11 @@ static inline size_t mal_buffer_zeroed_until(const MalBuffer *buffer) {
 }
 
 // A buffer whose elements own managed values. The plain `MalBuffer` stays first so that every operation that does
-// not touch element ownership treats both kinds alike; `retain` and `release` act on one stored element in place.
+// not touch element ownership treats both kinds alike. Element stride is an operation input for plain buffers; the
+// managed extension retains it solely so destruction can visit each live element.
 typedef struct {
     MalBuffer buffer;
+    size_t stride;
     MalRuntimeRetain retain;
     MalRuntimeRelease release;
 } MalManagedBuffer;

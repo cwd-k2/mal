@@ -210,3 +210,17 @@ instruction消去として誤って説明しない。
 Poolへの含意は、stable identity、logical backing、C allocation objectを一対一対応させないことである。small payloadはidentity object内に
 置けるが、growth後のflat ownerは新しいallocation objectであり、backendはdata pointerを再取得する。将来のPoolでもHeader、occupancy、
 payloadの論理的な分離からallocation数を導かず、実測したelement sizeとaccess patternに応じてinline、分離、arenaを選べる。
+
+## element strideの責務縮小
+
+generics比較後のruntime監査では、plain `MalBuffer`に保存していた`stride`を除き、managed elementのdestructorだけが使う
+`MalManagedBuffer`へ移した。通常のBuffer operationはconcrete element typeから得た`stride`を毎回受け取っており、identity、count、
+backing、growthのいずれも永続fieldを必要としない。managed Buffer全体の大きさは変えず、`Buffer<UInt64>`のようなplain identity objectを
+32 byteから24 byteへ縮める責務上の変更である。
+
+65,536個のcapacity 8のinner Bufferを使うgenerics `nested-buffer`では、allocation数は131,074回のまま、requested bytesが
+11,010,160 byteから10,485,872 byteへ524,288 byte減った。これはinner identityごとの8 byteと一致する。動的instructionは
+51,983,790から51,918,265へ約0.13%減り、Memcheckは全allocation解放、error 0だった。同時測定の20回meanはMal 6.7 ms、C 3.1 ms、
+Rust 3.4 msだが、短時間caseなのでこの値だけを高速化の根拠にはしない。二重allocationと64-byte backingは残るため、allocation policyの
+代替ではない。一方、plain Bufferがelement lifecycleのための情報を持たないという分離は、Poolでもpayload layoutとmanaged destructorの
+authorityを混同しない基準になる。
