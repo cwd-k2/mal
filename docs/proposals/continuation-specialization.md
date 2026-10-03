@@ -1,6 +1,6 @@
 # continuation specialization
 
-Status: Draft implementation boundary
+Status: Implemented and adopted (2026-10-03)
 
 この文書は、specialized programで関数を返すproducerと、その関数を一度だけ適用するconsumerを融合し、途中のclosure
 representationを消去するoptimizationの境界を定める。言語上のfunction valueと評価順は

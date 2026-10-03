@@ -225,6 +225,36 @@ applicationは残り、unbounded iterationをnative stackへ積むとbounded nat
 defunctionalizationも、payloadの生成と再帰的なcontinuation transportを残すだけなら同じである。tag、payload、applicationをまとめて
 loop parameterへ変える時点でcontinuation specializationと同じclosed-slice証明が必要になる。
 
+### continuation specializationの採択
+
+2026-10-03に、`call_pattern`後のclosure programへcontinuation specializationを実装した。最終consumerから唯一のfunction-result
+demandを逆伝播し、既知call、creator、局所product、result joinをsymbolicに展開する。再帰contextごとにcapture内のclosure codeを
+静的identityとして保持し、scalar、Bufferなどの値の葉だけをworker parameterへ平坦化する。元wrapperはescape可能な通常のfunction
+value用に残し、閉じたsliceだけをcapture-free workerへ差し替える。
+
+同じ20万stepの`state`を変換前binary、変換後production、hand-lowered Mal、C、Rustの順序をroundごとに回転し、3 warmup後20 run
+測定した。C/Rustとhand-lowered Malは引き続きlower boundであり、Stateとのsemantic parity実装ではない。
+
+| 実装 | Native median | Callgrind instructions | Allocations / requested bytes |
+|:---|---:|---:|---:|
+| 変換前State Mal | 10.23 ms | 106,588,002 | 600,003 / 38,400,112 B |
+| specialized State Mal | 3.18 ms | 2,218,649 | 9 / 1,602,160 B |
+| hand-lowered Mal | 2.89 ms | 2,136,603 | 2 / 1,600,088 B |
+| C direct loop | 2.68 ms | 715,562 | 1 / 1,600,000 B |
+| Rust direct loop | 2.97 ms | 800,902 | 10 / 1,602,620 B |
+
+specialized Stateは変換前からinstructionを97.9%減らし、hand-lowered Malの3.8%上まで到達した。native medianは変換前の31.1%、
+hand-lowered Malの1.10倍、Cの1.19倍、Rustの1.07倍である。9 allocationのうちBuffer以外は反復数に依存しないtop-level closureなどの
+固定costであり、step比例の600,001 allocationは消えた。Memcheckはerror 0、9 allocs / 9 freesで、終了時に全blockを解放した。
+
+元wrapperを意味保持のため残すのでpre-LTO IRは50,534 bytes / 19 definitionsから70,028 bytes / 21 definitionsへ増えた。一方、LTO後の
+ELF textは4,795 bytesから4,243 bytesへ減った。pre-LTOの3 allocation siteも元wrapper内に残るが、変換後hot pathからは到達せず、
+動的allocation counterがその区別を確認している。
+
+baselineとproductionのend-to-end testでは、再帰State chainのresult、effect順、最終Buffer内容、trapを両modeで照合した。現行example
+10件も両modeでMemcheckを再実行し、通常実行する7件はclean、入力を省いたためexit 2となる3件もmemory error 0だった。これにより
+閉じたsliceを証明できないprogramのfallbackと既存corpusを含めて採択gateを満たした。
+
 ## LLVM IRとbinary
 
 Mal compilerが出力したpre-LTO IRと、runtime Cを含めたLLDのpre-codegen bitcodeを再びLLVM textへ出した結果である。
@@ -262,25 +292,22 @@ source abstractionの数に比例するdictionaryやtype descriptorは存在し�
 ## モデルと実装課題の分離
 
 今回の結果から、genericsやmonadのために新しいruntime根本モデルを加える理由はない。`control`、`map`、`focus`は既存の
-specialization、call-pattern rewrite、LTOで型と高階dispatchを消せる。`State`は型の消去ではなく、関数を値として返すrepresentationの
-消去が未実装である。これはPoolのoccupancy、authority、coordinate modelとも、Buffer elementの`Storable`判定とも別の問題である。
+specialization、call-pattern rewrite、LTOで型と高階dispatchを消せる。`State`も閉じたproducer-consumer sliceでは
+continuation specializationが関数を値として返すrepresentationを消去する。これはPoolのoccupancy、authority、coordinate modelとも、
+Buffer elementの`Storable`判定とも別のoptimizer責務である。
 
 `Storable`は「placeがcarrier lifecycleを完結できるか」というsource admission、`Lifecycle = Trivial | Owned`はその実装計画、
 `Representable`はcanonical memory copy、`HostMappable`はpublic C boundaryという現在の分離を保つ。
 `duplicate<Focus>`がnested opaque carrierとして動いたことは、`Managed`を`Storable`の代わりのsource predicateへ持ち上げずとも、
 representationとlifecycleを再帰できることを確認している。
 
-この測定から残った実装境界は次の三つである。再調査の順序とcross-language比較の現在のgateは
+この測定から残った実装境界は次の二つである。再調査の順序とcross-language比較の現在のgateは
 [generated program最適化policy](../../development/generated-program-optimization.md#再調査の入口)を正とする。
 
-1. `State`のspecialized producer-consumer chainについて、単独のresult-application worker案は不採択とする。関数型resultがresult join、
-   callback call、self-recursive edgeをどう通るかを一つのcontinuation demandとして証明し、`_foldFrom`、`bind<State>`、step callbackを
-   同じworkerへ融合できる場合だけdeforestする。copy budget、identity一意性、exact validatorに加え、変換後に新しいcreatorがhot pathへ
-   残らないことをallocation fixtureで採択条件にする。
-2. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
+1. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
    任意capacity co-allocationを繰り返さない。byte ownerへ変換されないこととaccess patternを区別できるprogram factを得てから別案を測る。
    shared identity、独立lifetime、growth後のdata pointer再取得を保つ。
-3. `control`の13-instruction recurrenceはPHI順序だけでCの8-instruction形へ変わるが、明示的なsource field順のPHIもLTOが
+2. `control`の13-instruction recurrenceはPHI順序だけでCの8-instruction形へ変わるが、明示的なsource field順のPHIもLTOが
    並べ替えることを確認した。Mal IRへheuristicな順序付けを追加せず、LLVM optimizerの比較reproducerとして監視する。
 
 IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorやclosure arenaへ拡張しない。Pool source semanticsとLLVM loweringを
@@ -288,4 +315,4 @@ IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorや
 集めないことがminimalityである。
 
 raw CSV、Callgrind、Massif、Memcheck、pre-codegen bitcode、比較source、Nushell runnerはignored
-`.scratch/performance/generics-audit/`に保存した。
+`.scratch/performance/generics-audit/`と`.scratch/performance/continuation-specialization/`に保存した。
