@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 mod analysis;
+mod diagnostic;
 mod requirement;
 mod semantic;
 

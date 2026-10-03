@@ -7,6 +7,7 @@ answers come from the same analysis as `malc check`. Behavior is described in `d
 |---|---|
 | `server` | JSON-RPC dispatch and the open-document lifecycle |
 | `server/analysis` | the frontend analysis behind each open document |
+| `server/diagnostic` | conversion of compiler diagnostics to LSP diagnostics |
 | `server/requirement` | `require` path completion and links |
 | `server/semantic` | LSP results from the semantic index |
 | `server/semantic/navigation` | definitions, references, rename, and document symbols |
