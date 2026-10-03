@@ -22,5 +22,6 @@ is enabled.
 | `inventory` | exact creator identities and all program call sites involving candidate slice code |
 | `provenance` | creator and self-closure origins reaching each use, with transport and escape destinations |
 | `request` | all-or-nothing worker identities under the shared closure-copy budget |
+| `symbolic` | symbolic values, branch results, and capture-context transport used during fusion |
 | `fuse` | demand-driven symbolic evaluation of calls, creators, products, branches, and lexical joins into one worker |
 | `rewrite` | capture-free worker construction and atomic redirection of the producer-consumer pair |

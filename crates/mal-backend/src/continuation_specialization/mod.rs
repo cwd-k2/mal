@@ -8,6 +8,7 @@ mod plan;
 mod provenance;
 mod request;
 mod rewrite;
+mod symbolic;
 mod trace;
 
 pub(crate) use plan::Plan;
