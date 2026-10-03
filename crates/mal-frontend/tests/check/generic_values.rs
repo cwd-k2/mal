@@ -211,6 +211,26 @@ fn carries_applied_constructor_storable_requirements() {
 }
 
 #[test]
+fn derives_nested_opaque_storable_proofs_from_the_canonical_requirements() {
+    let program = check_ok(
+        "opaque Focus<A> :: (Buffer<A>, USize);\n\
+         store<A> :: (A, USize) -> Buffer<A> := (value, length) -> {\n\
+             values :: Buffer<A> := make<A>(length);\n\
+             values.new(value);\n\
+             values;\n\
+         };\n\
+         nest<A> :: Focus<A> -> Buffer<Focus<A>> := (focused) -> store<Focus<A>>(focused, 1usize);\n\
+         main :: Unit -> Int32 := () -> {\n\
+             values :: Buffer<Int32> := make<Int32>(1usize);\n\
+             nested := nest<Int32>((values, 0usize));\n\
+             (#nested).i32;\n\
+         };",
+    );
+
+    check::specialize(program).expect("specialize a nested opaque Storable requirement");
+}
+
+#[test]
 fn infers_a_generic_continuation_result_parameter_from_the_sum_payload() {
     check_ok(
         "const<A, B> :: A -> B -> A := (value) -> (_) -> value;\n\

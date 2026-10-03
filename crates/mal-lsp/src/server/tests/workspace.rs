@@ -1,6 +1,22 @@
 use super::*;
 
 #[test]
+fn accepts_the_nested_focus_example_in_editor_analysis() {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .expect("mal-lsp has a repository parent")
+        .join("examples/monads-and-comonads/contexts.mal");
+    let text = std::fs::read_to_string(&path).expect("read the Focus example");
+    let uri = path_to_uri(&path);
+    let mut server = Server::new();
+
+    let opened = server.handle(did_open(&uri, &text));
+
+    assert_eq!(opened.messages[0]["params"]["diagnostics"], json!([]));
+}
+
+#[test]
 fn hover_includes_dependency_documentation_and_relative_definition_location() {
     let files = TestFiles::new();
     let root_text =

@@ -13,5 +13,6 @@
     ],
     "clangd.arguments": [
         "--query-driver=/nix/store/*-clang-wrapper-*/bin/clang"
-    ]
+    ],
+    "mal.server.path": "${workspaceFolder}/target/release/mal-lsp"
 }

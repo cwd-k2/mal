@@ -45,7 +45,7 @@
         "mal.server.path": {
           "type": "string",
           "default": "",
-          "description": "Path to the mal language server executable. Empty uses the server bundled with the extension."
+          "description": "Path to the mal language server executable. Supports ${workspaceFolder}; empty uses the server bundled with the extension."
         }
       }
     }

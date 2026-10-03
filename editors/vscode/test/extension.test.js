@@ -83,3 +83,23 @@ test('uses the server bundled in an installed VSIX by default', async () => {
   assert.equal(command, '/installed-extension/server/mal-lsp');
   await extension.deactivate();
 });
+
+test('resolves a workspace-local configured server independently of the extension bundle', () => {
+  const vscode = {
+    workspace: {
+      workspaceFolders: [{ uri: { fsPath: '/workspace/mal' } }],
+    },
+  };
+
+  assert.equal(
+    extension.resolveConfiguredCommand(
+      vscode,
+      '${workspaceFolder}/target/release/mal-lsp',
+    ),
+    '/workspace/mal/target/release/mal-lsp',
+  );
+  assert.equal(
+    extension.resolveConfiguredCommand(vscode, '${workspaceFolderName}/mal-lsp'),
+    '${workspaceFolderName}/mal-lsp',
+  );
+});

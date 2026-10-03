@@ -4,10 +4,22 @@ const fs = require('node:fs');
 
 let activeClient;
 
+function resolveConfiguredCommand(vscode, configuredCommand) {
+  const marker = '${workspaceFolder}';
+  const suffix = configuredCommand.slice(marker.length);
+  if (!configuredCommand.startsWith(marker)
+      || (suffix !== '' && !suffix.startsWith('/') && !suffix.startsWith('\\'))) {
+    return configuredCommand;
+  }
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath;
+  return root ? root + suffix : configuredCommand;
+}
+
 function activateWith(vscode, languageClient, context, environment = process.env) {
-  const configuredCommand = vscode.workspace
-    .getConfiguration('mal')
-    .get('server.path', '');
+  const configuredCommand = resolveConfiguredCommand(
+    vscode,
+    vscode.workspace.getConfiguration('mal').get('server.path', ''),
+  );
   const bundledCommand = context.asAbsolutePath('server/mal-lsp');
   const command = environment.MAL_LSP_PATH || configuredCommand || bundledCommand;
   if (command === bundledCommand && process.platform !== 'win32') {
@@ -49,4 +61,4 @@ function deactivate() {
   return client ? client.stop() : undefined;
 }
 
-module.exports = { activate, deactivate, activateWith };
+module.exports = { activate, deactivate, activateWith, resolveConfiguredCommand };
