@@ -123,6 +123,24 @@ local alias graphにあるclosureを対象にする現行lambda liftや、known 
 arbitraryなState actionを保存または返せる意味は保ち、最終consumer以外へescapeしないspecialized chainだけを対象にしなければならない。
 environmentを一律stackへ置くことや、reference countを一律省くことはlifetimeを証明しないため不正である。
 
+### result application workerの不採択
+
+同日に、`f(argument)`が返す関数値をuse-count 1のaliasだけを経て適用する形について、元wrapperを残したまま
+`(argument, application)`を受け取るworkerを複製する`call_pattern`変換を試した。非再帰の`makeAdder` fixtureではLTO後の
+allocationを1回、20 byteから0へ減らし、ELF textも2,127 byteから1,455 byteへ減らした。しかしこの局所形はStateの支配costを
+表していなかった。
+
+`_foldFrom<State>`のcompletionはbody末尾ではなく`[return]`由来のjoinを通る。sink joinまでapplicationを伝播した初版はobservableと
+leak検査には通ったが、Stateを600,003回、38,400,112 byteから800,003回、41,600,112 byteへ悪化させ、動的instructionも
+106,588,003から132,588,425へ増やした。worker複製後に通常のcall-pattern specializationを再び固定点まで実行すると追加20万回は消えたが、
+allocationは600,003回のままで、pre-LTO definitionは19から25、ELF textは4,811 byteから5,595 byteへ増えた。joinを持つproducerを
+除外した版も600,003回のままであり、Stateには効果がなかった。この変換は実装から撤回した。
+
+失敗の原因は単独のfunction resultをworker化しても、`_foldFrom`、`bind<State>`、次stepを作るcallbackを一つのcontinuationとして
+融合していないことにある。必要なのはcreator単位のlambda liftではなく、result application demandをresult join、callback call、
+self-recursive edgeの全体へ伝えるcontinuation specializationである。新しいclosure creatorを途中に残さず、変換後の全経路について
+producerとconsumerのeffect order、completion、escape不在を同時に検証できる形でなければ採択しない。
+
 ## LLVM IRとbinary
 
 Mal compilerが出力したpre-LTO IRと、runtime Cを含めたLLDのpre-codegen bitcodeを再びLLVM textへ出した結果である。
@@ -170,11 +188,10 @@ representationとlifecycleを再帰できることを確認している。
 
 次の改善候補は優先順に次の三つである。
 
-1. `State`のspecialized producer-consumer chainについて、関数型resultが途中のfunction resultと再帰をどう通り、最終consumer以外へ
-   escapeしないかを証明するreturn-flow factを先に定義する。そのfactからproducerとconsumerを同じworkerへ融合できる場合だけ
-   captureをparameterへdeforestする。元の関数値を作るwrapperはescapeするcall用に残し、workerの追加application parameterを通常call、
-   tail result、self-recursive edgeへ同じsignatureで伝播する。copy budget、identity一意性、exact validatorを`call_pattern`の既存contractに
-   合わせ、独立fixtureでallocation、IR、Memcheckを採択条件にする。
+1. `State`のspecialized producer-consumer chainについて、単独のresult-application worker案は不採択とする。関数型resultがresult join、
+   callback call、self-recursive edgeをどう通るかを一つのcontinuation demandとして証明し、`_foldFrom`、`bind<State>`、step callbackを
+   同じworkerへ融合できる場合だけdeforestする。copy budget、identity一意性、exact validatorに加え、変換後に新しいcreatorがhot pathへ
+   残らないことをallocation fixtureで採択条件にする。
 2. nested Bufferはplain identityから不要な`stride`を除いた後も残るobjectとbackingの二重allocationを対象にする。既に退けた
    任意capacity co-allocationを繰り返さない。byte ownerへ変換されないこととaccess patternを区別できるprogram factを得てから別案を測る。
    shared identity、独立lifetime、growth後のdata pointer再取得を保つ。
