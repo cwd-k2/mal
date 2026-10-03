@@ -116,3 +116,20 @@ slice内creator不在を検査する。validatorがrewriteの正しさを新た�
 
 最初の実装では任意のcontinuation calculus、closure arena、stack allocation、runtime ABI、関数型全体のrepresentation変更へ広げない。
 上記のclosed sliceを証明できないprogramは元のclosure semanticsを使う。
+
+## 一般性と代替案
+
+この変換は`State`、`bind`、`fmap`などのsource identityを認識しない。対象は、関数型resultに唯一のapplication demandがあり、
+その間のproducer、join、callback、self recursionを閉じたsliceとして証明できる任意のprogramである。最初のState fixtureは
+支配costと到達可能なlower boundが既知なので採択gateに使うだけであり、planとrewriteの語彙へmonad operationを持ち込まない。
+
+一般的なinliningはsliceを露出させる前処理になり得るが、recursive resultのcalling conventionを単独では変えない。GHC 9.10.3の
+比較では、公開されたbindを使うStrict、Lazy、CPSの各Stateが`-O2`で直接loopと同じCore workerになり、bindだけを`NOINLINE`にすると
+step比例allocationが戻った。一方、Mal sourceをCPSへ変更するだけでは通常Stateよりallocationとinstructionが増えた。測定値と条件は
+[genericsとmanaged container](../history/performance/generics.md#haskellとcps表現による原理の切り分け)を正とする。
+
+従って採る原理は、公開bodyをwhole-programで見通せることと、consumerの需要に合わせてproducerのcalling conventionを複製することの
+組合せである。sourceをCPSへ限定したり、特定のoperation familyをrewriteしたりしない。escape analysisに基づくstack allocationは
+allocation場所を変えるだけでenvironment構築とapplicationを消さず、unbounded iterationをnative stackへ移すこともできない。
+defunctionalizationもtagとpayloadを運ぶだけなら同じであり、それらをloop parameterへ融合するには本proposalと同じsliceとeffectの
+証明が要る。このため、いずれも最初の代替implementationにはしない。

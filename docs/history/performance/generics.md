@@ -181,6 +181,43 @@ allocationは600,003回のままで、pre-LTO definitionは19から25、ELF text
 self-recursive edgeの全体へ伝えるcontinuation specializationである。新しいclosure creatorを途中に残さず、変換後の全経路について
 producerとconsumerのeffect order、completion、escape不在を同時に検証できる形でなければ採択しない。
 
+### HaskellとCPS表現による原理の切り分け
+
+2026-10-03にGHC 9.10.3で、同じ20万stepのrecurrenceを`State.Strict`、`State.Lazy`、rank-2 CPS encoding、直接strict foldで
+比較した。Haskell版は`replicate count 1`のlistを共通inputとするためMal、C、Rustとのsemantic parity比較ではなく、GHC内で
+function representationが残るかだけを見るprobeである。`-O2`、3 warmup、20 runの結果は次のとおりだった。
+
+| Haskell representation | Native median | Callgrind instructions | RTS allocated bytes |
+|:---|---:|---:|---:|
+| `State.Strict` | 3.47 ms | 17,069,748 | 9,658,296 |
+| `State.Lazy` | 3.60 ms | 17,067,347 | 9,657,928 |
+| rank-2 CPS | 3.58 ms | 17,065,990 | 9,657,680 |
+| direct strict fold | 3.85 ms | 17,067,332 | 9,658,056 |
+| `NOINLINE` bind | 5.33 ms | 51,780,262 | 41,658,224 |
+
+Tidy Coreでは先頭三形が直接版と同じunboxed self-tail workerへ集約された。strict版と直接版のallocation差は240 bytesであり、
+listを含む固定cost以外にstep比例のState actionは残らない。一方、同じ`S -> (A, S)`表現でbind bodyだけを`NOINLINE`にした形は
+32,000,168 bytesと34,710,514 instructionsを余分に使った。従ってGHCでの消去はlazy evaluationやCPS representation固有の効果ではなく、
+producerとconsumerのbodyをsimplifierが同時に見て、recursive call patternをspecializeできた結果である。
+
+個別flagも`-O0`、`-O1`、`-O2`および`-fno-specialise`、`-fno-spec-constr`、`-fno-worker-wrapper`、
+`-fno-strictness`、`-fno-call-arity`、`-fno-cpr-anal`、`-fno-enable-rewrite-rules`を比較した。`-O1`の時点でState版と
+直接版のallocation差は240 bytesになり、`-fno-specialise`、`-fno-worker-wrapper`、`-fno-cpr-anal`を個別に外しても同じだった。
+`-fno-spec-constr`やrewrite rule無効化は両方のlist costを同量増やしたが、State固有のstep allocationを戻さなかった。このprobeから
+GHC内部の単一passを必要条件とは断定しない。少なくともbindのunfoldingを越えるgeneral inliningと、結果需要を再帰workerへ伝える
+simplificationの組合せが本質であり、State名を認識するrewriteは不要である。
+
+同じ日にMal sourceを`StateC<S, R, A> = ((A, S) -> R, S) -> R`というCPS encodingへ書き換え、現行production optimizerでも
+測定した。これは通常Stateより悪化し、1,400,003 allocations、64,000,112 requested bytes、228,168,552 instructions、native median
+8.66 msとなった。pre-LTO IRも144,422 bytes、26 definitionsへ増えた。通常Stateは同じ交互20 runで4.60 msだった。CPS化だけでは
+closureをresultからcallback argumentへ移すだけであり、現行call-pattern specializationはrecursive producer-consumer chain全体を
+消さない。従ってsource APIをCPSへ変更する案は不採択とし、compiler側の一般的なclosed-slice deforestationを対象とする。
+
+stack allocationも根本解にはしない。escapeしない短命environmentの`malloc` / `free`は減らせるが、反復ごとのenvironment構築と
+applicationは残り、unbounded iterationをnative stackへ積むとbounded native stackのcontractも失う。有限tagへの
+defunctionalizationも、payloadの生成と再帰的なcontinuation transportを残すだけなら同じである。tag、payload、applicationをまとめて
+loop parameterへ変える時点でcontinuation specializationと同じclosed-slice証明が必要になる。
+
 ## LLVM IRとbinary
 
 Mal compilerが出力したpre-LTO IRと、runtime Cを含めたLLDのpre-codegen bitcodeを再びLLVM textへ出した結果である。
