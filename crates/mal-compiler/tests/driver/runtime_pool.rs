@@ -20,6 +20,31 @@ typedef struct {
     uint64_t third;
 } Header;
 
+static int retained = 0;
+static int released = 0;
+static int destroyed = 0;
+
+static void destroy_child(void *child) {
+    (void)child;
+    ++destroyed;
+}
+
+static void *make_child(MalContext *context) {
+    return mal_runtime_environment_allocate(context, 1, destroy_child);
+}
+
+static void retain_child(MalContext *context, void *carrier) {
+    void *child = *(void **)carrier;
+    ++retained;
+    mal_runtime_environment_retain(context, child);
+}
+
+static void release_child(void *carrier) {
+    void *child = *(void **)carrier;
+    ++released;
+    mal_runtime_environment_release(child);
+}
+
 int main(void) {
     MalContext context = {0};
     Header header = {3, 5, 7};
@@ -70,8 +95,47 @@ int main(void) {
     if (mal_runtime_pool_peek(zero, 8, 0) != 1) return 16;
     mal_runtime_environment_release(zero);
 
+    void *metadata_child = make_child(&context);
+    void *managed = mal_runtime_pool_make_managed(
+        &context,
+        &metadata_child,
+        sizeof metadata_child,
+        sizeof(void *),
+        retain_child,
+        release_child,
+        retain_child,
+        release_child
+    );
+    mal_runtime_pool_grow(&context, managed, 4);
+    void *element_child = make_child(&context);
+    void *old_child = 0;
+    if (mal_runtime_pool_swap(managed, 2, 1, &element_child, &old_child) != 0) return 18;
+    void *shared_child = 0;
+    if (mal_runtime_pool_peek_managed(&context, managed, 2, &shared_child) != 1) return 19;
+    if (shared_child != element_child) return 20;
+    release_child(&shared_child);
+
+    void *shared_metadata = 0;
+    mal_runtime_pool_meta_managed(&context, managed, &shared_metadata);
+    if (shared_metadata != metadata_child) return 21;
+    release_child(&shared_metadata);
+    mal_runtime_pool_grow(&context, managed, 60);
+    if (destroyed != 0) return 22;
+
+    void *next_metadata = make_child(&context);
+    mal_runtime_pool_swap_meta(managed, &next_metadata, &old_child);
+    if (old_child != metadata_child) return 23;
+    release_child(&old_child);
+    if (mal_runtime_pool_swap(managed, 2, 0, 0, &old_child) != 1) return 24;
+    if (old_child != element_child) return 25;
+    release_child(&old_child);
+    void *last_element = make_child(&context);
+    if (mal_runtime_pool_swap(managed, 63, 1, &last_element, &old_child) != 0) return 26;
+    mal_runtime_environment_release(managed);
+    if (retained != 2 || released != 6 || destroyed != 4) return 27;
+
     mal_runtime_environment_release(pool);
-    if (mal_runtime_pool_capacity(alias) != 80) return 17;
+    if (mal_runtime_pool_capacity(alias) != 80) return 28;
     mal_runtime_environment_release(alias);
     return 0;
 }

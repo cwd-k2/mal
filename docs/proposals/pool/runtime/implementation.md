@@ -126,8 +126,9 @@ growth時にflat ownerへ昇格する。この境界を先に検証している�
 Header carrierと、bitmapおよびpayloadを一つにした交換可能なbacking allocationを所有する。Headerはpointer幅以下ならobject内、
 それより大きければstableな別allocationへ置く。`grow`は新backingを完成させてからpointerとlogical capacityをcommitし、Liveな
 carrierだけを移す。direct C boundary testはaliasから同じidentityを観測できること、Header交換、Vacant/Live交換、zero-stride、
-growth前後のcoordinate保存を検査する。この段階のentryはcarrierをbyteとして移すだけであり、source API、LLVM lowering、managed
-Headerとpayloadのcallbackはまだ接続しない。
+growth前後のcoordinate保存を検査する。managed variantは既存Bufferと同じ`retain(context, carrier)`と`release(carrier)`の
+callback型をHeaderとpayloadで共有し、readだけがShare、exchangeとrelocationはMove、最後のPool handleだけがHeaderと全Live slotを
+Dropすることも同じboundary testで検査する。source APIとLLVM loweringはまだ接続しない。
 
 growthは次のtransactionとして実装する。
 

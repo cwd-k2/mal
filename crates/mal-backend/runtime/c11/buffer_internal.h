@@ -33,8 +33,8 @@ static inline size_t mal_buffer_zeroed_until(const MalBuffer *buffer) {
 // not touch element ownership treats both kinds alike; `retain` and `release` act on one stored element in place.
 typedef struct {
     MalBuffer buffer;
-    void (*retain)(MalContext *, void *element);
-    void (*release)(void *element);
+    MalRuntimeRetain retain;
+    MalRuntimeRelease release;
 } MalManagedBuffer;
 
 // The byte size of `count` elements of `stride` bytes; traps on overflow.

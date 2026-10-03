@@ -51,16 +51,34 @@ static void mal_pool_destroy(void *opaque_pool) {
     free(pool->backing);
 }
 
-void *mal_runtime_pool_make(
+static void mal_managed_pool_destroy(void *opaque_pool) {
+    MalManagedPool *managed = opaque_pool;
+    MalPool *pool = &managed->pool;
+    if (managed->element_release != NULL && pool->stride != 0) {
+        for (size_t index = 0; index < pool->capacity; ++index) {
+            if (mal_pool_is_live(pool, index)) {
+                managed->element_release(pool->payload + index * pool->stride);
+            }
+        }
+    }
+    if (managed->metadata_release != NULL) {
+        managed->metadata_release(pool->metadata);
+    }
+    mal_pool_destroy(pool);
+}
+
+static MalPool *mal_pool_make(
     MalContext *context,
     const void *metadata,
     size_t metadata_size,
-    size_t stride
+    size_t stride,
+    size_t object_size,
+    void (*destroy)(void *)
 ) {
     MalPool *pool = mal_runtime_environment_allocate(
         context,
-        sizeof(MalPool),
-        mal_pool_destroy
+        object_size,
+        destroy
     );
     pool->backing = NULL;
     pool->payload = NULL;
@@ -80,6 +98,51 @@ void *mal_runtime_pool_make(
         memcpy(pool->metadata, metadata, metadata_size);
     }
     return pool;
+}
+
+void *mal_runtime_pool_make(
+    MalContext *context,
+    const void *metadata,
+    size_t metadata_size,
+    size_t stride
+) {
+    return mal_pool_make(
+        context,
+        metadata,
+        metadata_size,
+        stride,
+        sizeof(MalPool),
+        mal_pool_destroy
+    );
+}
+
+void *mal_runtime_pool_make_managed(
+    MalContext *context,
+    const void *metadata,
+    size_t metadata_size,
+    size_t stride,
+    MalRuntimeRetain metadata_retain,
+    MalRuntimeRelease metadata_release,
+    MalRuntimeRetain element_retain,
+    MalRuntimeRelease element_release
+) {
+    if ((metadata_retain == NULL) != (metadata_release == NULL)
+        || (element_retain == NULL) != (element_release == NULL)) {
+        mal_trap(context, "pool lifecycle callback mismatch");
+    }
+    MalManagedPool *managed = (MalManagedPool *)mal_pool_make(
+        context,
+        metadata,
+        metadata_size,
+        stride,
+        sizeof(MalManagedPool),
+        mal_managed_pool_destroy
+    );
+    managed->metadata_retain = metadata_retain;
+    managed->metadata_release = metadata_release;
+    managed->element_retain = element_retain;
+    managed->element_release = element_release;
+    return managed;
 }
 
 size_t mal_runtime_pool_capacity(const void *opaque_pool) {
@@ -148,6 +211,20 @@ uint8_t mal_runtime_pool_peek(
     return 1;
 }
 
+uint8_t mal_runtime_pool_peek_managed(
+    MalContext *context,
+    const void *opaque_pool,
+    size_t index,
+    void *result
+) {
+    const MalManagedPool *managed = opaque_pool;
+    uint8_t live = mal_runtime_pool_peek(opaque_pool, index, result);
+    if (live != 0 && managed->element_retain != NULL) {
+        managed->element_retain(context, result);
+    }
+    return live;
+}
+
 uint8_t mal_runtime_pool_swap(
     void *opaque_pool,
     size_t index,
@@ -174,6 +251,18 @@ void mal_runtime_pool_meta(const void *opaque_pool, void *result) {
     const MalPool *pool = opaque_pool;
     if (pool->metadata_size != 0) {
         memcpy(result, pool->metadata, pool->metadata_size);
+    }
+}
+
+void mal_runtime_pool_meta_managed(
+    MalContext *context,
+    const void *opaque_pool,
+    void *result
+) {
+    const MalManagedPool *managed = opaque_pool;
+    mal_runtime_pool_meta(opaque_pool, result);
+    if (managed->metadata_retain != NULL) {
+        managed->metadata_retain(context, result);
     }
 }
 

@@ -19,6 +19,10 @@ typedef struct MalContext {
     uintptr_t native_stack_limit;
 } MalContext;
 
+/* Program-specific lifecycle glue for one runtime carrier stored in place. */
+typedef void (*MalRuntimeRetain)(MalContext *context, void *carrier);
+typedef void (*MalRuntimeRelease)(void *carrier);
+
 /* A window onto bytes kept alive by `owner`. A NULL owner or an immortal static owner needs no reference counting. */
 typedef struct {
     void *owner;
@@ -139,8 +143,8 @@ void *mal_runtime_buffer_make_managed(
     MalContext *context,
     size_t stride,
     size_t capacity,
-    void (*retain)(MalContext *, void *element),
-    void (*release)(void *element)
+    MalRuntimeRetain retain,
+    MalRuntimeRelease release
 );
 size_t mal_runtime_buffer_new_managed_move(
     MalContext *context,
@@ -225,19 +229,36 @@ void *mal_runtime_buffer_into_symbol(MalContext *context, void *buffer);
 void *mal_runtime_symbol_into_buffer(MalContext *context, void *owner, const uint8_t *data, size_t length);
 
 /* Internal Pool kernel. A Pool is a stable shared object with metadata, a logical coordinate capacity, an occupancy
- * bitmap, and fixed-stride payload storage. make copies one trivial metadata carrier. grow preserves existing
- * coordinates and makes the added coordinates vacant. peek copies a live carrier to result. swap moves the old carrier
- * to old and installs next when next_live is nonzero; next and old must not overlap. Coordinate range is an unchecked
- * precondition. The caller retains or releases managed carriers; these entry points only move bytes. */
+ * bitmap, and fixed-stride payload storage. make adopts one metadata carrier. The managed form stores nullable callback
+ * pairs for metadata and elements, shares results through managed reads, and drops stored carriers when the Pool dies.
+ * grow preserves existing coordinates and makes the added coordinates vacant without lifecycle traffic. swap moves the
+ * old carrier to old and installs next when next_live is nonzero; next and old must not overlap. Coordinate range is an
+ * unchecked precondition. */
 void *mal_runtime_pool_make(
     MalContext *context,
     const void *metadata,
     size_t metadata_size,
     size_t stride
 );
+void *mal_runtime_pool_make_managed(
+    MalContext *context,
+    const void *metadata,
+    size_t metadata_size,
+    size_t stride,
+    MalRuntimeRetain metadata_retain,
+    MalRuntimeRelease metadata_release,
+    MalRuntimeRetain element_retain,
+    MalRuntimeRelease element_release
+);
 size_t mal_runtime_pool_capacity(const void *pool);
 void mal_runtime_pool_grow(MalContext *context, void *pool, size_t count);
 uint8_t mal_runtime_pool_peek(const void *pool, size_t index, void *result);
+uint8_t mal_runtime_pool_peek_managed(
+    MalContext *context,
+    const void *pool,
+    size_t index,
+    void *result
+);
 uint8_t mal_runtime_pool_swap(
     void *pool,
     size_t index,
@@ -246,6 +267,7 @@ uint8_t mal_runtime_pool_swap(
     void *old
 );
 void mal_runtime_pool_meta(const void *pool, void *result);
+void mal_runtime_pool_meta_managed(MalContext *context, const void *pool, void *result);
 void mal_runtime_pool_swap_meta(void *pool, const void *next, void *old);
 
 #endif

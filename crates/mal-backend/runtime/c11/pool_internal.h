@@ -18,4 +18,14 @@ typedef struct {
     uintptr_t inline_metadata;
 } MalPool;
 
+// Callback pairs are NULL for a trivial metadata or element carrier. The base stays first so operations that only move
+// carriers use the same object prefix for trivial and managed Pools.
+typedef struct {
+    MalPool pool;
+    MalRuntimeRetain metadata_retain;
+    MalRuntimeRelease metadata_release;
+    MalRuntimeRetain element_retain;
+    MalRuntimeRelease element_release;
+} MalManagedPool;
+
 #endif

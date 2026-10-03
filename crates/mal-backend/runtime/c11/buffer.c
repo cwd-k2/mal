@@ -99,8 +99,8 @@ void *mal_runtime_buffer_make_managed(
     MalContext *context,
     size_t stride,
     size_t capacity,
-    void (*retain)(MalContext *, void *),
-    void (*release)(void *)
+    MalRuntimeRetain retain,
+    MalRuntimeRelease release
 ) {
     MalManagedBuffer *managed = (MalManagedBuffer *)mal_buffer_make(
         context,
