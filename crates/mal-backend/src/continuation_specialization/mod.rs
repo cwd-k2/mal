@@ -13,6 +13,7 @@ mod request;
 mod rewrite;
 mod symbolic;
 mod trace;
+mod use_sites;
 mod worker;
 
 pub(crate) use plan::Plan;

@@ -9,9 +9,9 @@ use crate::core::ast::BufferOperation;
 use crate::flow::ClosureFlow;
 use mal_frontend::check::ast::Type;
 
-use super::plan::{ClosureSource, ClosureUse, ClosureUseKind, Scope};
+use super::plan::{ClosureSource, ClosureUse, Scope};
 
-type Sources = HashSet<ClosureSource>;
+pub(super) type Sources = HashSet<ClosureSource>;
 
 pub(super) struct Provenance {
     sites: HashMap<StateId, Vec<ClosureSource>>,
@@ -54,7 +54,7 @@ impl Provenance {
                 Some((site, sources))
             })
             .collect();
-        let uses = collect_uses(control, &analysis, relevant);
+        let uses = super::use_sites::collect(control, &analysis, relevant);
         Self { sites, uses }
     }
 
@@ -67,7 +67,7 @@ impl Provenance {
     }
 }
 
-struct Analysis<'a> {
+pub(super) struct Analysis<'a> {
     control: &'a control::Program,
     flow: &'a ClosureFlow,
     owners: Vec<Option<Scope>>,
@@ -79,176 +79,6 @@ struct Analysis<'a> {
     returns: HashMap<Scope, Sources>,
     buffer_elements: Sources,
     changed: bool,
-}
-
-fn collect_uses(
-    control: &control::Program,
-    analysis: &Analysis<'_>,
-    relevant: &HashSet<FunctionId>,
-) -> Vec<ClosureUse> {
-    let mut uses = Vec::new();
-    for (index, state) in control.states.iter().enumerate() {
-        let Some(scope) = analysis.owners[index] else {
-            continue;
-        };
-        for binding in &state.bindings {
-            match &binding.operation {
-                control::Operation::Atom(atom) => {
-                    record_use(
-                        analysis,
-                        relevant,
-                        scope,
-                        atom,
-                        ClosureUseKind::Alias,
-                        &mut uses,
-                    );
-                }
-                control::Operation::Product(atoms) => {
-                    let product = pattern_binding(&binding.pattern);
-                    for atom in atoms {
-                        record_use(
-                            analysis,
-                            relevant,
-                            scope,
-                            atom,
-                            ClosureUseKind::Product(product),
-                            &mut uses,
-                        );
-                    }
-                }
-                control::Operation::SumInjection { value, .. } => record_use(
-                    analysis,
-                    relevant,
-                    scope,
-                    value,
-                    ClosureUseKind::Aggregate,
-                    &mut uses,
-                ),
-                control::Operation::MakeClosure { function, captures } => {
-                    let creator = pattern_binding(&binding.pattern);
-                    for capture in captures {
-                        record_use(
-                            analysis,
-                            relevant,
-                            scope,
-                            capture,
-                            ClosureUseKind::Capture {
-                                binding: creator,
-                                function: *function,
-                            },
-                            &mut uses,
-                        );
-                    }
-                }
-                operation => operation.for_each_atom(|atom| {
-                    record_use(
-                        analysis,
-                        relevant,
-                        scope,
-                        atom,
-                        ClosureUseKind::Escape,
-                        &mut uses,
-                    );
-                }),
-            }
-        }
-        match &state.terminator {
-            Terminator::Return(atom) => record_use(
-                analysis,
-                relevant,
-                scope,
-                atom,
-                ClosureUseKind::Return,
-                &mut uses,
-            ),
-            Terminator::Jump { value, .. } => record_use(
-                analysis,
-                relevant,
-                scope,
-                value,
-                ClosureUseKind::Join,
-                &mut uses,
-            ),
-            Terminator::Call {
-                callee, argument, ..
-            }
-            | Terminator::TailCall { callee, argument } => {
-                record_use(
-                    analysis,
-                    relevant,
-                    scope,
-                    callee,
-                    ClosureUseKind::Callee(callee.id),
-                    &mut uses,
-                );
-                record_use(
-                    analysis,
-                    relevant,
-                    scope,
-                    argument,
-                    ClosureUseKind::CallArgument(callee.id),
-                    &mut uses,
-                );
-            }
-            Terminator::Case { scrutinee, .. } => record_use(
-                analysis,
-                relevant,
-                scope,
-                scrutinee,
-                ClosureUseKind::Aggregate,
-                &mut uses,
-            ),
-            Terminator::PrimitiveBranch { left, right, .. } => {
-                record_use(
-                    analysis,
-                    relevant,
-                    scope,
-                    left,
-                    ClosureUseKind::Escape,
-                    &mut uses,
-                );
-                record_use(
-                    analysis,
-                    relevant,
-                    scope,
-                    right,
-                    ClosureUseKind::Escape,
-                    &mut uses,
-                );
-            }
-            Terminator::Goto(_) => {}
-        }
-    }
-    uses
-}
-
-fn record_use(
-    analysis: &Analysis<'_>,
-    relevant: &HashSet<FunctionId>,
-    scope: Scope,
-    atom: &Atom,
-    kind: ClosureUseKind,
-    uses: &mut Vec<ClosureUse>,
-) {
-    let mut sources = analysis
-        .atom(scope, atom)
-        .into_iter()
-        .filter(|source| relevant.contains(&source.function()))
-        .collect::<Vec<_>>();
-    sources.sort_by_key(|source| source_key(*source));
-    uses.extend(sources.into_iter().map(|source| ClosureUse {
-        scope,
-        atom: atom.id,
-        source,
-        kind,
-    }));
-}
-
-fn pattern_binding(pattern: &Pattern) -> Option<ValueId> {
-    match pattern {
-        Pattern::Binding { id, .. } => Some(*id),
-        Pattern::Product { .. } | Pattern::Wildcard { .. } => None,
-    }
 }
 
 impl<'a> Analysis<'a> {
@@ -418,7 +248,11 @@ impl<'a> Analysis<'a> {
             .collect()
     }
 
-    fn atom(&self, owner: Scope, atom: &Atom) -> Sources {
+    pub(super) fn scope(&self, state: usize) -> Option<Scope> {
+        self.owners[state]
+    }
+
+    pub(super) fn atom(&self, owner: Scope, atom: &Atom) -> Sources {
         match atom.kind {
             AtomKind::Reference(Reference::Binding(id)) => {
                 self.values.get(&id).cloned().unwrap_or_default()
@@ -536,7 +370,7 @@ fn merge(target: &mut Sources, added: &Sources) -> bool {
     target.len() != before
 }
 
-fn source_key(source: ClosureSource) -> (u32, u8, u64) {
+pub(super) fn source_key(source: ClosureSource) -> (u32, u8, u64) {
     let function = function_number(source.function());
     match source {
         ClosureSource::Creator { binding, .. } => (function, 0, value_number(binding)),
