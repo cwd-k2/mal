@@ -102,6 +102,13 @@ moveAt<Meta, V> :: (IxPool<Meta, V>, USize, USize) -> Unit;
 全operationは核と同じ`i < n`も要求する。核だけを使うcontainerは、LiveとVacantの一致を`Slot<V>`の除去で扱い、範囲以外の
 preconditionを持たない。
 
+試作のalgorithm corpusでは、値をcopyせず穴を動かす`takeAt`と`initAt`がMap、Deque、heap、SlotMap、木に共通して現れた。
+これは定数倍の周辺をproductionでspecializeする候補にする証拠であり、意味論の核へ移す証拠ではない。`moveAt`は両者の合成、
+`slot`と`dropAt`は`swap`の結果を捨てる合成であり、corpusにもそれらだけが可能にする遷移はなかった。従ってruntime authorityは
+核の7 operationのlawだけに置き、周辺のauthorityは通常のmal definitionに置く。backendが`Share`、`Drop`、tag分岐、call境界を
+除くspecialized entryを持っても、それは周辺のdefinitionと同じ結果とresponsibility effectを実装するas-if loweringであり、
+新しいsemantic operationではない。
+
 ## ImPool
 
 `ImPool<Meta, V>`はPool stateのstructural snapshot valueであり、更新するたびにsuccessor snapshotを返す。状態はIxPoolと同じ

@@ -68,6 +68,23 @@ representationを使うnested Vectorとhandle elementのstructural snapshotはD0
 - Buffer上のemulationで`Symbol`を要素にしたMap、Deque、heap、SlotMapを動かし、valgrindで全allocationの解放とerror 0を
   確かめた。`takeAt`と`initAt`による移動は、managed valueのresponsibilityを一つに保った。
 
+### algorithm corpusによるminimality監査
+
+試作のcontainer本体（Map、Deque、stack、heap、SlotMap、木、Buf）でconstructorを明示したcallを数えると、`takeAt`は12回、
+`initAt`は18回、`moveAt`は3回使われた。`slot`と`dropAt`は周辺の定義以外から直接使われない。この頻度はprimitive採用の根拠では
+ないが、境界の性質を確認する材料になる。
+
+`takeAt`と`initAt`は、現在のBufferでは表しにくい「responsibilityを複製せずLiveとVacantの間で移す」経路であり、Mapの削除、
+Dequeの展開、heapのhole、coordinate再利用の全てが依存する。一方、`moveAt`はその二つの合成で同じ費用になり、`slot`と`dropAt`も
+`swap`から失うものがない。従って後三者をtrusted primitiveへ昇格させる根拠はない。利用頻度はlibraryの周辺operationとして名前を
+持つ理由にはなるが、意味やruntime authorityを増やさない。
+
+Typical 90の79個のcanonical programでは、現行Bufferの`fill`が148回、`get`が235回、`put`が134回現れ、途中のVacant slotを
+直接扱う例はない。これはdense workspaceとsequenceのcorpusであり、Pool試作の代わりにはならない。同時に、全Bufferを
+bitmap付きIxPool表現へ一律に置き換える根拠にもならない。代表7題をhandwritten Cと再測定した結果はMal/Cで0.83から1.16であり、
+dense表現をas-ifで残す必要を支持する。占有表現、時間、RSSの値は
+[Pool占有tagの表現比較](../../history/performance/pool-occupancy.md)に記録する。
+
 ## `peek`とsnapshot変換
 
 C host試作の初版ではbyte IxPoolのstorageを`Symbol`相当のtextと共有し、以後の書き込みでcopy-on-writeした。この方式はsnapshotの
@@ -114,7 +131,9 @@ IxPoolはBufferの上に、BufferはIxPoolの上に、どちらも意味の上�
 `Share`と`Drop`を払うが、IxPool上のBufferが払うのは占有tagの更新とIxPool終了時の走査だけである。IxPoolをprimitiveに
 するのはこの非対称のためである。
 Vacantを末尾だけに限ったdense primitiveへ`[Unit, T]`を載せる形とは意味が同じであり、残る差はこれらのcostだけである。
-その大きさは測っていない。
+占有tag単体ではbitmapが最小memoryになり、randomなword payloadでbyte tagよりCとRustの双方で約5–6%速かった。ただしbyte
+payloadのRustでは三方式が2%以内、sequential accessでも差は小さい。従ってbitmapはIxPool kernelの初期表現であってsource ABIではなく、
+dense BufferとVectorはoccupancyをinvariantから消すas-if representationを使う。
 
 ## 試作から出た言語とcompilerの変更
 

@@ -134,8 +134,9 @@ containerが要求する。
   （[入れ子](model/identity.md#入れ子)）。ImPoolを見せる場合は、uniqueness検査をruntimeへ置く範囲も決める。
 - [Header](model/semantics.md#headerをpoolに置く理由)をPoolに融合したまま持つか、別identityとの組へ分離するか。ImPoolのHeaderは
   productで足りるが、Ix/Imで同じstate algebraとcontainer invariantを使う利点との比較になる。
-- 核と周辺の名前、特にMetaの呼び方。周辺operationのうちどれを費用primitiveとして持つか、Liveを仮定する除去を
-  `unreachable :: Unit -> []`のような言語のprimitiveへ寄せるか。
+- 核と周辺の名前、特にMetaの呼び方。周辺の意味のauthorityは通常のmal definitionに置き、backendの費用specializationは
+  as-if loweringとする。どの周辺をspecializeするかと、Liveを仮定する除去を`unreachable :: Unit -> []`のような言語の
+  primitiveへ寄せるかは、production kernelの生成物を測って決める。
 - [`Storable`の拡張](model/identity.md#storableの原理)のうち、Buffer handleは
   [D096](../../history/decisions/active/D096.md)で、external opaque carrierは
   [D097](../../history/decisions/active/D097.md)で先に採択した。残るdecisionはPool採択時のIxPool、
@@ -146,8 +147,8 @@ containerが要求する。
 - Vectorの公開API、現行Bufferのhost operationとの互換性、`Symbol`との型関係は
   [BufferとVectorの採択前に残る判断](api/buffer-vector.md#採択前に残る判断)を正とする。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
-- IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。direct C kernelの測定ではbitmapを選んだが、
-  managed payload、growth、終了時走査と実際のcontainerを含む再測定が要る。
+- IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。同じkernelのdirect Cとsafe Rustの
+  測定ではbitmapを初期表現に選んだが、managed payload、growth、終了時走査と実際のcontainerを含む再測定が要る。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callback emitterから一般化するか、共通`Lifecycle`を消費する別のemitterとして置くか。
 - plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontract。

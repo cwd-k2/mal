@@ -211,8 +211,9 @@ BufferとVectorはas-ifで実装するため（[BufferとVector](../api/buffer-v
 - IxPool終了時の走査：`drop`がno-opでない要素型だけが払い、capacityまでtagを読む。
 
 Buffer上の形は代わりに、slotごとのsum tag、構築時の`fill`、移動ごとの`Share`と`Drop`を払う。二つの試作はhost callまたはcopyを
-挟むため直接比較に使えないが、IxPool kernelと同じVacant/Live反転を行うdirect C測定では、separate byte、bitmap、inline sumのうち
-bitmapが最小のmemoryで、random accessでは最速、sequential accessでも差が小さかった
+挟むため直接比較に使えないが、IxPool kernelと同じVacant/Live反転を行うdirect Cとsafe Rustの測定では、separate byte、bitmap、
+inline sumのうちbitmapが最小のmemoryだった。randomなword payloadでは両言語で最速、byte payloadではCで最速、Rustでは三方式が
+2%以内であり、sequential accessでも差が小さかった
 （[Pool占有tagの表現比較](../../../history/performance/pool-occupancy.md)）。初期kernelはbitmapを使い、step 3以降でmanaged payload、
 growth、終了時の走査を含めて再測定する。その際はMap、Deque、heapを
 [`generic-map`](../../../../examples/generic-map/map.mal)のようなBuffer上の実装と比べる。
