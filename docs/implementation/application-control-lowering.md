@@ -16,18 +16,24 @@ livenessは一回のbackward dataflow passで確定し、applicationによる再
 livenessが追うのはfunctionとinitializerが束縛するlocal valueだけであり、top-level bindingとpredefined bindingはliveにならない。
 `control`は各functionとtop-level initializerについてentryから到達するstateを発見順に記録する。tail callへの正規化で到達しなくなった
 resume stateはどのfunctionにも属さず、後段はcontrol graphを辿り直さずこの記録を読む。
-`execution`はこの表現とclosure-use情報から次を一方向に導出する。
+`execution`はこの表現とclosure-use情報から次を一方向に導出する。矢印は構築順ではなくauthorityの依存を表す。
 
 ```text
-control IR + closure use
-  -> closure flow
+closure program + control IR + closure use
   -> possible application graph
-  -> optional execution optimization decision
-  -> residual continuation graph
-  -> recursive control region
-  -> siteごとのcall mode
+       + optional execution optimization decision
+       -> residual continuation graph
+       -> recursive control region
+       -> siteごとのcall mode
+       -> suspension frame + return/frame relation
+       -> native recursion plan
+
+control IR
   -> parameter destination
-  -> suspension frame + return/frame relation
+
+control IR + 上記の確定済みplan
+  -> ownership plan
+  -> self-tail parameter plan
 ```
 
 `flow`が求めるclosure flowはclosure生成から始まり、binding、product、sum、capture、parameter、result、Bufferの要素を経て各applicationのcalleeへ届き得るfunctionの集合を求める。context insensitiveかつfield insensitiveであり、function値を作る操作はすべて規則を持つ。possible application graphは各applicationのcaller、known target、およびcalleeの型に適合し、かつclosure flowが届かせるinternal function target集合を所有する。flowがどのfunctionも届かせないcalleeは到達不能なapplicationとして、型互換なfunction全体をtargetにする。

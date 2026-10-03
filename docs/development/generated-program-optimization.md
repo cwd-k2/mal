@@ -20,7 +20,10 @@ backend世代ごとの測定と判断は[performance history](../history/perform
 `backend/llvm/optimization`はadmitted execution planを変更しないtarget固有のemission decisionを所有する。driverは各stageへ有効な
 technique集合を明示的に渡す。後段はtechnique identityではなく、所有stageが検証したplanだけを読む。
 
-`call_pattern`は例外的にprogramを書き換えるtechniqueであり、`execution/optimization`のdecisionでは表せないため独自のstageに置く。書き換え後のprogramは、binderとatomの識別子が一意である不変条件をdebug buildで検査する。
+`call_pattern`と`continuation_specialization`は例外的にprogramを書き換えるtechniqueであり、`execution/optimization`のdecisionでは
+表せないため独自のstageに置く。前者はcall siteごとのclosure集合とcapture、後者はfunction resultのproducerから唯一のapplication
+demandまでの閉じたsliceを所有する。`call_pattern`は書き換え後の識別子一意性を検査し、`continuation_specialization`はplanとrequestの
+再構成および書き換え後の識別子一意性を検査する。
 `execution/native_recursion`も例外であり、recursive region、call mode、frameのplanから決まるため、それらの入力となる`OptimizationPlan`には
 置けない。これらのplanの後に独自のplanとして構成し、同じ入力から再構成した結果との一致をdebug buildで検査する。
 
@@ -88,17 +91,13 @@ allocation policyの費用を分離する。比較対象のoptimizerが一方の
 
 ## 再調査の入口
 
-現在の生成programで再調査する境界は次の三つである。測定根拠、不採択案、再現値は
+現在の生成programで再調査する境界は次の二つである。測定根拠、不採択案、再現値は
 [genericsとmanaged container](../history/performance/generics.md)を正とする。
 
-1. `State`はdictionaryやgeneric dispatchではなく、関数を返すproducerから最終applicationまでのclosure representationが残る。
-   result join、callback call、self-recursive edgeを一つのcontinuation demandとして証明し、`_foldFrom`、`bind<State>`、step callbackを
-   新しいcreatorを残さず融合できる場合だけdeforestする。単独のresult-application workerは再試行しない。解析、rewrite、validatorの
-   実装境界は[continuation specialization](../implementation/continuation-specialization.md)に置く。
-2. nested Bufferはstable objectとrelocatable backingの二allocationが残る。任意capacityのco-allocationは再試行せず、growthしないこと、
+1. nested Bufferはstable objectとrelocatable backingの二allocationが残る。任意capacityのco-allocationは再試行せず、growthしないこと、
    byte ownerへ移されないこと、独立identityのlifetimeを壊さないことを通常planが証明できる場合に限り、conditionalなrepresentationを
    比較する。まずpacked referenceとsplit referenceの両方を用意し、意味論costとallocation policyを分ける。
-3. scalar control loopはgeneric、sum、closure、allocationが最終IRから消えた後も、LLVM 21のPHI順序で8または13 instructionになる。
+2. scalar control loopはgeneric、sum、closure、allocationが最終IRから消えた後も、LLVM 21のPHI順序で8または13 instructionになる。
    明示PHIを含むMal側の順序付けはLTOで保存されなかったため追加しない。LLVM更新時に同じreproducerを再測定する。
 
 `State`のdirect C/Rust loopはhand-lowered lower boundでありsemantic parityではない。`focus`もCだけが既知input storageを消した測定を
