@@ -142,6 +142,23 @@ fn rejects_an_operation_between_the_producer_and_consumer() {
 }
 
 #[test]
+fn inventories_every_creator_and_call_site_for_slice_code() {
+    let plan = plan(
+        "create :: Int32 -> (Int32 -> Int32) := (captured) -> (value) -> captured + value;
+         main :: Unit -> Int32 := () -> {
+             first := create(39i32);
+             left := first(1i32);
+             second := create(40i32);
+             left + second(2i32) - 82i32;
+         };",
+    );
+
+    assert_eq!(plan.demands.len(), 2);
+    assert_eq!(plan.creators.len(), 2, "{:#?}", plan.creators);
+    assert_eq!(plan.call_sites.len(), 4, "{:#?}", plan.call_sites);
+}
+
+#[test]
 fn finds_the_final_consumer_of_a_recursive_state_chain() {
     let plan = plan(
         "opaque State<S, A> :: S -> (S, A);
@@ -180,6 +197,8 @@ fn finds_the_final_consumer_of_a_recursive_state_chain() {
         2
     );
     assert!(!plan.applications.is_empty(), "{:#?}", plan.applications);
+    assert!(!plan.creators.is_empty(), "{:#?}", plan.creators);
+    assert!(!plan.call_sites.is_empty(), "{:#?}", plan.call_sites);
 }
 
 #[test]
@@ -209,5 +228,13 @@ fn validates_the_exact_demand_set() {
     plan = Plan::new(&closure);
     assert!(!plan.applications.is_empty());
     plan.applications.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    assert!(!plan.creators.is_empty());
+    plan.creators.clear();
+    assert!(!plan.is_valid(&closure));
+    plan = Plan::new(&closure);
+    assert!(!plan.call_sites.is_empty());
+    plan.call_sites.clear();
     assert!(!plan.is_valid(&closure));
 }

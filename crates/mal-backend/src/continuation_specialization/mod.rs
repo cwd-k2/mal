@@ -2,6 +2,7 @@
 
 mod application;
 mod index;
+mod inventory;
 mod plan;
 mod trace;
 
