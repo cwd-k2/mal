@@ -28,7 +28,7 @@ pub(super) fn apply(program: &Program, request: &Request) -> Option<Program> {
         .map(|worker| (worker.original, (worker.worker, ids.value())))
         .collect::<HashMap<_, _>>();
     let (worker_id, worker_binding) = workers.get(&request.demand.producer).copied()?;
-    let generated = super::fuse::workers(
+    let generated = super::worker::workers(
         program,
         request.demand.producer,
         &demanded_type,
