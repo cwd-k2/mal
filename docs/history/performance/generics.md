@@ -121,6 +121,11 @@ compact header、size class、arenaなど別のallocation policyは候補だが�
 それでもStateのrepresentation自体が`S -> (S, A)`であり、各stepはcaptureを持つState actionを返す。
 specializationとdirect-call selectionだけでは、返された関数値のenvironment lifetimeを消せない。
 
+continuation specialization着手時の`108b6c4f`でも同じfixtureをrelease buildし直し、20 run、3 warmupでnative median
+5.04 ms（4.53--6.86 ms）、Callgrind 106,588,002 instructions、Memcheck 600,003 allocations、38,400,112 requested bytesを
+再確認した。errorは0で全heap blockを解放し、pre-LTO IRは50,534 bytes、19 definitionsのままである。wall-clockの差は測定揺れの
+範囲であり、以下のallocationとIRを変換前baselineとする。
+
 pre-LTO IRには19 function definition、3箇所のenvironment allocation siteがあり、LTO後にも11 definitionと24-byteまたは
 80-byteの`malloc` pathが残る。20万stepで3個ずつ、Buffer本体を含め600,003 allocationとなった。Callgrindではhot worker
 `mal_function_26`が全instructionの98.5%を占め、そこから20万回のowner allocation、40万回の`free`、20万回の次action生成を呼ぶ。

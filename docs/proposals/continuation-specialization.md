@@ -72,6 +72,17 @@ effect不在を逆算したりしない。
 - demanded worker内のfunction parameter applicationは、call-patternで確定した各argument producerのworkerへ接続する。
 - self-recursive result edgeは同じworker identityへ戻し、各反復でclosure creatorを作らない。
 
+実装上は、sliceを二種類の内部edgeへ分けてから一度にrewriteする。
+
+- resultへ到達し得るclosure targetが一つでcapture shapeも一つなら、function valueをそのcapture productへ置き換え、producer resultと
+  対応するhost parameterを同じ型へ変える。applicationはtargetへのdirect callとし、capture productと元argumentをparameterにする。
+- result joinやself recursionで複数targetが合流する場合は共通のruntime representationを作らず、上のdemand workerへ分岐ごとの
+  capture productとargumentを渡して各targetを直接呼ぶ。
+
+前者はslice内部のtransport表現であり、それだけを独立したoptimizationとして採択しない。`State`では`step`、`fmap<State>`、内側の
+`bind<State>`が一targetのedge、`_foldFrom`の終了と再帰pathが複数targetの合流になる。両方を同じplanへ含めることで、`action`
+parameterへ作成済みclosureを渡さず、最終workerだけを追加して内側のcreatorを残す失敗を避ける。
+
 workerは元のparameter、capture、join、atom、function identityを再利用しない。複製には既存のfresh identity allocatorとcopy budgetを
 共有し、budget内でslice全体を作れない場合は部分rewriteを行わない。元wrapperはslice外の通常callのために残してよい。
 
