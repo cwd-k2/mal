@@ -23,7 +23,7 @@ fn falls_back_to_control_frames_before_a_small_native_stack_boundary() {
          static volatile int32_t observed;\n\
          MAL_DEFINE_touch(call, value) {\n\
              observed = value;\n\
-             return mal_Int32_return(call, value);\n\
+             return value;\n\
          }\n",
     );
 

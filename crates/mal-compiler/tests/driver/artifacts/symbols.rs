@@ -138,7 +138,7 @@ fn reuses_flat_symbol_storage_for_long_accumulations() {
              }\n\
          }\n\
          MAL_DEFINE_allocationCount(call) {\n\
-             return mal_UInt64_return(call, total_allocations);\n\
+             return total_allocations;\n\
          }\n",
     );
 

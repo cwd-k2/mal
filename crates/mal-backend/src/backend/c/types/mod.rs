@@ -50,7 +50,7 @@ enum ElementKey {
     Float32,
     Float64,
     Symbol,
-    Buffer(RepresentationId),
+    Buffer,
     ByteSize,
     USize,
     External(String),
@@ -141,17 +141,6 @@ impl TypeRegistry {
             | Type::Opaque { .. } => {
                 unreachable!("open types are not extern carriers")
             }
-        }
-    }
-
-    fn element_id(&self, ty: &Type) -> RepresentationId {
-        match ty {
-            Type::Product(_) | Type::Sum(_) => self.index(ty),
-            _ => RepresentationId(
-                mal_frontend::check::type_fingerprint::TypeFingerprints::default()
-                    .signature(&Type::Unit, ty)
-                    .1,
-            ),
         }
     }
 }

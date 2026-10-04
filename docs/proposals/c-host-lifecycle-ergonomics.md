@@ -1,10 +1,10 @@
 # C host lifecycle操作を小さな語彙へまとめる案
 
-Status: Exploratory
+Status: Implemented in v0.7
 
-この文書は、runtime extensionとなったextern Cで型別lifecycleとBuffer操作を記述しやすくする後続案を記録する。
+この文書は、runtime extensionとなったextern Cで型別lifecycleとBuffer操作を記述しやすくした設計過程を記録する。
 現在の規範は[C runtime extension ABI](../spec/c-host-abi.md)、compiler内の型再帰は
-[Engram lifecycle loweringの拡張境界](engram-lifecycle-foundation.md)を正とする。本案はまだABIではない。
+[Engram lifecycle loweringの拡張境界](engram-lifecycle-foundation.md)を正とする。
 example全体へ適用した結果は[利用scenarioによる監査](c-host-api-scenarios.md)に記録する。
 
 v0.7 ABIはまだ公開されていないため、採択時も`MAL_C_ABI_VERSION`は`0x000a00`のまま既存surfaceを置き換える。
@@ -56,21 +56,12 @@ storage descriptorにだけ残る。このため`mal_buffer_of(T)`も型spelling
 `mal_type(Buffer)`であり、element型の整合性はunsafeなC bodyのcontractになる。
 
 runtimeへstorage contractを値として渡す場合だけ`mal_storage(T)`を使う。これはsize、alignment、share、dropを持つ
-`mal_storage_descriptor_t`への
-pointerであり、registry、型名検索、dynamic type equalityを提供しない。通常の`mal_buffer`は受け取った`mal_type(T)`からdescriptorを
-内部で選ぶため、host bodyが`mal_storage`を直接使うのはtype-erasedなC helperを書く場合に限る。`ops`はdescriptor内部とruntime実装の
+`mal_storage_descriptor_t`の値であり、registry、型名検索、dynamic type equalityを提供しない。通常の`mal_buffer`は受け取った`mal_type(T)`からdescriptorを
+内部で選ぶため、host bodyが`mal_storage`を直接使う必要はない。`ops`はdescriptor内部とruntime実装の
 用語に留め、`value`は実体carrierと区別するため、どちらもpublic descriptor macro名には使わない。
 
 ```c
-static mal_type(Buffer) make_list(
-    mal_call_t *call,
-    const mal_storage_descriptor_t *element,
-    size_t capacity
-) {
-    return mal_buffer_dynamic(call, element, capacity);
-}
-
-mal_type(Buffer) entries = make_list(call, mal_storage(Entry), 16);
+mal_storage_descriptor_t entry_storage = mal_storage(mal_type(Entry));
 ```
 
 Mal sourceのextern signatureでgeneric applicationにaliasを要求しない。たとえば`extern readLine :: Unit -> Buffer<UInt8>;`のC bodyは
@@ -107,7 +98,7 @@ MAL_DEFINE_f(call) {
 
 ## 最小のownership語彙
 
-C surfaceで直接使うownership動詞は次の三つを候補とする。
+C surfaceで直接使うownership動詞は次の三つとする。
 
 - `mal_share(call, value)`はborrowまたはowned valueを保ったまま、新しいowned responsibilityを返す。
 - `mal_drop(value)`はowned lvalueのresponsibilityを終了し、元をvacantにする。
@@ -126,8 +117,8 @@ mal_push(call, words, mal_move(owned));
 ```
 
 これにより`push_move`と`push_share`、`put_move`と`put_share`の組を作らずに済む。resultもcarrierを統一できればCの
-`return`自体をtransfer境界とし、automatic cleanupを使うlocalだけ`return mal_move(result);`と書ける。Boolやsum tagの検査は
-generated wrapper側へ置き、ownership transferのためだけの`return_move`を増やさない案を評価する。
+`return`自体をtransfer境界とし、automatic cleanupを使うlocalだけ`return mal_move(result);`と書ける。ownership transferのためだけの
+`return_move`は公開しない。
 
 ## Cでのspelling
 
@@ -135,14 +126,11 @@ portable C11の`_Generic`は共通builtinだけなら使えるが、generated he
 すべての`Buffer<T>`も現在は同じpointer carrierなので、element型を使うdispatchにもならない。
 
 target toolchainをpinned Clangに限定している現在の方針では、`__attribute__((overloadable))`を型別glueの同名surfaceとして使う案が
-素直である。別々のgenerated headerから同じ`mal_detail_share`、`mal_detail_drop`、`mal_detail_move`へoverloadを追加できる。
-`mal_drop(x)`と`mal_move(x)`は引数を一度だけ評価してlvalueのaddressを渡すsyntax-like macroとし、実処理はoverloadされた
-inline functionまたはLLVM functionに置く。
+素直である。別々のgenerated headerから同じ内部retain/release集合へoverloadを追加できる。
+`mal_drop(x)`と`mal_move(x)`は引数を一度だけ評価してlvalueのaddressを扱うsyntax-like macroとし、再帰的な処理はoverloadされた
+inline functionに置く。
 
 ```c
-#define mal_drop(value) mal_detail_drop(&(value))
-#define mal_move(value) mal_detail_move(&(value))
-
 mal_type(Symbol) kept = mal_share(call, borrowed);
 mal_drop(kept);
 ```
@@ -150,9 +138,9 @@ mal_drop(kept);
 macroが受け取るのはlvalueだけとする。任意の式を受けてbitsだけcopyする`move`では元を失効できず、automatic cleanupとの合成も
 できないためである。overloadableを採用しない場合は、同じ意味を持つ型別関数名を基盤に残し、短い総称spellingは提供しない。
 
-## Optional automatic cleanup
+## Automatic cleanup
 
-Clangの`cleanup` attributeを使う`mal_owned(T)`のような宣言macroは、failure pathが多いC bodyの補助として検討できる。
+Clangの`cleanup` attributeを使う`mal_owned(T)`は、failure pathが多いC bodyの補助として提供する。
 
 ```c
 mal_owned(Symbol) temporary = mal_symbol(call, data, length);
@@ -162,8 +150,7 @@ return mal_move(temporary);
 `cleanup` attributeはoverload集合を直接受け取れないため、generated headerは`mal_owned(T)`から選ばれる型別の薄いcleanup wrapperを
 生成する。scope終了時にはそのwrapperがlvalueをdropする。明示的な`mal_drop`と`mal_move`が元をvacantにするため、cleanupは正常return、
 early return、途中の明示dropに同じ規則を適用できる。ただし`mal_call_trap`はprocessを終了しstack unwindingしないので、trap時の
-cleanup保証には使わない。宣言macroはClang固有syntaxを局所化し、型名と変数名の読みにくさ、debugger表示、clangd補完を実物で
-評価してから採択する。必須の正しさはautomatic cleanupへ依存させない。
+cleanup保証には使わない。宣言macroはClang固有syntaxを局所化する。必須の正しさはautomatic cleanupへ依存させない。
 
 ## Bufferのgeneric C surface
 
@@ -216,13 +203,12 @@ return (mal_sum(mal_type(Buffer), mal_type(UInt32))){
 ```
 
 scalarはC valueを直接returnし、Unitは`mal_unit`をreturnする。managed localは`return mal_move(value)`、その場で構成したowned rvalueは
-直接returnする。型別`return_move`は公開しない。Boolとsum tagのartifact整合性検査が必要ならgenerated extern wrapper側で行い、
-bodyごとのterminal helperにはしない。
+直接returnする。型別`return_move`は公開せず、invalid Boolやsum tagを構成した後の挙動も保証しない。
 
 external opaque carrierは`mal_from_bits(mal_type(File), bits)`と`mal_bits(value)`で接続する。`mal_drop`はmal-managed responsibilityだけを
 終了し、external resourceの`close`や`free`を行わない。resource cleanupは引き続きoperation固有contractに置く。
 
-## 採択前に確かめること
+## 実装時に確認したこと
 
 - `overloadable`な宣言をrequire graph上の複数headerから合成でき、aliasと同一structural representationを重複定義しないこと
 - product、sum、Symbol、Bufferについてshare、drop、moveがLLVM内部の型再帰と同じlifecycle planから生成されること

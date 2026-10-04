@@ -17,12 +17,12 @@ MAL_DEFINE_writeBytes(call, bytes) {
     if (fwrite(bytes.data, 1, bytes.length, stdout) != bytes.length) {
         mal_call_trap(call, "write failed");
     }
-    return mal_Unit_return(call);
+    return mal_unit;
 }
 ```
 
 `bytes`はbody終了まで有効なborrowであり、`owner`をdropしない。call後にも保持する場合はbody中に
-`mal_Symbol_share(call, bytes)`し、保存したresponsibilityを後で`mal_Symbol_drop`する。`data`だけを保存してもlifetimeは延びない。
+`mal_share(call, bytes)`し、保存したresponsibilityを後で`mal_drop`する。`data`だけを保存してもlifetimeは延びない。
 
 ## Bufferを構成してmoveする
 
@@ -32,25 +32,24 @@ extern readBytes :: Unit -> Buffer<UInt8>;
 
 ```c
 MAL_DEFINE_readBytes(call) {
-    mal_Buffer_t result = mal_Buffer_make(call, sizeof(mal_UInt8_t), 4096);
+    mal_owned(Buffer) result = mal_buffer(call, mal_type(UInt8), 4096);
     for (;;) {
         const int byte = fgetc(stdin);
         if (byte == EOF) {
             if (ferror(stdin)) {
-                mal_Buffer_drop(result);
+                mal_drop(result);
                 mal_call_trap(call, "read failed");
             }
-            return mal_Buffer_return_move(call, result);
+            return mal_move(result);
         }
-        const mal_UInt8_t value = (mal_UInt8_t)byte;
-        mal_Buffer_new(call, result, &value, sizeof(value));
+        mal_push(call, result, (mal_type(UInt8))byte);
     }
 }
 ```
 
-`mal_Buffer_make`が返すresponsibilityはC bodyが所有する。正常resultでは`return_move`へ渡し、それ以後は使用もdropもしない。
-trap前に解放したいtemporaryは明示的にdropする。`mal_Buffer_new`などgrowthし得るoperationの後は、以前
-`mal_Buffer_data`で得たpointerを再利用しない。
+`mal_buffer`が返すresponsibilityはC bodyが所有する。`mal_owned(Buffer)`はnormalなscope終了とearly returnでcleanupし、
+`mal_move`はresultへ渡したlocalをvacantにする。trapはstackをunwindしないので、trap前のcleanupが必要なら明示的に`mal_drop`する。
+`mal_push`などgrowthし得るoperationの後は、以前`mal_data`で得たpointerを再利用しない。
 
 ## Bufferをborrowして変更する
 
@@ -62,13 +61,13 @@ extern adjust :: Samples -> Unit;
 
 ```c
 MAL_DEFINE_adjust(call, samples) {
-    if (mal_Buffer_count(samples) == 0) {
-        return mal_Unit_return(call);
+    if (mal_count(samples) == 0) {
+        return mal_unit;
     }
-    mal_Sample_t *values = mal_Buffer_data(samples);
+    mal_type(Sample) *values = mal_data(samples);
     values[0].field_0 += 1;
     values[0].field_1 += 1;
-    return mal_Unit_return(call);
+    return mal_unit;
 }
 ```
 
@@ -92,20 +91,23 @@ MAL_DEFINE_openReadOnly(call, path) {
     FILE *file = fopen(terminated, "rb");
     mal_runtime_deallocate(terminated);
     if (file == NULL) {
-        return mal_OpenResult_return_1(call, (mal_UInt32_t)errno);
+        return (mal_type(OpenResult)){
+            .tag = 1,
+            .payload.variant_1 = (mal_type(UInt32))errno,
+        };
     }
-    return mal_OpenResult_return_0(
-        call,
-        mal_File_from_bits((uintptr_t)(void *)file)
-    );
+    return (mal_type(OpenResult)){
+        .tag = 0,
+        .payload.variant_0 = mal_from_bits(mal_type(File), (uintptr_t)(void *)file),
+    };
 }
 
 MAL_DEFINE_close(call, file) {
-    FILE *handle = (FILE *)(void *)mal_File_to_bits(file);
+    FILE *handle = (FILE *)(void *)mal_bits(file);
     if (fclose(handle) != 0) {
         mal_call_trap(call, "close failed");
     }
-    return mal_Unit_return(call);
+    return mal_unit;
 }
 ```
 
@@ -114,9 +116,12 @@ contractが所有する。
 
 ## Productとsum
 
-source aliasから生成された`mal_<Alias>_t`はfieldをsource順に持つ。sumは`tag`と`payload.variant_<n>`を持ち、generated
-`mal_<Alias>_make_<n>`と`mal_<Alias>_return_<n>`を使ってactive variantを構成できる。managed payloadを含むresultでは、active
-payloadのresponsibilityもterminal helperへmoveされる。
+sourceで名前を持つclosed aliasは`mal_type(Alias)`、anonymous productとsumは`mal_product(T, ...)`と`mal_sum(T, ...)`で表す。
+productはfieldをsource順に持ち、sumは0-basedの`tag`と`payload.variant_<n>`を持つ。専用constructorはなく、上の例のようにCの
+compound literalで直接構成する。managed payloadを入れる場合は、そのfieldへowned responsibilityを直接構成するか`mal_move`する。
+
+`Text :: Buffer<UInt8>`のようなclosed aliasには`mal_type(Text)`も生成される。一方、transparent generic aliasは展開され、すべての
+`Buffer<A>`は同じ`mal_type(Buffer)` carrierを使う。element型は`mal_buffer(call, Element, capacity)`へ渡すstorage contractに残る。
 
 ## `mal_call_t`の範囲
 

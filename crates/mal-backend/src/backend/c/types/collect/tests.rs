@@ -32,6 +32,18 @@ fn interns_independent_structurally_equal_dags() {
 }
 
 #[test]
+fn erases_buffer_element_types_from_the_host_carrier_identity() {
+    let left = Type::Product(vec![Type::Buffer(Type::UInt8.into()), Type::Symbol].into());
+    let right = Type::Product(vec![Type::Buffer(Type::Symbol.into()), Type::Symbol].into());
+    let mut registry = TypeRegistry::default();
+
+    registry.collect(&left);
+    registry.collect(&right);
+
+    assert_eq!(registry.index(&left), registry.index(&right));
+}
+
+#[test]
 fn registers_host_visible_alias_dags_before_rendering() {
     let mut external = Type::UInt8;
     let mut alias = Type::UInt8;

@@ -106,6 +106,7 @@ impl FunctionSpecifier {
             Self::Static => "static",
             Self::Inline => "inline",
             Self::NoReturn => "_Noreturn",
+            Self::Overloadable => "__attribute__((overloadable))",
         }
     }
 }
@@ -123,6 +124,7 @@ impl FunctionSignature {
                 FunctionSpecifier::Static => "static ",
                 FunctionSpecifier::Inline => "inline ",
                 FunctionSpecifier::NoReturn => "_Noreturn ",
+                FunctionSpecifier::Overloadable => "__attribute__((overloadable)) ",
             });
         }
         output.push_str(&self.result.render_declarator(&self.name));

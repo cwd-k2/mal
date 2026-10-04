@@ -89,7 +89,8 @@ fn interface_body(
         output.extend(declarations);
     }
 
-    let helpers = types.host_value_helpers(host, &interface.type_aliases);
+    let mut helpers = types.host_lifecycle_helpers(host, &interface.type_aliases);
+    helpers.extend(types.host_value_helpers(host));
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.extend(helpers);
@@ -214,7 +215,8 @@ fn wrapper_definition(
     let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
         c_statement!(({ call });)
     } else {
-        c_statement!(return { call };)
+        let result = types.host_to_raw_value(&external.result, c_expr!(&call), call);
+        c_statement!(return { result };)
     };
     let body = c_block! {
         let call: mal_call_t = mal_call_t { mal_detail_context: context };

@@ -40,14 +40,14 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 |---|---|---|
 | [Symbol conversion](../spec/memory.md#symbol-conversion) | snapshot independence、変換元activation終了後のresult lifetime | mutation前後のSymbol/Buffer比較 |
 | [Symbol operator](../spec/symbols.md#operator) | length、byte access、concatenation、`/`と`%`の端点・分割則・左結合range、型の拒否 | range viewを連結・比較するcompiled artifactとmanaged lifetime |
-| [extern carrier](../spec/extern.md#admitted-type) | generic extern、functionを含む型、open typeの拒否、Symbol、Buffer、opaque representation、nested product/sumの受理 | managed carrierをCで構成、変更、share/dropし、malと往復するartifact |
+| [extern carrier](../spec/extern.md#admitted-type) | generic extern、functionを含む型、open typeの拒否、Symbol、Buffer、opaque representation、nested product/sumの受理 | managed carrierとnested BufferをCで構成、変更、share/move/dropし、malと往復するartifact |
 
 ## ABI
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C host ABI](../spec/c-host-abi.md) | ABI `0x000a00`、共通`mal.h`、file header、target assertion、aggregate mapping、Symbol/Buffer helper、managed result move | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
-| [Engram/Extern](../spec/engrams.md) | borrowed parameter、shared responsibility、result move、external opaque resource、invalid host representation | hostがmal-owned Bufferを生成し、malの変更をborrowで観測する |
+| [C host ABI](../spec/c-host-abi.md) | ABI `0x000a00`、共通`mal.h`、file header、target assertion、`mal_type`とstructural type spelling、direct return、再帰的lifecycle、storage-aware Buffer操作 | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
+| [Engram/Extern](../spec/engrams.md) | borrowed parameter、再帰的なshare/move/drop、external opaque resource、invalid host representation | hostがmanaged elementを含むBufferを生成・変更し、malとの往復後にborrowで観測する |
 
 ## Specification cases
 

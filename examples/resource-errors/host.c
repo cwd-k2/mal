@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static FILE *file_handle(mal_File_t file) {
-    return (FILE *)mal_File_to_bits(file);
+static FILE *file_handle(mal_type(File) file) {
+    return (FILE *)mal_bits(file);
 }
 
 static uint32_t io_error(void) {
@@ -17,7 +17,7 @@ static uint32_t io_error(void) {
 MAL_DEFINE_openReadOnly(call, path) {
     if (path.length == SIZE_MAX
         || (path.length > 0 && memchr(path.data, '\0', path.length) != NULL)) {
-        return mal_OpenResult_return_1(call, (uint32_t)EINVAL);
+        return (mal_type(OpenResult)){ .tag = 1, .payload.variant_1 = (uint32_t)EINVAL };
     }
     char *terminated = malloc(path.length + 1);
     if (terminated == NULL) {
@@ -32,9 +32,12 @@ MAL_DEFINE_openReadOnly(call, path) {
     uint32_t error = io_error();
     free(terminated);
     if (file == NULL) {
-        return mal_OpenResult_return_1(call, error);
+        return (mal_type(OpenResult)){ .tag = 1, .payload.variant_1 = error };
     }
-    return mal_OpenResult_return_0(call, mal_File_from_bits((uintptr_t)file));
+    return (mal_type(OpenResult)){
+        .tag = 0,
+        .payload.variant_0 = mal_from_bits(mal_type(File), (uintptr_t)file),
+    };
 }
 
 MAL_DEFINE_readFile(call, file) {
@@ -42,33 +45,33 @@ MAL_DEFINE_readFile(call, file) {
     errno = 0;
     size_t length = fread(bytes, 1, sizeof(bytes), file_handle(file));
     if (ferror(file_handle(file))) {
-        return mal_ReadResult_return_1(call, io_error());
+        return (mal_type(ReadResult)){ .tag = 1, .payload.variant_1 = io_error() };
     }
-    mal_Buffer_t result = mal_Buffer_make(call, sizeof(uint8_t), length);
+    mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), length);
     for (size_t index = 0; index < length; ++index) {
-        mal_Buffer_new(call, result, &bytes[index], sizeof(uint8_t));
+        mal_push(call, result, bytes[index]);
     }
-    return mal_ReadResult_return_0(call, result);
+    return (mal_type(ReadResult)){ .tag = 0, .payload.variant_0 = mal_move(result) };
 }
 
 MAL_DEFINE_closeFile(call, file) {
     errno = 0;
     if (fclose(file_handle(file)) != 0) {
-        return mal_CloseResult_return_1(call, io_error());
+        return (mal_type(CloseResult)){ .tag = 1, .payload.variant_1 = io_error() };
     }
-    return mal_CloseResult_return_0(call);
+    return (mal_type(CloseResult)){ .tag = 0, .payload.variant_0 = mal_unit };
 }
 
 MAL_DEFINE_writeBytes(call, value) {
     if (fwrite(value.data, 1, value.length, stdout) != value.length) {
         mal_call_trap(call, "cannot write stdout");
     }
-    return mal_Unit_return(call);
+    return mal_unit;
 }
 
 MAL_DEFINE_writeError(call, error) {
     if (fprintf(stderr, "file error: %" PRIu32 "\n", error) < 0) {
         mal_call_trap(call, "cannot write stderr");
     }
-    return mal_Unit_return(call);
+    return mal_unit;
 }

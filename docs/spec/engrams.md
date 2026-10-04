@@ -33,7 +33,7 @@ identityを新しいEngram leafとして明示的に定める。
 ## Representationとoperation
 
 mal compilerはspecialization後のconcrete typeへruntime carrier layoutとmanaged lifecycleを与える。同じartifactのgenerated C headerは
-このlayoutを、`mal.h`はSymbol/Bufferのshare/dropとmanaged Buffer callbackの構成要素を公開する。Cが値を構築することは新しいsource
+このlayoutを、`mal.h`は型に共通のshare/dropとmanaged Buffer storage contractの構成要素を公開する。Cが値を構築することは新しいsource
 constructorを追加せず、既存型のvalid carrierをruntimeへ渡すだけである。
 
 productとsumのlifecycleはfieldごとに再帰する。sumはactive payloadだけを保持する。Buffer handleのcopyは同じmutable identityを指し、

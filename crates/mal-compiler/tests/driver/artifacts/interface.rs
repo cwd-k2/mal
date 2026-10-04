@@ -147,11 +147,11 @@ fn emit_header_owns_one_file_and_includes_required_file_headers() {
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_dependencyOperation(call, value) {\n\
              (void)value;\n\
-             return mal_Unit_return(call);\n\
+             return mal_unit;\n\
          }\n\
          MAL_DEFINE_rootOperation(call, value) {\n\
              (void)value;\n\
-             return mal_Root_return(call, (mal_Root_t){0});\n\
+             return (mal_type(Root)){0};\n\
          }\n",
     );
     let compilation = std::process::Command::new("clang")

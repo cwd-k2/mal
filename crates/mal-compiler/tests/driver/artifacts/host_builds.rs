@@ -18,7 +18,7 @@ fn build_compiles_required_host_inputs_and_produces_an_executable() {
         "#include \"program.mal.h\"\n\
          int32_t host_increment(int32_t value);\n\
          MAL_DEFINE_adjust(call, value) {\n\
-             return mal_Int32_return(call, host_increment(value));\n\
+             return host_increment(value);\n\
          }\n",
     );
     directory.write(
@@ -60,7 +60,7 @@ fn applies_an_external_operation_passed_as_a_value_in_every_mode() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
-         MAL_DEFINE_adjust(call, value) { return mal_Int32_return(call, value + 2); }\n",
+         MAL_DEFINE_adjust(call, value) { return value + 2; }\n",
     );
 
     for profile in ["baseline", "production"] {

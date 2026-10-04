@@ -915,6 +915,7 @@ fn c_signature_tokens(input: &mut Cursor) -> Result<TokenStream, String> {
             "static" => "crate::backend::c::syntax::FunctionSpecifier::Static",
             "inline" => "crate::backend::c::syntax::FunctionSpecifier::Inline",
             "noreturn" => "crate::backend::c::syntax::FunctionSpecifier::NoReturn",
+            "overloadable" => "crate::backend::c::syntax::FunctionSpecifier::Overloadable",
             _ => return Err(format!("unsupported C function attribute `#[{attribute}]`")),
         };
         specifiers.push(tokens(variant));

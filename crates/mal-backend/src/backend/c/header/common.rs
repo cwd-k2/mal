@@ -1,11 +1,12 @@
 //! Program-independent C ABI surface shared by every generated file header.
 //!
-//! It assembles typed C syntax for runtime declarations, scalar helpers, built-in result validation,
-//! and aggregate templates. File-specific interfaces and target-layout descriptors remain in `header`.
+//! It assembles typed C syntax for runtime declarations, lifecycle and Buffer helpers, bridge
+//! conversions, and aggregate templates. File-specific interfaces and target-layout descriptors
+//! remain in `header`.
 
 use crate::backend::c::syntax::{
-    Attribute, Declaration, Directive, Parameter, TranslationUnit, TypeName, c_expr, c_function,
-    c_items,
+    Attribute, Declaration, Directive, FunctionSignature, FunctionSpecifier, Parameter,
+    TranslationUnit, TypeName, c_expr, c_function, c_items,
 };
 mod templates;
 
@@ -26,6 +27,16 @@ pub(super) fn emit() -> String {
     output.blank_line();
     let abi_version = crate::backend::c::syntax::Expr::number(C_ABI_VERSION_LITERAL);
     output.extend(c_items! { define!(MAL_C_ABI_VERSION = { abi_version }); });
+    output.blank_line();
+    output.push(Directive::named_type_define());
+    output.push(Directive::structural_type_define(
+        "mal_product",
+        "mal_detail_product_type",
+    ));
+    output.push(Directive::structural_type_define(
+        "mal_sum",
+        "mal_detail_sum_type",
+    ));
     output.blank_line();
     let clang_attribute = Directive::define_attribute("MAL_DETAIL_MAYBE_UNUSED", Attribute::Unused);
     output.extend(c_items! {
@@ -125,6 +136,24 @@ pub(super) fn emit() -> String {
     ] {
         output.extend(c_items! { type { alias } = { source }; });
     }
+    output.push(Declaration::function_pointer_type_alias(
+        TypeName::named("void"),
+        "mal_detail_sum_key_bool_t",
+        [
+            Parameter::unnamed(TypeName::named("mal_Unit_t")),
+            Parameter::unnamed(TypeName::named("mal_Unit_t")),
+        ],
+    ));
+    output.push(
+        FunctionSignature::new(
+            TypeName::named("mal_Bool_t").pointer(),
+            "mal_detail_sum_type",
+            [Parameter::unnamed(TypeName::named(
+                "mal_detail_sum_key_bool_t",
+            ))],
+        )
+        .with_specifiers([FunctionSpecifier::Overloadable]),
+    );
     output.extend(c_items! {
         type mal_call_t = struct {
             mal_detail_context: *mut MalContext,
@@ -143,10 +172,19 @@ pub(super) fn emit() -> String {
         "MalRuntimeRelease",
         [Parameter::unnamed(TypeName::named("void").pointer())],
     ));
+    output.extend(c_items! {
+        type mal_storage_descriptor_t = struct {
+            size: size_t,
+            alignment: size_t,
+            share: MalRuntimeRetain,
+            drop: MalRuntimeRelease,
+        };
+    });
     output.blank_line();
     output.extend(c_items! {
         define!(mal_false = UINT8_C(0) as mal_Bool_t);
         define!(mal_true = UINT8_C(1) as mal_Bool_t);
+        define!(mal_unit = mal_Unit_t { unused: UINT8_C(0) });
     });
     output.blank_line();
     output.extend(c_items! {
@@ -202,13 +240,56 @@ pub(super) fn emit() -> String {
             value: *const void,
             stride: size_t,
         ) -> size_t;
+        fn mal_runtime_buffer_new_move(
+            context: *mut MalContext,
+            buffer: *mut void,
+            value: *const void,
+        ) -> size_t;
+        fn mal_runtime_buffer_replace_move(
+            context: *mut MalContext,
+            buffer: *mut void,
+            index: size_t,
+            value: *const void,
+        ) -> void;
+        fn mal_runtime_buffer_fill_move(
+            context: *mut MalContext,
+            buffer: *mut void,
+            offset: size_t,
+            count: size_t,
+            value: *const void,
+        ) -> void;
+        fn mal_runtime_buffer_copy_values(
+            context: *mut MalContext,
+            destination: *mut void,
+            destination_offset: size_t,
+            source: *const void,
+            source_offset: size_t,
+            count: size_t,
+        ) -> void;
+        fn mal_runtime_buffer_append_values(
+            context: *mut MalContext,
+            buffer: *mut void,
+            source: *const void,
+            count: size_t,
+        ) -> void;
+        fn mal_runtime_buffer_extend(
+            context: *mut MalContext,
+            buffer: *mut void,
+            count: size_t,
+        ) -> *mut void;
+        fn mal_runtime_buffer_truncate(buffer: *mut void, count: size_t) -> void;
+        fn mal_runtime_buffer_reserve_elements(
+            context: *mut MalContext,
+            buffer: *mut void,
+            capacity: size_t,
+        ) -> void;
         #[static] #[inline] #[noreturn] fn mal_call_trap(
             call: *mut mal_call_t,
             message: *const char,
         ) -> void {
             mal_trap((*call).mal_detail_context, message);
         }
-        #[static] #[inline] fn mal_Symbol_from_bytes(
+        #[static] #[inline] fn mal_detail_symbol(
             call: *mut mal_call_t,
             source: *const void,
             length: size_t,
@@ -224,17 +305,7 @@ pub(super) fn emit() -> String {
                 length: length,
             };
         }
-        #[static] #[inline] fn mal_Symbol_share(
-            call: *mut mal_call_t,
-            value: mal_Symbol_t,
-        ) -> mal_Symbol_t {
-            mal_runtime_bytes_retain((*call).mal_detail_context, value.owner);
-            return value;
-        }
-        #[static] #[inline] fn mal_Symbol_drop(value: mal_Symbol_t) -> void {
-            mal_runtime_bytes_release(value.owner);
-        }
-        #[static] #[inline] fn mal_Buffer_make(
+        #[static] #[inline] fn mal_detail_buffer_make(
             call: *mut mal_call_t,
             stride: size_t,
             capacity: size_t,
@@ -245,13 +316,7 @@ pub(super) fn emit() -> String {
                 capacity,
             );
         }
-        #[static] #[inline] fn mal_Buffer_share(
-            call: *mut mal_call_t,
-            value: mal_Buffer_t,
-        ) -> mal_Buffer_t {
-            return mal_runtime_owner_retain((*call).mal_detail_context, value);
-        }
-        #[static] #[inline] fn mal_Buffer_make_managed(
+        #[static] #[inline] fn mal_detail_buffer_make_managed(
             call: *mut mal_call_t,
             stride: size_t,
             capacity: size_t,
@@ -266,51 +331,15 @@ pub(super) fn emit() -> String {
                 release,
             );
         }
-        #[static] #[inline] fn mal_Buffer_drop(value: mal_Buffer_t) -> void {
-            mal_runtime_owner_release(value);
-        }
-        #[static] #[inline] fn mal_Buffer_data(value: mal_Buffer_t) -> *mut void {
+        #[static] #[inline] fn mal_detail_buffer_data(value: mal_Buffer_t) -> *mut void {
             return *mal_runtime_buffer_data_slot(value);
         }
-        #[static] #[inline] fn mal_Buffer_count(value: mal_Buffer_t) -> size_t {
+        #[static] #[inline] fn mal_detail_buffer_count(value: mal_Buffer_t) -> size_t {
             return mal_runtime_buffer_count(value);
         }
-        #[static] #[inline] fn mal_Buffer_new(
-            call: *mut mal_call_t,
-            value: mal_Buffer_t,
-            element: *const void,
-            stride: size_t,
-        ) -> size_t {
-            return mal_runtime_buffer_new(
-                (*call).mal_detail_context,
-                value,
-                element,
-                stride,
-            );
-        }
-        #[static] #[inline] fn mal_Buffer_new_managed_move(
-            call: *mut mal_call_t,
-            value: mal_Buffer_t,
-            element: *const void,
-            stride: size_t,
-        ) -> size_t {
-            return mal_runtime_buffer_new_managed_move(
-                (*call).mal_detail_context,
-                value,
-                element,
-                stride,
-            );
-        }
     });
-    append_builtin_returns(&mut output);
-    output.push(c_function! {
-        #[static] #[inline] fn mal_detail_convert_Unit(
-            #[maybe_unused] call: *mut mal_call_t,
-            #[maybe_unused] value: mal_Unit_t,
-        ) -> MalType_Unit {
-            return MalType_Unit { _0: 0 };
-        }
-    });
+    append_host_lifecycle(&mut output);
+    append_raw_conversions(&mut output);
     append_generated_header_templates(&mut output);
     output.blank_line();
     c_items! {
@@ -321,10 +350,179 @@ pub(super) fn emit() -> String {
     .render()
 }
 
-fn append_builtin_returns(output: &mut TranslationUnit) {
-    output.push(c_function! {
-        #[static] #[inline] fn mal_Unit_return(
+fn append_host_lifecycle(output: &mut TranslationUnit) {
+    output.extend(c_items! {
+        #[static] #[inline] #[overloadable] fn mal_detail_retain(
             #[maybe_unused] call: *mut mal_call_t,
+            #[maybe_unused] value: *mut void,
+        ) -> void {}
+        #[static] #[inline] #[overloadable] fn mal_detail_release(
+            #[maybe_unused] value: *mut void,
+        ) -> void {}
+        #[static] #[inline] #[overloadable] fn mal_detail_retain(
+            call: *mut mal_call_t,
+            value: *mut mal_Symbol_t,
+        ) -> void {
+            mal_runtime_bytes_retain((*call).mal_detail_context, (*value).owner);
+        }
+        #[static] #[inline] #[overloadable] fn mal_detail_release(
+            value: *mut mal_Symbol_t,
+        ) -> void {
+            mal_runtime_bytes_release((*value).owner);
+        }
+        #[static] #[inline] #[overloadable] fn mal_detail_retain(
+            call: *mut mal_call_t,
+            value: *mut mal_Buffer_t,
+        ) -> void {
+            mal_runtime_owner_retain((*call).mal_detail_context, *value);
+        }
+        #[static] #[inline] #[overloadable] fn mal_detail_release(
+            value: *mut mal_Buffer_t,
+        ) -> void {
+            mal_runtime_owner_release(*value);
+        }
+        #[static] #[inline] fn mal_detail_symbol_storage_share(
+            context: *mut MalContext,
+            carrier: *mut void,
+        ) -> void {
+            let call: mal_call_t = mal_call_t { mal_detail_context: context };
+            mal_detail_retain(&call, carrier as *mut mal_Symbol_t);
+        }
+        #[static] #[inline] fn mal_detail_symbol_storage_drop(
+            carrier: *mut void,
+        ) -> void {
+            mal_detail_release(carrier as *mut mal_Symbol_t);
+        }
+        #[static] #[inline] fn mal_detail_buffer_storage_share(
+            context: *mut MalContext,
+            carrier: *mut void,
+        ) -> void {
+            let call: mal_call_t = mal_call_t { mal_detail_context: context };
+            mal_detail_retain(&call, carrier as *mut mal_Buffer_t);
+        }
+        #[static] #[inline] fn mal_detail_buffer_storage_drop(
+            carrier: *mut void,
+        ) -> void {
+            mal_detail_release(carrier as *mut mal_Buffer_t);
+        }
+        #[static] #[inline] #[overloadable] fn mal_detail_storage(
+            #[maybe_unused] type: *mut void,
+            size: size_t,
+            alignment: size_t,
+        ) -> mal_storage_descriptor_t {
+            return mal_storage_descriptor_t {
+                size: size,
+                alignment: alignment,
+                share: NULL,
+                drop: NULL,
+            };
+        }
+        #[static] #[inline] #[overloadable] fn mal_detail_storage(
+            #[maybe_unused] type: *mut mal_Symbol_t,
+            size: size_t,
+            alignment: size_t,
+        ) -> mal_storage_descriptor_t {
+            return mal_storage_descriptor_t {
+                size: size,
+                alignment: alignment,
+                share: mal_detail_symbol_storage_share,
+                drop: mal_detail_symbol_storage_drop,
+            };
+        }
+        #[static] #[inline] #[overloadable] fn mal_detail_storage(
+            #[maybe_unused] type: *mut mal_Buffer_t,
+            size: size_t,
+            alignment: size_t,
+        ) -> mal_storage_descriptor_t {
+            return mal_storage_descriptor_t {
+                size: size,
+                alignment: alignment,
+                share: mal_detail_buffer_storage_share,
+                drop: mal_detail_buffer_storage_drop,
+            };
+        }
+        #[static] #[inline] fn mal_detail_buffer(
+            call: *mut mal_call_t,
+            storage: mal_storage_descriptor_t,
+            capacity: size_t,
+        ) -> mal_Buffer_t {
+            if storage.alignment > _Alignof(max_align_t) {
+                mal_call_trap(call, "unsupported Buffer element alignment");
+            }
+            if storage.share != NULL {
+                return mal_detail_buffer_make_managed(
+                    call,
+                    storage.size,
+                    capacity,
+                    storage.share,
+                    storage.drop,
+                );
+            }
+            return mal_detail_buffer_make(call, storage.size, capacity);
+        }
+        #[static] #[inline] fn mal_detail_buffer_push(
+            call: *mut mal_call_t,
+            buffer: mal_Buffer_t,
+            element: *const void,
+        ) -> size_t {
+            return mal_runtime_buffer_new_move(
+                (*call).mal_detail_context,
+                buffer,
+                element,
+            );
+        }
+        #[static] #[inline] fn mal_detail_buffer_snapshot(
+            call: *mut mal_call_t,
+            buffer: mal_Buffer_t,
+        ) -> mal_Symbol_t {
+            return mal_detail_symbol(
+                call,
+                mal_detail_buffer_data(buffer),
+                mal_detail_buffer_count(buffer),
+            );
+        }
+    });
+    for name in [
+        "Unit", "Bool", "Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64",
+        "Float32", "Float64", "Symbol", "Buffer", "ByteSize", "USize",
+    ] {
+        output.push(c_function! {
+            #[static] #[inline] fn { format!("mal_detail_cleanup_{name}") }(
+                value: *mut { format!("mal_{name}_t") },
+            ) -> void {
+                mal_detail_release(value);
+                memset(value, 0, sizeof(*value));
+            }
+        });
+    }
+    output.push(Directive::host_lifecycle_defines());
+    output.push(Directive::owned_type_define());
+    output.extend(c_items! {
+        define!(mal_symbol(call, source, length) = mal_detail_symbol(call, source, length));
+        define!(mal_buffer(call, element_type, capacity) = mal_detail_buffer(call, mal_storage(element_type), capacity));
+        define!(mal_data(buffer) = mal_detail_buffer_data(buffer));
+        define!(mal_count(buffer) = mal_detail_buffer_count(buffer));
+        define!(mal_from_bits(type, bits) = mal_detail_from_bits(0 as *mut type, bits));
+        define!(mal_bits(value) = mal_detail_bits(value));
+    });
+    output.push(Directive::buffer_push_define());
+    output.push(Directive::buffer_mutation_defines());
+    output.extend(c_items! {
+        define!(mal_copy(call, destination, destination_offset, source, source_offset, count) = mal_runtime_buffer_copy_values((*call).mal_detail_context, destination, destination_offset, source, source_offset, count));
+        define!(mal_append(call, buffer, source, count) = mal_runtime_buffer_append_values((*call).mal_detail_context, buffer, source, count));
+        define!(mal_extend(call, buffer, count) = mal_runtime_buffer_extend((*call).mal_detail_context, buffer, count));
+        define!(mal_truncate(buffer, count) = mal_runtime_buffer_truncate(buffer, count));
+        define!(mal_reserve(call, buffer, capacity) = mal_runtime_buffer_reserve_elements((*call).mal_detail_context, buffer, capacity));
+        define!(mal_snapshot(call, buffer) = mal_detail_buffer_snapshot(call, buffer));
+    });
+    output.blank_line();
+}
+
+fn append_raw_conversions(output: &mut TranslationUnit) {
+    output.push(c_function! {
+        #[static] #[inline] fn mal_detail_to_raw_Unit(
+            #[maybe_unused] call: *mut mal_call_t,
+            #[maybe_unused] value: mal_Unit_t,
         ) -> MalType_Unit {
             return MalType_Unit { unused: UINT8_C(0) };
         }
@@ -344,7 +542,7 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_USize", "mal_USize_t", "USize"),
     ] {
         output.push(c_function! {
-            #[static] #[inline] fn { format!("mal_{name}_return") }(
+            #[static] #[inline] fn { format!("mal_detail_to_raw_{name}") }(
                 #[maybe_unused] call: *mut mal_call_t,
                 value: { host },
             ) -> { raw } {
@@ -353,7 +551,7 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         });
     }
     output.push(c_function! {
-        #[static] #[inline] fn mal_Symbol_return_move(
+        #[static] #[inline] fn mal_detail_to_raw_Symbol(
             #[maybe_unused] call: *mut mal_call_t,
             value: mal_Symbol_t,
         ) -> MalType_Symbol {
@@ -361,7 +559,7 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         }
     });
     output.push(c_function! {
-        #[static] #[inline] fn mal_Buffer_return_move(
+        #[static] #[inline] fn mal_detail_to_raw_Buffer(
             #[maybe_unused] call: *mut mal_call_t,
             value: mal_Buffer_t,
         ) -> MalType_Buffer {
@@ -369,13 +567,10 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         }
     });
     output.push(c_function! {
-        #[static] #[inline] fn mal_Bool_return(
-            call: *mut mal_call_t,
+        #[static] #[inline] fn mal_detail_to_raw_Bool(
+            #[maybe_unused] call: *mut mal_call_t,
             value: mal_Bool_t,
         ) -> MalType_Bool {
-            if value != mal_false && value != mal_true {
-                mal_call_trap(call, "invalid Bool result");
-            }
             return value;
         }
     });

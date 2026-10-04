@@ -12,11 +12,11 @@ static const uint8_t expected[] = {
 };
 
 MAL_DEFINE_receive(call) {
-    mal_Buffer_t result = mal_Buffer_make(call, sizeof(uint8_t), sizeof(received));
+    mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), sizeof(received));
     for (size_t index = 0; index < sizeof(received); ++index) {
-        mal_Buffer_new(call, result, &received[index], sizeof(uint8_t));
+        mal_push(call, result, received[index]);
     }
-    return mal_Buffer_return_move(call, result);
+    return mal_move(result);
 }
 
 MAL_DEFINE_send(call, value) {
@@ -25,5 +25,5 @@ MAL_DEFINE_send(call, value) {
         mal_call_trap(call, "unexpected output bytes");
     }
     printf("%zu bytes\n", value.length);
-    return mal_Unit_return(call);
+    return mal_unit;
 }

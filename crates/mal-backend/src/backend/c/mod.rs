@@ -83,4 +83,30 @@ mod tests {
     fn checked_in_common_header_matches_the_generator() {
         assert_eq!(super::COMMON_HEADER, super::common_header());
     }
+
+    #[test]
+    fn common_header_exposes_the_concise_host_surface() {
+        let header = super::COMMON_HEADER;
+        for spelling in [
+            "#define mal_type(name)",
+            "#define mal_product(...)",
+            "#define mal_sum(...)",
+            "#define mal_share(call, value)",
+            "#define mal_move(value)",
+            "#define mal_drop(value)",
+            "#define mal_owned(name)",
+            "#define mal_buffer(call, element_type, capacity)",
+            "#define mal_push(call, buffer, element)",
+        ] {
+            assert!(header.contains(spelling), "missing `{spelling}`");
+        }
+        for obsolete in [
+            "mal_Unit_return",
+            "mal_Buffer_make",
+            "mal_Buffer_return_move",
+            "MAL_DETAIL_DEFINE_SUM_VALUE_API",
+        ] {
+            assert!(!header.contains(obsolete), "obsolete `{obsolete}` remains");
+        }
+    }
 }

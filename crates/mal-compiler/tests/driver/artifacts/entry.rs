@@ -16,7 +16,7 @@ fn emits_a_readable_single_file_atcoder_submission() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
-         MAL_DEFINE_answer(call) { return mal_Int32_return(call, 7); }\n",
+         MAL_DEFINE_answer(call) { return 7; }\n",
     );
     let submission = directory.join("Main.cpp");
     let executable = directory.join("submission");
@@ -238,7 +238,7 @@ fn retains_artifacts_uses_the_generated_header_and_forwards_clang_arguments() {
          #include <math.h>\n\
          static volatile double zero;\n\
          MAL_DEFINE_sine(call, value) {\n\
-           return mal_Float64_return(call, sin(value + zero));\n\
+           return sin(value + zero);\n\
          }\n",
     );
     let executable = directory.join("program");

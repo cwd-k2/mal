@@ -207,14 +207,14 @@ impl TypeRegistry {
             _ => identity(),
         };
         let aggregate_to_raw = || match element {
-            Type::Unit => "mal_detail_convert_Unit".into(),
-            Type::Product(_) => format!("mal_repr_product_{}_return", self.index(element)),
+            Type::Unit => "mal_detail_to_raw_Unit".into(),
+            Type::Product(_) => format!("mal_detail_to_raw_{}", self.index(element)),
             Type::Sum(_) if !is_bool(element) => {
                 format!("mal_detail_to_raw_{}", self.index(element))
             }
-            Type::External { name, .. } => format!("mal_{name}_return"),
-            Type::Symbol => "mal_Symbol_return_move".into(),
-            Type::Buffer(_) => "mal_Buffer_return_move".into(),
+            Type::External { name, .. } => format!("mal_detail_to_raw_{name}"),
+            Type::Symbol => "mal_detail_to_raw_Symbol".into(),
+            Type::Buffer(_) => "mal_detail_to_raw_Buffer".into(),
             _ => identity(),
         };
         if matches!(aggregate, Type::Product(_)) {
@@ -242,12 +242,12 @@ impl TypeRegistry {
             }
         };
         let sum_conversion = |direction: &str| match element {
-            Type::Unit => "mal_detail_convert_Unit".into(),
+            Type::Unit => "mal_detail_to_raw_Unit".into(),
             Type::Product(_) => {
                 if direction == "host" {
                     format!("mal_detail_to_host_{}", self.index(element))
                 } else {
-                    format!("mal_repr_product_{}_return", self.index(element))
+                    format!("mal_detail_to_raw_{}", self.index(element))
                 }
             }
             Type::Sum(_) if !is_bool(element) => {
@@ -257,24 +257,24 @@ impl TypeRegistry {
                 if direction == "host" {
                     format!("mal_detail_to_host_{name}")
                 } else {
-                    format!("mal_{name}_return")
+                    format!("mal_detail_to_raw_{name}")
                 }
             }
             Type::Symbol => {
                 if direction == "host" {
                     "MAL_DETAIL_REPR_IDENTITY".into()
                 } else {
-                    "mal_Symbol_return_move".into()
+                    "mal_detail_to_raw_Symbol".into()
                 }
             }
             Type::Buffer(_) => {
                 if direction == "host" {
                     "MAL_DETAIL_REPR_IDENTITY".into()
                 } else {
-                    "mal_Buffer_return_move".into()
+                    "mal_detail_to_raw_Buffer".into()
                 }
             }
-            _ => format!("mal_{}_return", scalar(element)),
+            _ => format!("mal_detail_to_raw_{}", scalar(element)),
         };
         (sum_conversion("host"), sum_conversion("raw"))
     }

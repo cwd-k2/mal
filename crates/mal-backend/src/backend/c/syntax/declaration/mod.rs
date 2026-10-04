@@ -48,6 +48,7 @@ pub(in crate::backend) enum FunctionSpecifier {
     Static,
     Inline,
     NoReturn,
+    Overloadable,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

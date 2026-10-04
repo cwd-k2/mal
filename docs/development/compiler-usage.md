@@ -142,7 +142,7 @@ host C sourceは自身を所有する`.mal` fileのfile headerをincludeし、LL
 
 Mal sourceのrequirementとしてのshared object、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
 link時に必要なshared libraryは`--clang-arg`で明示する。host adapterはmanaged parameterをborrowとして扱い、保持するときは
-shareし、managed resultをreturn helperへmoveする。詳細は[extern contract](../spec/extern.md#managed-responsibility)に従う。
+`mal_share`し、managed resultをCのdirect returnへmoveする。詳細は[extern contract](../spec/extern.md#managed-responsibility)に従う。
 
 ## 生成物policy
 

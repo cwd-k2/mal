@@ -44,14 +44,14 @@ void mal_runtime_buffer_fill_managed(
     const void *value,
     size_t stride
 ) {
-    MalManagedBuffer *managed = opaque_buffer;
+    MalBuffer *managed = opaque_buffer;
     size_t old_count;
-    if (!mal_buffer_fill_extend(context, &managed->buffer, offset, count, stride, &old_count)) {
+    if (!mal_buffer_fill_extend(context, managed, offset, count, stride, &old_count)) {
         return;
     }
     // Elements below `old_count` held a reference that the write drops.
     for (size_t index = offset; index < offset + count; ++index) {
-        unsigned char *element = managed->buffer.data + index * stride;
+        unsigned char *element = managed->data + index * stride;
         if (index < old_count) {
             managed->release(element);
         }
@@ -170,12 +170,12 @@ void mal_runtime_buffer_copy_managed(
     size_t count,
     size_t stride
 ) {
-    MalManagedBuffer *destination = opaque_destination;
+    MalBuffer *destination = opaque_destination;
     const MalBuffer *source = opaque_source;
     size_t old_count;
     if (!mal_buffer_copy_extend(
             context,
-            &destination->buffer,
+            destination,
             destination_offset,
             source,
             source_offset,
@@ -194,10 +194,10 @@ void mal_runtime_buffer_copy_managed(
     for (size_t index = destination_offset;
          index < destination_offset + count && index < old_count;
          ++index) {
-        destination->release(destination->buffer.data + index * stride);
+        destination->release(destination->data + index * stride);
     }
     memmove(
-        destination->buffer.data + destination_offset * stride,
+        destination->data + destination_offset * stride,
         source->data + source_offset * stride,
         count * stride
     );
@@ -232,4 +232,130 @@ void mal_runtime_buffer_copy(
         source->data + source_offset * stride,
         count * stride
     );
+}
+
+void mal_runtime_buffer_fill_move(
+    MalContext *context,
+    void *opaque_buffer,
+    size_t offset,
+    size_t count,
+    const void *value
+) {
+    MalBuffer *buffer = opaque_buffer;
+    if (buffer->retain == NULL) {
+        mal_runtime_buffer_fill(
+            context,
+            buffer,
+            offset,
+            count,
+            value,
+            buffer->stride
+        );
+        return;
+    }
+    if (count == 0) {
+        buffer->release((void *)value);
+        return;
+    }
+    for (size_t copy = 1; copy < count; ++copy) {
+        buffer->retain(context, (void *)value);
+    }
+    size_t old_count;
+    if (!mal_buffer_fill_extend(
+            context,
+            buffer,
+            offset,
+            count,
+            buffer->stride,
+            &old_count
+        )) {
+        return;
+    }
+    for (size_t index = offset; index < offset + count; ++index) {
+        unsigned char *element = buffer->data + index * buffer->stride;
+        if (index < old_count) {
+            buffer->release(element);
+        }
+        memcpy(element, value, buffer->stride);
+    }
+}
+
+void mal_runtime_buffer_copy_values(
+    MalContext *context,
+    void *opaque_destination,
+    size_t destination_offset,
+    const void *opaque_source,
+    size_t source_offset,
+    size_t count
+) {
+    MalBuffer *destination = opaque_destination;
+    const MalBuffer *source = opaque_source;
+    if (destination->retain != NULL) {
+        mal_runtime_buffer_copy_managed(
+            context,
+            destination,
+            destination_offset,
+            source,
+            source_offset,
+            count,
+            destination->stride
+        );
+        return;
+    }
+    mal_runtime_buffer_copy(
+        context,
+        destination,
+        destination_offset,
+        source,
+        source_offset,
+        count,
+        destination->stride
+    );
+}
+
+void mal_runtime_buffer_append_values(
+    MalContext *context,
+    void *opaque_buffer,
+    const void *opaque_source,
+    size_t count
+) {
+    MalBuffer *buffer = opaque_buffer;
+    const unsigned char *source = opaque_source;
+    if (buffer->stride == 0) {
+        if (count > SIZE_MAX - buffer->count) {
+            mal_trap(context, "buffer count overflow");
+        }
+        buffer->count += count;
+        return;
+    }
+    size_t source_offset = 0;
+    uintptr_t source_address = (uintptr_t)source;
+    uintptr_t data_address = (uintptr_t)buffer->data;
+    size_t data_bytes = buffer->count * buffer->stride;
+    int source_is_buffer_data = source_address >= data_address
+        && source_address <= data_address + data_bytes;
+    if (source_is_buffer_data) {
+        source_offset = source_address - data_address;
+    }
+    size_t old_count = buffer->count;
+    if (count > SIZE_MAX - old_count) {
+        mal_trap(context, "buffer count overflow");
+    }
+    size_t new_count = old_count + count;
+    mal_buffer_reserve(context, buffer, mal_buffer_bytes(context, new_count, buffer->stride));
+    if (source_is_buffer_data) {
+        source = buffer->data + source_offset;
+    }
+    for (size_t index = 0; index < count; ++index) {
+        const unsigned char *element = source + index * buffer->stride;
+        if (buffer->retain != NULL) {
+            buffer->retain(context, (void *)element);
+        }
+        memmove(
+            buffer->data + (old_count + index) * buffer->stride,
+            element,
+            buffer->stride
+        );
+        buffer->count = old_count + index + 1;
+    }
 }

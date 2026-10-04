@@ -1,8 +1,8 @@
 //! Aggregate representation and product conversion templates.
 
 use crate::backend::c::syntax::{
-    Directive, FunctionDefinition, TranslationUnit, c_block, c_expr, c_function, c_initializers,
-    c_invocation, c_items, c_record, c_record_fields, c_signature, c_type,
+    Directive, FunctionDefinition, TranslationUnit, c_block, c_expr, c_initializers, c_invocation,
+    c_items, c_record, c_record_fields, c_signature, c_type,
 };
 
 pub(super) fn append_aggregate_templates(output: &mut TranslationUnit) {
@@ -142,18 +142,5 @@ fn append_product_conversion_template(output: &mut TranslationUnit) {
                 "MAL_DETAIL_PRODUCT_TO_RAW_FIELD",
             ),
         ],
-    ));
-    let converting_return = c_function! {
-        #[static] #[inline] fn { "function_name" }(
-            #[maybe_unused] call: *mut mal_call_t,
-            value: value_type,
-        ) -> result_type {
-            return converter(call, value);
-        }
-    };
-    output.push(Directive::function_definitions_define(
-        "MAL_DETAIL_DEFINE_CONVERTING_RETURN",
-        ["function_name", "result_type", "value_type", "converter"],
-        [converting_return],
     ));
 }

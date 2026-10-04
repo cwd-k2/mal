@@ -45,16 +45,15 @@ void *mal_runtime_buffer_from_arguments(
     size_t data_offset,
     size_t length_offset
 ) {
-    MalManagedBuffer *managed = mal_runtime_buffer_make_managed(
+    MalBuffer *buffer = mal_runtime_buffer_make_managed(
         context,
         stride,
         count,
         mal_symbol_element_retain,
         mal_symbol_element_release
     );
-    MalBuffer *buffer = &managed->buffer;
     if (count == 0) {
-        return managed;
+        return buffer;
     }
     for (size_t index = 0; index < count; ++index) {
         unsigned char *element = buffer->data + index * stride;
@@ -67,7 +66,7 @@ void *mal_runtime_buffer_from_arguments(
         memcpy(element + length_offset, &length, sizeof length);
         buffer->count = index + 1;
     }
-    return managed;
+    return buffer;
 }
 
 void mal_runtime_buffer_into(

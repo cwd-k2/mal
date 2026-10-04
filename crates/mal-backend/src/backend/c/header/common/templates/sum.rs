@@ -1,4 +1,4 @@
-//! Sum representation conversion and public constructor templates.
+//! Sum representation conversion templates.
 
 use crate::backend::c::syntax::{
     Directive, Expr, FunctionDefinition, SwitchCase, TranslationUnit, c_block, c_expr,
@@ -84,80 +84,10 @@ pub(super) fn append_sum_conversion_template(output: &mut TranslationUnit) {
     ));
 }
 
-pub(super) fn append_sum_api_templates(output: &mut TranslationUnit) {
-    let unit_value = sum_api_value(c_expr!(mal_Unit_t { _0: 0 }));
-    let unit_make = FunctionDefinition::from_signature(
-        c_signature!(#[static] #[inline] fn { "make_name" }() -> host_type),
-        c_block!(return { unit_value };),
-    );
-    let unit_return = FunctionDefinition::from_signature(
-        c_signature! {
-            #[static] #[inline] fn { "return_name" }(
-                call: *mut mal_call_t,
-            ) -> raw_type
-        },
-        c_block!(return to_raw(call, make_name());),
-    );
-    output.push(Directive::function_definitions_define(
-        "MAL_DETAIL_DEFINE_SUM_UNIT_API",
-        [
-            "make_name",
-            "return_name",
-            "host_type",
-            "raw_type",
-            "tag_name",
-            "member",
-            "to_raw",
-        ],
-        [unit_make, unit_return],
-    ));
-
-    let value_value = sum_api_value(c_expr!(value));
-    let value_make = FunctionDefinition::from_signature(
-        c_signature! {
-            #[static] #[inline] fn { "make_name" }(
-                value: value_type,
-            ) -> host_type
-        },
-        c_block!(return { value_value };),
-    );
-    let value_return = FunctionDefinition::from_signature(
-        c_signature! {
-            #[static] #[inline] fn { "return_name" }(
-                call: *mut mal_call_t,
-                value: value_type,
-            ) -> raw_type
-        },
-        c_block! { return to_raw(call, make_name(value)); },
-    );
-    output.push(Directive::function_definitions_define(
-        "MAL_DETAIL_DEFINE_SUM_VALUE_API",
-        [
-            "make_name",
-            "return_name",
-            "host_type",
-            "raw_type",
-            "value_type",
-            "tag_name",
-            "member",
-            "to_raw",
-        ],
-        [value_make, value_return],
-    ));
-}
-
 fn sum_conversion_result(value: Expr) -> Expr {
     let initializers = c_initializers! {
         tag: UINT32_C(variant_tag),
         payload.member: { value },
     };
     c_expr!({ c_type!(result_type) } { ..{ initializers } })
-}
-
-fn sum_api_value(value: Expr) -> Expr {
-    let initializers = c_initializers! {
-        tag: tag_name,
-        payload.member: { value },
-    };
-    c_expr!({ c_type!(host_type) } { ..{ initializers } })
 }

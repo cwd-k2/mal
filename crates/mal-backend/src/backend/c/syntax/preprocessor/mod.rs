@@ -56,6 +56,15 @@ pub(in crate::backend) enum Directive {
         parameters: Vec<MacroParameter>,
         expression: Expr,
     },
+    NamedTypeDefine,
+    StructuralTypeDefine {
+        name: Identifier,
+        selector: Identifier,
+    },
+    HostLifecycleDefines,
+    OwnedTypeDefine,
+    BufferPushDefine,
+    BufferMutationDefines,
     FunctionItemsDefine {
         name: Identifier,
         parameters: Vec<MacroParameter>,
@@ -182,6 +191,36 @@ impl Directive {
             parameters: parameters.into_iter().map(Into::into).collect(),
             expression,
         }
+    }
+
+    pub(in crate::backend) fn named_type_define() -> Self {
+        Self::NamedTypeDefine
+    }
+
+    pub(in crate::backend) fn structural_type_define(
+        name: impl Into<Identifier>,
+        selector: impl Into<Identifier>,
+    ) -> Self {
+        Self::StructuralTypeDefine {
+            name: name.into(),
+            selector: selector.into(),
+        }
+    }
+
+    pub(in crate::backend) fn host_lifecycle_defines() -> Self {
+        Self::HostLifecycleDefines
+    }
+
+    pub(in crate::backend) fn owned_type_define() -> Self {
+        Self::OwnedTypeDefine
+    }
+
+    pub(in crate::backend) fn buffer_push_define() -> Self {
+        Self::BufferPushDefine
+    }
+
+    pub(in crate::backend) fn buffer_mutation_defines() -> Self {
+        Self::BufferMutationDefines
     }
 
     pub(in crate::backend) fn function_items_define(

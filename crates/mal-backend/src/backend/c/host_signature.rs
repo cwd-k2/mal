@@ -135,11 +135,8 @@ impl<'a> HostBodySignature<'a> {
                 c_type: types
                     .host_value_c_type(&external.parameter, external.parameter_alias.as_deref()),
             }),
-            raw_result_type: if external.result == Type::Unit {
-                c_type!(MalType_Unit)
-            } else {
-                types.header_c_type(&external.result, external.result_alias.as_deref())
-            },
+            raw_result_type: types
+                .host_value_c_type(&external.result, external.result_alias.as_deref()),
         }
     }
 
@@ -153,6 +150,7 @@ impl<'a> HostBodySignature<'a> {
 
     pub(super) fn signature(&self) -> FunctionSignature {
         let mut parameters = c_parameters!(call: *mut mal_call_t);
+        parameters[0] = parameters[0].clone().maybe_unused();
         if let Some(parameter) = &self.parameter {
             parameters.push(c_parameter!(value: { parameter.c_type.clone() }));
         }

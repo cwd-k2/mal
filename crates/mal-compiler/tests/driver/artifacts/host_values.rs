@@ -19,23 +19,65 @@ fn constructs_a_managed_element_buffer_in_the_c_runtime_extension() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
-         static void retain_symbol(MalContext *context, void *carrier) {\n\
-             mal_Symbol_t *value = carrier;\n\
-             (void)mal_runtime_bytes_retain(context, value->owner);\n\
-         }\n\
-         static void release_symbol(void *carrier) {\n\
-             mal_Symbol_t *value = carrier;\n\
-             mal_runtime_bytes_release(value->owner);\n\
-         }\n\
          MAL_DEFINE_words(call) {\n\
-             mal_Buffer_t values = mal_Buffer_make_managed(\n\
-                 call, sizeof(mal_Symbol_t), 2, retain_symbol, release_symbol\n\
-             );\n\
-             mal_Symbol_t first = mal_Symbol_from_bytes(call, \"mal\", 3);\n\
-             mal_Symbol_t second = mal_Symbol_from_bytes(call, \"runtime\", 7);\n\
-             mal_Buffer_new_managed_move(call, values, &first, sizeof(first));\n\
-             mal_Buffer_new_managed_move(call, values, &second, sizeof(second));\n\
-             return mal_Buffer_return_move(call, values);\n\
+             mal_owned(Buffer) values = mal_buffer(call, mal_type(Symbol), 2);\n\
+             mal_push(call, values, mal_symbol(call, \"discard\", 7));\n\
+             mal_replace(call, values, 0, mal_symbol(call, \"mal\", 3));\n\
+             mal_fill(call, values, 1, 1, mal_symbol(call, \"runtime\", 7));\n\
+             mal_owned(Buffer) copied = mal_buffer(call, mal_type(Symbol), 2);\n\
+             mal_copy(call, copied, 0, values, 0, 2);\n\
+             mal_append(call, copied, mal_data(values), 2);\n\
+             mal_truncate(copied, 2);\n\
+             mal_reserve(call, copied, 8);\n\
+             mal_type(Buffer) shared = mal_share(call, copied);\n\
+             mal_drop(shared);\n\
+             return mal_move(copied);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
+fn constructs_nested_buffers_with_the_erased_host_carrier() {
+    let directory = NativeFixture::new("driver-c-nested-buffer");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern nested :: Unit -> Buffer<Buffer<UInt8>>;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           values := nested();\n\
+           if (#values == 1usize && #values.get(0usize) == 2usize\n\
+             && values.get(0usize).get(0usize) == 40u8\n\
+             && values.get(0usize).get(1usize) == 2u8)\n\
+           then 0\n\
+           else 1;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_nested(call) {\n\
+             mal_owned(Buffer) inner = mal_buffer(call, mal_type(UInt8), 2);\n\
+             mal_type(UInt8) *tail = mal_extend(call, inner, 2);\n\
+             tail[0] = UINT8_C(40);\n\
+             tail[1] = UINT8_C(2);\n\
+             mal_type(Buffer) outer = mal_buffer(call, mal_type(Buffer), 1);\n\
+             mal_push(call, outer, mal_move(inner));\n\
+             return mal_move(outer);\n\
          }\n",
     );
 
@@ -82,24 +124,24 @@ fn transfers_external_opaque_values_through_the_public_c_abi() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_create(call, value) {\n\
-             return mal_Handle_return(call, mal_Handle_from_bits((uintptr_t)value));\n\
+             return mal_from_bits(mal_type(Handle), (uintptr_t)value);\n\
          }\n\
          MAL_DEFINE_exchange(call, value) {\n\
-             if (value.tag != mal_Choice_tag_1) {\n\
+             if (value.tag != 1) {\n\
                  mal_call_trap(call, \"unexpected choice\");\n\
              }\n\
-             mal_Packet_t packet = value.payload.variant_1;\n\
-             uintptr_t bits = mal_Handle_to_bits(packet.field_1);\n\
-             return mal_Choice_return_1(\n\
-                 call,\n\
-                 (mal_Packet_t){\n\
+             mal_type(Packet) packet = value.payload.variant_1;\n\
+             uintptr_t bits = mal_bits(packet.field_1);\n\
+             return (mal_type(Choice)){\n\
+                 .tag = 1,\n\
+                 .payload.variant_1 = (mal_type(Packet)){\n\
                      .field_0 = packet.field_0,\n\
-                     .field_1 = mal_Handle_from_bits(bits + (uintptr_t)1),\n\
-                 }\n\
-             );\n\
+                     .field_1 = mal_from_bits(mal_type(Handle), bits + (uintptr_t)1),\n\
+                 },\n\
+             };\n\
          }\n\
          MAL_DEFINE_inspect(call, value) {\n\
-             return mal_UInt64_return(call, (uint64_t)mal_Handle_to_bits(value));\n\
+             return (uint64_t)mal_bits(value);\n\
          }\n",
     );
 
@@ -149,10 +191,10 @@ fn stores_external_opaque_values_in_buffers_without_a_lifecycle_callback() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_create(call, value) {\n\
-             return mal_Handle_return(call, mal_Handle_from_bits((uintptr_t)value));\n\
+             return mal_from_bits(mal_type(Handle), (uintptr_t)value);\n\
          }\n\
          MAL_DEFINE_inspect(call, value) {\n\
-             return mal_UInt64_return(call, (uint64_t)mal_Handle_to_bits(value));\n\
+             return (uint64_t)mal_bits(value);\n\
          }\n",
     );
 

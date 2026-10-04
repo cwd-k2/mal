@@ -32,12 +32,12 @@ MAL_DEFINE_readStdin(call) {
             break;
         }
     }
-    mal_Buffer_t result = mal_Buffer_make(call, sizeof(uint8_t), length);
+    mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), length);
     for (size_t index = 0; index < length; ++index) {
-        mal_Buffer_new(call, result, &data[index], sizeof(uint8_t));
+        mal_push(call, result, data[index]);
     }
     free(data);
-    return mal_Buffer_return_move(call, result);
+    return mal_move(result);
 }
 
 MAL_DEFINE_writeBytes(call, value) {
@@ -45,5 +45,5 @@ MAL_DEFINE_writeBytes(call, value) {
         && fwrite(value.data, 1, value.length, stdout) != value.length) {
         mal_call_trap(call, "cannot write stdout");
     }
-    return mal_Unit_return(call);
+    return mal_unit;
 }

@@ -9,8 +9,8 @@ _Static_assert(offsetof(MalType_Symbol, owner) == 0, "Symbol owner offset does n
 _Static_assert(offsetof(MalType_Symbol, data) == 8, "Symbol data offset does not match the mal target");
 _Static_assert(offsetof(MalType_Symbol, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_D022BAAFBEE28521_H
-#define MAL_GENERATED_INTERFACE_D022BAAFBEE28521_H
+#ifndef MAL_GENERATED_INTERFACE_8ED5F77BB9C3499F_H
+#define MAL_GENERATED_INTERFACE_8ED5F77BB9C3499F_H
 
 /* External operations */
 
@@ -21,24 +21,24 @@ void mal_ext_writeBytes(MalContext *context, MalType_Symbol value);
 
 #define MAL_HAS_EXTERN_readStdin 1
 #define MAL_DEFINE_readStdin(call) \
-static MalType_Buffer mal_detail_readStdin(mal_call_t *call); \
+static mal_Buffer_t mal_detail_readStdin(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED); \
 MalType_Buffer mal_ext_readStdin(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_readStdin(&call); \
 } \
-static MalType_Buffer mal_detail_readStdin( \
-    mal_call_t *call \
+static mal_Buffer_t mal_detail_readStdin( \
+    mal_call_t *call MAL_DETAIL_MAYBE_UNUSED \
 )
 
 #define MAL_HAS_EXTERN_writeBytes 1
 #define MAL_DEFINE_writeBytes(call, value) \
-static MalType_Unit mal_detail_writeBytes(mal_call_t *call, mal_Symbol_t value); \
+static mal_Unit_t mal_detail_writeBytes(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Symbol_t value); \
 void mal_ext_writeBytes(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Symbol value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     mal_detail_writeBytes(&call, value); \
 } \
-static MalType_Unit mal_detail_writeBytes( \
-    mal_call_t *call, \
+static mal_Unit_t mal_detail_writeBytes( \
+    mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, \
     mal_Symbol_t value \
 )
 

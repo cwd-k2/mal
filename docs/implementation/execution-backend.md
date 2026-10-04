@@ -41,8 +41,8 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 | Generated LLVM IR | function body、basic block、call、branch、dispatch、self-tail parameterの物理leaf、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
 | C runtime | allocation、reference count機構、control storage growth、共通flat byte ownerとSymbol汎用操作、fatal resource failure |
 | Generated C shim | process entry、LLVM moduleのroot呼出し、extern call bridge、managed parameter borrow、terminal result move |
-| Common `mal.h` | builtin carrier、call capability、trap、allocation、ownerとBuffer operation、C ABI version |
-| Generated C file header | file固有のruntime carrier、aggregate target layout、operation definition macro、constructor、target assertion |
+| Common `mal.h` | builtin carrier、call capability、trap、allocation、generic lifecycleとBuffer operation、C ABI version |
+| Generated C file header | file固有のruntime carrier、aggregate target layout、named/structural type spelling、lifecycle glue、operation definition macro、target assertion |
 | Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink、明示された外部toolchain argumentとinspection artifactの配送 |
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの
@@ -52,7 +52,7 @@ genericなmanaged owner headerのreference count更新と最後のdestructor呼�
 
 file headerはaggregate helperのfunction bodyを型ごとに複製せず、fieldまたはvariantごとの差分を`MAL_DETAIL_` descriptorとして
 記録する。1つのruntime representation descriptorはvariant index、member名、carrier型、offset、lifecycleを持ち、`mal.h`の
-program非依存templateがC record、constructor、share/drop/replaceへ展開する。
+program非依存templateがC record、share/drop/move、storage operationへ展開する。
 巨大なaggregateのdescriptorは一定数のmemberごとに分割し、preprocessorの1つの論理行を無制限に伸ばさない。descriptorとtemplateは
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 

@@ -202,7 +202,7 @@ fn returns_a_managed_native_result_from_a_tail_only_recursive_region() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
-         MAL_DEFINE_touch(call) { return mal_Unit_return(call); }\n",
+         MAL_DEFINE_touch(call) { return mal_unit; }\n",
     );
 
     let unavailable = directory.join("must-not-be-used");

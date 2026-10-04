@@ -94,13 +94,13 @@ fn declares_host_aggregates_in_structural_dependency_order() {
     assert!(declarations.contains("typedef mal_repr_sum_11ce2ff4640b9e1d_t mal_Result_t;"));
     assert!(declarations.contains(concat!(
         "field(context, 1, field_1, MalType_Symbol, mal_Symbol_t, ",
-        "MAL_DETAIL_REPR_IDENTITY, mal_Symbol_return_move)"
+        "MAL_DETAIL_REPR_IDENTITY, mal_detail_to_raw_Symbol)"
     )));
     assert!(declarations.contains(concat!(
         "field(context, 1, variant_1, MalRepr_Product_1e5f7ae9f35ae3d3, ",
         "mal_repr_product_1e5f7ae9f35ae3d3_t, ",
         "mal_detail_to_host_1e5f7ae9f35ae3d3, ",
-        "mal_repr_product_1e5f7ae9f35ae3d3_return)"
+        "mal_detail_to_raw_1e5f7ae9f35ae3d3)"
     )));
 }
 

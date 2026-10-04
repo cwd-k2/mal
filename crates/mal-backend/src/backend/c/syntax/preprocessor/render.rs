@@ -44,6 +44,37 @@ impl Directive {
                 output.push('\n');
                 output
             }
+            Self::NamedTypeDefine => {
+                "#define mal_type(name) MAL_DETAIL_NAMED_TYPE(name)\n\
+#define MAL_DETAIL_NAMED_TYPE(name) MAL_DETAIL_NAMED_TYPE_EXPAND(name)\n\
+#define MAL_DETAIL_NAMED_TYPE_EXPAND(name) mal_##name##_t\n"
+                    .into()
+            }
+            Self::StructuralTypeDefine { name, selector } => format!(
+                "#define {name}(...) __typeof__(*{selector}((void (*)(__VA_ARGS__))0))\n"
+            ),
+            Self::HostLifecycleDefines => {
+                "#define mal_storage(type) mal_detail_storage((type *)0, sizeof(type), _Alignof(type))\n\
+#define mal_share(call, value) __extension__ ({ \\\n    __auto_type mal_detail_shared = (value); \\\n    mal_detail_retain((call), &mal_detail_shared); \\\n    mal_detail_shared; \\\n})\n\
+#define mal_move(value) __extension__ ({ \\\n    __auto_type *mal_detail_source = &(value); \\\n    __auto_type mal_detail_moved = *mal_detail_source; \\\n    memset(mal_detail_source, 0, sizeof(*mal_detail_source)); \\\n    mal_detail_moved; \\\n})\n\
+#define mal_drop(value) ((void)__extension__ ({ \\\n    __auto_type *mal_detail_dropped = &(value); \\\n    mal_detail_release(mal_detail_dropped); \\\n    memset(mal_detail_dropped, 0, sizeof(*mal_detail_dropped)); \\\n}))\n"
+                    .into()
+            }
+            Self::OwnedTypeDefine => {
+                "#define mal_owned(name) mal_type(name) __attribute__((cleanup(MAL_DETAIL_CLEANUP(name))))\n\
+#define MAL_DETAIL_CLEANUP(name) MAL_DETAIL_CLEANUP_EXPAND(name)\n\
+#define MAL_DETAIL_CLEANUP_EXPAND(name) mal_detail_cleanup_##name\n"
+                    .into()
+            }
+            Self::BufferPushDefine => {
+                "#define mal_push(call, buffer, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_detail_buffer_push((call), (buffer), &mal_detail_element); \\\n})\n"
+                    .into()
+            }
+            Self::BufferMutationDefines => {
+                "#define mal_replace(call, buffer, index, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_runtime_buffer_replace_move((call)->mal_detail_context, (buffer), (index), &mal_detail_element); \\\n})\n\
+#define mal_fill(call, buffer, offset, count, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_runtime_buffer_fill_move((call)->mal_detail_context, (buffer), (offset), (count), &mal_detail_element); \\\n})\n"
+                    .into()
+            }
             Self::FunctionItemsDefine {
                 name,
                 parameters,

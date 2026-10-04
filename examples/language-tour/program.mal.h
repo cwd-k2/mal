@@ -10,8 +10,8 @@ _Static_assert(offsetof(MalType_Symbol, owner) == 0, "Symbol owner offset does n
 _Static_assert(offsetof(MalType_Symbol, data) == 8, "Symbol data offset does not match the mal target");
 _Static_assert(offsetof(MalType_Symbol, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_40AC143EC65A4706_H
-#define MAL_GENERATED_INTERFACE_40AC143EC65A4706_H
+#ifndef MAL_GENERATED_INTERFACE_405809FAC379D4E8_H
+#define MAL_GENERATED_INTERFACE_405809FAC379D4E8_H
 
 /* Host-visible types */
 
@@ -44,13 +44,36 @@ typedef struct mal_detail_repr_product_11bb4291f5045bdf mal_repr_product_11bb429
 #ifndef MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_DEFINED
 #define MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_11bb4291f5045bdf, MAL_DETAIL_REPR_FIELDS_11bb4291f5045bdf, MAL_DETAIL_HOST_REPR_FIELD)
+typedef void (*mal_detail_product_key_11bb4291f5045bdf_t)(mal_UInt64_t, mal_UInt64_t, mal_UInt64_t, mal_Float32_t, mal_Float32_t, mal_Float64_t, mal_Int64_t);
+__attribute__((overloadable)) mal_repr_product_11bb4291f5045bdf_t *mal_detail_product_type(mal_detail_product_key_11bb4291f5045bdf_t);
 #endif
 
 /* Type helpers */
 
+#ifndef MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_LIFECYCLE
+#define MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_LIFECYCLE
+static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_11bb4291f5045bdf_t *value MAL_DETAIL_MAYBE_UNUSED) {
+    mal_detail_retain(call, &value->field_0);
+    mal_detail_retain(call, &value->field_1);
+    mal_detail_retain(call, &value->field_2);
+    mal_detail_retain(call, &value->field_3);
+    mal_detail_retain(call, &value->field_4);
+    mal_detail_retain(call, &value->field_5);
+    mal_detail_retain(call, &value->field_6);
+}
+static inline __attribute__((overloadable)) void mal_detail_release(mal_repr_product_11bb4291f5045bdf_t *value MAL_DETAIL_MAYBE_UNUSED) {
+    mal_detail_release(&value->field_0);
+    mal_detail_release(&value->field_1);
+    mal_detail_release(&value->field_2);
+    mal_detail_release(&value->field_3);
+    mal_detail_release(&value->field_4);
+    mal_detail_release(&value->field_5);
+    mal_detail_release(&value->field_6);
+}
+#endif
 #ifndef MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_HELPERS
 #define MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_HELPERS
-MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_11bb4291f5045bdf, mal_repr_product_11bb4291f5045bdf_return, MalRepr_Product_11bb4291f5045bdf, mal_repr_product_11bb4291f5045bdf_t, MAL_DETAIL_REPR_FIELDS_11bb4291f5045bdf)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_11bb4291f5045bdf, mal_detail_to_raw_11bb4291f5045bdf, MalRepr_Product_11bb4291f5045bdf, mal_repr_product_11bb4291f5045bdf_t, MAL_DETAIL_REPR_FIELDS_11bb4291f5045bdf)
 #endif
 
 /* External operations */
@@ -62,25 +85,25 @@ MalType_Int32 mal_ext_inspectNumeric(MalContext *context, MalType_UInt64 argumen
 
 #define MAL_HAS_EXTERN_printInt32 1
 #define MAL_DEFINE_printInt32(call, value) \
-static MalType_Unit mal_detail_printInt32(mal_call_t *call, mal_Int32_t value); \
+static mal_Unit_t mal_detail_printInt32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int32_t value); \
 void mal_ext_printInt32(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Int32 value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     mal_detail_printInt32(&call, value); \
 } \
-static MalType_Unit mal_detail_printInt32( \
-    mal_call_t *call, \
+static mal_Unit_t mal_detail_printInt32( \
+    mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, \
     mal_Int32_t value \
 )
 
 #define MAL_HAS_EXTERN_inspectNumeric 1
 #define MAL_DEFINE_inspectNumeric(call, value) \
-static MalType_Int32 mal_detail_inspectNumeric(mal_call_t *call, mal_repr_product_11bb4291f5045bdf_t value); \
+static mal_Int32_t mal_detail_inspectNumeric(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_11bb4291f5045bdf_t value); \
 MalType_Int32 mal_ext_inspectNumeric(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_UInt64 argument_0, MalType_UInt64 argument_1, MalType_UInt64 argument_2, MalType_Float32 argument_3, MalType_Float32 argument_4, MalType_Float64 argument_5, MalType_Int64 argument_6) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_inspectNumeric(&call, mal_detail_to_host_11bb4291f5045bdf(&call, (MalRepr_Product_11bb4291f5045bdf){ .field_0 = argument_0, .field_1 = argument_1, .field_2 = argument_2, .field_3 = argument_3, .field_4 = argument_4, .field_5 = argument_5, .field_6 = argument_6 })); \
 } \
-static MalType_Int32 mal_detail_inspectNumeric( \
-    mal_call_t *call, \
+static mal_Int32_t mal_detail_inspectNumeric( \
+    mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, \
     mal_repr_product_11bb4291f5045bdf_t value \
 )
 

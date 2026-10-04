@@ -61,18 +61,18 @@ managed parameterはhost bodyが正常returnまたはtrapするまでcallerが�
 C-owned storageへ保存する。保存したresponsibilityは同じruntimeとthreadのcontractに従って後にdropする。carrier bitsだけのcopyは
 lifetimeを延長しない。
 
-managed resultはC bodyが所有する一つのresponsibilityをterminal return helperへmoveする。helper後に同じresponsibilityを使用または
-dropしてはならない。productとsumではactiveなmanaged leafへ再帰的にこの規則を適用する。hostがruntime allocationや別のshareで
+managed resultはC bodyが所有する一つのresponsibilityをCの`return`でmalへmoveする。owned localは`mal_move`して元をvacantにし、
+その場で構成したowned rvalueは直接returnする。productとsumではactiveなmanaged leafへ再帰的にこの規則を適用する。hostがruntime allocationや別のshareで
 取得し、resultにもC-owned storageにも渡さなかったtemporary responsibilityはhostがdropする。
 
-`mal.h`はSymbolとBufferのshare/drop、trivialまたはmanaged element Bufferの構築、terminal result moveを提供し、generated headerは
-aggregate constructorとreturn helperを提供する。aggregateの保存やmanaged Buffer callbackはhostがactive managed leafへ再帰して
-実装する。二重move、borrowのdrop、live placeのraw overwrite、invalid ownerなどcontract違反後の結果は保証しない。
+`mal.h`とgenerated headerは`mal_share`、`mal_move`、`mal_drop`、storage contractを保持するBuffer operationを提供し、aggregate lifecycleは
+compilerと同じconcrete type recursionから生成する。productとsumは公開fieldをC initializerで直接構成する。二重move、borrowのdrop、
+live placeのraw overwrite、invalid ownerなどcontract違反後の結果は保証しない。
 
 ## External opaque type
 
 external opaque typeはone-machine-wordのcopyable carrierである。malのcopy、binding、discard、Buffer storageはcarrier bitsだけを扱い、
-resourceのallocate、retain、release、close、freeを暗黙に実行しない。Cはgenerated `from_bits`と`to_bits`で`uintptr_t`へlosslessに
+resourceのallocate、retain、release、close、freeを暗黙に実行しない。Cは`mal_from_bits(mal_type(T), bits)`と`mal_bits(value)`で`uintptr_t`へlosslessに
 変換できる。zeroを含むvalid bit pattern、resource identity、permission、lifetime、failureはoperation固有contractが定める。
 
 file、socket、mapping、device allocationなどcall後にも存在するhost resourceはnominalなexternal opaque typeで表せる。raw pointerを

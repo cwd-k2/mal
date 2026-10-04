@@ -58,8 +58,8 @@ carrier leafのshare/drop、result moveの小さなhelperを提供する。produ
 helperを迂回することも妨げない。
 
 host bodyは現在と同じく`mal_call_t *`とsource-level parameter一個のruntime carrierを受け、productをflattenしない。parameter
-carrier自体はCのby-value copyであり、managed leafはcallerが保持するidentityへのborrowである。resultは型別terminal helperで
-runtime carrierを返し、managed responsibilityをmoveする。この形によりscalarとaggregateのvalue semantics、Bufferの共有mutation、
+carrier自体はCのby-value copyであり、managed leafはcallerが保持するidentityへのborrowである。resultはCのdirect returnで
+runtime carrierとmanaged responsibilityをmoveする。この形によりscalarとaggregateのvalue semantics、Bufferの共有mutation、
 Symbolのimmutable viewを同じsignature ruleから導く。
 
 runtime extension ABIはcompiler/runtimeとのexact matchだけを保証する。layout、symbol、source compatibility、binary

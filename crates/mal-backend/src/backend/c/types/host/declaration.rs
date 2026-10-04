@@ -1,4 +1,7 @@
-use crate::backend::c::syntax::{TranslationUnit, TypeName, c_expr, c_invocation, c_items, c_type};
+use crate::backend::c::syntax::{
+    Declaration, FunctionSignature, FunctionSpecifier, Parameter, TranslationUnit, TypeName,
+    c_expr, c_invocation, c_items, c_type,
+};
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
 
@@ -84,6 +87,7 @@ impl TypeRegistry {
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
             }
+            self.append_structural_type_selector(&mut guarded, ty);
             output.extend(c_items! {
                 if !defined({ guard }) {
                     ..{ guarded }
@@ -92,6 +96,31 @@ impl TypeRegistry {
             output.blank_line();
         }
         output
+    }
+
+    fn append_structural_type_selector(&self, output: &mut TranslationUnit, ty: &Type) {
+        let (kind, elements) = match ty {
+            Type::Product(elements) => ("product", elements.as_ref()),
+            Type::Sum(elements) => ("sum", elements.as_ref()),
+            _ => unreachable!("only products and sums have structural type selectors"),
+        };
+        let id = self.index(ty);
+        let key = format!("mal_detail_{kind}_key_{id}_t");
+        output.push(Declaration::function_pointer_type_alias(
+            TypeName::named("void"),
+            key.clone(),
+            elements
+                .iter()
+                .map(|element| Parameter::unnamed(self.host_value_c_type(element, None))),
+        ));
+        output.push(
+            FunctionSignature::new(
+                self.host_value_c_type(ty, None).pointer(),
+                format!("mal_detail_{kind}_type"),
+                [Parameter::unnamed(TypeName::named(key))],
+            )
+            .with_specifiers([FunctionSpecifier::Overloadable]),
+        );
     }
 
     fn host_alias_declaration(&self, alias: &TypeAlias) -> TranslationUnit {

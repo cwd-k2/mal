@@ -33,9 +33,10 @@ generated headerとC sourceを同じartifactとして再compileする。runtime 
 `mal.h`はtarget-independentな名前と、そのartifactで使うtarget C ABIに従う公開carrierを宣言する。少なくとも次を含む。
 
 - `MalContext`、Symbol carrier、Buffer handle
-- `MalType_Unit`、numeric scalar、`ByteSize`、`USize`、`MalType_Symbol`、Buffer handle
-- allocation、trap、owner share/drop、byte owner、Bufferのruntime operation
-- `mal_call_t`とcommon carrierのreturn helper
+- `mal_type(Unit)`、numeric scalar、`ByteSize`、`USize`、`mal_type(Symbol)`、`mal_type(Buffer)`
+- `mal_product(T, ...)`、`mal_sum(T, ...)`と、named closed typeに対する`mal_type(Name)`
+- allocation、trap、storage descriptor、SymbolとBufferのruntime operation
+- `mal_call_t`、`mal_share`、`mal_move`、`mal_drop`とoptional cleanup用の`mal_owned(Name)`
 
 Symbol fieldとBuffer element storageはC implementationから直接参照、変更できる。Buffer object、owner header、byte ownerの内部layoutは
 runtime implementation detailのまま、`mal.h`はdata/countと構築、growth、share/dropのoperationを公開する。helperは安全facadeではなく、
@@ -48,20 +49,27 @@ pointer index幅の`size_t`を使う。generated headerはsize、floating-point 
 
 ## Program-specific carrier
 
-generated file headerは、そのfileのextern signatureから到達するconcrete runtime carrierと、宣言元fileが所有するaliasとfile-local
-opaque representationを出す。source aliasがあれば`mal_<Alias>_t`、anonymous aggregateにはstructural fingerprintを持つ名前を使う。
-別fileの宣言追加やgraph load orderでfingerprintを変えない。
+generated file headerは、そのfileのextern signatureから到達するconcrete runtime carrierと、宣言元fileが所有するclosed aliasと
+file-local opaque representationを出す。source aliasには`mal_type(Alias)`を用意し、anonymous aggregateは
+`mal_product(T, ...)`または`mal_sum(T, ...)`で参照できる。実在するC identifierにはstructural fingerprintを使うが、host bodyは
+そのmanglingを組み立てない。別fileの宣言追加やgraph load orderでfingerprintを変えない。
+
+C type spellingはaliasとfile-local opaque representationを展開した後のruntime carrierを表し、Malのsurface type applicationを再現しない。
+transparent generic aliasは展開するため`mal_generic`やaliasごとの`*_of`を生成しない。sourceで名前を与えたclosed aliasだけは
+canonical carrierと互換な`mal_type(Name)`として残す。すべての`Buffer<T>`は`mal_type(Buffer)`へ写し、TはBuffer生成時に渡すstorage
+contractにだけ残す。
 
 primitive、Symbol、Buffer、product、sum、external opaque typeはLLVM moduleと同じruntime carrier layoutを使う。productはsource orderの
 field、sumはtagとvariant payload、Symbolはowner、active data、length、Bufferはstable runtime objectへのpointerである。generated
 headerはpointerとindex幅、Symbolのsizeとfield offsetを`_Static_assert`し、aggregateは同じtarget C ABIのrecord layoutをLLVM側の
-layout planにも使う。`mal_<Alias>_t`とcompiler-facing `MalType_<Alias>`の間に生成するfield-wise helperはCのnominalなrecord型を
-接続するだけで、別のwire encodingやcanonical host memory layoutを導入しない。
+layout planにも使う。compiler-facing bridgeが別のnominal C recordを必要とする場合も、それはgenerated wrapper内部に留め、host bodyへ
+別のraw型やreturn helperを公開しない。別のwire encodingやcanonical host memory layoutは導入しない。
 
-`mal_false`と`mal_true`だけがvalidなBool carrierである。sum tagはvariantの0-based indexである。Cがinvalid Bool、sum tag、owner、
-Symbol viewを構成した後の挙動は保証しない。constructorとprojection helperはvalid carrierを作る便宜であり、境界validationではない。
+`mal_false`と`mal_true`だけがvalidなBool carrierである。productは`.field_N`、sumは`.tag`と`.payload.variant_N`を持ち、sum tagはvariantの
+0-based indexである。C bodyはcompound literalまたはinitializerでaggregateを直接構成する。Cがinvalid Bool、sum tag、inactive payload、
+owner、Symbol viewを構成した後の挙動は保証しない。専用のproduct constructorやsum injection helper、境界validationは提供しない。
 
-external opaque typeはone-machine-word carrierであり、generated `mal_<T>_from_bits(uintptr_t)`と`mal_<T>_to_bits(value)`でlosslessに
+external opaque typeはone-machine-word carrierであり、`mal_from_bits(mal_type(T), bits)`と`mal_bits(value)`で`uintptr_t`へlosslessに
 変換する。resourceのallocate、clone、close、free、bit pattern validityはoperation固有contractが定める。
 
 ## Host operation
@@ -76,8 +84,8 @@ extern appendNewline :: Buffer<UInt8> -> Buffer<UInt8>;
 
 ```c
 MAL_DEFINE_appendNewline(call, buffer) {
-    mal_Buffer_UInt8_push(call, buffer, UINT8_C('\n'));
-    return mal_Buffer_UInt8_return_move(call, mal_Buffer_UInt8_share(call, buffer));
+    mal_push(call, buffer, UINT8_C('\n'));
+    return mal_share(call, buffer);
 }
 ```
 
@@ -85,23 +93,34 @@ body parameterは先頭の`mal_call_t *call`と、source-level parameterがUnit�
 by-valueの一carrierとして渡す。managed leafはcallerがbody完了まで保持するborrowであり、carrier自体のC copyは新しいresponsibilityを
 作らない。
 
-bodyはresult型に対応するterminal return helperで一度完了する。managed resultではhostが所有するresponsibilityをhelperへmoveし、
-helper後に使用またはdropしない。Unit、scalar、trivial aggregateのhelperも同じbody shapeを保つ。sumはvariant-specific constructorと
-terminal helperを生成する。空直和はnormal return helperを持たない。
+bodyはCの`return`で一度完了する。owned localをmanaged resultへ渡す場合は`return mal_move(value);`、borrowから独立したresultを作る場合は
+`return mal_share(call, value);`とする。その場で構成したowned rvalueとtrivial valueは直接returnできる。Unitは`mal_unit`をreturnする。
+空直和は正常にreturnできる値を持たない。
 
 `mal_call_t`は同期call中のruntime capabilityである。runtime allocation、share、trapに利用できるが、program固有continuation、現在の
 control state、Cからmal closureをapplicationするauthorityを持たない。pointerまたは内部stateをcall後に保持しない。
 
-## Lifecycle helper
+## Lifecycleとstorage
 
-`mal.h`はSymbolとBufferについて`share`、`drop`、`return_move`を提供する。productはmanaged field、sumはactive payloadだけへhostが
-再帰し、trivial fieldにはoperationを行わない。Cがparameterをcall後も保持する場合はbody中に独立したresponsibilityを作り、後の同じ
-thread上のhost operationかhost cleanupでdropする。保存したcarrierだけではlifetimeを延長しない。
+`mal_share(call, value)`は新しいresponsibility、`mal_move(value)`はowned lvalueから取り出したresponsibilityを返して元をvacantにし、
+`mal_drop(value)`はowned lvalueをdropしてvacantにする。productはmanaged field、sumはactive payloadだけへgenerated glueが再帰し、trivial
+fieldにはoperationを行わない。`mal_move`と`mal_drop`はlvalueだけを受け、一度だけ評価する。Cがparameterをcall後も保持する場合はbody中に
+`mal_share`し、後の同じthread上のhost operationかhost cleanupで`mal_drop`する。carrier bitsのcopyだけではlifetimeを延長しない。
 
-`mal.h`はBufferのdata pointer、count、trivial element用make/newと、retain/release callbackを受け取るmanaged element用
-make/new-moveを提供する。hostはcarrier fieldとleaf helperを使って型別callbackを実装できる。growthし得るoperation後は以前のelement
-pointerを使用せず再取得する。managed elementのraw overwrite、countを進める前の未初期化place公開、runtime以外によるBuffer
-object/data allocationのfreeはcontract違反である。
+`mal_owned(Name)`はsourceで名前を持つclosed typeのlocalへoptionalなlexical cleanupを付ける。scope終了、early return、明示drop、moveを
+同じvacant規則で扱うが、`mal_call_trap`はstack unwindingしない。正しさをautomatic cleanupだけへ依存させない。
+
+`mal_storage(T)`はsize、alignment、share、dropからなるstatic storage contractを返す。registry、型名検索、dynamic type equalityは持たない。
+`mal_buffer(call, Element, capacity)`はこのcontractをBuffer objectへ保持し、`mal_push`、`mal_replace`、`mal_fill`、`mal_copy`、
+`mal_append`、`mal_extend`、`mal_truncate`、`mal_reserve`が以後利用する。`mal_data`は`void *`、`mal_count`はelement countを返す。
+`push`と`replace`は一つのowned operand、`fill`は必要な数へshareした一つのowned operandをconsumeする。`copy`と`append`はsourceをborrowし、
+managed elementの新しいresponsibilityをdestinationに作る。`extend`はtrivial elementだけに未初期化の末尾を作る。`truncate`は末尾のmanaged
+elementをdropし、現在長以上の指定では何もしない。`reserve`はcountを変えない。`mal_snapshot(call, buffer)`は`Buffer<UInt8>`をborrowして、
+後のBuffer mutationから独立したSymbolを返す。
+
+growthし得るoperation後は以前のelement pointerを使用せず再取得する。descriptorと異なるpointer型でのaccess、異なるdescriptorを持つ
+Buffer間のcopy、managed elementのraw overwrite、`extend`で作った未初期化placeの観測、runtime以外によるBuffer object/data allocationの
+freeはcontract違反である。
 
 ## Failure、effect、concurrency
 

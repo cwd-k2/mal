@@ -1,10 +1,10 @@
 # C host APIの利用scenario監査
 
-Status: Exploratory
+Status: Implemented in v0.7
 
 この文書は[C host lifecycle操作を小さな語彙へまとめる案](c-host-lifecycle-ergonomics.md)をrepositoryのexampleへ適用し、
 genericなMal abstractionを除く処理をC externへ移した場合に不足する表現を調べる。現在のABI規範ではなく、proposal採択前の
-coverage記録である。
+coverage記録であり、現行規範は[C runtime extension ABI](../spec/c-host-abi.md)を正とする。
 
 v0.7 ABIは未公開なので、この案を採択しても`MAL_C_ABI_VERSION`は`0x000a00`のままとする。旧helperは残さず置き換える。
 
@@ -45,6 +45,7 @@ mal_truncate(buffer, count)
 mal_reserve(call, buffer, capacity)
 mal_data(buffer)
 mal_count(buffer)
+mal_snapshot(call, buffer)
 ```
 
 `push`、`replace`、`fill`はowned operandをconsumeする。productとsumはC initializerで構成し、managed fieldへowned localを入れる場合は
@@ -71,7 +72,7 @@ MAL_DEFINE_readStdin(call) {
 }
 ```
 
-static byte arrayやstack bufferには`mal_append`を使う。immutable snapshotは`mal_snapshot(call, bytes)`を候補に加える。これは
+static byte arrayやstack bufferには`mal_append`を使う。immutable snapshotには`mal_snapshot(call, bytes)`を使う。これは
 `Buffer<UInt8>`をborrowしてSymbolを返し、後のBuffer mutationから独立したbytesを保持する。単純実装は`mal_symbol(call,
 mal_data(bytes), mal_count(bytes))`であり、unique storage再利用はobservable semanticsを変えないoptimizationである。
 

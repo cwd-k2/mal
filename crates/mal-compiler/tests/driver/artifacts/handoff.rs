@@ -56,7 +56,7 @@ fn hands_direct_self_arguments_to_wildcard_parameters() {
          }\n\
          MAL_DEFINE_again(call) {\n\
            ++calls;\n\
-           return mal_Bool_return(call, (calls & 1UL) != 0 ? mal_true : mal_false);\n\
+           return (calls & 1UL) != 0 ? mal_true : mal_false;\n\
          }\n",
     );
 

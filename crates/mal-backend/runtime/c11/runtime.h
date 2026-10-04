@@ -154,6 +154,49 @@ size_t mal_runtime_buffer_new_managed_move(
     const void *value,
     size_t stride
 );
+size_t mal_runtime_buffer_new_move(
+    MalContext *context,
+    void *buffer,
+    const void *value
+);
+void mal_runtime_buffer_replace_move(
+    MalContext *context,
+    void *buffer,
+    size_t index,
+    const void *value
+);
+void mal_runtime_buffer_fill_move(
+    MalContext *context,
+    void *buffer,
+    size_t offset,
+    size_t count,
+    const void *value
+);
+void mal_runtime_buffer_copy_values(
+    MalContext *context,
+    void *destination,
+    size_t destination_offset,
+    const void *source,
+    size_t source_offset,
+    size_t count
+);
+void mal_runtime_buffer_append_values(
+    MalContext *context,
+    void *buffer,
+    const void *source,
+    size_t count
+);
+void *mal_runtime_buffer_extend(
+    MalContext *context,
+    void *buffer,
+    size_t count
+);
+void mal_runtime_buffer_truncate(void *buffer, size_t count);
+void mal_runtime_buffer_reserve_elements(
+    MalContext *context,
+    void *buffer,
+    size_t capacity
+);
 void mal_runtime_buffer_fill_managed(
     MalContext *context,
     void *buffer,
@@ -197,8 +240,8 @@ void mal_runtime_buffer_copy(
 /* The address of the element storage pointer, for generated code that reloads it after an operation that may grow the buffer. */
 void *const *mal_runtime_buffer_data_slot(const void *buffer);
 size_t mal_runtime_buffer_count(const void *buffer);
-/* Host memory holds canonical element bytes. `from` copies `count` elements starting at element `offset` into a new buffer;
- * `into` copies them the other way and leaves the buffer unchanged. */
+/* External memory holds runtime-carrier element bytes. `from` copies `count` elements starting at element `offset` into a
+ * new buffer; `into` copies them the other way and leaves the buffer unchanged. */
 void *mal_runtime_buffer_from(
     MalContext *context,
     const void *source,

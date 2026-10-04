@@ -9,8 +9,8 @@ _Static_assert(offsetof(MalType_Symbol, owner) == 0, "Symbol owner offset does n
 _Static_assert(offsetof(MalType_Symbol, data) == 8, "Symbol data offset does not match the mal target");
 _Static_assert(offsetof(MalType_Symbol, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_660249D5238ABE0B_H
-#define MAL_GENERATED_INTERFACE_660249D5238ABE0B_H
+#ifndef MAL_GENERATED_INTERFACE_5B556A22983DDCE3_H
+#define MAL_GENERATED_INTERFACE_5B556A22983DDCE3_H
 
 /* Host-visible types */
 
@@ -43,18 +43,35 @@ typedef mal_Buffer_t mal_Samples_t;
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DEFINED
 #define MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1e36b8e9f3384819, MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819, MAL_DETAIL_HOST_REPR_FIELD)
+typedef void (*mal_detail_product_key_1e36b8e9f3384819_t)(mal_Int64_t, mal_UInt8_t);
+__attribute__((overloadable)) mal_repr_product_1e36b8e9f3384819_t *mal_detail_product_type(mal_detail_product_key_1e36b8e9f3384819_t);
 #endif
 
 /* Type helpers */
 
+#ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_LIFECYCLE
+#define MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_LIFECYCLE
+static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_repr_product_1e36b8e9f3384819_t *value MAL_DETAIL_MAYBE_UNUSED) {
+    mal_detail_retain(call, &value->field_0);
+    mal_detail_retain(call, &value->field_1);
+}
+static inline __attribute__((overloadable)) void mal_detail_release(mal_repr_product_1e36b8e9f3384819_t *value MAL_DETAIL_MAYBE_UNUSED) {
+    mal_detail_release(&value->field_0);
+    mal_detail_release(&value->field_1);
+}
+#endif
+static inline void mal_detail_cleanup_Sample(mal_Sample_t *value) {
+    mal_detail_release(value);
+    memset(value, 0, sizeof(*value));
+}
+static inline void mal_detail_cleanup_Samples(mal_Samples_t *value) {
+    mal_detail_release(value);
+    memset(value, 0, sizeof(*value));
+}
 #ifndef MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_HELPERS
 #define MAL_DETAIL_HOST_REPR_1e36b8e9f3384819_HELPERS
-MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_1e36b8e9f3384819, mal_repr_product_1e36b8e9f3384819_return, MalRepr_Product_1e36b8e9f3384819, mal_repr_product_1e36b8e9f3384819_t, MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819)
+MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_1e36b8e9f3384819, mal_detail_to_raw_1e36b8e9f3384819, MalRepr_Product_1e36b8e9f3384819, mal_repr_product_1e36b8e9f3384819_t, MAL_DETAIL_REPR_FIELDS_1e36b8e9f3384819)
 #endif
-
-MAL_DETAIL_DEFINE_CONVERTING_RETURN(mal_Sample_return, MalType_Sample, mal_Sample_t, mal_repr_product_1e36b8e9f3384819_return)
-#define MAL_DETAIL_TO_RAW_ALIAS_Samples value
-MAL_DETAIL_DEFINE_CONVERSION(mal_Samples_return, MalType_Samples, mal_Samples_t, MAL_DETAIL_TO_RAW_ALIAS_Samples)
 
 /* External operations */
 
@@ -65,24 +82,24 @@ MalType_Int32 mal_ext_inspectSamples(MalContext *context, MalType_Samples value)
 
 #define MAL_HAS_EXTERN_sampleStorage 1
 #define MAL_DEFINE_sampleStorage(call) \
-static MalType_Samples mal_detail_sampleStorage(mal_call_t *call); \
+static mal_Samples_t mal_detail_sampleStorage(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED); \
 MalType_Samples mal_ext_sampleStorage(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_sampleStorage(&call); \
 } \
-static MalType_Samples mal_detail_sampleStorage( \
-    mal_call_t *call \
+static mal_Samples_t mal_detail_sampleStorage( \
+    mal_call_t *call MAL_DETAIL_MAYBE_UNUSED \
 )
 
 #define MAL_HAS_EXTERN_inspectSamples 1
 #define MAL_DEFINE_inspectSamples(call, value) \
-static MalType_Int32 mal_detail_inspectSamples(mal_call_t *call, mal_Samples_t value); \
+static mal_Int32_t mal_detail_inspectSamples(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Samples_t value); \
 MalType_Int32 mal_ext_inspectSamples(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Samples value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
     return mal_detail_inspectSamples(&call, value); \
 } \
-static MalType_Int32 mal_detail_inspectSamples( \
-    mal_call_t *call, \
+static mal_Int32_t mal_detail_inspectSamples( \
+    mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, \
     mal_Samples_t value \
 )
 

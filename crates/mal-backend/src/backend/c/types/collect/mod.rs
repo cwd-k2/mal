@@ -113,7 +113,7 @@ impl TypeRegistry {
             Type::Float32 => super::ElementKey::Float32,
             Type::Float64 => super::ElementKey::Float64,
             Type::Symbol => super::ElementKey::Symbol,
-            Type::Buffer(element) => super::ElementKey::Buffer(self.element_id(element)),
+            Type::Buffer(_) => super::ElementKey::Buffer,
             Type::ByteSize => super::ElementKey::ByteSize,
             Type::USize => super::ElementKey::USize,
             Type::External { name, .. } => super::ElementKey::External(name.clone()),
@@ -162,7 +162,7 @@ fn fingerprint(key: &super::AggregateKey) -> u64 {
             super::ElementKey::Float32 => 9,
             super::ElementKey::Float64 => 10,
             super::ElementKey::Symbol => 11,
-            super::ElementKey::Buffer(_) => 12,
+            super::ElementKey::Buffer => 12,
             super::ElementKey::ByteSize => 13,
             super::ElementKey::USize => 14,
             super::ElementKey::External(_) => 15,
@@ -171,9 +171,7 @@ fn fingerprint(key: &super::AggregateKey) -> u64 {
         write_byte(state, tag);
         match element {
             super::ElementKey::External(name) => write_bytes(state, name.as_bytes()),
-            super::ElementKey::Aggregate(id) | super::ElementKey::Buffer(id) => {
-                write_bytes(state, &id.0.to_le_bytes())
-            }
+            super::ElementKey::Aggregate(id) => write_bytes(state, &id.0.to_le_bytes()),
             _ => {}
         }
     }
