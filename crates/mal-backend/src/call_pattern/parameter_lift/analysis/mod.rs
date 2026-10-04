@@ -111,6 +111,21 @@ pub(super) fn replace_type(ty: &Type, path: &[usize], replacement: &Type) -> Opt
         return None;
     };
     let mut elements = elements.to_vec();
-    elements[*first] = replace_type(elements.get(*first)?, rest, replacement)?;
+    let element = elements.get(*first)?;
+    let replaced = replace_type(element, rest, replacement)?;
+    elements[*first] = replaced;
     Some(Type::Product(elements.into()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::replace_type;
+    use mal_frontend::check::ast::Type;
+
+    #[test]
+    fn type_replacement_rejects_a_path_outside_the_product() {
+        let ty = Type::Product(vec![Type::Int32].into());
+
+        assert_eq!(replace_type(&ty, &[1], &Type::UInt8), None);
+    }
 }
