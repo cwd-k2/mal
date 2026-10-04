@@ -31,10 +31,6 @@ impl Statement {
                 value.render(output);
                 output.push_str(";\n");
             }
-            Self::ReturnVoid => {
-                write_indent(output, depth);
-                output.push_str("return;\n");
-            }
             Self::If { condition, then } => {
                 write_indent(output, depth);
                 output.push_str("if (");
@@ -42,6 +38,7 @@ impl Statement {
                 output.push_str(") ");
                 then.render_braced(output, depth);
             }
+            #[cfg(test)]
             Self::Switch { value, cases } => {
                 write_indent(output, depth);
                 output.push_str("switch (");
@@ -73,6 +70,7 @@ impl Block {
     }
 }
 
+#[cfg(test)]
 impl SwitchCase {
     pub(in crate::backend::c::syntax) fn render(
         &self,

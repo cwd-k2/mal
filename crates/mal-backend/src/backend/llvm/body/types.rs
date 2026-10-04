@@ -220,6 +220,7 @@ impl Types {
         field_layouts(&self.fields(elements, &mut HashMap::new())?)
     }
 
+    #[cfg(test)]
     pub(in crate::backend::llvm) fn sum_fields(&self, ty: &Type) -> Option<Vec<Field>> {
         let Type::Sum(elements) = ty else {
             return None;

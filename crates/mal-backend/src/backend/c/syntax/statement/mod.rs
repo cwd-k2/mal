@@ -10,11 +10,11 @@ pub(in crate::backend) enum Statement {
     },
     Expression(Expr),
     Return(Expr),
-    ReturnVoid,
     If {
         condition: Expr,
         then: Block,
     },
+    #[cfg(test)]
     Switch {
         value: Expr,
         cases: Vec<SwitchCase>,
@@ -40,6 +40,7 @@ enum FunctionHeader {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg(test)]
 pub(in crate::backend) enum SwitchCase {
     Case { label: Option<Expr>, body: Block },
     MacroInvocation(MacroInvocation),
@@ -64,14 +65,11 @@ impl Statement {
         Self::Return(value)
     }
 
-    pub(in crate::backend) fn return_void() -> Self {
-        Self::ReturnVoid
-    }
-
     pub(in crate::backend) fn if_then(condition: Expr, then: Block) -> Self {
         Self::If { condition, then }
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn switch(value: Expr, cases: Vec<SwitchCase>) -> Self {
         Self::Switch { value, cases }
     }
@@ -94,6 +92,7 @@ impl Block {
     }
 }
 
+#[cfg(test)]
 impl SwitchCase {
     pub(in crate::backend) fn case(label: Expr, body: Block) -> Self {
         Self::Case {
@@ -113,6 +112,7 @@ impl From<MacroInvocation> for Statement {
     }
 }
 
+#[cfg(test)]
 impl From<MacroInvocation> for SwitchCase {
     fn from(value: MacroInvocation) -> Self {
         Self::MacroInvocation(value)

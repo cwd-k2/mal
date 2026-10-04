@@ -100,12 +100,8 @@ pub(crate) fn generate_with_header_files(
         .interface
         .externals
         .iter()
-        .map(|external| {
-            host_bridge::generate(external, layout, &raw_types).ok_or(
-                Error::InconsistentExecutionPlan("extern bridge emission".into()),
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+        .map(|external| host_bridge::generate(external, &raw_types))
+        .collect::<Vec<_>>();
     let external_declarations = external_bridges
         .iter()
         .map(|bridge| bridge.llvm_declaration.clone())

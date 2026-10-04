@@ -67,8 +67,11 @@ impl RawHostTypes {
         Self { types }
     }
 
-    pub(crate) fn c_type(&self, ty: &mal_frontend::check::ast::Type) -> String {
-        self.types.c_type(ty).to_string()
+    pub(in crate::backend) fn c_type(
+        &self,
+        ty: &mal_frontend::check::ast::Type,
+    ) -> crate::backend::c::syntax::TypeName {
+        self.types.c_type(ty)
     }
 }
 

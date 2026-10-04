@@ -277,7 +277,7 @@ fn emits_long_completion_control_sequences_without_ast_duplication() {
 }
 
 #[test]
-fn emits_shared_extern_sum_helpers_once_per_type() {
+fn passes_nested_extern_sums_through_the_runtime_carrier() {
     let mut declarations = String::from("Choice0 :: [UInt8, UInt8];\n");
     for depth in 1..16 {
         declarations.push_str(&format!(
@@ -310,12 +310,8 @@ fn emits_shared_extern_sum_helpers_once_per_type() {
     )
     .expect("shared extern sum is supported");
 
-    assert!(artifacts.shim.len() < 250_000);
-    assert_eq!(
-        artifacts
-            .shim
-            .matches("static void mal_bridge_external_0_write_sum_")
-            .count(),
-        16
-    );
+    assert!(artifacts.shim.len() < 2_000);
+    assert!(!artifacts.shim.contains("switch"));
+    assert!(!artifacts.shim.contains("invalid sum tag"));
+    assert!(artifacts.shim.contains("mal_ext_exchange"));
 }

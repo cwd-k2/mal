@@ -22,7 +22,9 @@ pub(in crate::backend) use self::literal::{NumericLiteral, StringLiteral};
 pub(in crate::backend) use self::name::Identifier;
 pub(in crate::backend) use self::operator::{BinaryOperator, UnaryOperator};
 pub(in crate::backend) use self::preprocessor::{Attribute, Directive, MacroInvocation};
-pub(in crate::backend) use self::statement::{Block, FunctionDefinition, Statement, SwitchCase};
+#[cfg(test)]
+pub(in crate::backend) use self::statement::SwitchCase;
+pub(in crate::backend) use self::statement::{Block, FunctionDefinition, Statement};
 pub(in crate::backend) use self::translation_unit::TranslationUnit;
 pub(in crate::backend) use self::unit::{
     Comment, Declaration, RecordDefinition, RecordField, RecordKind,

@@ -253,6 +253,7 @@ impl Initializer {
         }
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn designated_path(
         path: impl IntoIterator<Item = impl Into<Identifier>>,
         value: Expr,
