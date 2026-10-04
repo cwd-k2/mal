@@ -19,7 +19,9 @@ pub(super) fn shift_bounded(
     budget.visit(traversal_depth)?;
     Ok(match ty {
         Type::Bound { index, kind } if *index >= depth => Type::Bound {
-            index: index.saturating_add_signed(amount),
+            index: index
+                .checked_add_signed(amount)
+                .expect("type index shift must preserve enclosing binders"),
             kind: kind.clone(),
         },
         Type::Application {
@@ -139,4 +141,28 @@ fn map_all(
         mapped.push(map(ty)?);
     }
     Ok(mapped)
+}
+
+#[cfg(test)]
+mod tests {
+    use mal_syntax::source::{FileId, Span};
+
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "type index shift must preserve enclosing binders")]
+    fn shift_rejects_removing_a_referenced_binder() {
+        let mut budget = Budget::new(Span::new(FileId::new(0), 0, 0));
+
+        let _ = shift_bounded(
+            &Type::Bound {
+                index: 0,
+                kind: super::super::Kind::Type,
+            },
+            0,
+            -1,
+            &mut budget,
+            0,
+        );
+    }
 }
