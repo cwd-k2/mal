@@ -85,4 +85,17 @@ impl Resolver {
             self.types.remove(&parameter.name.text);
         }
     }
+
+    /// Resolves one declaration body with its type parameters in scope and restores the surrounding type scope on
+    /// both success and failure.
+    pub(super) fn with_type_parameters<T>(
+        &mut self,
+        parameters: &[mal_syntax::ast::Name],
+        resolve: impl FnOnce(&mut Self) -> Result<T, Diagnostic>,
+    ) -> Result<(Vec<TypeBinding>, T), Diagnostic> {
+        let bindings = self.push_type_parameters(parameters)?;
+        let result = resolve(self);
+        self.pop_type_parameters(&bindings);
+        result.map(|value| (bindings, value))
+    }
 }

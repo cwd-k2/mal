@@ -132,15 +132,10 @@ impl Resolver {
 
         if annotation.is_some()
             && let mal_syntax::ast::Pattern::Name(name) = &binding.pattern.kind
-            && let mal_syntax::ast::Expression::Lambda(lambda) = &binding.value.kind
+            && matches!(&binding.value.kind, mal_syntax::ast::Expression::Lambda(_))
         {
             let declared = self.declare_value(name, owner)?;
-            let value = mal_syntax::ast::Node::new(
-                ast::Expression::Lambda(
-                    self.resolve_lambda_with_self(lambda, Some(declared.clone()))?,
-                ),
-                binding.value.span,
-            );
+            let value = self.resolve_initializer_with_self(&binding.value, declared.clone())?;
             let pattern =
                 mal_syntax::ast::Node::new(ast::Pattern::Binding(declared), binding.pattern.span);
             return Ok(ast::Binding {

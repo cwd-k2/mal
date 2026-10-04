@@ -7,6 +7,23 @@ use super::ast::{
 };
 
 impl Resolver {
+    /// Resolves an initializer whose direct lambda may refer to `self_binding`. Other expression forms use the
+    /// ordinary sequential-binding rule and therefore cannot see the binding while they are resolved.
+    pub(super) fn resolve_initializer_with_self(
+        &mut self,
+        value: &ast::Node<ast::Expression>,
+        self_binding: super::ast::ValueBinding,
+    ) -> Result<ast::Node<Expression>, Diagnostic> {
+        if let ast::Expression::Lambda(lambda) = &value.kind {
+            Ok(ast::Node::new(
+                Expression::Lambda(self.resolve_lambda_with_self(lambda, Some(self_binding))?),
+                value.span,
+            ))
+        } else {
+            self.resolve_expression(value)
+        }
+    }
+
     pub(super) fn resolve_expression(
         &mut self,
         expression: &ast::Node<ast::Expression>,

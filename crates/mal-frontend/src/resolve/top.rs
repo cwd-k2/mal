@@ -17,13 +17,12 @@ impl Resolver {
                 parameters,
                 value,
             } => {
-                let bindings = self.push_type_parameters(parameters)?;
-                let resolved = self.resolve_type(value);
-                self.pop_type_parameters(&bindings);
+                let (bindings, value) =
+                    self.with_type_parameters(parameters, |resolver| resolver.resolve_type(value))?;
                 ast::TopItem::GenericTypeAlias {
                     binding: self.type_binding(name)?,
                     parameters: bindings,
-                    value: resolved?,
+                    value,
                 }
             }
             mal_syntax::ast::TopItem::OpaqueType {
@@ -31,13 +30,14 @@ impl Resolver {
                 parameters,
                 representation,
             } => {
-                let bindings = self.push_type_parameters(parameters)?;
-                let resolved = self.resolve_type(representation);
-                self.pop_type_parameters(&bindings);
+                let (bindings, representation) = self
+                    .with_type_parameters(parameters, |resolver| {
+                        resolver.resolve_type(representation)
+                    })?;
                 ast::TopItem::OpaqueType {
                     binding: self.type_binding(name)?,
                     parameters: bindings,
-                    representation: resolved?,
+                    representation,
                 }
             }
             mal_syntax::ast::TopItem::ExternalType { name } => ast::TopItem::ExternalType {
@@ -69,13 +69,14 @@ impl Resolver {
                     let parameters = generic_parameter_names(arguments)?;
                     let binding = self.declare_value(name, ValueOwner::TopLevel)?;
                     self.operation_families.insert(binding.id);
-                    let parameter_bindings = self.push_type_parameters(&parameters)?;
-                    let annotation = self.resolve_type(annotation);
-                    self.pop_type_parameters(&parameter_bindings);
+                    let (parameter_bindings, annotation) = self
+                        .with_type_parameters(&parameters, |resolver| {
+                            resolver.resolve_type(annotation)
+                        })?;
                     ast::TopItem::OperationFamily {
                         binding,
                         parameters: parameter_bindings,
-                        annotation: annotation?,
+                        annotation,
                     }
                 } else if let Some(family) = existing
                     && self.operation_families.contains(&family.id)
@@ -89,29 +90,18 @@ impl Resolver {
                                 .map(|ty| (binder.text.clone(), ty.to_string()))
                         })
                         .collect();
-                    let parameter_bindings = self.push_type_parameters(&parameter_names)?;
-                    let resolved = (|| {
-                        let arguments = arguments
-                            .iter()
-                            .map(|argument| self.resolve_type(argument))
-                            .collect::<Result<_, _>>()?;
-                        let annotation = self.resolve_type(annotation)?;
-                        let value = value.as_ref().expect("implementation has an initializer");
-                        let value = if let mal_syntax::ast::Expression::Lambda(lambda) = &value.kind
-                        {
-                            mal_syntax::ast::Node::new(
-                                ast::Expression::Lambda(
-                                    self.resolve_lambda_with_self(lambda, Some(family.clone()))?,
-                                ),
-                                value.span,
-                            )
-                        } else {
-                            self.resolve_expression(value)?
-                        };
-                        Ok((arguments, annotation, value))
-                    })();
-                    self.pop_type_parameters(&parameter_bindings);
-                    let (arguments, annotation, value) = resolved?;
+                    let (parameter_bindings, (arguments, annotation, value)) = self
+                        .with_type_parameters(&parameter_names, |resolver| {
+                            let arguments = arguments
+                                .iter()
+                                .map(|argument| resolver.resolve_type(argument))
+                                .collect::<Result<_, _>>()?;
+                            let annotation = resolver.resolve_type(annotation)?;
+                            let value = value.as_ref().expect("implementation has an initializer");
+                            let value =
+                                resolver.resolve_initializer_with_self(value, family.clone())?;
+                            Ok((arguments, annotation, value))
+                        })?;
                     ast::TopItem::OperationImplementation {
                         family: ast::ValueReference {
                             id: family.id,
@@ -126,25 +116,14 @@ impl Resolver {
                 } else {
                     let parameters = generic_parameter_names(arguments)?;
                     let binding = self.declare_value(name, ValueOwner::TopLevel)?;
-                    let parameter_bindings = self.push_type_parameters(&parameters)?;
-                    let resolved = (|| {
-                        let annotation = self.resolve_type(annotation)?;
-                        let value = value.as_ref().expect("generic binding has an initializer");
-                        let value = if let mal_syntax::ast::Expression::Lambda(lambda) = &value.kind
-                        {
-                            mal_syntax::ast::Node::new(
-                                ast::Expression::Lambda(
-                                    self.resolve_lambda_with_self(lambda, Some(binding.clone()))?,
-                                ),
-                                value.span,
-                            )
-                        } else {
-                            self.resolve_expression(value)?
-                        };
-                        Ok((annotation, value))
-                    })();
-                    self.pop_type_parameters(&parameter_bindings);
-                    let (annotation, value) = resolved?;
+                    let (parameter_bindings, (annotation, value)) =
+                        self.with_type_parameters(&parameters, |resolver| {
+                            let annotation = resolver.resolve_type(annotation)?;
+                            let value = value.as_ref().expect("generic binding has an initializer");
+                            let value =
+                                resolver.resolve_initializer_with_self(value, binding.clone())?;
+                            Ok((annotation, value))
+                        })?;
                     ast::TopItem::GenericBinding {
                         binding,
                         parameters: parameter_bindings,
