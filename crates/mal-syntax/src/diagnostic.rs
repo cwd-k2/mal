@@ -176,4 +176,17 @@ mod tests {
 
         assert!(diagnostic.render(&source).contains("|    ^ expected `;`"));
     }
+
+    #[test]
+    fn reports_a_span_between_crlf_bytes_as_invalid() {
+        let file = FileId::new(0);
+        let source = SourceFile::new(file, "sample.mal", "first\r\nsecond".into());
+        let diagnostic =
+            Diagnostic::error("invalid position").with_primary(Span::new(file, 6, 6), "here");
+
+        assert_eq!(
+            diagnostic.render(&source),
+            "error: invalid position\n --> sample.mal:<invalid span>\n"
+        );
+    }
 }

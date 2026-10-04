@@ -28,12 +28,14 @@ fn lines_exclude_line_endings() {
 }
 
 #[test]
-fn span_membership_checks_file_bounds_and_utf8_boundaries() {
-    let source = SourceFile::new(FileId::new(1), "sample.mal", "é".into());
+fn span_membership_checks_file_bounds_and_source_positions() {
+    let source = SourceFile::new(FileId::new(1), "sample.mal", "é\r\n".into());
 
     assert!(source.contains(Span::new(FileId::new(1), 0, 2)));
     assert!(!source.contains(Span::new(FileId::new(2), 0, 2)));
     assert!(!source.contains(Span::new(FileId::new(1), 0, 1)));
+    assert!(!source.contains(Span::new(FileId::new(1), 3, 3)));
+    assert_eq!(source.location(3), None);
 }
 
 #[test]

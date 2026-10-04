@@ -69,7 +69,7 @@ impl SourceFile {
 
     /// Converts a UTF-8 boundary to a one-based line and Unicode-scalar column.
     pub fn location(&self, byte_offset: usize) -> Option<Location> {
-        if byte_offset > self.text.len() || !self.text.is_char_boundary(byte_offset) {
+        if !self.is_position_boundary(byte_offset) {
             return None;
         }
         let line_index = self
@@ -140,12 +140,20 @@ impl SourceFile {
         })
     }
 
-    /// Returns whether the span belongs to this file and both endpoints are valid UTF-8 boundaries.
+    /// Returns whether the span belongs to this file and both endpoints are valid source positions.
     pub fn contains(&self, span: Span) -> bool {
         span.file == self.id
-            && span.end <= self.text.len()
-            && self.text.is_char_boundary(span.start)
-            && self.text.is_char_boundary(span.end)
+            && self.is_position_boundary(span.start)
+            && self.is_position_boundary(span.end)
+    }
+
+    /// A source position may occur before or after a CRLF pair, but not between its two bytes.
+    fn is_position_boundary(&self, byte_offset: usize) -> bool {
+        byte_offset <= self.text.len()
+            && self.text.is_char_boundary(byte_offset)
+            && !(byte_offset > 0
+                && self.text.as_bytes().get(byte_offset - 1) == Some(&b'\r')
+                && self.text.as_bytes().get(byte_offset) == Some(&b'\n'))
     }
 }
 
