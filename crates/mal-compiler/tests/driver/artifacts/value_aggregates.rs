@@ -145,6 +145,43 @@ fn branches_over_bool_and_unmanaged_sums_through_llvm() {
 }
 
 #[test]
+fn preserves_payload_bytes_that_overlap_another_sum_variants_padding() {
+    let directory = NativeFixture::new("driver-llvm-sum-padding");
+    let source = directory.join("program.mal");
+    directory.write(
+        "program.mal",
+        "Choice :: [Buffer<UInt8>, (UInt8, UInt64)];\n\
+         wrap :: Buffer<UInt8> -> Choice := (bytes) -> [withBytes, withPair] => withBytes(bytes);\n\
+         identity :: Choice -> Choice := (choice) -> choice;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           bytes := make<UInt8>(1usize);\n\
+           bytes.new(42u8);\n\
+           identity(wrap(bytes))[\n\
+             (result) -> { result.get(0usize).i32 - 42 },\n\
+             (_) -> { 1 }];\n\
+         };",
+    );
+
+    for optimization in ["baseline", "production"] {
+        let executable = directory.join(optimization);
+        let output = directory.malc([
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--optimization"),
+            OsStr::new(optimization),
+        ]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(executable).status.code(), Some(0));
+    }
+}
+
+#[test]
 fn runs_sum_results_and_postfix_application_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-sum-result");
     let source = directory.join("program.mal");

@@ -189,6 +189,25 @@ impl Types {
             .expect("target layout has scalar and pointer alignments")
     }
 
+    fn alignment_anchor(&self, alignment: usize) -> Option<LlvmType> {
+        for (index, candidate) in self.target.integer_alignments.into_iter().enumerate() {
+            if candidate == alignment {
+                let bits = u16::try_from(8usize.checked_shl(u32::try_from(index).ok()?)?).ok()?;
+                return Some(llvm_type!(int({ bits })));
+            }
+        }
+        for (index, candidate) in self.target.float_alignments.into_iter().enumerate() {
+            if candidate == alignment {
+                return match index {
+                    0 => Some(llvm_type!(float)),
+                    1 => Some(llvm_type!(double)),
+                    _ => None,
+                };
+            }
+        }
+        (self.target.pointer_alignment == alignment).then_some(llvm_type!(ptr))
+    }
+
     fn product(
         &self,
         elements: &[Type],
@@ -266,23 +285,21 @@ impl Types {
             return Some(None);
         };
         let alignment = anchor.alignment;
+        let alignment_anchor = self.alignment_anchor(alignment)?;
         let size = align(
             variants.iter().map(|variant| variant.size).max()?,
             alignment,
         )?;
-        let tail = size.checked_sub(anchor.size)?;
-        let llvm = if tail == 0 {
-            anchor.llvm.clone()
-        } else {
-            llvm_type! {
-                structure([
-                    { anchor.llvm.clone() },
-                    array({ tail }, int(8_u16)),
-                ])
-            }
-        };
         Some(Some(ValueType {
-            llvm,
+            // The zero-length field gives the payload the C union's alignment without turning
+            // any live variant bytes into LLVM padding. Whole-value loads and stores must retain
+            // every payload byte, including bytes that are padding in a different variant.
+            llvm: llvm_type! {
+                structure([
+                    array(0, { alignment_anchor }),
+                    array({ size }, int(8_u16)),
+                ])
+            },
             alignment,
             size,
         }))
@@ -344,7 +361,7 @@ mod tests {
         let value = types.value(&ty).unwrap();
         let fields = types.sum_fields(&ty).unwrap();
 
-        assert_eq!(value.llvm.to_string(), "{ i32, i64 }");
+        assert_eq!(value.llvm.to_string(), "{ i32, { [0 x i64], [8 x i8] } }");
         assert_eq!(value.size, 16);
         assert_eq!(
             fields.iter().map(|field| field.offset).collect::<Vec<_>>(),
@@ -361,7 +378,7 @@ mod tests {
         let value = types.value(&ty).unwrap();
         let fields = types.sum_fields(&ty).unwrap();
 
-        assert_eq!(value.llvm.to_string(), "{ i32, { i64, [8 x i8] } }");
+        assert_eq!(value.llvm.to_string(), "{ i32, { [0 x i64], [16 x i8] } }");
         assert_eq!(value.size, 24);
         assert_eq!(
             fields.iter().map(|field| field.offset).collect::<Vec<_>>(),

@@ -93,8 +93,9 @@ memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 
 ## 2026-10-04 C runtime carrier bridge
 
 上記の12 byte sumは64-bit C ABIの`uint32_t` tagと`uint64_t` union payloadが作る16 byte carrierと一致せず、Buffer elementの
-strideも異なっていた。payloadを最大alignmentのvariantでanchorし、最大sizeをそのalignmentへ丸めることでLLVM carrierも
-16 byteにした。これによりC shimの再帰的marshallingとsum tag validationを削除し、同一carrierをinternal pointer storageから
+strideも異なっていた。payloadの最大sizeを最大alignmentへ丸め、zero-length scalarでalignmentだけを与えることでLLVM carrierも
+16 byteにした。alignment用に実在variantを使うと、そのvariantのpaddingと重なる別variantのlive byteがsum全体のload/storeで
+失われるため、payloadの全byteは独立したarray fieldで表す。これによりC shimの再帰的marshallingとsum tag validationを削除し、同一carrierをinternal pointer storageから
 直接load/storeできるようになった。`resource-errors`のshimは4,213 byteから1,791 byteへ、production executableのtextは
 6,828 byteから6,812 byteへ減った。
 

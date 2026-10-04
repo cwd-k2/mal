@@ -117,7 +117,8 @@ program固有の実行はLLVM IRへlowerする。scalarは仕様どおりのLLVM
 ties-to-evenを満たすLLVM instructionを選ぶ。
 
 productはLLVM struct、sumはtagと最大payloadを収めるunion相当regionのstruct、Boolは`i1`で表現する。sum payloadは最大variant
-alignmentへ揃え、sizeをそのalignmentへ切り上げることでgenerated C unionと同じoffset、strideにする。active variantは自身の
+alignmentへ揃え、sizeをそのalignmentへ切り上げることでgenerated C unionと同じoffset、strideにする。alignmentはzero-lengthの
+scalar anchor、payloadは全byteを明示するarrayで表し、別variantのpaddingへlive byteを隠さない。active variantは自身の
 alignmentでload/storeし、非active variantのstorageを個別には持たない。`Symbol`はowner pointer、active data
 address、byte countのviewとし、literalはLLVM moduleのstatic byte ownerを参照する。動的なSymbol ownerはC11 runtimeの
 reference-counted flat storageを使う。`Symbol`と`Buffer<UInt8>`の変換はsource-levelのsnapshot semanticsを保ち、変換後の
