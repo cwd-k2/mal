@@ -90,6 +90,21 @@ memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 
 生成するよう変更した。直前の型を二variantに持つ16段のextern sumについて、生成shimを250,000 byte未満かつwrite helper
 16個とする回帰テストを置いた。
 
+## 2026-10-04 C runtime carrier bridge
+
+上記の12 byte sumは64-bit C ABIの`uint32_t` tagと`uint64_t` union payloadが作る16 byte carrierと一致せず、Buffer elementの
+strideも異なっていた。payloadを最大alignmentのvariantでanchorし、最大sizeをそのalignmentへ丸めることでLLVM carrierも
+16 byteにした。これによりC shimの再帰的marshallingとsum tag validationを削除し、同一carrierをinternal pointer storageから
+直接load/storeできるようになった。`resource-errors`のshimは4,213 byteから1,791 byteへ、production executableのtextは
+6,828 byteから6,812 byteへ減った。
+
+sum carrierを10,000,000回C extensionと往復し、各callで`volatile` stateを更新するscratch workloadを、変更直前と変更後で
+比較した。Hyperfine 1.20.0のwarmup 3回、20 runではproductionが14.2 msから14.1 ms、Callgrindの命令数が14,172,494から
+14,172,448、GNU timeの最大RSSが双方3,032 KiBであり、LTO後の速度、命令数、memoryは実質同じだった。baselineは命令数が
+2,825,182,701から1,975,182,672、textが7,232 byteから6,641 byteへ減った一方、`-O0`でClangがaggregate temporaryへ
+stack protectorを生成し、123.9 msから146.3 msへ遅化した。baselineはcorrectness pathとして維持し、productionの採用判断を
+この非最適化時の速度へ依存させない。
+
 ## 2026-09-13 alias dependency
 
 aliasのsource構文は一宣言ごとに平坦でも、後方宣言を参照する長いdependency chainはcanonical type展開時のRust再帰に

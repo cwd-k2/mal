@@ -12,7 +12,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `module/entry` | the internal root bridge that the C shim calls |
 | `module/metadata` | alias metadata that keeps Buffer element accesses apart |
 | `syntax` | the typed LLVM syntax model and its rendering to text |
-| `host_bridge` | conversion between LLVM values and public C host values, planned per type in `host_bridge/plan` |
+| `host_bridge` | direct typed load/store between the internal pointer bridge and the same-layout public C carrier |
 | `shim` | the C11 entry point that calls the root bridge with the process arguments |
 | `body/types` | the LLVM representation of mal value types |
 | `body/admission` | rejection of a program the target cannot represent, before any function is emitted |

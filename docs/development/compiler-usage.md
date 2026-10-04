@@ -14,7 +14,7 @@ Cargo、Clangへ入れる。
 
 C shim、runtime、`mal.h`、generated file header、host sourceはC11を要求する。`mal.h`は浮動小数点の要件を、file headerはtarget固有の要件を
 `_Static_assert`で検査し、
-満たさないtargetをcompile-timeに拒否する（要件は[C host ABI](../spec/c-host-abi.md#host-value-mapping)に定める）。
+満たさないtargetをcompile-timeに拒否する（要件は[C host ABI](../spec/c-host-abi.md#common-runtime-header)に定める）。
 他のOS、architecture、C compilerは検証対象外である。
 
 ## Nix flake

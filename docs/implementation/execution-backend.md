@@ -40,7 +40,7 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 | Execution plan | application graph、tail fusion、recursive SCC、edge mode、self-tail parameter leafとしてadmitしたpatternとentry prefix、resume liveness、frameが運ぶsemantic valueとowner |
 | Generated LLVM IR | function body、basic block、call、branch、dispatch、self-tail parameterの物理leaf、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
 | C runtime | allocation、reference count機構、control storage growth、共通flat byte ownerとSymbol汎用操作、fatal resource failure |
-| Generated C shim | process entry、LLVM moduleのroot呼出し、internal byte layoutと単一public carrier間のextern call bridge、managed parameter borrow、result move |
+| Generated C shim | process entry、LLVM moduleのroot呼出し、同一runtime carrierをpointer storageとC valueの間でload/storeするextern call bridge、managed parameter borrow、result move |
 | Common `mal.h` | builtin carrier、call capability、trap、allocation、generic lifecycleとBuffer operation、C ABI version |
 | Generated C file header | file固有の単一runtime carrier、aggregate target layout、named/structural type spelling、managed lifecycle glue、direct operation definition macro、target assertion |
 | Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink、明示された外部toolchain argumentとinspection artifactの配送 |
@@ -64,8 +64,8 @@ includeしても宣言を重複させない。直接requireしたfile headerのi
 ## Cとの境界
 
 extern C interfaceはruntime carrier layoutを公開するが、LLVM calling convention、control frame、closure carrierは公開しない。LLVMは
-Cより低水準なので、generated C shimが同じtarget layout planのC recordとinternal pointer/out-pointer bridgeを接続する。Symbolと
-Bufferを含むmanaged carrierもこのbridgeを通る。
+Cより低水準なので、generated C shimが同じtarget layoutを持つC carrierをinternal pointer/out-pointer storageから直接load/storeする。
+fieldごとの変換やcarrier validationは行わず、SymbolとBufferを含むmanaged carrierも同じbridgeを通る。
 
 LLVM moduleとgenerated C shim、C runtimeの内部bridgeは、`void` result、opaque pointer、input pointer、result out-pointerを
 基本とする。fixed-width scalarをsignatureで直接渡す場合や共有record layoutが必要な場合は、一つのbackend ABI planからC

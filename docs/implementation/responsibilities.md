@@ -153,8 +153,8 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のowner successorは
 `execution/ownership`、そのtyped LLVM operationは`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは
-`runtime/c11/symbol.c`、public carrierとdirect extern declarationは`backend/c/header`、LLVM internal valueとのmarshallingは
-`backend/llvm/host_bridge`が所有する。着手順と計測gateは
+`runtime/c11/symbol.c`、public carrierとdirect extern declarationは`backend/c/header`、同じcarrier layoutを使うLLVMの
+pointer bridgeとC operationの接続は`backend/llvm/host_bridge`が所有する。着手順と計測gateは
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 
 ## Code structure
