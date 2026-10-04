@@ -96,6 +96,53 @@ fn constructs_nested_buffers_with_the_erased_host_carrier() {
 }
 
 #[test]
+fn constructs_buffers_of_aligned_sums_with_the_public_c_carrier() {
+    let directory = NativeFixture::new("driver-c-aligned-sum-buffer");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         Choice :: [Buffer<UInt8>, UInt32];\n\
+         extern choices :: Unit -> Buffer<Choice>;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           values := choices();\n\
+           values.get(0usize)[\n\
+             (bytes) -> { bytes.get(0usize).i32 - 42 },\n\
+             (_) -> { 1 }];\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_choices(call) {\n\
+             mal_owned(Buffer) bytes = mal_buffer(call, mal_type(UInt8), 1);\n\
+             mal_push(call, bytes, UINT8_C(42));\n\
+             mal_owned(Choice) choice = {\n\
+                 .tag = 0,\n\
+                 .payload.variant_0 = mal_move(bytes),\n\
+             };\n\
+             mal_owned(Buffer) values = mal_buffer(call, mal_type(Choice), 1);\n\
+             mal_push(call, values, mal_move(choice));\n\
+             return mal_move(values);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn lexically_owns_a_named_managed_aggregate_in_c() {
     let directory = NativeFixture::new("driver-c-owned-aggregate");
     let source = directory.join("program.mal");

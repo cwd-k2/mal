@@ -151,7 +151,7 @@ mod tests {
                 .iter()
                 .map(|field| field.offset)
                 .collect::<Vec<_>>(),
-            [4, 4]
+            [8, 8]
         );
     }
 

@@ -144,7 +144,7 @@ impl FunctionEmitter<'_> {
             store {
                 value: ({ member_type.llvm }, { value.representation }),
                 pointer: { payload },
-                alignment: 1,
+                alignment: { member_type.alignment },
                 metadata: [],
             };
         };
@@ -323,7 +323,7 @@ impl FunctionEmitter<'_> {
             let { payload.clone() } = load {
                 ty: { member_type.llvm },
                 pointer: { pointer },
-                alignment: 1,
+                alignment: { member_type.alignment },
                 metadata: [],
             };
         };

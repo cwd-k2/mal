@@ -257,15 +257,32 @@ impl Types {
         elements: &[Type],
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<Option<ValueType>> {
-        let size = elements
+        let variants = elements
             .iter()
-            .map(|element| self.value_cached(element, cache).map(|value| value.size))
-            .collect::<Option<Vec<_>>>()?
-            .into_iter()
-            .max();
-        Some(size.map(|size| ValueType {
-            llvm: llvm_type!(array({ size }, int(8_u16))),
-            alignment: 1,
+            .map(|element| self.value_cached(element, cache))
+            .collect::<Option<Vec<_>>>()?;
+        let Some(anchor) = variants.iter().max_by_key(|variant| variant.alignment) else {
+            return Some(None);
+        };
+        let alignment = anchor.alignment;
+        let size = align(
+            variants.iter().map(|variant| variant.size).max()?,
+            alignment,
+        )?;
+        let tail = size.checked_sub(anchor.size)?;
+        let llvm = if tail == 0 {
+            anchor.llvm.clone()
+        } else {
+            llvm_type! {
+                structure([
+                    { anchor.llvm.clone() },
+                    array({ tail }, int(8_u16)),
+                ])
+            }
+        };
+        Some(Some(ValueType {
+            llvm,
+            alignment,
             size,
         }))
     }
@@ -326,11 +343,28 @@ mod tests {
         let value = types.value(&ty).unwrap();
         let fields = types.sum_fields(&ty).unwrap();
 
-        assert_eq!(value.llvm.to_string(), "{ i32, [8 x i8] }");
-        assert_eq!(value.size, 12);
+        assert_eq!(value.llvm.to_string(), "{ i32, i64 }");
+        assert_eq!(value.size, 16);
         assert_eq!(
             fields.iter().map(|field| field.offset).collect::<Vec<_>>(),
-            [0, 4, 4]
+            [0, 8, 8]
+        );
+    }
+
+    #[test]
+    fn sums_round_the_payload_size_to_its_strongest_variant_alignment() {
+        let types = Types::new(8).unwrap();
+        let wide_bytes = Type::Product(vec![Type::UInt32; 3].into());
+        let ty = Type::Sum(vec![Type::UInt64, wide_bytes].into());
+
+        let value = types.value(&ty).unwrap();
+        let fields = types.sum_fields(&ty).unwrap();
+
+        assert_eq!(value.llvm.to_string(), "{ i32, { i64, [8 x i8] } }");
+        assert_eq!(value.size, 24);
+        assert_eq!(
+            fields.iter().map(|field| field.offset).collect::<Vec<_>>(),
+            [0, 8, 8]
         );
     }
 

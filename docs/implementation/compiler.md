@@ -116,8 +116,9 @@ program固有の実行はLLVM IRへlowerする。scalarは仕様どおりのLLVM
 `+ - *`はwrap semanticsを保つ。浮動小数点演算にはfast-math flagを付けず、変換はsource-level preconditionと
 ties-to-evenを満たすLLVM instructionを選ぶ。
 
-productはLLVM struct、sumはtagと最大payloadを収めるbyte regionのstruct、Boolは`i1`で表現する。sum payloadは
-variant固有型としてalignment 1でload/storeし、非active variantのstorageを持たない。`Symbol`はowner pointer、active data
+productはLLVM struct、sumはtagと最大payloadを収めるunion相当regionのstruct、Boolは`i1`で表現する。sum payloadは最大variant
+alignmentへ揃え、sizeをそのalignmentへ切り上げることでgenerated C unionと同じoffset、strideにする。active variantは自身の
+alignmentでload/storeし、非active variantのstorageを個別には持たない。`Symbol`はowner pointer、active data
 address、byte countのviewとし、literalはLLVM moduleのstatic byte ownerを参照する。動的なSymbol ownerはC11 runtimeの
 reference-counted flat storageを使う。`Symbol`と`Buffer<UInt8>`の変換はsource-levelのsnapshot semanticsを保ち、変換後の
 Buffer mutationをSymbolから観測させない。比較とbyte accessはallocationを行わない。targetで表現不能なallocation sizeと
