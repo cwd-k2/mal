@@ -221,11 +221,7 @@ impl Types {
         elements: &[Type],
         cache: &mut HashMap<SharedTypeId, ValueType>,
     ) -> Option<ValueType> {
-        let mut fields = vec![ValueType {
-            llvm: llvm_type!(int(32_u16)),
-            alignment: 4,
-            size: 4,
-        }];
+        let mut fields = vec![self.sum_tag()?];
         if let Some(payload) = self.sum_payload(elements, cache)? {
             fields.push(payload);
         }
@@ -244,11 +240,7 @@ impl Types {
         let Type::Sum(elements) = ty else {
             return None;
         };
-        let tag = ValueType {
-            llvm: llvm_type!(int(32_u16)),
-            alignment: 4,
-            size: 4,
-        };
+        let tag = self.sum_tag()?;
         let Some(payload) = self.sum_payload(elements, &mut HashMap::new())? else {
             return field_layouts(&[tag]);
         };
@@ -259,6 +251,14 @@ impl Types {
             offset: payload_offset,
         }));
         Some(variants)
+    }
+
+    fn sum_tag(&self) -> Option<ValueType> {
+        Some(ValueType {
+            llvm: llvm_type!(int(32_u16)),
+            alignment: self.target.scalar_alignment(32, false)?,
+            size: 4,
+        })
     }
 
     fn fields(
@@ -410,5 +410,18 @@ mod tests {
         let buffer = Type::Buffer(Type::UInt8.into());
         assert_eq!(types.value(&buffer).unwrap().alignment, 4);
         assert_eq!(types.value(&buffer).unwrap().size, 8);
+    }
+
+    #[test]
+    fn sums_use_the_target_abi_alignment_for_the_tag() {
+        let target = crate::backend::llvm::target_layout("e-p:64:64-i32:16")
+            .expect("synthetic target layout");
+        let types = Types::for_target(target);
+        let sum = Type::Sum(vec![Type::UInt8].into());
+
+        let value = types.value(&sum).unwrap();
+
+        assert_eq!(value.alignment, 2);
+        assert_eq!(value.size, 6);
     }
 }
