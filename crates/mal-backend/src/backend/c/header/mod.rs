@@ -28,7 +28,7 @@ pub(super) fn emit(
     let mut output = TranslationUnit::default();
     output.extend(emit_prefix(target, dependencies, umbrella));
     for interface in interfaces {
-        append_interface(&mut output, interface, target);
+        append_interface(&mut output, interface);
     }
     if !umbrella {
         output = c_items! {
@@ -40,14 +40,10 @@ pub(super) fn emit(
     output.render()
 }
 
-fn append_interface(
-    output: &mut TranslationUnit,
-    interface: &ProgramInterface,
-    target: crate::backend::llvm::TargetLayout,
-) {
+fn append_interface(output: &mut TranslationUnit, interface: &ProgramInterface) {
     let mut types = TypeRegistry::default();
     let host = HostTypes::collect(interface, &mut types);
-    let body = interface_body(interface, &types, &host, target);
+    let body = interface_body(interface, &types, &host);
     let has_body = !body.is_empty();
     let guard = interface_guard(&body.render());
     output.blank_line();
@@ -70,7 +66,6 @@ fn interface_body(
     interface: &ProgramInterface,
     types: &TypeRegistry,
     host: &HostTypes,
-    _target: crate::backend::llvm::TargetLayout,
 ) -> TranslationUnit {
     let signatures: Vec<_> = interface
         .externals
