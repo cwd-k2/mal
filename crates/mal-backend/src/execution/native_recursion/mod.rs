@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use crate::anf::ast::ValueId;
 use crate::closure::ast::FunctionId;
 use crate::closure::ast::Pattern;
-use crate::control::ast::{Program, Terminator};
+use crate::control::ast::{Function, Program, Terminator};
 
 use super::optimization::{OptimizationSet, Technique};
 use super::{ControlCallMode, ControlCallPlan, ControlFramePlan, ControlRegionPlan};
@@ -86,29 +86,8 @@ impl NativeRecursionPlan {
                 if managed.is_empty() {
                     return None;
                 }
-                let preserved = function
-                    .states
-                    .iter()
-                    .filter_map(|site| match calls.mode(*site) {
-                        Some(ControlCallMode::DirectRegion(target)) if target == function.id => {
-                            let Terminator::Call { argument, .. } =
-                                &control.states[site.0].terminator
-                            else {
-                                return None;
-                            };
-                            Some(pass_through.fields(pattern, argument))
-                        }
-                        Some(ControlCallMode::DirectSelfTail) => {
-                            let Terminator::TailCall { argument, .. } =
-                                &control.states[site.0].terminator
-                            else {
-                                return None;
-                            };
-                            Some(pass_through.fields(pattern, argument))
-                        }
-                        _ => None,
-                    })
-                    .reduce(|left, right| left.intersection(&right).copied().collect())?;
+                let preserved =
+                    preserved_parameter_fields(control, calls, &pass_through, function, pattern)?;
                 managed.is_subset(&preserved).then_some(function.id)
             })
             .collect::<HashSet<FunctionId>>();
@@ -132,29 +111,8 @@ impl NativeRecursionPlan {
                 let pattern = pass_through.parameter_pattern(control, function.entry, parameter)?;
                 let mut leaves = Vec::new();
                 collect_parameter_leaves(pattern, &mut Vec::new(), &mut leaves)?;
-                let preserved = function
-                    .states
-                    .iter()
-                    .filter_map(|site| match calls.mode(*site) {
-                        Some(ControlCallMode::DirectRegion(target)) if target == function.id => {
-                            let Terminator::Call { argument, .. } =
-                                &control.states[site.0].terminator
-                            else {
-                                return None;
-                            };
-                            Some(pass_through.fields(pattern, argument))
-                        }
-                        Some(ControlCallMode::DirectSelfTail) => {
-                            let Terminator::TailCall { argument, .. } =
-                                &control.states[site.0].terminator
-                            else {
-                                return None;
-                            };
-                            Some(pass_through.fields(pattern, argument))
-                        }
-                        _ => None,
-                    })
-                    .reduce(|left, right| left.intersection(&right).copied().collect())?;
+                let preserved =
+                    preserved_parameter_fields(control, calls, &pass_through, function, pattern)?;
                 let varying = leaves
                     .iter()
                     .filter(|leaf| !preserved.contains(&leaf.id))
@@ -203,6 +161,35 @@ impl NativeRecursionPlan {
             .iter()
             .find(|parameter| parameter.function == function)
     }
+}
+
+fn preserved_parameter_fields(
+    control: &Program,
+    calls: &ControlCallPlan,
+    pass_through: &super::pass_through::ParameterPassThrough<'_>,
+    function: &Function,
+    pattern: &Pattern,
+) -> Option<HashSet<ValueId>> {
+    function
+        .states
+        .iter()
+        .filter_map(|site| match calls.mode(*site) {
+            Some(ControlCallMode::DirectRegion(target)) if target == function.id => {
+                let Terminator::Call { argument, .. } = &control.states[site.0].terminator else {
+                    return None;
+                };
+                Some(pass_through.fields(pattern, argument))
+            }
+            Some(ControlCallMode::DirectSelfTail) => {
+                let Terminator::TailCall { argument, .. } = &control.states[site.0].terminator
+                else {
+                    return None;
+                };
+                Some(pass_through.fields(pattern, argument))
+            }
+            _ => None,
+        })
+        .reduce(|left, right| left.intersection(&right).copied().collect())
 }
 
 fn collect_parameter_leaves(
