@@ -337,3 +337,15 @@ Rust 1.97.1、Valgrind 3.27.1を使い、MAL/Cは`-O2 -flto`、Rustは`-C opt-le
 representation差が引き続き支配する。MALとCは全caseでMemcheck error 0かつ全heap blockを解放した。Rustは標準runtimeの
 still-reachable blockを`--errors-for-leak-kinds=all`が報告するが、lost blockはなかった。ELF file sizeはMAL 15,664--16,488 byte、
 C 5,864--6,664 byte、Rust 385,544--385,936 byteだった。Rustは標準runtimeを含むため、言語間のcode size倍率には使わない。
+
+この時点の未解決costは`nested-buffer`と`map`で性質が異なる。`nested-buffer`はMAL 8.33 ms / 49.04 M instructionに対して
+C 3.60 ms / 21.88 M、Rust 4.00 ms / 22.39 Mであり、各inner identityのstable objectと64-byte backingを別々に確保するため、
+allocation数もC/Rustのおよそ2倍になる。shared identityをflat valueへ変えずに解くには、growthしないこと、byte ownerへ
+変換されないこと、独立lifetime、growth後のpointer再取得を通常planで区別したconditional representationが必要である。
+任意capacityのco-allocationはallocationを減らしてもcache localityと実行時間を改善しなかったため、再採用のbaselineにしない。
+
+`map`はnative medianがCの1.12倍、Rustの1.29倍に留まる一方、dynamic instructionはCの4.27倍、Rustの3.58倍だった。
+requested bytesとpeak RSSはCとほぼ同じであり、runtime generic dictionaryやallocation量が主因ではない。最終IRではoperation familyの
+dispatchが消えているため、次の調査対象は48-byte tagged slot、Buffer countとprobe終了条件、trap可能なstorage path、および
+ABI修正後にaggregate paddingを定義してbytewise runtime operationへ渡す経路である。paddingを未定義のまま読む旧形はproductionで
+checksumを誤らせたため比較対象へ戻さず、同じalgorithmとcarrier semanticsのまま各costを分離して測る。

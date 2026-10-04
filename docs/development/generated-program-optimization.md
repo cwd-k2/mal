@@ -91,7 +91,7 @@ allocation policyの費用を分離する。比較対象のoptimizerが一方の
 
 ## 再調査の入口
 
-現在の生成programで再調査する境界は次の二つである。測定根拠、不採択案、再現値は
+現在の生成programで再調査する境界は次の三つである。測定根拠、不採択案、再現値は
 [genericsとmanaged container](../history/performance/generics.md)を正とする。
 
 1. nested Bufferはstable objectとrelocatable backingの二allocationが残る。任意capacityのco-allocationは再試行せず、growthしないこと、
@@ -99,6 +99,10 @@ allocation policyの費用を分離する。比較対象のoptimizerが一方の
    比較する。まずpacked referenceとsplit referenceの両方を用意し、意味論costとallocation policyを分ける。
 2. scalar control loopはgeneric、sum、closure、allocationが最終IRから消えた後も、LLVM 21のPHI順序で8または13 instructionになる。
    明示PHIを含むMal側の順序付けはLTOで保存されなかったため追加しない。LLVM更新時に同じreproducerを再測定する。
+3. open-addressing Mapは同じcapacity、hash、probe algorithmのC/Rust referenceに対し、native時間よりdynamic instructionの差が大きい。
+   generic dispatchは最終IRから消えているため、48-byte tagged slot、Bufferのcount更新とrange precondition、probe終了条件、および
+   aggregate paddingを定義してbytewise runtimeへ渡す経路を個別に計測する。slot表現を変える案は同じoccupancyと更新意味を保つ
+   referenceと比較し、paddingの未定義化やpreconditionの削除を最適化として扱わない。
 
 `State`のdirect C/Rust loopはhand-lowered lower boundでありsemantic parityではない。`focus`もCだけが既知input storageを消した測定を
 primary比較にしない。次回のcross-language更新では、この分類をtableに明記してからwall-clock、instruction、allocation、peak memory、
