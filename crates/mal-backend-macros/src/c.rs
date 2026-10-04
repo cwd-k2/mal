@@ -877,6 +877,36 @@ fn c_parameters_syntax(input: TokenStream) -> Result<TokenStream, String> {
         .collect())
 }
 
+fn c_parameter_syntax(input: TokenStream) -> Result<TokenStream, String> {
+    let tokens = input.clone().into_iter().collect::<Vec<_>>();
+    if tokens.is_empty() {
+        return Err("expected one C parameter".into());
+    }
+    if matches!(tokens.first(), Some(TokenTree::Punct(token)) if token.as_char() == '.') {
+        return Err("a C parameter splice is not one parameter".into());
+    }
+    let commas = tokens
+        .iter()
+        .enumerate()
+        .filter_map(|(index, token)| {
+            matches!(token, TokenTree::Punct(token) if token.as_char() == ',').then_some(index)
+        })
+        .collect::<Vec<_>>();
+    if commas.len() > 1
+        || commas
+            .first()
+            .is_some_and(|index| *index + 1 != tokens.len())
+    {
+        return Err("expected one C parameter".into());
+    }
+    c_parameters_syntax(input).map(|parameters| {
+        rust_method_suffix(
+            parameters,
+            ".into_iter().next().expect(\"one parsed C parameter\")",
+        )
+    })
+}
+
 fn c_signature_tokens(input: &mut Cursor) -> Result<TokenStream, String> {
     let attributes = c_attributes(input)?;
     match input.next() {
@@ -1625,14 +1655,7 @@ pub(super) fn c_signature(input: TokenStream) -> TokenStream {
 }
 
 pub(super) fn c_parameter(input: TokenStream) -> TokenStream {
-    parse(input, |input| {
-        c_parameters_syntax(input).map(|parameters| {
-            rust_method_suffix(
-                parameters,
-                ".into_iter().next().expect(\"one parsed C parameter\")",
-            )
-        })
-    })
+    parse(input, c_parameter_syntax)
 }
 
 pub(super) fn c_parameters(input: TokenStream) -> TokenStream {

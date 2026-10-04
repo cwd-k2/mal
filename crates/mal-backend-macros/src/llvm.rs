@@ -60,11 +60,15 @@ fn split(input: TokenStream, separator: char) -> Vec<TokenStream> {
     items
 }
 
-fn nonempty_comma_items(input: TokenStream) -> Vec<TokenStream> {
-    split(input, ',')
-        .into_iter()
-        .filter(|item| !item.is_empty())
-        .collect()
+fn comma_items(input: TokenStream) -> Result<Vec<TokenStream>, String> {
+    let mut items = split(input, ',');
+    if items.last().is_some_and(TokenStream::is_empty) {
+        items.pop();
+    }
+    if items.iter().any(TokenStream::is_empty) {
+        return Err("expected an item between commas".into());
+    }
+    Ok(items)
 }
 
 fn splice(item: &TokenStream) -> Option<TokenStream> {
@@ -90,7 +94,7 @@ fn vector(
     mut static_item: impl FnMut(TokenStream) -> Result<TokenStream, String>,
 ) -> Result<TokenStream, String> {
     let mut statements = String::from("{ #[allow(unused_mut)] let mut __mal_items = Vec::new();");
-    for item in nonempty_comma_items(input) {
+    for item in comma_items(input)? {
         if let Some(expression) = splice(&item) {
             statements.push_str(&format!("__mal_items.extend({expression});"));
         } else if let Some(expression) = embedded(&item) {
@@ -109,7 +113,7 @@ fn fallible_vector(
 ) -> Result<TokenStream, String> {
     let mut statements =
         String::from("(|| { #[allow(unused_mut)] let mut __mal_items = Vec::new();");
-    for item in nonempty_comma_items(input) {
+    for item in comma_items(input)? {
         if let Some(expression) = splice(&item) {
             statements.push_str(&format!("__mal_items.extend({expression});"));
         } else if let Some(expression) = embedded(&item) {
@@ -365,7 +369,7 @@ fn declaration_tokens(input: TokenStream) -> Result<TokenStream, String> {
 }
 
 fn named_fields(input: TokenStream) -> Result<Vec<(String, TokenStream)>, String> {
-    nonempty_comma_items(input)
+    comma_items(input)?
         .into_iter()
         .map(|item| {
             let tokens = item.into_iter().collect::<Vec<_>>();
@@ -411,7 +415,7 @@ fn typed_value_tokens(input: TokenStream) -> Result<TokenStream, String> {
         Delimiter::Parenthesis,
         "typed LLVM value",
     )?;
-    let mut parts = nonempty_comma_items(tuple.stream()).into_iter();
+    let mut parts = comma_items(tuple.stream())?.into_iter();
     let ty = wrapped_type(parts.next().ok_or("expected typed value type")?)?;
     let value = scalar(one_token(
         parts.next().ok_or("expected typed value operand")?,
@@ -436,7 +440,7 @@ fn typed_constant_tokens(input: TokenStream) -> Result<TokenStream, String> {
         Delimiter::Parenthesis,
         "typed LLVM constant",
     )?;
-    let mut parts = nonempty_comma_items(tuple.stream()).into_iter();
+    let mut parts = comma_items(tuple.stream())?.into_iter();
     let ty = wrapped_type(parts.next().ok_or("expected typed constant type")?)?;
     let value = parts.next().ok_or("expected typed constant value")?;
     if parts.next().is_some() {
@@ -581,7 +585,7 @@ fn indices(input: TokenStream) -> Result<TokenStream, String> {
         Delimiter::Bracket,
         "LLVM index list",
     )?;
-    let values = nonempty_comma_items(list.stream())
+    let values = comma_items(list.stream())?
         .into_iter()
         .map(|item| Ok(scalar(one_token(item, "LLVM index")?).to_string()))
         .collect::<Result<Vec<_>, String>>()?;
@@ -667,12 +671,15 @@ fn instruction_tokens(input: TokenStream) -> Result<TokenStream, String> {
                 Delimiter::Parenthesis,
                 "stored value",
             )?;
-            let mut value = nonempty_comma_items(tuple.stream()).into_iter();
-            let ty = wrapped_type(value.next().ok_or("expected stored value type")?)?;
+            let mut parts = comma_items(tuple.stream())?.into_iter();
+            let ty = wrapped_type(parts.next().ok_or("expected stored value type")?)?;
             let value = scalar(one_token(
-                value.next().ok_or("expected stored value")?,
+                parts.next().ok_or("expected stored value")?,
                 "stored value",
             )?);
+            if parts.next().is_some() {
+                return Err("unexpected stored value field".into());
+            }
             let pointer = scalar(one_token(values[1].clone(), "pointer")?);
             let alignment = scalar(one_token(values[2].clone(), "alignment")?);
             let metadata = sequence(values[3].clone())?;
@@ -799,7 +806,7 @@ fn switch_cases(input: TokenStream) -> Result<TokenStream, String> {
     let mut statements = String::from(
         "{ #[allow(unused_mut)] let mut __mal_cases: Vec<(String, String)> = Vec::new();",
     );
-    for item in nonempty_comma_items(input) {
+    for item in comma_items(input)? {
         if let Some(expression) = splice(&item) {
             statements.push_str(&format!("__mal_cases.extend({expression});"));
             continue;
@@ -847,12 +854,15 @@ fn terminator_tokens(input: TokenStream) -> Result<TokenStream, String> {
             if !input.eat_punct(';') || !input.is_empty() {
                 return Err("expected `;` after LLVM return".into());
             }
-            let mut parts = nonempty_comma_items(value.stream()).into_iter();
+            let mut parts = comma_items(value.stream())?.into_iter();
             let ty = wrapped_type(parts.next().ok_or("expected return type")?)?;
             let value = scalar(one_token(
                 parts.next().ok_or("expected return operand")?,
                 "return operand",
             )?);
+            if parts.next().is_some() {
+                return Err("unexpected return value field".into());
+            }
             Ok(code(format!(
                 "{SYNTAX}::Terminator::return_value({ty}, {value})"
             )))
@@ -892,12 +902,15 @@ fn terminator_tokens(input: TokenStream) -> Result<TokenStream, String> {
                 Delimiter::Parenthesis,
                 "switch value",
             )?;
-            let mut parts = nonempty_comma_items(value.stream()).into_iter();
+            let mut parts = comma_items(value.stream())?.into_iter();
             let ty = wrapped_type(parts.next().ok_or("expected switch type")?)?;
             let value = scalar(one_token(
                 parts.next().ok_or("expected switch operand")?,
                 "switch operand",
             )?);
+            if parts.next().is_some() {
+                return Err("unexpected switch value field".into());
+            }
             let body = group(
                 input.next().ok_or("expected switch fields")?,
                 Delimiter::Brace,
@@ -965,7 +978,7 @@ fn metadata_operand_tokens(input: TokenStream) -> Result<TokenStream, String> {
             )))
         }
         "integer" => {
-            let mut values = nonempty_comma_items(arguments.stream()).into_iter();
+            let mut values = comma_items(arguments.stream())?.into_iter();
             let ty_input = values.next().ok_or("expected metadata integer type")?;
             let ty = if embedded(&ty_input).is_some() {
                 embedded(&ty_input).unwrap()
@@ -976,6 +989,9 @@ fn metadata_operand_tokens(input: TokenStream) -> Result<TokenStream, String> {
                 values.next().ok_or("expected metadata integer value")?,
                 "metadata integer value",
             )?);
+            if values.next().is_some() {
+                return Err("unexpected metadata integer field".into());
+            }
             Ok(code(format!(
                 "{SYNTAX}::MetadataOperand::Integer {{ ty: {ty}, value: {value} }}"
             )))
