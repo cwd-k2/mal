@@ -96,11 +96,18 @@ fn execute(case: &Case, clang_arguments: &[&str], malc_arguments: &[&str]) -> Re
                 .unwrap_or("")
         ));
     }
-    let status = fixture.run(&executable).status;
+    let output = fixture.run(&executable);
+    let status = output.status;
     match case.expectation {
         Expectation::Exit(code) if status.code() == Some(code) => Ok(()),
         Expectation::Trap if status.signal() == Some(6) => Ok(()),
-        _ => Err(format!("unexpected termination: {status}")),
+        _ => Err(format!(
+            "unexpected termination: {status}: {}",
+            String::from_utf8_lossy(&output.stderr)
+                .lines()
+                .next()
+                .unwrap_or("")
+        )),
     }
 }
 
