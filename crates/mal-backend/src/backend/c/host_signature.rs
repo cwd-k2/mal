@@ -99,6 +99,7 @@ mod tests {
             parameter_aliases: vec![Some("Count".into()), None],
             result: Type::UInt64,
             result_alias: Some("Count".into()),
+            result_aliases: vec![Some("Count".into())],
             span: Span::new(FileId::new(0), 0, 0),
         };
 

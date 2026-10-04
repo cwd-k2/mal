@@ -36,6 +36,7 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 parameter_aliases,
                 result,
                 result_alias,
+                result_aliases,
                 ..
             } => interface.externals.push(ExternalOperation {
                 id: *id,
@@ -45,6 +46,7 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 parameter_aliases: parameter_aliases.clone(),
                 result: result.clone(),
                 result_alias: result_alias.clone(),
+                result_aliases: result_aliases.clone(),
                 span: item.span,
             }),
             checked::TopItem::GenericBinding(_)

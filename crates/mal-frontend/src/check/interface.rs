@@ -11,6 +11,7 @@ pub(super) struct ExternalSignature {
     pub(super) parameter_aliases: Vec<Option<String>>,
     pub(super) result: Type,
     pub(super) result_alias: Option<String>,
+    pub(super) result_aliases: Vec<Option<String>>,
 }
 
 impl Checker {
@@ -51,6 +52,7 @@ impl Checker {
             let parameter_alias = self.alias_name(&source_parameter);
             let parameter_aliases = self.immediate_aliases(&source_parameter, &parameter);
             let result_alias = self.alias_name(&source_result);
+            let result_aliases = self.immediate_aliases(&source_result, &result);
             self.values.insert(
                 binding.id,
                 Type::Function {
@@ -67,6 +69,7 @@ impl Checker {
                     parameter_aliases,
                     result: result.as_ref().clone(),
                     result_alias,
+                    result_aliases,
                 },
             );
         }
@@ -103,6 +106,7 @@ impl Checker {
         match parameter {
             Type::Unit => Vec::new(),
             Type::Product(_) => self.aggregate_aliases(source, parameter),
+            Type::Buffer(_) => vec![self.buffer_element_alias(source)],
             Type::Sum(_)
             | Type::External { .. }
             | Type::Opaque { .. }
@@ -123,7 +127,6 @@ impl Checker {
             | Type::Bound { .. }
             | Type::Application { .. }
             | Type::Abstraction { .. }
-            | Type::Buffer(_)
             | Type::Function { .. } => {
                 vec![self.alias_name(source)]
             }

@@ -50,6 +50,7 @@ fn preserves_a_product_parameter_alias_before_boundary_flattening() {
          Payload :: (UInt8, Int32);\n\
          Request :: (Count, Payload);\n\
          extern exchange :: Request -> Count;\n\
+         extern collect :: Unit -> Buffer<Payload>;\n\
          main :: Unit -> Int32 := () -> { 0; };",
     );
 
@@ -60,6 +61,10 @@ fn preserves_a_product_parameter_alias_before_boundary_flattening() {
         [Some("Count".into()), Some("Payload".into())]
     );
     assert_eq!(external.result_alias.as_deref(), Some("Count"));
+    assert_eq!(
+        program.interface.externals[1].result_aliases,
+        [Some("Payload".into())]
+    );
 }
 
 #[test]

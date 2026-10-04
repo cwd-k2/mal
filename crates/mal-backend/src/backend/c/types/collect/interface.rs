@@ -26,6 +26,8 @@ impl HostTypes {
             );
             host.external_aliases
                 .extend(external.parameter_aliases.iter().flatten().cloned());
+            host.external_aliases
+                .extend(external.result_aliases.iter().flatten().cloned());
         }
         let mut pending_aliases = host.external_aliases.iter().cloned().collect::<Vec<_>>();
         while let Some(name) = pending_aliases.pop() {

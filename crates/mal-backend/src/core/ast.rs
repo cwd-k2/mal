@@ -81,6 +81,7 @@ pub(crate) struct ExternalOperation {
     pub parameter_aliases: Vec<Option<String>>,
     pub result: Type,
     pub result_alias: Option<String>,
+    pub result_aliases: Vec<Option<String>>,
     pub span: Span,
 }
 

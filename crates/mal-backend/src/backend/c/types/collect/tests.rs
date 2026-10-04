@@ -67,6 +67,7 @@ fn registers_host_visible_alias_dags_before_rendering() {
             parameter_aliases: vec![None, None],
             result: Type::Unit,
             result_alias: None,
+            result_aliases: Vec::new(),
             span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
         }],
     };

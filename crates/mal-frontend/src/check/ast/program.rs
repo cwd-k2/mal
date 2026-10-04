@@ -93,6 +93,8 @@ pub enum TopItem {
         result: Type,
         /// The declared alias spelling of the result, when any.
         result_alias: Option<String>,
+        /// Alias spellings immediately nested in the result carrier.
+        result_aliases: Vec<Option<String>>,
     },
     /// A checked generic value definition awaiting specialization.
     GenericBinding(Box<GenericBinding>),

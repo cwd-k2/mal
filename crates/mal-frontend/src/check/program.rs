@@ -187,6 +187,7 @@ impl Checker {
                         parameter_aliases: signature.parameter_aliases.clone(),
                         result: signature.result.clone(),
                         result_alias: signature.result_alias.clone(),
+                        result_aliases: signature.result_aliases.clone(),
                     },
                     None,
                 )
