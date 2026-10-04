@@ -45,6 +45,7 @@
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
+| `extern`をruntime extension境界へ広げる案を検討する | [`extern` runtime extension proposal](proposals/extern-runtime-extension.md) | [`extern`](spec/extern.md)、[C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
 | 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md) |
 | higher-kindedな型parameterを使う | [kindとtype constructor](spec/type-constructors.md) | [parametric polymorphism](spec/generics.md)、[operation family](spec/operation-families.md) |
 | file内だけでrepresentationを観察できる型を使う | [file-local opaque type](spec/types.md#file-local-opaque-type) | [operation family](spec/operation-families.md) |
