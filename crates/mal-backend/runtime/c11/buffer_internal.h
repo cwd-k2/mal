@@ -23,14 +23,6 @@ static inline MalBytes *mal_buffer_owner(const MalBuffer *buffer) {
     return mal_buffer_is_inline(buffer) ? NULL : buffer->storage.owner;
 }
 
-static inline size_t mal_buffer_zeroed_until(const MalBuffer *buffer) {
-    if (mal_buffer_is_inline(buffer)) {
-        return sizeof buffer->storage.inline_bytes;
-    }
-    MalBytes *owner = mal_buffer_owner(buffer);
-    return owner == NULL ? 0 : ((const MalBytesFlat *)owner)->zeroed_until;
-}
-
 // The byte size of `count` elements of `stride` bytes; traps on overflow.
 size_t mal_buffer_bytes(MalContext *context, size_t count, size_t stride);
 // A byte Buffer of `count` elements whose storage is `flat`, which it now owns. Bytes past `count` are not assumed zero.

@@ -64,18 +64,17 @@ static MalBuffer *mal_buffer_make(
     buffer->release = release;
     if (bytes <= sizeof buffer->storage.inline_bytes) {
         if (bytes != 0) {
-            memset(buffer->storage.inline_bytes, 0, sizeof buffer->storage.inline_bytes);
             buffer->data = buffer->storage.inline_bytes;
         }
         return buffer;
     }
-    MalBytesFlat *flat = mal_bytes_flat_allocate_zeroed(
+    MalBytesFlat *flat = mal_bytes_flat_allocate(
         context,
         0,
         bytes,
+        0,
         "buffer allocation failed"
     );
-    flat->zeroed_until = bytes;
     buffer->storage.owner = &flat->header;
     buffer->data = flat->bytes;
     return buffer;
@@ -115,7 +114,7 @@ void *mal_runtime_buffer_make_managed(
 void *mal_buffer_adopt(MalContext *context, MalBytesFlat *flat, size_t count) {
     MalBuffer *buffer = mal_buffer_allocate(context, sizeof(MalBuffer), mal_buffer_destroy);
     flat->header.length = (uint64_t)count;
-    flat->zeroed_until = count;
+    flat->start = 0;
     buffer->storage.owner = &flat->header;
     buffer->data = flat->bytes;
     buffer->count = count;
@@ -142,7 +141,6 @@ void mal_buffer_reserve(
         return;
     }
 
-    size_t zeroed_until = mal_buffer_zeroed_until(buffer);
     capacity = mal_bytes_capacity(required);
     if (capacity > SIZE_MAX - sizeof(MalBytesFlat)) {
         mal_trap(context, "byte owner allocation size overflow");
@@ -155,9 +153,10 @@ void mal_buffer_reserve(
             0,
             "buffer allocation failed"
         );
-        flat->zeroed_until = zeroed_until;
-        if (was_inline && zeroed_until != 0) {
-            memcpy(flat->bytes, buffer->data, zeroed_until);
+        flat->start = 0;
+        size_t live_bytes = buffer->count * buffer->stride;
+        if (was_inline && live_bytes != 0) {
+            memcpy(flat->bytes, buffer->data, live_bytes);
         }
     } else {
         flat = realloc(flat, sizeof(MalBytesFlat) + capacity);
@@ -186,17 +185,7 @@ static inline size_t mal_buffer_append(
         size_t length = buffer->count * stride;
         size_t required = (buffer->count + 1) * stride;
         mal_buffer_reserve(context, buffer, required);
-        int value_is_zero = 1;
-        const unsigned char *value_bytes = value;
-        for (size_t byte = 0; byte < stride; ++byte) {
-            if (value_bytes[byte] != 0) {
-                value_is_zero = 0;
-                break;
-            }
-        }
-        if (!value_is_zero || required > mal_buffer_zeroed_until(buffer)) {
-            memcpy(buffer->data + length, value, stride);
-        }
+        memcpy(buffer->data + length, value, stride);
     } else if (buffer->count == SIZE_MAX) {
         mal_trap(context, "buffer count overflow");
     }

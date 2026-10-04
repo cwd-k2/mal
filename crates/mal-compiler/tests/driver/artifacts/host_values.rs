@@ -96,6 +96,43 @@ fn constructs_nested_buffers_with_the_erased_host_carrier() {
 }
 
 #[test]
+fn overwrites_truncated_host_buffer_storage_with_zero_values() {
+    let directory = NativeFixture::new("driver-c-truncated-zero-buffer");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         extern bytes :: Unit -> Buffer<UInt8>;\n\
+         main :: Unit -> Int32 := () -> { bytes().get(0usize).i32; };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_bytes(call) {\n\
+             mal_owned(Buffer) bytes = mal_buffer(call, mal_type(UInt8), 8);\n\
+             mal_push(call, bytes, UINT8_C(7));\n\
+             mal_truncate(bytes, 0);\n\
+             mal_push(call, bytes, UINT8_C(0));\n\
+             return mal_move(bytes);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn constructs_buffers_of_aligned_sums_with_the_public_c_carrier() {
     let directory = NativeFixture::new("driver-c-aligned-sum-buffer");
     let source = directory.join("program.mal");

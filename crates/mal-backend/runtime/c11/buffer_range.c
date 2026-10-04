@@ -84,24 +84,7 @@ void mal_runtime_buffer_fill(
         }
     }
     if (value_is_zero) {
-        size_t end = offset + count;
-        size_t existing_end = old_count < end ? old_count : end;
-        size_t existing_count = existing_end - offset;
-        if (existing_count != 0) {
-            memset(buffer->data + start_byte, 0, existing_count * stride);
-        }
-        size_t existing_bytes = existing_count * stride;
-        size_t unwritten_start = start_byte + existing_bytes;
-        size_t range_end = start_byte + byte_count;
-        size_t zeroed_until = mal_buffer_zeroed_until(buffer);
-        if (range_end > zeroed_until) {
-            size_t zero_start = unwritten_start > zeroed_until
-                ? unwritten_start
-                : zeroed_until;
-            if (zero_start < range_end) {
-                memset(buffer->data + zero_start, 0, range_end - zero_start);
-            }
-        }
+        memset(buffer->data + start_byte, 0, byte_count);
         return;
     }
     if (stride == 1) {
