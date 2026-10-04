@@ -54,7 +54,7 @@ impl FunctionEmitter<'_> {
             };
         };
         Some(EmittedValue {
-            owned: false,
+            owned: crate::execution::ownership::is_managed(&result_type),
             ty: result_type,
             representation: register,
         })

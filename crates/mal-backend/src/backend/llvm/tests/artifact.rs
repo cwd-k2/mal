@@ -61,6 +61,49 @@ fn emits_targeted_llvm_and_a_c_shim_from_one_bridge_plan() {
 }
 
 #[test]
+fn adopts_managed_results_returned_by_c_extensions() {
+    let source = SourceFile::new(
+        FileId::new(109),
+        "llvm-external-result.mal",
+        "extern bytes :: Unit -> Buffer<UInt8>; main :: Unit -> Int32 := () -> { _ := bytes(); 0; };"
+            .into(),
+    );
+    let checked = mal_frontend::analysis::check(&source).expect("check external result fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
+    );
+    let execution = crate::execution::lower(
+        crate::closure::convert(&crate::anf::lower(&core)),
+        crate::execution::OptimizationSet::none(),
+    );
+    let artifacts = generate(
+        &execution,
+        Target {
+            triple: "x86_64-unknown-linux-gnu",
+            data_layout: "e-p:64:64",
+        },
+        OptimizationSet::none(),
+    )
+    .expect("external result fixture is supported");
+
+    assert!(
+        artifacts
+            .module
+            .contains("call void @mal_bridge_external_0")
+    );
+    assert!(
+        artifacts
+            .module
+            .contains("call void @mal_runtime_owner_release")
+    );
+    assert!(
+        !artifacts
+            .module
+            .contains("call ptr @mal_runtime_owner_retain")
+    );
+}
+
+#[test]
 fn includes_byte_runtime_when_only_the_process_entry_shim_uses_it() {
     let source = SourceFile::new(
         FileId::new(105),
