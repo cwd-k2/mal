@@ -497,7 +497,7 @@ main :: Unit -> Int32 := () -> {
     if (ok && isText(options.get(0usize), "ef") && isText(options.get(1usize), "ef")
         && names.get(0usize) == "k" && names.get(1usize) == "k" && #names == 2usize) then 0 else 1
 };
-### canonical_buffer_operations_with_operands_that_contain_control | run:0
+### scalar_buffer_operations_with_operands_that_contain_control | run:0
 Maybe :: [Unit, Int32];
 
 value :: Maybe -> Int32 := (option) -> option[() -> 0i32, (number) -> number];

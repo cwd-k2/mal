@@ -1,10 +1,10 @@
 # C host APIの利用scenario監査
 
-Status: Implemented in v0.7
+Status: Historical design record; implemented in v0.7
 
 この文書は[C host lifecycle操作を小さな語彙へまとめる案](c-host-lifecycle-ergonomics.md)をrepositoryのexampleへ適用し、
 genericなMal abstractionを除く処理をC externへ移した場合に不足する表現を調べる。現在のABI規範ではなく、proposal採択前の
-coverage記録であり、現行規範は[C runtime extension ABI](../spec/c-host-abi.md)を正とする。
+coverage記録であり、現行規範は[C runtime extension ABI](../../spec/c-host-abi.md)を正とする。
 
 v0.7 ABIは未公開なので、この案を採択しても`MAL_C_ABI_VERSION`は`0x000a00`のままとする。旧helperは残さず置き換える。
 

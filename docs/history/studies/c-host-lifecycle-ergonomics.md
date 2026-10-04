@@ -1,10 +1,10 @@
 # C host lifecycle操作を小さな語彙へまとめる案
 
-Status: Implemented in v0.7
+Status: Historical design record; implemented in v0.7
 
 この文書は、runtime extensionとなったextern Cで型別lifecycleとBuffer操作を記述しやすくした設計過程を記録する。
-現在の規範は[C runtime extension ABI](../spec/c-host-abi.md)、compiler内の型再帰は
-[Engram lifecycle loweringの拡張境界](engram-lifecycle-foundation.md)を正とする。
+現在の規範は[C runtime extension ABI](../../spec/c-host-abi.md)、compiler内の型再帰は
+[Engram lifecycle loweringの拡張境界](../../proposals/engram-lifecycle-foundation.md)を正とする。
 example全体へ適用した結果は[利用scenarioによる監査](c-host-api-scenarios.md)に記録する。
 
 v0.7 ABIはまだ公開されていないため、採択時も`MAL_C_ABI_VERSION`は`0x000a00`のまま既存surfaceを置き換える。
@@ -222,6 +222,6 @@ external resourceの`close`や`free`を行わない。resource cleanupは引き�
 - source aliasとanonymous nested carrierのtype keyがrequire graphや宣言追加で不安定にならないこと
 - direct sum initializer、external opaque conversion、bulk Buffer operationを含むscenario監査が型別の公開動詞を要求しないこと
 
-[D034](../history/decisions/superseded/D034.md)にも`clone`、`take`、`drop` macroの旧案がある。当時と異なり現在はextern Cを
+[D034](../decisions/superseded/D034.md)にも`clone`、`take`、`drop` macroの旧案がある。当時と異なり現在はextern Cを
 exact-matchのruntime extension、target toolchainをpinned Clangとしているため、portable C11だけを理由に総称surfaceを避ける必要は
 ない。一方、旧案と同じくCの型systemがborrowed、owned、movedを完全に検査するとはみなさない。

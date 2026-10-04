@@ -123,7 +123,7 @@ main :: Unit -> Int32 := () -> {
     share(left, right, 5000usize);
     if (total(items, 0usize) == expected && #right == 5000usize) then 0 else 1
 };
-### managed_copy_fill_and_put_match_the_canonical_buffer | run:0
+### managed_copy_fill_and_put_match_a_scalar_model | run:0
 word :: (USize, Symbol) -> Symbol := (n, acc) ->
     if (n == 0usize) then acc else word(n - 1usize, acc + "x");
 

@@ -10,6 +10,7 @@ Status: Historical records
 |---|---|
 | [`decisions/`](decisions/) | `active/`と`superseded/`に分類した設計判断、代替案、後継関係 |
 | [`performance/`](performance/) | 対象別に分類した、日付と測定条件を伴う性能記録 |
+| [`studies/`](studies/) | 採択済み変更の検討過程とcoverage調査 |
 
 現在の文書とsource commentには移行経緯、以前の名称、完了済み作業、棄却済み実験を残さない。
 現在のruleを理解するために理由が必要な場合は、このdirectoryの該当recordへlinkする。

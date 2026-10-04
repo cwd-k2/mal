@@ -1,11 +1,11 @@
 # `extern`をruntime extension境界にする提案
 
-Status: Implemented in v0.7
+Status: Historical design record; implemented in v0.7
 
 この文書は、`extern`をmanaged valueから隔離したpublic C value境界ではなく、同じcompiler/runtime revisionへ結合する
-runtime extension境界として再定義した変更の背景と移行範囲を記録する。現在の規範は[`extern`](../spec/extern.md)、
-[C host ABI](../spec/c-host-abi.md)、[`Buffer`](../spec/memory.md)、[EngramとExtern](../spec/engrams.md)を正とし、
-採択判断は[D098](../history/decisions/active/D098.md)を正とする。
+runtime extension境界として再定義した変更の背景と移行範囲を記録する。現在の規範は[`extern`](../../spec/extern.md)、
+[C host ABI](../../spec/c-host-abi.md)、[`Buffer`](../../spec/memory.md)、[EngramとExtern](../../spec/engrams.md)を正とし、
+採択判断は[D098](../decisions/active/D098.md)を正とする。
 
 ## 目的
 
@@ -119,7 +119,7 @@ resourceのcloseやreleaseはoperation contractに置く。万能な`Pointer` op
 
 extension定義の新しいmanaged source typeは本変更の必須範囲に含めない。まず既存の`Symbol`、`Buffer`、aggregateとruntime内のPool
 kernelをexternから利用できることを検証する。新しいmanaged leafを導入する場合は、source identity、runtime layout、share/drop、
-Storable、cycle、destructor effectを[lifecycle loweringの拡張境界](engram-lifecycle-foundation.md)に従って別途定める。
+Storable、cycle、destructor effectを[lifecycle loweringの拡張境界](../../proposals/engram-lifecycle-foundation.md)に従って別途定める。
 
 ## Authority model
 

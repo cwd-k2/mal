@@ -3,7 +3,7 @@
 この文書は、知りたい内容からauthorityへ到達するためのindexである。言語の紹介とbuild例はrepository rootの
 [`README.md`](../README.md)に置き、ここでは規則や手順を重複させない。
 
-言語仕様は **v0.7**、現在の`malc`実装は移行中である。実装のconformance条件は
+言語仕様は **v0.7** である。実装のconformance条件は
 [conformance matrix](development/conformance.md)、compilerの現在の構成と責務は`docs/implementation/`で管理する。
 
 ## 言語を読む順序
@@ -42,11 +42,11 @@
 | function resultのproducerとconsumerを融合する | [continuation specialization](implementation/continuation-specialization.md) | [compilerの責務境界](implementation/responsibilities.md)、[generated program最適化policy](development/generated-program-optimization.md) |
 | generated C / LLVMの構築を変更する | [C / LLVM構文構築](implementation/backend-syntax-construction.md) | [内部DSL reference](implementation/backend-syntax-reference.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md) |
 | `Buffer`とextern C lifecycleを使う | [`Buffer`](spec/memory.md) | [C runtime extension ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
-| extern Cのlifecycle記述を簡潔にする案を検討する | [C host lifecycle操作の小さな語彙](proposals/c-host-lifecycle-ergonomics.md) | [C runtime extension ABI](spec/c-host-abi.md)、[lifecycle loweringの拡張境界](proposals/engram-lifecycle-foundation.md) |
+| extern Cのlifecycle APIの採択過程を調べる | [C host lifecycle操作の小さな語彙](history/studies/c-host-lifecycle-ergonomics.md) | [C runtime extension ABI](spec/c-host-abi.md)、[利用scenarioによる監査](history/studies/c-host-api-scenarios.md) |
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
-| `extern`をruntime extension境界へ広げる案を検討する | [`extern` runtime extension proposal](proposals/extern-runtime-extension.md) | [`extern`](spec/extern.md)、[C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
+| `extern` runtime extension境界の採択背景を調べる | [`extern` runtime extensionの設計記録](history/studies/extern-runtime-extension.md) | [`extern`](spec/extern.md)、[C host ABI](spec/c-host-abi.md)、[D098](history/decisions/active/D098.md) |
 | 型引数推論と型別operationを使う | [operation family](spec/operation-families.md) | [parametric polymorphism](spec/generics.md) |
 | higher-kindedな型parameterを使う | [kindとtype constructor](spec/type-constructors.md) | [parametric polymorphism](spec/generics.md)、[operation family](spec/operation-families.md) |
 | file内だけでrepresentationを観察できる型を使う | [file-local opaque type](spec/types.md#file-local-opaque-type) | [operation family](spec/operation-families.md) |

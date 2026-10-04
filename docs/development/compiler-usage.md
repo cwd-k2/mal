@@ -151,7 +151,7 @@ link時に必要なshared libraryは`--clang-arg`で明示する。host adapter�
 再生成する。`examples/`ではhost sourceのeditor supportと生成例を兼ねてfile headerをversion controlに含め、testで
 compiler出力との一致を検査する。`build`のtemporary artifactはcommandが所有し、成功・失敗のどちらでも終了時に削除する。
 `--artifact-dir`を指定した場合は`program.ll`、`program-shim.c`、build内部のumbrella `program.mal.h`、`mal.h`、`runtime.h`、`core.c`、`control.c`を保持し、
-Symbolまたは`Buffer`を使うprogramでは`bytes.c`、`bytes_internal.h`、`buffer.c`、`buffer_range.c`、`buffer_host.c`、`buffer_internal.h`、`symbol.c`も保持する。`emit atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
+Symbolまたは`Buffer`を使うprogramでは`bytes.c`、`bytes_internal.h`、`buffer.c`、`buffer_range.c`、`buffer_host.c`、`buffer_symbol.c`、`buffer_internal.h`、`symbol.c`も保持する。`emit atcoder`では`program-atcoder.lto.s`も保持する。これらはtoolchainとtargetに依存する
 inspection用artifactであり、version間の互換性を保証しない。
 
 CLIの終了statusは成功が`0`、source・compile・toolchain errorが`1`、command grammarのusage errorが`2`である。
