@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 use mal_frontend::check::ast::Type;
 
 use super::super::super::{EmittedValue, FunctionEmitter};
@@ -22,16 +23,16 @@ impl FunctionEmitter<'_> {
         let representation = self.register();
         emit_instruction! {
             self;
-            let #{ representation.clone() } = call {
+            let { representation.clone() } = call {
                 tail: false,
-                result_type: (ptr),
+                result_type: ptr,
                 callee: direct("mal_runtime_buffer_from"),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), #{ address.representation }),
-                    typed(#{ self.types.index_llvm_type() }, #{ offset.representation }),
-                    typed(#{ self.types.index_llvm_type() }, #{ length.representation }),
-                    typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
+                    (ptr, "%mal_context"),
+                    (ptr, { address.representation }),
+                    ({ self.types.index_llvm_type() }, { offset.representation }),
+                    ({ self.types.index_llvm_type() }, { length.representation }),
+                    ({ self.types.index_llvm_type() }, { stride.to_string() }),
                 ],
             };
         };
@@ -68,15 +69,15 @@ impl FunctionEmitter<'_> {
             self;
             call {
                 tail: false,
-                result_type: (void),
+                result_type: void,
                 callee: direct("mal_runtime_buffer_into"),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), #{ buffer.representation }),
-                    typed((ptr), #{ address.representation }),
-                    typed(#{ self.types.index_llvm_type() }, #{ offset.representation }),
-                    typed(#{ self.types.index_llvm_type() }, #{ length.representation }),
-                    typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
+                    (ptr, "%mal_context"),
+                    (ptr, { buffer.representation }),
+                    (ptr, { address.representation }),
+                    ({ self.types.index_llvm_type() }, { offset.representation }),
+                    ({ self.types.index_llvm_type() }, { length.representation }),
+                    ({ self.types.index_llvm_type() }, { stride.to_string() }),
                 ],
             };
         };

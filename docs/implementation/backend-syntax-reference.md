@@ -2,48 +2,67 @@
 
 この文書はgenerated C / LLVM構文を組み立てるときの検索用indexである。記法、補間、責務境界、追加時の判断は
 [C / LLVM構文構築](backend-syntax-construction.md)を正とする。各entryはそのmacro内だけで有効であり、同じ語が別の
-entryで使えることを意味しない。動的なnodeは`#{}`、動的な列は`...#{}`で渡す。
+entryで使えることを意味しない。Cでは動的なnodeを`{}`、動的な列を`..{}`で渡す。LLVMでは`{}`、`..{}`で渡す。
 
 ## C
 
 | 構築対象 | macro | 静的な形式 |
 |---|---|---|
-| comment | `c_comment!` | scalar payload |
-| type | `c_type!` | `named(name)`、`struct(name)`、`const(named(name))`、`ptr(type)` |
-| variable | `c_variable!` | `name: type`、`array name: type; size length` |
+| type | `c_type!` | `name`、`Struct<tag>`、`*const type`、`*mut type`。動的なtypeは`{ type }` |
 | parameter | `c_parameter!` | `name: type`、`_: type`、`#[maybe_unused] name: type` |
 | parameter列 | `c_parameters!` | `[parameter, ...]`相当のcomma区切り列 |
 | signature | `c_signature!` | `[attributes] fn name(parameters) -> type`。attributeは`#[static]`、`#[inline]`、`#[noreturn]`の実装済み組合せ |
-| aggregate field | `c_aggregate_field!` | `name: type`、function pointer、nested `struct` / `union` |
-| aggregate field列 | `c_aggregate_fields!` | comma区切りfield列 |
-| aggregate | `c_aggregate!` | `struct tag { fields }`、`type alias = struct [tag] { fields }` |
-| declaration | `c_declaration!` | function declaration、type alias、`static_assert` |
-| initializer | `c_initializer!` | `positional(value)`、`field(name, value)`、`path(path, value)` |
-| expression | `c_expr!` | 下記constructor |
-| statement | `c_statement!` | `let`、`return`、`if`、`switch`、expression statement |
+| expression | `c_expr!` | 下記のRust-shaped expression |
+| statement | `c_statement!` | `let`、`return`、`if`、`match`、expression statement |
 | block | `c_block!` | statement列 |
-| switch case | `c_switch_case!` | `value => { statements }`、`_ => { statements }` |
-| function definition | `c_function!` | static function構文、または下記の合成label |
-| preprocessor directive | `c_directive!` | `include`、`define`、`if`、`ifndef`、`else`、`endif`、`define_items`、`define_functions` |
-| macro invocation | `c_macro_invocation!` | `name([arguments])` |
+| switch case列 | `c_switch_cases!` | `value => { statements }`、`_ => { statements }`、`..{ cases }` |
+| function definition | `c_function!` | `fn name(parameters) -> type { statements }` |
+| record field列 | `c_record_fields!` | `name: type`、`name: struct { fields }`、`name: union { fields }`、`name: fn(parameters) -> type` |
+| record definition | `c_record!` | `struct tag { fields }`、`union tag { fields }` |
+| initializer列 | `c_initializers!` | `field: value`、`outer.inner: value`、`_0: value`、`{ initializer }`、`..{ initializers }` |
+| macro invocation | `c_invocation!` | `name(arguments)`。nameとargumentは通常の補間・spliceを利用可能 |
+| translation unit断片 | `c_items!` | 下記のRust-shaped item列 |
 
-`c_expr!`のconstructorは次のとおりである。
+`c_expr!`が受ける通常構文は次のとおりである。
 
-| 種類 | constructor |
+| 種類 | 構文 |
 |---|---|
-| atom | `id`、`number`、`string` |
-| unary / access | `address`、`dereference`、`field`、`pointer_field`、`sizeof`、`cast` |
-| call | `call`、`invoke` |
-| binary | `add`、`subtract`、`multiply`、`assign`、`equal`、`not_equal`、`greater`、`logical_and` |
-| aggregate | `conditional`、`initializer`、`compound` |
+| atom | bare identifier、number、string、`{ rust_expression }`、`sizeof(expression)` |
+| unary / access | `&value`、`*value`、`value.field`、`value.{ field }`、`value as type` |
+| call | `callee(arguments...)` |
+| binary | `+`、`-`、`*`、`=`、`==`、`!=`、`>`、`&&` |
+| conditional | `if condition { then_value } else { else_value }` |
+| aggregate | `[values...]`、`Type { field: value, _0: positional_value, ..{ initializers } }` |
 
-Cで名前付きfieldを取る形式は次のとおりである。
+call argumentとcompound initializerの列には`..{ iterator }`を挿入できる。`match value { label => { body }, _ => { body } }`は
+Cのswitchへ写像し、arm列には`..{ iterator }`を挿入できる。labelはRust patternでなくC expressionとして解析する。
+nested initializerも同じexpression grammarを使う。
 
-| form | field label |
+`c_items!`が受けるitemは次のとおりである。各item位置では`{ item }`、item列では`..{ translation_unit }`を使える。
+
+| 種類 | 構文 |
 |---|---|
-| `c_function!`による構築済みnodeの合成 | 先頭に`signature`または`macro`。構築済みblockには`body` |
-| `c_variable!`のarray | `size` |
-| `c_directive!(define_items ...)` | `parameters`、`declarations`、`definitions`、`trailing` |
+| include | `include_system!(stdio.h);`、`include_system!("stdio.h");`、`include_quoted!({ path });` |
+| define | `define!(NAME);`、`define!(NAME = expression);`、`define!(NAME(parameters) = expression);` |
+| comment / assertion | `comment!(text);`、`assert!(condition, message);` |
+| type alias | `type name = type;` |
+| record typedef | `type name = struct [tag] { fields };`、`type name = union [tag] { fields };` |
+| tagged record | `struct tag { fields }`、`union tag { fields }` |
+| function | `[attributes] fn name(parameters) -> type;`またはbody付きdefinition |
+| conditional items | `if defined(NAME) { items } else { items }`、`if !defined(NAME) { items }` |
+
+`{ ... }`は、itemやfieldを囲むDSL上のblockと、Rust値を一個挿入する位置の両方に現れる。parserは文脈から区別する。
+旧来の`#{ ... }`は受理せず、列の挿入には常に`..{ ... }`を使う。
+
+C macroに含めないC固有nodeは次のtyped constructorから構築する。
+
+| 構築対象 | constructor |
+|---|---|
+| 型付きpreprocessor replacement | `Directive::*_define` |
+
+`Directive::*`を直接使うproduction call siteは、preprocessor replacementがexpression、record、record field、initializer、
+statement、switch case、function itemのどれであるかを指定する箇所に限る。この分類はrendererが推測できないため、汎用の
+`define!` grammarへ統合しない。別々に動的構築したsignatureとbodyの結合も`FunctionDefinition::from_signature`で明示する。
 
 ## LLVM
 
@@ -56,7 +75,7 @@ Cで名前付きfieldを取る形式は次のとおりである。
 | signature | `llvm_signature!` | `[#[linkage(internal)]] [#[attributes(...)]] fn name(parameters) -> type` |
 | function declaration | `llvm_declaration!` | `[#[attributes(...)]] fn name(parameters) -> type;` |
 | constant | `llvm_constant!` | `atom`、`structure`、`get_element_ptr`、`unary`、`binary`、`cast`、`zero` |
-| typed constant | `llvm_typed_constant!` | `typed(type, constant)` |
+| typed constant | `llvm_typed_constant!` | `(type, constant)` |
 | instruction | `llvm_instruction!` | 下記form |
 | terminator | `llvm_terminator!` | `branch`、`return`、`switch`、`unreachable` |
 | byte-owner global | `llvm_global!` | `byte_owner { ... }` |
@@ -91,7 +110,8 @@ LLVMの名前付き形式とfield labelは次のとおりである。
 | `byte_owner` | `name`、`bytes`、`alignment` |
 | metadata | `id`、`distinct`、`operands` |
 
-`callee`は`direct(value)`または`indirect(value)`、LLVM operandは親macro内の`typed(type, value)`で表す。
-`typed`およびmetadata operandの`node`、`text`、`integer`は独立したproduction用entry macroではない。`arguments`と
-`operands`は静的要素、`#{}`、`...#{}`を混在でき、`cases`は静的armと`...#{}`を混在できる。`indices`と
-`incoming`のように固定長arrayまたは構築済み列を受けるfieldでは、列全体を`#{}`で渡す。
+`callee`は`direct(value)`または`indirect(value)`、LLVM operandは親macro内の`(type, value)`で表す。
+instruction fieldとtyped operand内の静的typeは`int(32)`や`ptr`をそのまま書き、macro実装上の都合による追加の括弧で囲まない。
+typed valueおよびmetadata operandの`node`、`text`、`integer`は独立したproduction用entry macroではない。`arguments`と
+`operands`は静的要素、`{}`、`..{}`を混在でき、`cases`は静的armと`..{}`を混在できる。`indices`と
+`incoming`のように固定長arrayまたは構築済み列を受けるfieldでは、列全体を`{}`で渡す。

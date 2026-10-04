@@ -1,8 +1,8 @@
 use std::ops::Deref;
 
 use super::{
-    AggregateDefinition, AggregateField, Expr, FunctionDefinition, FunctionSignature, Identifier,
-    Initializer, Statement, SwitchCase,
+    Expr, FunctionDefinition, FunctionSignature, Identifier, Initializer, RecordDefinition,
+    RecordField, Statement, SwitchCase,
 };
 
 mod render;
@@ -73,15 +73,15 @@ pub(in crate::backend) enum Directive {
         parameters: Vec<MacroParameter>,
         invocations: Vec<MacroInvocation>,
     },
-    AggregateDefine {
+    RecordDefine {
         name: Identifier,
         parameters: Vec<MacroParameter>,
-        definition: AggregateDefinition,
+        definition: RecordDefinition,
     },
-    AggregateFieldsDefine {
+    RecordFieldsDefine {
         name: Identifier,
         parameters: Vec<MacroParameter>,
-        fields: Vec<AggregateField>,
+        fields: Vec<RecordField>,
     },
     InitializersDefine {
         name: Identifier,
@@ -129,6 +129,14 @@ impl From<String> for MacroParameter {
 }
 
 impl Directive {
+    pub(in crate::backend) fn if_defined(name: impl Into<Identifier>) -> Self {
+        Self::If(PreprocessorExpr::defined(name))
+    }
+
+    pub(in crate::backend) fn ifndef(name: impl Into<Identifier>) -> Self {
+        Self::Ifndef(name.into())
+    }
+
     pub(in crate::backend) fn include_quoted(path: impl Into<String>) -> Self {
         let path = path.into();
         assert!(Self::is_valid_quoted_include(&path));
@@ -221,24 +229,24 @@ impl Directive {
         }
     }
 
-    pub(in crate::backend) fn aggregate_define(
+    pub(in crate::backend) fn record_define(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        definition: AggregateDefinition,
+        definition: RecordDefinition,
     ) -> Self {
-        Self::AggregateDefine {
+        Self::RecordDefine {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             definition,
         }
     }
 
-    pub(in crate::backend) fn aggregate_fields_define(
+    pub(in crate::backend) fn record_fields_define(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        fields: impl IntoIterator<Item = AggregateField>,
+        fields: impl IntoIterator<Item = RecordField>,
     ) -> Self {
-        Self::AggregateFieldsDefine {
+        Self::RecordFieldsDefine {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             fields: fields.into_iter().collect(),

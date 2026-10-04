@@ -1,3 +1,5 @@
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use crate::backend::llvm::syntax::llvm_signature;
 use crate::core::ast::BufferOperation;
 use mal_frontend::check::ast::Type;
@@ -62,14 +64,14 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(element)?;
         let signature = if retain {
             llvm_signature! {
-                #[linkage(internal)] fn #{ format!("mal_buffer_retain_{number}") }(
+                #[linkage(internal)] fn { format!("mal_buffer_retain_{number}") }(
                     "%mal_context": ptr,
                     "%mal_element": ptr,
                 ) -> void
             }
         } else {
             llvm_signature! {
-                #[linkage(internal)] fn #{ format!("mal_buffer_release_{number}") }(
+                #[linkage(internal)] fn { format!("mal_buffer_release_{number}") }(
                     "%mal_element": ptr,
                 ) -> void
             }
@@ -79,10 +81,10 @@ impl FunctionEmitter<'_> {
         let value = self.register();
         emit_instruction! {
             self;
-            let #{ value.clone() } = load {
-                ty: #{ value_type.llvm },
+            let { value.clone() } = load {
+                ty: { value_type.llvm },
                 pointer: "%mal_element",
-                alignment: #{ value_type.alignment },
+                alignment: { value_type.alignment },
                 metadata: [],
             };
         };

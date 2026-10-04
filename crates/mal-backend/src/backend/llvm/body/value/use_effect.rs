@@ -1,4 +1,6 @@
 use crate::backend::llvm::syntax::CastOperator;
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::execution::ownership::UseEffect;
 
@@ -99,29 +101,29 @@ impl FunctionEmitter<'_> {
         let unique = self.register();
         emit_instruction! {
             self;
-            let #{ unique.clone() } = call {
+            let { unique.clone() } = call {
                 tail: false,
-                result_type: (int(8_u16)),
+                result_type: int(8_u16),
                 callee: direct("mal_runtime_owner_is_unique"),
-                arguments: [typed((ptr), #{ environment })],
+                arguments: [(ptr, { environment })],
             };
         };
         let condition = self.register();
         emit_instruction! {
             self;
-            let #{ condition.clone() } = cast {
-                operator: #{ CastOperator::Trunc },
-                value: typed((int(8_u16)), #{ unique }),
-                to: (int(1_u16)),
+            let { condition.clone() } = cast {
+                operator: { CastOperator::Trunc },
+                value: (int(8_u16), { unique }),
+                to: int(1_u16),
             };
         };
         let label = self.label_id();
         emit_terminator! {
             self;
             branch {
-                condition: #{ condition },
-                then: #{ format!("mal_capture_take_{label}") },
-                otherwise: #{ format!("mal_capture_share_{label}") },
+                condition: { condition },
+                then: { format!("mal_capture_take_{label}") },
+                otherwise: { format!("mal_capture_share_{label}") },
             };
         };
         self.block(format!("mal_capture_take_{label}"));
@@ -131,7 +133,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_capture_ready_{label}") },
+                target: { format!("mal_capture_ready_{label}") },
             };
         };
         self.block(format!("mal_capture_share_{label}"));
@@ -139,7 +141,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_capture_ready_{label}") },
+                target: { format!("mal_capture_ready_{label}") },
             };
         };
         self.block(format!("mal_capture_ready_{label}"));

@@ -75,10 +75,6 @@ impl Statement {
     pub(in crate::backend) fn switch(value: Expr, cases: Vec<SwitchCase>) -> Self {
         Self::Switch { value, cases }
     }
-
-    pub(in crate::backend) fn macro_invocation(invocation: MacroInvocation) -> Self {
-        Self::MacroInvocation(invocation)
-    }
 }
 
 impl Block {
@@ -109,9 +105,17 @@ impl SwitchCase {
     pub(in crate::backend) fn default(body: Block) -> Self {
         Self::Case { label: None, body }
     }
+}
 
-    pub(in crate::backend) fn macro_invocation(invocation: MacroInvocation) -> Self {
-        Self::MacroInvocation(invocation)
+impl From<MacroInvocation> for Statement {
+    fn from(value: MacroInvocation) -> Self {
+        Self::MacroInvocation(value)
+    }
+}
+
+impl From<MacroInvocation> for SwitchCase {
+    fn from(value: MacroInvocation) -> Self {
+        Self::MacroInvocation(value)
     }
 }
 

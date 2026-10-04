@@ -20,78 +20,60 @@ impl TypeRegistry {
                 }
                 _ => scalar_name(&alias.ty).into(),
             };
-            output.push(c_macro_invocation! {
-                "MAL_DETAIL_DEFINE_MEMORY_ALIAS"([
-                    id(#{ format!("mal_{}_read", alias.name) }),
-                    id(#{ format!("mal_{}_write", alias.name) }),
-                    id(#{ format!("mal_{}_t", alias.name) }),
-                    number(#{ stride }),
-                    id(#{ format!("mal_detail_memory_read_{helper}") }),
-                    id(#{ format!("mal_detail_memory_write_{helper}") }),
-                ])
-            });
+            output.push(c_invocation!(MAL_DETAIL_DEFINE_MEMORY_ALIAS(
+                { format!("mal_{}_read", alias.name) },
+                { format!("mal_{}_write", alias.name) },
+                { format!("mal_{}_t", alias.name) },
+                { stride },
+                { format!("mal_detail_memory_read_{helper}") },
+                { format!("mal_detail_memory_write_{helper}") },
+            )));
             return;
         }
         let source = offset(
-            c_expr! {
-                cast(
-                    #{ c_type!(ptr(const(named("uint8_t")))) },
-                    (id("address"))
-                )
-            },
-            c_expr!(multiply((id("index")), (number(#{ stride })))),
+            c_expr!(address as *const uint8_t),
+            c_expr!(index * { stride }),
         );
-        let unused_index =
-            (stride == 0).then(|| c_statement!(cast((named("void")), (id("index")));));
-        let read_value = self.memory_read_value(&alias.ty, c_expr!(id("call")), source);
+        let unused_index = (stride == 0).then(|| c_statement!(index as void;));
+        let read_value = self.memory_read_value(&alias.ty, c_expr!(call), source);
         let read_body = c_block! {
-            ...#{ unused_index }
-            call("mal_Address_return", [id("call"), id("address")]);
-            return #{ read_value };
+            ..{ unused_index }
+            mal_Address_return(call, address);
+            return { read_value };
         };
         append_function(
             output,
             c_signature! {
-                #[static] #[inline] fn #{ format!("mal_{}_read", alias.name) }(
-                    "call": ptr(named("mal_call_t")),
-                    "address": named("mal_Address_t"),
-                    "index": named("mal_USize_t"),
-                ) -> named(#{ format!("mal_{}_t", alias.name) })
+                #[static] #[inline] fn { format!("mal_{}_read", alias.name) }(
+                    call: *mut mal_call_t,
+                    address: mal_Address_t,
+                    index: mal_USize_t,
+                ) -> { format!("mal_{}_t", alias.name) }
             },
             read_body,
         );
 
         let destination = offset(
-            c_expr! {
-                cast(
-                    #{ c_type!(ptr(named("uint8_t"))) },
-                    (id("address"))
-                )
-            },
-            c_expr!(multiply((id("index")), (number(#{ stride })))),
+            c_expr!(address as *mut uint8_t),
+            c_expr!(index * { stride }),
         );
-        let unused_index =
-            (stride == 0).then(|| c_statement!(cast((named("void")), (id("index")));));
-        let write_value = self.memory_write_statement(
-            &alias.ty,
-            c_expr!(id("call")),
-            destination,
-            c_expr!(id("value")),
-        );
+        let unused_index = (stride == 0).then(|| c_statement!(index as void;));
+        let write_value =
+            self.memory_write_statement(&alias.ty, c_expr!(call), destination, c_expr!(value));
         let write_body = c_block! {
-            ...#{ unused_index }
-            call("mal_Address_return", [id("call"), id("address")]);
-            #{ write_value }
+            ..{ unused_index }
+            mal_Address_return(call, address);
+            { write_value }
         };
         append_function(
             output,
             c_signature! {
-                #[static] #[inline] fn #{ format!("mal_{}_write", alias.name) }(
-                    "call": ptr(named("mal_call_t")),
-                    "address": named("mal_Address_t"),
-                    "index": named("mal_USize_t"),
-                    "value": named(#{ format!("mal_{}_t", alias.name) }),
-                ) -> named("void")
+                #[static] #[inline] fn { format!("mal_{}_write", alias.name) }(
+                    call: *mut mal_call_t,
+                    address: mal_Address_t,
+                    index: mal_USize_t,
+                    value: { format!("mal_{}_t", alias.name) },
+                ) -> void
             },
             write_body,
         );

@@ -1,6 +1,7 @@
 //! One function emitter: the states, slots, frames, and scratch storage it owns, then its prologue, states, and output.
 
 use super::*;
+use crate::backend::llvm::syntax::emit_terminator;
 
 mod frames;
 mod prologue;
@@ -100,7 +101,7 @@ impl<'a> FunctionEmitter<'a> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_state_{}", self.function.entry.0) },
+                target: { format!("mal_state_{}", self.function.entry.0) },
             };
         };
 

@@ -1,6 +1,8 @@
 //! The wrapper that keeps the function's own name and calls the native worker with its context.
 
 use super::*;
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 
 impl FunctionEmitter<'_> {
     /// Emits the stable function ABI once and moves recursive execution into a worker whose ABI
@@ -16,13 +18,13 @@ impl FunctionEmitter<'_> {
             "%mal_context" : ptr,
             "%mal_control_top" : ptr,
             "%mal_environment" : ptr,
-            "%mal_parameter" : #{ parameter.llvm.clone() },
+            "%mal_parameter" : { parameter.llvm.clone() },
         };
         self.begin_function(llvm_signature! {
             #[linkage(internal)]
-            fn #{ super::super::super::function_name(self.function.id) }(
-                ...#{ parameters },
-            ) -> #{ result.llvm.clone() }
+            fn { super::super::super::function_name(self.function.id) }(
+                ..{ parameters },
+            ) -> { result.llvm.clone() }
         });
         self.block("entry");
         let context_type = self.native_context_type()?;
@@ -30,8 +32,8 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             let "%mal_native_context_storage" = alloca {
-                ty: #{ context_type.clone() },
-                alignment: #{ context_alignment },
+                ty: { context_type.clone() },
+                alignment: { context_alignment },
             };
         };
         let mut context = "poison".to_string();
@@ -47,10 +49,10 @@ impl FunctionEmitter<'_> {
             let inserted = self.register();
             emit_instruction! {
                 self;
-                let #{ inserted.clone() } = insert_value {
-                    aggregate: typed(#{ context_type.clone() }, #{ context }),
-                    element: typed(#{ ty }, #{ value }),
-                    indices: [#{ index }],
+                let { inserted.clone() } = insert_value {
+                    aggregate: ({ context_type.clone() }, { context }),
+                    element: ({ ty }, { value }),
+                    indices: [{ index }],
                 };
             };
             context = inserted;
@@ -58,9 +60,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ context_type }, #{ context }),
+                value: ({ context_type }, { context }),
                 pointer: "%mal_native_context_storage",
-                alignment: #{ context_alignment },
+                alignment: { context_alignment },
                 metadata: [],
             };
         };
@@ -69,9 +71,9 @@ impl FunctionEmitter<'_> {
             let register = self.register();
             emit_instruction! {
                 self;
-                let #{ register.clone() } = extract_value {
-                    aggregate: typed(#{ parameter.llvm.clone() }, "%mal_parameter"),
-                    indices: #{ leaf.path.clone() },
+                let { register.clone() } = extract_value {
+                    aggregate: ({ parameter.llvm.clone() }, "%mal_parameter"),
+                    indices: { leaf.path.clone() },
                 };
             };
             arguments.push((self.types.value(&leaf.ty)?.llvm, register));
@@ -80,16 +82,16 @@ impl FunctionEmitter<'_> {
         let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction! {
             self;
-            let #{ returned.clone() } = call {
+            let { returned.clone() } = call {
                 tail: false,
-                result_type: #{ result.llvm.clone() },
-                callee: direct(#{ self.native_worker_name() }),
-                arguments: [...#{ arguments }],
+                result_type: { result.llvm.clone() },
+                callee: direct({ self.native_worker_name() }),
+                arguments: [..{ arguments }],
             };
         };
         emit_terminator! {
             self;
-            return typed(#{ result.llvm }, #{ returned });
+            return ({ result.llvm }, { returned });
         };
         self.finish_function()?;
         (!self.emission_failed).then_some(super::super::super::EmittedFunction {

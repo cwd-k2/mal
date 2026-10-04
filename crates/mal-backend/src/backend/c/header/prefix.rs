@@ -1,4 +1,4 @@
-use crate::backend::c::syntax::{TranslationUnit, c_declaration, c_directive};
+use crate::backend::c::syntax::{TranslationUnit, c_items};
 
 use super::C_ABI_VERSION_LITERAL;
 
@@ -8,30 +8,21 @@ pub(super) fn emit_prefix(
     dependencies: &[String],
     umbrella: bool,
 ) -> TranslationUnit {
-    let mut output = TranslationUnit::default();
-    output.push(c_directive!(include(system "mal.h")));
+    let mut output = c_items! { include_system!("mal.h"); };
     for dependency in dependencies {
-        output.push(c_directive!(include(quoted #{ dependency })));
+        output.extend(c_items! { include_quoted!({ dependency }); });
     }
     if umbrella {
-        output.push(c_directive!(define "MAL_BUILD_UMBRELLA";));
-        output.push(c_directive!(define "MAL_PROGRAM_MAL_H";));
+        output.extend(c_items! {
+            define!(MAL_BUILD_UMBRELLA);
+            define!(MAL_PROGRAM_MAL_H);
+        });
     }
     output.blank_line();
-    output.push(c_declaration! {
-        static_assert(
-            (equal((id("MAL_C_ABI_VERSION")), (number(#{ C_ABI_VERSION_LITERAL })))),
-            "generated header requires mal C ABI 0x000900"
-        );
-    });
-    output.push(c_declaration! {
-        static_assert(
-            (equal(
-                (multiply((sizeof((cast((named("size_t")), (number(0)))))), (id("CHAR_BIT")))),
-                (number(#{ index_bits }))
-            )),
-            "size_t does not match the mal target pointer index width"
-        );
+    let abi_version = crate::backend::c::syntax::Expr::number(C_ABI_VERSION_LITERAL);
+    output.extend(c_items! {
+        assert!(MAL_C_ABI_VERSION == { abi_version }, "generated header requires mal C ABI 0x000900");
+        assert!(sizeof(0 as size_t) * CHAR_BIT == { index_bits }, "size_t does not match the mal target pointer index width");
     });
     output
 }

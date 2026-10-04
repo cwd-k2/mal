@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
@@ -20,9 +21,9 @@ impl FunctionEmitter<'_> {
             let field = self.register();
             emit_instruction! {
                 self;
-                let #{ field.clone() } = extract_value {
-                    aggregate: typed(#{ product_type.llvm.clone() }, #{ product.representation.clone() }),
-                    indices: [#{ index }],
+                let { field.clone() } = extract_value {
+                    aggregate: ({ product_type.llvm.clone() }, { product.representation.clone() }),
+                    indices: [{ index }],
                 };
             };
             EmittedValue {

@@ -52,12 +52,12 @@ impl<'a> ExternalSignatures<'a> {
 impl<'a> CompilerSignature<'a> {
     fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
         let result_type = if external.result == Type::Unit {
-            c_type!(named("void"))
+            c_type!(void)
         } else {
             types.header_c_type(&external.result, external.result_alias.as_deref())
         };
         let mut parameters = vec![CompilerParameter {
-            c_type: c_type!(ptr(named("MalContext"))),
+            c_type: c_type!(*mut MalContext),
             default_name: "context".into(),
             is_context: true,
         }];
@@ -109,7 +109,7 @@ impl<'a> CompilerSignature<'a> {
             .iter()
             .map(|parameter| {
                 let name = parameter.default_name.clone();
-                let declaration = c_parameter!(#{ name } : #{ parameter.c_type.clone() });
+                let declaration = c_parameter!({ name }: { parameter.c_type.clone() });
                 if definition && parameter.is_context {
                     declaration.maybe_unused()
                 } else {
@@ -136,7 +136,7 @@ impl<'a> HostBodySignature<'a> {
                     .host_value_c_type(&external.parameter, external.parameter_alias.as_deref()),
             }),
             raw_result_type: if external.result == Type::Unit {
-                c_type!(named("MalType_Unit"))
+                c_type!(MalType_Unit)
             } else {
                 types.header_c_type(&external.result, external.result_alias.as_deref())
             },
@@ -152,14 +152,14 @@ impl<'a> HostBodySignature<'a> {
     }
 
     pub(super) fn signature(&self) -> FunctionSignature {
-        let mut parameters = c_parameters!("call": ptr(named("mal_call_t")));
+        let mut parameters = c_parameters!(call: *mut mal_call_t);
         if let Some(parameter) = &self.parameter {
-            parameters.push(c_parameter!("value": #{ parameter.c_type.clone() }));
+            parameters.push(c_parameter!(value: { parameter.c_type.clone() }));
         }
         c_signature! {
-            #[static] fn #{ format!("mal_detail_{}", self.operation_name) }(
-                ...#{ parameters },
-            ) -> #{ self.raw_result_type.clone() }
+            #[static] fn { format!("mal_detail_{}", self.operation_name) }(
+                ..{ parameters },
+            ) -> { self.raw_result_type.clone() }
         }
     }
 

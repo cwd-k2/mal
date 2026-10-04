@@ -1,13 +1,12 @@
 //! Aggregate representation and product conversion templates.
 
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, AggregateKind, Directive, FunctionDefinition, Initializer,
-    MacroInvocation, TranslationUnit, c_aggregate_field, c_block, c_expr, c_function,
-    c_initializer, c_signature, c_type,
+    Directive, FunctionDefinition, TranslationUnit, c_block, c_expr, c_function, c_initializers,
+    c_invocation, c_items, c_record, c_record_fields, c_signature, c_type,
 };
 
 pub(super) fn append_aggregate_templates(output: &mut TranslationUnit) {
-    output.push(Directive::aggregate_fields_define(
+    output.push(Directive::record_fields_define(
         "MAL_DETAIL_RAW_REPR_FIELD",
         [
             "context",
@@ -18,9 +17,9 @@ pub(super) fn append_aggregate_templates(output: &mut TranslationUnit) {
             "to_host",
             "to_raw",
         ],
-        [c_aggregate_field!("member": named("raw_type"))],
+        c_record_fields! { member: raw_type },
     ));
-    output.push(Directive::aggregate_fields_define(
+    output.push(Directive::record_fields_define(
         "MAL_DETAIL_HOST_REPR_FIELD",
         [
             "context",
@@ -31,57 +30,52 @@ pub(super) fn append_aggregate_templates(output: &mut TranslationUnit) {
             "to_host",
             "to_raw",
         ],
-        [c_aggregate_field!("member": named("host_type"))],
+        c_record_fields! { member: host_type },
     ));
 
-    let descriptor_fields = || {
-        [AggregateField::macro_invocation(MacroInvocation::new(
-            "fields",
-            [c_expr!(id("field")), c_expr!(id("type_tag"))],
-        ))]
-    };
-    output.push(Directive::aggregate_define(
+    let descriptor_field = || c_invocation!(fields(field, type_tag));
+    output.push(Directive::record_define(
         "MAL_DETAIL_DEFINE_PRODUCT_REPR",
         ["type_tag", "fields", "field"],
-        AggregateDefinition::structure("type_tag", descriptor_fields()),
+        c_record! {
+            struct type_tag {
+                { descriptor_field() },
+            }
+        },
     ));
-    output.push(Directive::aggregate_define(
+    let members = c_invocation!(members(member, type_tag));
+    output.push(Directive::record_define(
         "MAL_DETAIL_DEFINE_SUM_REPR",
         ["type_tag", "members", "member"],
-        AggregateDefinition::structure(
-            "type_tag",
-            [
-                c_aggregate_field!("tag": named("uint32_t")),
-                AggregateField::aggregate(
-                    AggregateKind::Union,
-                    [AggregateField::macro_invocation(MacroInvocation::new(
-                        "members",
-                        [c_expr!(id("member")), c_expr!(id("type_tag"))],
-                    ))],
-                    "payload",
-                ),
-            ],
-        ),
+        c_record! {
+            struct type_tag {
+                tag: uint32_t,
+                payload: union {
+                    { members },
+                },
+            }
+        },
     ));
-    output.push(Directive::aggregate_define(
+    output.push(Directive::record_define(
         "MAL_DETAIL_DEFINE_EMPTY_SUM_REPR",
         ["type_tag"],
-        AggregateDefinition::structure("type_tag", [c_aggregate_field!("tag": named("uint32_t"))]),
+        c_record! {
+            struct type_tag {
+                tag: uint32_t,
+            }
+        },
     ));
     append_product_conversion_template(output);
     output.blank_line();
 }
 
 fn append_product_conversion_template(output: &mut TranslationUnit) {
-    output.push(Directive::expression_define(
-        "MAL_DETAIL_REPR_IDENTITY",
-        ["call", "value"],
-        c_expr!(id("value")),
-    ));
+    output.extend(c_items! { define!(MAL_DETAIL_REPR_IDENTITY(call, value) = value); });
     let converted = |converter: &str| {
-        c_initializer! {
-            field("member", (call(#{ converter }, [id("call"), field((id("value")), "member")])))
-        }
+        c_initializers! { member: { c_expr!({ converter }(call, value.member)) } }
+            .into_iter()
+            .next()
+            .expect("one product conversion initializer")
     };
     output.push(Directive::initializers_define(
         "MAL_DETAIL_PRODUCT_TO_HOST_FIELD",
@@ -110,22 +104,18 @@ fn append_product_conversion_template(output: &mut TranslationUnit) {
         [converted("to_raw")],
     ));
     let conversion = |name: &str, result: &str, value: &str, field: &str| {
-        let initializer = Initializer::macro_invocation(MacroInvocation::new(
-            "fields",
-            [c_expr!(id(#{ field })), c_expr!(id(#{ result }))],
-        ));
+        let initializers = c_initializers! {
+            { c_invocation!(fields({ field }, { result })) },
+        };
         FunctionDefinition::from_signature(
             c_signature! {
-                #[static] #[inline] fn #{ name }(
-                    #[maybe_unused] "call": ptr(named("mal_call_t")),
-                    "value": named(#{ value }),
-                ) -> named(#{ result })
+                #[static] #[inline] fn { name }(
+                    #[maybe_unused] call: *mut mal_call_t,
+                    value: { value },
+                ) -> { result }
             },
             c_block! {
-                return #{ crate::backend::c::syntax::Expr::compound_literal(
-                    c_type!(named(#{ result })),
-                    [initializer],
-                ) };
+                return { c_expr!({ c_type!({ result }) } { ..{ initializers } }) };
             },
         )
     };
@@ -154,11 +144,11 @@ fn append_product_conversion_template(output: &mut TranslationUnit) {
         ],
     ));
     let converting_return = c_function! {
-        #[static] #[inline] fn "function_name"(
-            #[maybe_unused] "call": ptr(named("mal_call_t")),
-            "value": named("value_type"),
-        ) -> named("result_type") {
-            return (call("converter", [id("call"), id("value")]));
+        #[static] #[inline] fn { "function_name" }(
+            #[maybe_unused] call: *mut mal_call_t,
+            value: value_type,
+        ) -> result_type {
+            return converter(call, value);
         }
     };
     output.push(Directive::function_definitions_define(

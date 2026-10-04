@@ -2,6 +2,7 @@
 //! Buffer element value.
 
 use super::*;
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::backend::llvm::syntax::llvm_type;
 
 /// Sizes of the shared scratch storage, each `None` or `false` when no state needs it.
@@ -87,19 +88,19 @@ fn largest(layouts: impl Iterator<Item = (usize, usize)>) -> Option<(usize, usiz
 impl FunctionEmitter<'_> {
     pub(super) fn emit_scratch_allocas(&mut self) -> Option<()> {
         if let Some((size, alignment)) = self.external_storage {
-            let storage_type = llvm_type!(array(#{ size }, int(8)));
+            let storage_type = llvm_type!(array({ size }, int(8)));
             emit_instruction! {
                 self;
                 let "%mal_bridge_argument" = alloca {
-                    ty: #{ storage_type.clone() },
-                    alignment: #{ alignment },
+                    ty: { storage_type.clone() },
+                    alignment: { alignment },
                 };
             };
             emit_instruction! {
                 self;
                 let "%mal_bridge_result" = alloca {
-                    ty: #{ storage_type },
-                    alignment: #{ alignment },
+                    ty: { storage_type },
+                    alignment: { alignment },
                 };
             };
         }
@@ -108,8 +109,8 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 let "%mal_symbol_result" = alloca {
-                    ty: #{ symbol.llvm },
-                    alignment: #{ symbol.alignment },
+                    ty: { symbol.llvm },
+                    alignment: { symbol.alignment },
                 };
             };
         }
@@ -117,8 +118,8 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 let "%mal_buffer_value" = alloca {
-                    ty: #{ llvm_type!(array(#{ size }, int(8_u16))) },
-                    alignment: #{ alignment },
+                    ty: { llvm_type!(array({ size }, int(8_u16))) },
+                    alignment: { alignment },
                 };
             };
         }

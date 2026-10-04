@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 mod access;
 mod address;
 mod runtime_owned;
@@ -79,30 +80,30 @@ impl FunctionEmitter<'_> {
                     let number = self.index.owned_buffer_elements.number(element)?;
                     emit_instruction! {
                         self;
-                        let #{ buffer.clone() } = call {
+                        let { buffer.clone() } = call {
                             tail: false,
-                            result_type: (ptr),
+                            result_type: ptr,
                             callee: direct("mal_runtime_buffer_make_managed"),
                             arguments: [
-                                typed((ptr), "%mal_context"),
-                                typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
-                                typed(#{ self.types.index_llvm_type() }, #{ capacity.representation.clone() }),
-                                typed((ptr), #{ format!("@mal_buffer_retain_{number}") }),
-                                typed((ptr), #{ format!("@mal_buffer_release_{number}") }),
+                                (ptr, "%mal_context"),
+                                ({ self.types.index_llvm_type() }, { stride.to_string() }),
+                                ({ self.types.index_llvm_type() }, { capacity.representation.clone() }),
+                                (ptr, { format!("@mal_buffer_retain_{number}") }),
+                                (ptr, { format!("@mal_buffer_release_{number}") }),
                             ],
                         };
                     };
                 } else {
                     emit_instruction! {
                         self;
-                        let #{ buffer.clone() } = call {
+                        let { buffer.clone() } = call {
                             tail: false,
-                            result_type: (ptr),
+                            result_type: ptr,
                             callee: direct("mal_runtime_buffer_make"),
                             arguments: [
-                                typed((ptr), "%mal_context"),
-                                typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
-                                typed(#{ self.types.index_llvm_type() }, #{ capacity.representation.clone() }),
+                                (ptr, "%mal_context"),
+                                ({ self.types.index_llvm_type() }, { stride.to_string() }),
+                                ({ self.types.index_llvm_type() }, { capacity.representation.clone() }),
                             ],
                         };
                     };
@@ -127,15 +128,15 @@ impl FunctionEmitter<'_> {
                 };
                 emit_instruction! {
                     self;
-                    let #{ index.clone() } = call {
+                    let { index.clone() } = call {
                         tail: false,
-                        result_type: #{ self.types.index_llvm_type() },
-                        callee: direct(#{ function }),
+                        result_type: { self.types.index_llvm_type() },
+                        callee: direct({ function }),
                         arguments: [
-                            typed((ptr), "%mal_context"),
-                            typed((ptr), #{ buffer.representation.clone() }),
-                            typed((ptr), #{ value_pointer }),
-                            typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
+                            (ptr, "%mal_context"),
+                            (ptr, { buffer.representation.clone() }),
+                            (ptr, { value_pointer }),
+                            ({ self.types.index_llvm_type() }, { stride.to_string() }),
                         ],
                     };
                 };
@@ -215,15 +216,15 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (void),
-                        callee: direct(#{ function }),
+                        result_type: void,
+                        callee: direct({ function }),
                         arguments: [
-                            typed((ptr), "%mal_context"),
-                            typed((ptr), #{ buffer.representation.clone() }),
-                            typed(#{ self.types.index_llvm_type() }, #{ offset.representation.clone() }),
-                            typed(#{ self.types.index_llvm_type() }, #{ length.representation.clone() }),
-                            typed((ptr), #{ value_pointer }),
-                            typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
+                            (ptr, "%mal_context"),
+                            (ptr, { buffer.representation.clone() }),
+                            ({ self.types.index_llvm_type() }, { offset.representation.clone() }),
+                            ({ self.types.index_llvm_type() }, { length.representation.clone() }),
+                            (ptr, { value_pointer }),
+                            ({ self.types.index_llvm_type() }, { stride.to_string() }),
                         ],
                     };
                 };
@@ -254,16 +255,16 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (void),
-                        callee: direct(#{ function }),
+                        result_type: void,
+                        callee: direct({ function }),
                         arguments: [
-                            typed((ptr), "%mal_context"),
-                            typed((ptr), #{ destination.representation.clone() }),
-                            typed(#{ self.types.index_llvm_type() }, #{ destination_offset.representation.clone() }),
-                            typed((ptr), #{ source.representation.clone() }),
-                            typed(#{ self.types.index_llvm_type() }, #{ source_offset.representation.clone() }),
-                            typed(#{ self.types.index_llvm_type() }, #{ length.representation.clone() }),
-                            typed(#{ self.types.index_llvm_type() }, #{ stride.to_string() }),
+                            (ptr, "%mal_context"),
+                            (ptr, { destination.representation.clone() }),
+                            ({ self.types.index_llvm_type() }, { destination_offset.representation.clone() }),
+                            (ptr, { source.representation.clone() }),
+                            ({ self.types.index_llvm_type() }, { source_offset.representation.clone() }),
+                            ({ self.types.index_llvm_type() }, { length.representation.clone() }),
+                            ({ self.types.index_llvm_type() }, { stride.to_string() }),
                         ],
                     };
                 };

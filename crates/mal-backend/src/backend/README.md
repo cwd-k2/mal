@@ -12,7 +12,6 @@ mechanisms.
 | [`llvm`](llvm/README.md) | the LLVM backend |
 | `runtime` | the runtime sources a program's artifacts reference |
 | `source_layout` | canonical memory layout shared by LLVM and C helpers |
-| `syntax_interpolation` | normalization for the C and LLVM construction macros |
 
 This directory does not read or write files and does not start Clang. `mal-backend::pipeline` returns text artifacts;
 `mal-compiler::driver` owns their paths, compilation, and linking.

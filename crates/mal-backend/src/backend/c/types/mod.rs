@@ -1,8 +1,7 @@
 //! Structural registry and target-aware C mapping of host-visible types.
 
 use crate::backend::c::syntax::{
-    Directive, MacroInvocation, TranslationUnit, TypeName, c_aggregate, c_aggregate_fields,
-    c_declaration, c_directive, c_expr, c_macro_invocation, c_type,
+    Directive, TranslationUnit, TypeName, c_expr, c_invocation, c_items, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -71,30 +70,30 @@ impl std::fmt::Display for RepresentationId {
 impl TypeRegistry {
     pub(super) fn c_type(&self, ty: &Type) -> TypeName {
         if is_bool(ty) {
-            return c_type!(named("MalType_Bool"));
+            return c_type!(MalType_Bool);
         }
         match ty {
-            Type::Unit => c_type!(named("MalType_Unit")),
-            Type::Int8 => c_type!(named("MalType_Int8")),
-            Type::Int16 => c_type!(named("MalType_Int16")),
-            Type::Int32 => c_type!(named("MalType_Int32")),
-            Type::Int64 => c_type!(named("MalType_Int64")),
-            Type::UInt8 => c_type!(named("MalType_UInt8")),
-            Type::UInt16 => c_type!(named("MalType_UInt16")),
-            Type::UInt32 => c_type!(named("MalType_UInt32")),
-            Type::UInt64 => c_type!(named("MalType_UInt64")),
-            Type::Float32 => c_type!(named("MalType_Float32")),
-            Type::Float64 => c_type!(named("MalType_Float64")),
-            Type::Address => c_type!(named("MalType_Address")),
-            Type::ByteSize => c_type!(named("MalType_ByteSize")),
-            Type::USize => c_type!(named("MalType_USize")),
-            Type::External { name, .. } => c_type!(named(#{ format!("MalType_{name}") })),
+            Type::Unit => c_type!(MalType_Unit),
+            Type::Int8 => c_type!(MalType_Int8),
+            Type::Int16 => c_type!(MalType_Int16),
+            Type::Int32 => c_type!(MalType_Int32),
+            Type::Int64 => c_type!(MalType_Int64),
+            Type::UInt8 => c_type!(MalType_UInt8),
+            Type::UInt16 => c_type!(MalType_UInt16),
+            Type::UInt32 => c_type!(MalType_UInt32),
+            Type::UInt64 => c_type!(MalType_UInt64),
+            Type::Float32 => c_type!(MalType_Float32),
+            Type::Float64 => c_type!(MalType_Float64),
+            Type::Address => c_type!(MalType_Address),
+            Type::ByteSize => c_type!(MalType_ByteSize),
+            Type::USize => c_type!(MalType_USize),
+            Type::External { name, .. } => c_type!({ format!("MalType_{name}") }),
             Type::Product(_) => {
-                c_type!(named(#{ format!("MalRepr_Product_{}", self.index(ty)) }))
+                c_type!({ format!("MalRepr_Product_{}", self.index(ty)) })
             }
-            Type::Sum(_) => c_type!(named(#{ format!("MalRepr_Sum_{}", self.index(ty)) })),
+            Type::Sum(_) => c_type!({ format!("MalRepr_Sum_{}", self.index(ty)) }),
             Type::Function { .. } => {
-                c_type!(named(#{ format!("MalRepr_Closure_{}", self.index(ty)) }))
+                c_type!({ format!("MalRepr_Closure_{}", self.index(ty)) })
             }
             Type::Symbol
             | Type::Parameter { .. }
@@ -110,33 +109,29 @@ impl TypeRegistry {
 
     pub(super) fn host_value_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
         if let Some(alias) = alias {
-            return c_type!(named(#{ format!("mal_{alias}_t") }));
+            return c_type!({ format!("mal_{alias}_t") });
         }
         if is_bool(ty) {
-            return c_type!(named("mal_Bool_t"));
+            return c_type!(mal_Bool_t);
         }
         match ty {
-            Type::Unit => c_type!(named("mal_Unit_t")),
-            Type::Int8 => c_type!(named("mal_Int8_t")),
-            Type::Int16 => c_type!(named("mal_Int16_t")),
-            Type::Int32 => c_type!(named("mal_Int32_t")),
-            Type::Int64 => c_type!(named("mal_Int64_t")),
-            Type::UInt8 => c_type!(named("mal_UInt8_t")),
-            Type::UInt16 => c_type!(named("mal_UInt16_t")),
-            Type::UInt32 => c_type!(named("mal_UInt32_t")),
-            Type::UInt64 => c_type!(named("mal_UInt64_t")),
-            Type::Float32 => c_type!(named("mal_Float32_t")),
-            Type::Float64 => c_type!(named("mal_Float64_t")),
-            Type::Address => c_type!(named("mal_Address_t")),
-            Type::ByteSize => c_type!(named("mal_ByteSize_t")),
-            Type::USize => c_type!(named("mal_USize_t")),
-            Type::External { name, .. } => c_type!(named(#{ format!("mal_{name}_t") })),
-            Type::Product(_) => {
-                c_type! {
-                    named(#{ format!("mal_repr_product_{}_t", self.index(ty)) })
-                }
-            }
-            Type::Sum(_) => c_type!(named(#{ format!("mal_repr_sum_{}_t", self.index(ty)) })),
+            Type::Unit => c_type!(mal_Unit_t),
+            Type::Int8 => c_type!(mal_Int8_t),
+            Type::Int16 => c_type!(mal_Int16_t),
+            Type::Int32 => c_type!(mal_Int32_t),
+            Type::Int64 => c_type!(mal_Int64_t),
+            Type::UInt8 => c_type!(mal_UInt8_t),
+            Type::UInt16 => c_type!(mal_UInt16_t),
+            Type::UInt32 => c_type!(mal_UInt32_t),
+            Type::UInt64 => c_type!(mal_UInt64_t),
+            Type::Float32 => c_type!(mal_Float32_t),
+            Type::Float64 => c_type!(mal_Float64_t),
+            Type::Address => c_type!(mal_Address_t),
+            Type::ByteSize => c_type!(mal_ByteSize_t),
+            Type::USize => c_type!(mal_USize_t),
+            Type::External { name, .. } => c_type!({ format!("mal_{name}_t") }),
+            Type::Product(_) => c_type!({ format!("mal_repr_product_{}_t", self.index(ty)) }),
+            Type::Sum(_) => c_type!({ format!("mal_repr_sum_{}_t", self.index(ty)) }),
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }

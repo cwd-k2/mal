@@ -6,8 +6,13 @@ field labelは[内部DSL reference](backend-syntax-reference.md)から引く。b
 
 ## 構築経路
 
-両backendはsource textを部品として合成しない。lowering policyはRustで実行し、macroはrestricted syntaxの
-typed nodeを構築し、rendererだけが最後にtextへ変換する。
+両backendはsource textを部品として合成しない。lowering policyはRustで実行し、`mal-backend-macros`のproc macroがrestricted
+syntaxをtyped nodeのconstructorへ展開し、rendererだけが最後にtextへ変換する。CではRustの式、型、文、block、function、itemに自然に
+対応する構造をproc macroが直接解析し、CのswitchはRustの`match`とarmへ対応させる。include、define、type alias、record、
+function declaration / definition、static assertion、commentは`c_items!`でtranslation unitの断片として構築する。条件directiveと、
+C preprocessor replacementが要求するrecord field、initializer、statementなどの型付き断片は`mal-backend`のconstructorで明示する。LLVM IR formもproc macroが直接解析し、
+typed constructor呼び出しへ展開する。proc macro crateは構文のadmissionだけを所有し、typed node、validation、配置semantics、rendererは
+`mal-backend`に置く。Rustの`proc-macro` crateは通常の型をexportできないため、syntax nodeをmacro crateへ移してはならない。
 
 ```text
 checked interface / execution plan
@@ -18,7 +23,7 @@ checked interface / execution plan
       +-------+--------+
       |                |
       v                v
- C template macro  LLVM template macro
+ C proc macro      LLVM proc macro
       |                |
       v                v
  typed C nodes      typed LLVM nodes
@@ -33,12 +38,13 @@ checked interface / execution plan
 
 `TranslationUnit`、`Module`、`FunctionBuilder`はstateful rootである。順序、section間の空行、symbol重複、
 basic blockの一意性、terminator、entry prefixを所有するため、通常のRust control flowで操作する。その内側の
-type、declaration、signature、parameter、aggregate、expression、statement、constant、instruction、terminator、
+type、item、declaration、signature、parameter、record、expression、statement、constant、instruction、terminator、
 global、metadataはmacroから構築できる。LLVM function bodyでは`emit_instruction!`と`emit_terminator!`が、構築した
 nodeを現在の`FunctionBuilder`へ登録する。entry blockの先頭へ遅延挿入する`entry_alloca`のように配置semanticsを
 持つ操作だけは通常のemit経路と分ける。
-backendのproduction call siteはstateful root以外をmacroから構築する。動的policyは`#{}`と`...#{}`で構築済み
-nodeを渡し、call siteでconstructorを直接組み合わせない。Rust側で保持する`(Type, value)`列は
+backendのproduction call siteは、Rust-shapedなC構文とLLVM構文をmacroから構築する。C macroでは`{ expression }`と
+`..{ iterator }`、LLVM grammarでは`{ expression }`と`..{ iterator }`で構築済みnodeを
+渡す。Rust側で保持する`(Type, value)`列は
 `TypedValue::from_pairs`のような名前付きhelperで一度だけ検証済みnode列へ正規化してからspliceする。個々のnodeの
 constructorはmacro展開先、名前付き正規化helper、syntax自身の検証で使う。
 
@@ -52,63 +58,60 @@ constructorはmacro展開先、名前付き正規化helper、syntax自身の検�
 | `->` | function result |
 | `,` | 同じ列または構造に属する要素の区切り |
 | `;` | statementまたはitemの終端 |
-| `(...)` | 静的node constructorの引数 |
+| `(...)` | function callまたはIR固有formの引数 |
 | `[...]` | source順を持つ構文列 |
 | `{...}` | block、名前付き構造、switch armの集合 |
-| `#{ rust_expression }` | 構築済みscalarまたはnodeを一個挿入 |
-| `...#{ rust_iterator }` | 構築済みnode列をその位置へsplice |
+| `{ rust_expression }` | C / LLVM grammarへ構築済みscalarまたはnodeを一個挿入 |
+| `..{ rust_iterator }` | C / LLVM grammarへ構築済みnode列をその位置へsplice |
 
-内部DSLはRustのliteral、call、array、block、attribute、`let`、function、match armに相当する小さな構文だけを使う。
-これはRust codeをmacro内で実行する仕組みではなく、typed syntax nodeを構築するquasiquoteである。文字列や数値など
-静的なscalarはliteralのまま書き、`#{}`の中だけを明示的なRust interpolationとする。単一挿入と列spliceを型から
-推測せず、列spliceには必ず先行する`...`を要求する。補間は一度だけ評価し、spliceはiterator順を保存する。
-`#()`は別記法として受理しない。macro入口は`#`とそれに続くbrace groupを内部の単一補間groupへ正規化してからtyped grammarを
-適用する。macro定義は裸のRust expressionを受けるmatcherを持たないため、動的な値から`#{}`を省略した場合や別のsigilまたは
-delimiterを使った場合はcompile errorになる。`rustfmt`は`#{}`の境界と内部のtoken表記を保存する。長いRust expressionはlocalで
-構築し、補間位置にはそのlocalを置く。
+内部DSLはRustのliteral、call、operator、tuple、array、block、attribute、`let`、function、match armに相当する小さな構文だけを
+使う。これはRust codeをmacro内で実行する仕組みではなく、typed syntax nodeを構築するquasiquoteである。bare identifierは
+生成先のC / LLVM identifierまたはDSL keywordであり、Rustの値を渡す位置だけをbraceで囲む。命令などの名前付き構造を囲む
+`{ field: value }`と値位置の`{ rust_expression }`はparserが文脈で区別する。単一挿入と列spliceを型から推測せず、列spliceには
+Rustと同じ`..`を要求する。補間は一度だけ評価し、spliceはiterator順を保存する。長いRust expressionはlocalで構築し、
+補間位置にはそのlocalを置く。
 
-macro invocationが一行で完結するときは`c_type!(ptr(named("void")))`のように`()`を使う。二行以上になるときは
+macro invocationが一行で完結するときは`c_type!(*mut void)`のように`()`を使う。二行以上になるときは
 `c_function! {`の直後で改行し、本文を一段下げ、対応する`}`をinvocationの開始行と同じ深さへ置く。macro本文の
 constructor、array、blockもRustのcall、array、blockと同じく、子を親より一段深くする。複数行のargumentと要素には
 末尾commaを置く一方、短いconstructorを要素ごとに分割しない。delimiterの選択や改行位置に構築するnodeの種類という
 別の意味は持たせない。
 
 同じ意味のnodeを構築する糖衣は設けない。静的型はすべてtype DSLを通し、順序付きの子は`[]`で囲み、複数の
-semantic fieldを持つnodeは位置引数ではなく`{ field: value }`で構築する。typed LLVM operandは
-`typed(type, value)`へ正規化し、Rustの`Option`をDSLへ露出しない。Cのexpression statementはexpressionと終端の
+semantic fieldを持つLLVM nodeは位置引数ではなく`{ field: value }`で構築する。typed LLVM operandは
+Rustと同じ`(type, value)`へ正規化し、Rustの`Option`をDSLへ露出しない。Cのexpression statementはexpressionと終端の
 `;`から構築し、専用のcall statementを持たない。
 
-C functionを`fn name(parameters) -> result { statements }`として静的に記述する場合、signatureとbodyのroleは構文位置から
-一意なのでlabelを加えない。構築済みrootを合成する場合は、最初のnodeを`signature`または`macro`で識別する。bodyも構築済みなら
-`body`を必須とし、静的statement blockなら`{}`自体がbodyを識別するため`body`を置かない。このlabelは同義の糖衣ではなく、静的な
-下位grammarと構築済みrootの境界を示す。
+C functionは`fn name(parameters) -> result { statements }`として記述する。translation unit内の宣言は末尾を`;`にする。
+動的に組み立てたsignatureやbodyを結合する場合は、
+`FunctionDefinition::from_signature`などのtyped constructorを使い、macro内に別の合成grammarを持たせない。
 
 ```rust
 let body = c_block! {
-    let "count": named("size_t") = number(0);
-    ...#{ generated_statements }
-    if greater(id("count"), number(0)) {
-        return #{ dynamic_result };
+    let count: size_t = 0;
+    ..{ generated_statements }
+    if count > 0 {
+        return { dynamic_result };
     }
 };
 
 let signature = llvm_signature! {
-    #[linkage(internal)] #[attributes(nounwind)] fn #{ name }(
+    #[linkage(internal)] #[attributes(nounwind)] fn { name }(
         "%context": ptr,
-        ...#{ generated_parameters },
+        ..{ generated_parameters },
     ) -> int(32)
 };
 
 emit_instruction! {
     self;
-    let #{ result } = call {
+    let { result } = call {
         tail: false,
-        result_type: #{ result_type },
-        callee: direct(#{ callee }),
+        result_type: { result_type },
+        callee: direct({ callee }),
         arguments: [
-            typed((ptr), "%context"),
-            #{ dynamic_argument },
-            ...#{ generated_arguments },
+            (ptr, "%context"),
+            { dynamic_argument },
+            ..{ generated_arguments },
         ],
     };
 };
@@ -116,9 +119,9 @@ emit_instruction! {
 emit_terminator! {
     self;
     branch {
-        condition: #{ condition },
+        condition: { condition },
         then: "done",
-        otherwise: #{ fallback_label },
+        otherwise: { fallback_label },
     };
 };
 ```
@@ -128,13 +131,14 @@ emit_terminator! {
 | 構造 | 構築macro | rootとの関係 |
 |---|---|---|
 | type、parameter、signature | `c_type!`、`c_parameter!`、`c_signature!` | declarationとdefinitionで共有 |
-| variable declaration | `c_variable!` | statementとaggregate fieldの下位node |
-| declaration、aggregate、field | `c_declaration!`、`c_aggregate!`、`c_aggregate_field!` | `TranslationUnit::push`へ渡す |
-| initializer、expression | `c_initializer!`、`c_expr!` | 再帰構築と動的列spliceを提供 |
-| statement、block、switch case | `c_statement!`、`c_block!`、`c_switch_case!` | block内をsource順に構築 |
+| expression | `c_expr!` | call、operator、compound literalと動的列spliceを提供 |
+| statement、block、switch | `c_statement!`、`c_block!`、`c_switch_cases!` | block内をsource順に構築し、`match` armをC caseへ写像 |
 | function definition | `c_function!` | signatureとblockを結ぶ |
-| preprocessor、macro invocation | `c_directive!`、`c_macro_invocation!` | directive順は`TranslationUnit`が所有 |
-| comment | `c_comment!` | 検証済みの単一payloadをitemへ変換 |
+| translation unit item | `c_items!` | include、define、comment、assert、type alias、record、functionをsource順に構築 |
+| record / field断片 | `c_record!`、`c_record_fields!` | preprocessor replacementにも同じrecord grammarを再利用 |
+| initializer列 | `c_initializers!` | positional、designated、nested designated、macro invocationを構築 |
+| macro invocation | `c_invocation!` | itemまたは型付きfragmentへ埋め込むinvocationを構築 |
+| 型付きpreprocessor replacement | typed constructor | replacement categoryを明示 |
 | translation unit、section spacing | なし | stateful rootとしてRustで操作 |
 
 ## LLVMのcoverage
@@ -143,7 +147,7 @@ emit_terminator! {
 |---|---|---|
 | type、parameter、signature、attribute | `llvm_type!`、`llvm_parameter!`、`llvm_signature!` | declarationとdefinitionで共有 |
 | function declaration | `llvm_declaration!` | `Module::declare`へ渡す |
-| typed value、constant | `typed(...)`を受ける親macro、`llvm_constant!`、`llvm_typed_constant!` | instruction operandまたはglobal plan。typed value単体のproduction用entryは持たない |
+| typed value、constant | `(type, value)`を受ける親macro、`llvm_constant!`、`llvm_typed_constant!` | instruction operandまたはglobal plan。typed value単体のproduction用entryは持たない |
 | instruction、terminator、switch case | `llvm_instruction!`、`llvm_terminator!` | function bodyでは`emit_instruction!`、`emit_terminator!`を介して`FunctionBuilder`へ渡す |
 | byte-owner global | `llvm_global!` | `Module::add_global`へ渡す |
 | metadata nodeとoperand | `llvm_metadata!`とその`operands` field | `Module::add_metadata`へ渡す。operand単体のentryはtest専用 |
@@ -152,9 +156,10 @@ emit_terminator! {
 
 ## 返り値と補間型
 
-| entry | 返り値 | `#{}` / `...#{}` |
+| entry | 返り値 | 補間 |
 |---|---|---|
-| C syntax macro | 対応するtyped C node | fieldが要求するscalarまたはnode / 同じ子nodeの列 |
+| C leaf / fragment macro | 対応するtyped C nodeまたはnode列 | `{}`で単一値、`..{}`で同じ子nodeの列 |
+| `c_items!` | `TranslationUnit` | `{}`で単一item、`..{}`で別の`TranslationUnit` |
 | LLVM type、parameter、signature、declaration、metadata | 対応するtyped LLVM node | fieldが要求する検証済みnode / 同じ子nodeの列 |
 | LLVM constant、typed constant、instruction、terminator、global | `Option<typed LLVM node>` | fieldが要求する検証済みnode / 同じ子nodeの列 |
 
@@ -175,9 +180,9 @@ C側の不正なidentifier、numeric token、include pathはcompiler内部のinv
 ## 構文を追加する手順
 
 1. typed enumまたはconstructor、renderer、単体testを追加する。
-2. normalized grammarを追加し、真に独立したrootである場合だけentry macroを公開する。
+2. `mal-backend-macros`のparserを追加し、真に独立したrootである場合だけentry macroを公開する。
 3. [内部DSL reference](backend-syntax-reference.md)を更新する。
-4. 静的要素、`#{}`、`...#{}`を組み合わせたcomposition testを追加する。
+4. 静的要素と、そのgrammarが定める単一補間・列spliceを組み合わせたcomposition testを追加する。
 5. 順序や一意性などのstateを持つ処理はmacroでなく既存のroot builderへ置く。
 
 ## 分割とoptimization
@@ -196,12 +201,12 @@ optimization passはtyped syntax構築より前の`execution` decision、また�
 
 - call siteから生成される構造とsource順が読める。
 - CとLLVMで型、列、補間、対応関係の記法が同じ意味を持つ。
-- 動的な単一値は`#{}`、動的な列は`...#{}`にだけ現れ、静的な`{}`の中に裸のRust expressionを置かない。
+- 動的な単一値と列は、C grammarでは`{}` / `..{}`、LLVM grammarでは`{}` / `..{}`にだけ現れる。
 - `=>`、`->`、`,`、`;`、`()`、`[]`、`{}`は共通記法で定めた意味以外に転用しない。
 - 同じtyped nodeへ到達する別名やstatement専用のexpression糖衣を置かない。
 - macroとbuilderのどちらを通っても同じtyped constructorとvalidationへ到達する。
 - renderer以外に`format!`やline assemblyによるC/LLVM source構築を置かない。
 - stateful invariantをmacro展開へ隠さず、root builderを唯一のownerに保つ。
 - 静的構文のためにRustのconstructor chainを反復せず、動的policyのためにDSL内へ独自control flowを増やさない。
-- production call siteでstateful rootと名前付き正規化helper以外のsyntax constructorを直接呼ばない。
+- C itemは`c_items!`のRust-shaped grammarから構築し、preprocessor replacementの型だけはconstructor境界で明示する。
 - function bodyでinstructionとterminatorの1対1 forwarding methodを作らず、共通の`emit_*`境界を使う。

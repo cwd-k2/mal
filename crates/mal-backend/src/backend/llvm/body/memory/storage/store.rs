@@ -1,5 +1,7 @@
 //! Stores of source values into their canonical memory layout.
 
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use mal_frontend::check::ast::Type;
 
 use super::super::super::{EmittedValue, FunctionEmitter};
@@ -44,9 +46,9 @@ impl FunctionEmitter<'_> {
                 let field_value = self.register();
                 emit_instruction! {
                     self;
-                    let #{ field_value.clone() } = extract_value {
-                        aggregate: typed(#{ runtime.llvm.clone() }, #{ value.representation.clone() }),
-                        indices: [#{ index }],
+                    let { field_value.clone() } = extract_value {
+                        aggregate: ({ runtime.llvm.clone() }, { value.representation.clone() }),
+                        indices: [{ index }],
                     };
                 };
                 let field_pointer = self.source_pointer_offset(pointer, field.offset);
@@ -69,19 +71,19 @@ impl FunctionEmitter<'_> {
                 let tag = self.register();
                 emit_instruction! {
                     self;
-                    let #{ tag.clone() } = cast {
-                        operator: #{ CastOperator::ZExt },
-                        value: typed((int(1_u16)), #{ value.representation.clone() }),
-                        to: (int(8_u16)),
+                    let { tag.clone() } = cast {
+                        operator: { CastOperator::ZExt },
+                        value: (int(1_u16), { value.representation.clone() }),
+                        to: int(8_u16),
                     };
                 };
                 emit_instruction! {
                     self;
                     store {
-                        value: typed((int(8_u16)), #{ &tag }),
-                        pointer: #{ pointer },
+                        value: (int(8_u16), { &tag }),
+                        pointer: { pointer },
                         alignment: 1,
-                        metadata: #{ metadata.iter().copied() },
+                        metadata: { metadata.iter().copied() },
                     };
                 };
                 return Some(());
@@ -90,8 +92,8 @@ impl FunctionEmitter<'_> {
             let tag = self.register();
             emit_instruction! {
                 self;
-                let #{ tag.clone() } = extract_value {
-                    aggregate: typed(#{ runtime.llvm }, #{ value.representation.clone() }),
+                let { tag.clone() } = extract_value {
+                    aggregate: ({ runtime.llvm }, { value.representation.clone() }),
                     indices: [0],
                 };
             };
@@ -101,10 +103,10 @@ impl FunctionEmitter<'_> {
                 let narrowed = self.register();
                 emit_instruction! {
                     self;
-                    let #{ narrowed.clone() } = cast {
-                        operator: #{ CastOperator::Trunc },
-                        value: typed((int(32_u16)), #{ &tag }),
-                        to: #{ llvm_type!(int(#{ u16::try_from(layout.tag_bits).ok()? })) },
+                    let { narrowed.clone() } = cast {
+                        operator: { CastOperator::Trunc },
+                        value: (int(32_u16), { &tag }),
+                        to: { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
                     };
                 };
                 narrowed
@@ -112,10 +114,10 @@ impl FunctionEmitter<'_> {
                 let extended = self.register();
                 emit_instruction! {
                     self;
-                    let #{ extended.clone() } = cast {
-                        operator: #{ CastOperator::ZExt },
-                        value: typed((int(32_u16)), #{ &tag }),
-                        to: (int(64_u16)),
+                    let { extended.clone() } = cast {
+                        operator: { CastOperator::ZExt },
+                        value: (int(32_u16), { &tag }),
+                        to: int(64_u16),
                     };
                 };
                 extended
@@ -128,10 +130,10 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed(#{ llvm_type!(int(#{ u16::try_from(layout.tag_bits).ok()? })) }, #{ source_tag }),
-                    pointer: #{ pointer },
-                    alignment: #{ alignment },
-                    metadata: #{ metadata.iter().copied() },
+                    value: ({ llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) }, { source_tag }),
+                    pointer: { pointer },
+                    alignment: { alignment },
+                    metadata: { metadata.iter().copied() },
                 };
             };
             let stem = self.register();
@@ -143,9 +145,9 @@ impl FunctionEmitter<'_> {
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
             emit_terminator! {
                 self;
-                switch typed((int(32_u16)), #{ tag })  {
-                    cases: [...#{ cases }],
-                    default: #{ format!("{stem}_invalid") },
+                switch (int(32_u16), { tag })  {
+                    cases: [..{ cases }],
+                    default: { format!("{stem}_invalid") },
                 };
             };
             self.block(format!("{stem}_invalid"));
@@ -169,7 +171,7 @@ impl FunctionEmitter<'_> {
                 emit_terminator! {
                     self;
                     branch {
-                        target: #{ format!("{stem}_stored") },
+                        target: { format!("{stem}_stored") },
                     };
                 };
             }
@@ -203,10 +205,10 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: #{ metadata.iter().copied() },
+                value: ({ value_type.llvm }, { value.representation.as_str() }),
+                pointer: { pointer },
+                alignment: { alignment },
+                metadata: { metadata.iter().copied() },
             };
         };
         Some(())

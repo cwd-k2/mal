@@ -1,4 +1,6 @@
 use super::*;
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 impl FunctionEmitter<'_> {
     pub(super) fn emit_state(&mut self, site: StateId) -> Option<()> {
         self.current_function = self.function_for_state(site)?;
@@ -52,7 +54,7 @@ impl FunctionEmitter<'_> {
                 emit_terminator! {
                     self;
                     branch {
-                        target: #{ label.clone() },
+                        target: { label.clone() },
                     };
                 };
                 self.block(label);
@@ -83,7 +85,7 @@ impl FunctionEmitter<'_> {
                 emit_terminator! {
                     self;
                     branch {
-                        target: #{ format!("mal_state_{}", target.0) },
+                        target: { format!("mal_state_{}", target.0) },
                     };
                 };
             }
@@ -100,7 +102,7 @@ impl FunctionEmitter<'_> {
                 emit_terminator! {
                     self;
                     branch {
-                        target: #{ format!("mal_state_{}", target.0) },
+                        target: { format!("mal_state_{}", target.0) },
                     };
                 };
             }
@@ -161,12 +163,12 @@ impl FunctionEmitter<'_> {
         let (kind, predicate) = predicate.for_scalar(scalar);
         emit_instruction! {
             self;
-            let #{ condition.clone() } = compare {
-                kind: #{ kind },
-                predicate: #{ predicate },
-                ty: #{ scalar.llvm_type() },
-                left: #{ left.representation },
-                right: #{ right.representation },
+            let { condition.clone() } = compare {
+                kind: { kind },
+                predicate: { predicate },
+                ty: { scalar.llvm_type() },
+                left: { left.representation },
+                right: { right.representation },
             };
         };
         let then_label = self.branch_edge_label(
@@ -182,9 +184,9 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                condition: #{ condition },
-                then: #{ then_label },
-                otherwise: #{ otherwise_label },
+                condition: { condition },
+                then: { then_label },
+                otherwise: { otherwise_label },
             };
         };
         self.emit_branch_edge_drops(
@@ -226,7 +228,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_state_{}", target.0) },
+                target: { format!("mal_state_{}", target.0) },
             };
         };
         Some(())
@@ -271,7 +273,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_state_{}", resume.0) },
+                target: { format!("mal_state_{}", resume.0) },
             };
         };
         Some(())
@@ -355,7 +357,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ target },
+                target: { target },
             };
         };
         Some(())

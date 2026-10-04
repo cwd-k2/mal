@@ -67,6 +67,7 @@ impl TypeName {
         }
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn const_named(base: impl Into<Identifier>) -> Self {
         Self {
             base: TypeBase::Named(base.into()),
@@ -76,6 +77,16 @@ impl TypeName {
     }
 
     pub(in crate::backend) fn pointer(mut self) -> Self {
+        self.pointer_const.push(false);
+        self
+    }
+
+    pub(in crate::backend) fn const_pointee_pointer(mut self) -> Self {
+        if let Some(pointer) = self.pointer_const.last_mut() {
+            *pointer = true;
+        } else {
+            self.is_const = true;
+        }
         self.pointer_const.push(false);
         self
     }
@@ -207,6 +218,7 @@ impl FunctionSignature {
         self
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn static_function(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
@@ -215,6 +227,7 @@ impl FunctionSignature {
         Self::new(result, name, parameters).with_specifiers([FunctionSpecifier::Static])
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn static_inline(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
@@ -222,14 +235,6 @@ impl FunctionSignature {
     ) -> Self {
         Self::new(result, name, parameters)
             .with_specifiers([FunctionSpecifier::Static, FunctionSpecifier::Inline])
-    }
-
-    pub(in crate::backend) fn no_return(
-        result: impl Into<TypeName>,
-        name: impl Into<Identifier>,
-        parameters: impl IntoIterator<Item = Parameter>,
-    ) -> Self {
-        Self::new(result, name, parameters).with_specifiers([FunctionSpecifier::NoReturn])
     }
 }
 

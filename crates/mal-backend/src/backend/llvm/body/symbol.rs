@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::backend::llvm::syntax::{
     BinaryOperator, ComparisonKind, ComparisonPredicate, llvm_global,
 };
@@ -22,9 +23,9 @@ pub(super) fn literal_definition(
 ) -> Option<crate::backend::llvm::syntax::GlobalDefinition> {
     llvm_global! {
         byte_owner {
-            name: #{ name },
-            bytes: #{ bytes.to_vec() },
-            alignment: #{ STATIC_OWNER_ALIGNMENT },
+            name: { name },
+            bytes: { bytes.to_vec() },
+            alignment: { STATIC_OWNER_ALIGNMENT },
         }
     }
 }
@@ -50,13 +51,13 @@ impl FunctionEmitter<'_> {
         let result = self.register();
         emit_instruction! {
             self;
-            let #{ result.clone() } = call {
+            let { result.clone() } = call {
                 tail: false,
-                result_type: (int(8_u16)),
+                result_type: int(8_u16),
                 callee: direct("mal_runtime_symbol_at"),
                 arguments: [
-                    typed((ptr), #{ data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ index.representation }),
+                    (ptr, { data }),
+                    ({ self.types.index_llvm_type() }, { index.representation }),
                 ],
             };
         };
@@ -116,27 +117,27 @@ impl FunctionEmitter<'_> {
             self;
             call {
                 tail: false,
-                result_type: (void),
-                callee: direct(#{ operation }),
+                result_type: void,
+                callee: direct({ operation }),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), #{ result_storage }),
-                    typed((ptr), #{ left_owner }),
-                    typed((ptr), #{ left_data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ left_length }),
-                    typed((ptr), #{ right_owner }),
-                    typed((ptr), #{ right_data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ right_length }),
+                    (ptr, "%mal_context"),
+                    (ptr, { result_storage }),
+                    (ptr, { left_owner }),
+                    (ptr, { left_data }),
+                    ({ self.types.index_llvm_type() }, { left_length }),
+                    (ptr, { right_owner }),
+                    (ptr, { right_data }),
+                    ({ self.types.index_llvm_type() }, { right_length }),
                 ],
             };
         };
         let result = self.register();
         emit_instruction! {
             self;
-            let #{ result.clone() } = load {
-                ty: #{ result_type.llvm },
-                pointer: #{ result_storage },
-                alignment: #{ result_type.alignment },
+            let { result.clone() } = load {
+                ty: { result_type.llvm },
+                pointer: { result_storage },
+                alignment: { result_type.alignment },
                 metadata: [],
             };
         };
@@ -165,11 +166,11 @@ impl FunctionEmitter<'_> {
                 let length = self.register();
                 emit_instruction! {
                     self;
-                    let #{ length.clone() } = binary {
-                        operator: #{ BinaryOperator::Sub },
-                        ty: #{ self.types.index_llvm_type() },
-                        left: #{ count },
-                        right: #{ index.representation.clone() },
+                    let { length.clone() } = binary {
+                        operator: { BinaryOperator::Sub },
+                        ty: { self.types.index_llvm_type() },
+                        left: { count },
+                        right: { index.representation.clone() },
                     };
                 };
                 (index.representation, length)
@@ -185,25 +186,25 @@ impl FunctionEmitter<'_> {
             self;
             call {
                 tail: false,
-                result_type: (void),
+                result_type: void,
                 callee: direct("mal_runtime_symbol_slice"),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), #{ result_storage }),
-                    typed((ptr), #{ owner }),
-                    typed((ptr), #{ data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ offset }),
-                    typed(#{ self.types.index_llvm_type() }, #{ length }),
+                    (ptr, "%mal_context"),
+                    (ptr, { result_storage }),
+                    (ptr, { owner }),
+                    (ptr, { data }),
+                    ({ self.types.index_llvm_type() }, { offset }),
+                    ({ self.types.index_llvm_type() }, { length }),
                 ],
             };
         };
         let result = self.register();
         emit_instruction! {
             self;
-            let #{ result.clone() } = load {
-                ty: #{ result_type.llvm },
-                pointer: #{ result_storage },
-                alignment: #{ result_type.alignment },
+            let { result.clone() } = load {
+                ty: { result_type.llvm },
+                pointer: { result_storage },
+                alignment: { result_type.alignment },
                 metadata: [],
             };
         };
@@ -243,26 +244,26 @@ impl FunctionEmitter<'_> {
         let equality = self.register();
         emit_instruction! {
             self;
-            let #{ equality.clone() } = call {
+            let { equality.clone() } = call {
                 tail: false,
-                result_type: (int(8_u16)),
+                result_type: int(8_u16),
                 callee: direct("mal_runtime_symbol_equal"),
                 arguments: [
-                    typed((ptr), #{ left.data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ left.count }),
-                    typed((ptr), #{ right.data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ right.count }),
+                    (ptr, { left.data }),
+                    ({ self.types.index_llvm_type() }, { left.count }),
+                    (ptr, { right.data }),
+                    ({ self.types.index_llvm_type() }, { right.count }),
                 ],
             };
         };
         let register = self.register();
         emit_instruction! {
             self;
-            let #{ register.clone() } = compare {
-                kind: #{ ComparisonKind::Integer },
-                predicate: #{ predicate },
-                ty: (int(8_u16)),
-                left: #{ equality },
+            let { register.clone() } = compare {
+                kind: { ComparisonKind::Integer },
+                predicate: { predicate },
+                ty: int(8_u16),
+                left: { equality },
                 right: "0",
             };
         };

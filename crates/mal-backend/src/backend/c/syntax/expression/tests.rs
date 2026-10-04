@@ -5,7 +5,7 @@ fn renders_composed_expressions() {
     let expression = Expr::named_call(
         "consume",
         [
-            Expr::identifier("object").pointer_field("value"),
+            Expr::dereference(Expr::identifier("object")).field("value"),
             Expr::cast(
                 "uint8_t",
                 Expr::equal(Expr::identifier("left"), Expr::identifier("right")),

@@ -21,7 +21,7 @@ impl Comment {
     }
 }
 
-impl AggregateDefinition {
+impl RecordDefinition {
     pub(in crate::backend) fn render(&self) -> String {
         let mut output = String::new();
         self.render_into(&mut output);
@@ -45,11 +45,11 @@ impl AggregateDefinition {
             && self
                 .fields
                 .iter()
-                .all(|field| matches!(field, AggregateField::Declaration(_)))
+                .all(|field| matches!(field, RecordField::Declaration(_)))
         {
             output.push_str(" { ");
             for field in &self.fields {
-                let AggregateField::Declaration(declaration) = field else {
+                let RecordField::Declaration(declaration) = field else {
                     unreachable!()
                 };
                 output.push_str(&declaration.render());
@@ -77,7 +77,7 @@ impl AggregateDefinition {
 
 pub(in crate::backend::c::syntax) fn render_fields(
     output: &mut impl crate::backend::c::syntax::render::RenderWrite,
-    fields: &[AggregateField],
+    fields: &[RecordField],
     depth: usize,
 ) {
     for field in fields {
@@ -85,15 +85,15 @@ pub(in crate::backend::c::syntax) fn render_fields(
             output.push_str("    ");
         }
         match field {
-            AggregateField::Declaration(declaration) => {
+            RecordField::Declaration(declaration) => {
                 output.push_str(&declaration.render());
                 output.push_str(";\n");
             }
-            AggregateField::MacroInvocation(invocation) => {
+            RecordField::MacroInvocation(invocation) => {
                 invocation.render_into(output);
                 output.push('\n');
             }
-            AggregateField::Aggregate { kind, fields, name } => {
+            RecordField::Record { kind, fields, name } => {
                 output.push_str(kind.keyword());
                 output.push_str(" {\n");
                 render_fields(output, fields, depth + 1);
@@ -108,7 +108,7 @@ pub(in crate::backend::c::syntax) fn render_fields(
     }
 }
 
-impl AggregateKind {
+impl RecordKind {
     fn keyword(self) -> &'static str {
         match self {
             Self::Struct => "struct",

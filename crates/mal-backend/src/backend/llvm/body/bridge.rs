@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::closure::ast::Atom;
 use mal_frontend::check::ast::Type;
 use mal_frontend::resolve::ast::ExternalOperationId;
@@ -22,9 +23,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ argument_type.llvm }, #{ argument.representation.as_str() }),
+                value: ({ argument_type.llvm }, { argument.representation.as_str() }),
                 pointer: "%mal_bridge_argument",
-                alignment: #{ argument_type.alignment },
+                alignment: { argument_type.alignment },
                 metadata: [],
             };
         };
@@ -33,22 +34,22 @@ impl FunctionEmitter<'_> {
             self;
             call {
                 tail: false,
-                result_type: (void),
-                callee: direct(#{ bridge.name() }),
+                result_type: void,
+                callee: direct({ bridge.name() }),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), "%mal_bridge_argument"),
-                    typed((ptr), "%mal_bridge_result"),
+                    (ptr, "%mal_context"),
+                    (ptr, "%mal_bridge_argument"),
+                    (ptr, "%mal_bridge_result"),
                 ],
             };
         };
         let register = self.register();
         emit_instruction! {
             self;
-            let #{ register.clone() } = load {
-                ty: #{ result_value_type.llvm },
+            let { register.clone() } = load {
+                ty: { result_value_type.llvm },
                 pointer: "%mal_bridge_result",
-                alignment: #{ result_value_type.alignment },
+                alignment: { result_value_type.alignment },
                 metadata: [],
             };
         };

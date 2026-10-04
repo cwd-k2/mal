@@ -10,22 +10,6 @@ use mal_frontend::check::ast::Type;
 
 // These are the only function-body registration boundary: syntax admission and builder rejection
 // both set `emission_failed`, which makes the enclosing function emission return `None`.
-macro_rules! emit_instruction {
-    ($emitter:expr; $($instruction:tt)*) => {
-        $emitter.structured_instruction(
-            $crate::backend::llvm::syntax::llvm_instruction!($($instruction)*)
-        )
-    };
-}
-
-macro_rules! emit_terminator {
-    ($emitter:expr; $($terminator:tt)*) => {
-        $emitter.terminate(
-            $crate::backend::llvm::syntax::llvm_terminator!($($terminator)*)
-        )
-    };
-}
-
 mod admission;
 mod aggregate;
 mod bridge;

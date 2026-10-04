@@ -1,5 +1,7 @@
 //! Resumption of a suspended frame with the value returned to it.
 
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use crate::control::ast::StateId;
 
 use super::layout::FrameLayout;
@@ -37,20 +39,20 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction! {
                 self;
-                let #{ pointer.clone() } = get_element_ptr {
+                let { pointer.clone() } = get_element_ptr {
                     inbounds: false,
-                    element_type: (int(8_u16)),
-                    pointer: #{ frame_pointer },
-                    indices: [typed((int(64_u16)), #{ layout.offset.to_string() })],
+                    element_type: int(8_u16),
+                    pointer: { frame_pointer },
+                    indices: [(int(64_u16), { layout.offset.to_string() })],
                 };
             };
             let value = self.register();
             emit_instruction! {
                 self;
-                let #{ value.clone() } = load {
-                    ty: #{ layout.value_type.llvm.clone() },
-                    pointer: #{ pointer },
-                    alignment: #{ layout.value_type.alignment },
+                let { value.clone() } = load {
+                    ty: { layout.value_type.llvm.clone() },
+                    pointer: { pointer },
+                    alignment: { layout.value_type.alignment },
                     metadata: [],
                 };
             };
@@ -69,20 +71,20 @@ impl FunctionEmitter<'_> {
                 let pointer = self.register();
                 emit_instruction! {
                     self;
-                    let #{ pointer.clone() } = get_element_ptr {
+                    let { pointer.clone() } = get_element_ptr {
                         inbounds: false,
-                        element_type: (int(8_u16)),
-                        pointer: #{ frame_pointer },
-                        indices: [typed((int(64_u16)), #{ offset.to_string() })],
+                        element_type: int(8_u16),
+                        pointer: { frame_pointer },
+                        indices: [(int(64_u16), { offset.to_string() })],
                     };
                 };
                 let environment = self.register();
                 emit_instruction! {
                     self;
-                    let #{ environment.clone() } = load {
-                        ty: (ptr),
-                        pointer: #{ pointer },
-                        alignment: #{ self.types.pointer_alignment() },
+                    let { environment.clone() } = load {
+                        ty: ptr,
+                        pointer: { pointer },
+                        alignment: { self.types.pointer_alignment() },
                         metadata: [],
                     };
                 };
@@ -93,9 +95,9 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed((ptr), #{ environment }),
+                    value: (ptr, { environment }),
                     pointer: "%mal_active_environment",
-                    alignment: #{ self.types.pointer_alignment() },
+                    alignment: { self.types.pointer_alignment() },
                     metadata: [],
                 };
             };
@@ -111,7 +113,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_state_{}", frame.resume.0) },
+                target: { format!("mal_state_{}", frame.resume.0) },
             };
         };
         Some(())

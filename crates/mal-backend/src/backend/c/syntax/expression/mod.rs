@@ -44,6 +44,45 @@ pub(in crate::backend) enum Expr {
     },
 }
 
+/// Converts a Rust-side interpolation into a generated C expression.
+#[allow(dead_code)]
+pub(in crate::backend) trait IntoExpr {
+    /// Treats strings as validated C identifiers and preserves existing expressions.
+    fn into_expr(self) -> Expr;
+}
+
+impl IntoExpr for Expr {
+    fn into_expr(self) -> Expr {
+        self
+    }
+}
+
+impl IntoExpr for String {
+    fn into_expr(self) -> Expr {
+        Expr::identifier(self)
+    }
+}
+
+impl IntoExpr for &str {
+    fn into_expr(self) -> Expr {
+        Expr::identifier(self)
+    }
+}
+
+macro_rules! numeric_expressions {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl IntoExpr for $ty {
+                fn into_expr(self) -> Expr {
+                    Expr::number(self.to_string())
+                }
+            }
+        )+
+    };
+}
+
+numeric_expressions!(u8, u16, u32, u64, usize);
+
 macro_rules! unary_constructors {
     ($($method:ident => $operator:ident),+ $(,)?) => {
         $(
@@ -101,6 +140,7 @@ impl Expr {
         }
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn named_call(
         name: impl Into<Identifier>,
         arguments: impl IntoIterator<Item = Self>,
@@ -109,18 +149,21 @@ impl Expr {
     }
 
     pub(in crate::backend) fn field(self, name: impl Into<Identifier>) -> Self {
+        if let Self::Unary {
+            operator: UnaryOperator::Dereference,
+            operand,
+        } = self
+        {
+            return Self::Field {
+                value: operand,
+                name: name.into(),
+                indirect: true,
+            };
+        }
         Self::Field {
             value: Box::new(self),
             name: name.into(),
             indirect: false,
-        }
-    }
-
-    pub(in crate::backend) fn pointer_field(self, name: impl Into<Identifier>) -> Self {
-        Self::Field {
-            value: Box::new(self),
-            name: name.into(),
-            indirect: true,
         }
     }
 
@@ -217,10 +260,6 @@ impl Initializer {
         }
     }
 
-    pub(in crate::backend) fn macro_invocation(invocation: super::MacroInvocation) -> Self {
-        Self::MacroInvocation(invocation)
-    }
-
     pub(in crate::backend::c::syntax) fn render(
         &self,
         output: &mut impl super::render::RenderWrite,
@@ -244,5 +283,11 @@ impl Initializer {
             output.push_str(" = ");
         }
         value.render(output);
+    }
+}
+
+impl From<super::MacroInvocation> for Initializer {
+    fn from(value: super::MacroInvocation) -> Self {
+        Self::MacroInvocation(value)
     }
 }

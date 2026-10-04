@@ -32,10 +32,13 @@ supplies variant indices, member names, raw and host types, and conversions to b
 Target-layout memory descriptors remain separate. Large descriptors are split into bounded chunks before a shallow descriptor
 composes them.
 
-Template macros cover types, declarations, aggregates, signatures, functions, blocks, statements, expressions, and
-preprocessor directives. `#{ ... }` embeds one typed Rust node and `...#{ ... }` splices a runtime-generated node sequence.
-Rust retains conditional, iterative, ABI, and host-mapping policy; the macros arrange nodes in C syntax order. Every path
-reaches the same renderer and none admits C source fragments.
+Procedural macros cover the Rust-shaped subset: types, parameters, signatures, functions, blocks, statements, expressions,
+switches expressed as restricted `match` forms, records, and translation-unit items. `c_items!` covers ordinary includes,
+defines, comments, assertions, aliases, records, and functions; `c_record!` and `c_record_fields!` provide fragments for
+typed preprocessor replacements. Conditional item groups use `if defined(...)`, macro invocations use `c_invocation!`, and
+nested initializer designators use `c_initializers!`. `{ ... }` embeds one typed Rust value and `..{ ... }` splices a
+runtime-generated node sequence. Rust retains iterative, ABI, host-mapping, section-spacing, and replacement-kind policy.
+Every path reaches the same renderer and none admits C source fragments.
 
 `TranslationUnit` remains the imperative composition boundary because feature selection, section spacing, and declaration
 ordering are stateful generation policy. The shared notation and complete boundary are documented in

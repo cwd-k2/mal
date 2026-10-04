@@ -1,10 +1,10 @@
 use super::{
-    AggregateDefinition, Comment, Declaration, Directive, FunctionDefinition, MacroInvocation,
+    Comment, Declaration, Directive, FunctionDefinition, MacroInvocation, RecordDefinition,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend) enum UnitItem {
-    Aggregate(AggregateDefinition),
+    Record(RecordDefinition),
     Comment(Comment),
     Declaration(Declaration),
     Directive(Directive),
@@ -47,7 +47,7 @@ impl TranslationUnit {
         let mut output = String::new();
         for item in &self.items {
             match item {
-                UnitItem::Aggregate(definition) => output.push_str(&definition.render()),
+                UnitItem::Record(definition) => output.push_str(&definition.render()),
                 UnitItem::Comment(comment) => output.push_str(&comment.render()),
                 UnitItem::Declaration(declaration) => output.push_str(&declaration.render()),
                 UnitItem::Directive(directive) => output.push_str(&directive.render()),
@@ -63,9 +63,9 @@ impl TranslationUnit {
     }
 }
 
-impl From<AggregateDefinition> for UnitItem {
-    fn from(value: AggregateDefinition) -> Self {
-        Self::Aggregate(value)
+impl From<RecordDefinition> for UnitItem {
+    fn from(value: RecordDefinition) -> Self {
+        Self::Record(value)
     }
 }
 
@@ -90,6 +90,12 @@ impl From<Directive> for UnitItem {
 impl From<FunctionDefinition> for UnitItem {
     fn from(value: FunctionDefinition) -> Self {
         Self::Function(value)
+    }
+}
+
+impl From<super::FunctionSignature> for UnitItem {
+    fn from(value: super::FunctionSignature) -> Self {
+        Self::Declaration(Declaration::function(value))
     }
 }
 

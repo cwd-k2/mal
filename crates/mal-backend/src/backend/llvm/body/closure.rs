@@ -1,5 +1,6 @@
 //! Closure values: the code pointer, unless no application needs it, and the environment of captures.
 
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
 use crate::execution::ownership::BindingOperand;
@@ -27,9 +28,9 @@ impl FunctionEmitter<'_> {
             let with_code = self.register();
             emit_instruction! {
                 self;
-                let #{ with_code.clone() } = insert_value {
-                    aggregate: typed(#{ closure_type.llvm.clone() }, "zeroinitializer"),
-                    element: typed((ptr), #{ format!("@{}", super::function_name(*function)) }),
+                let { with_code.clone() } = insert_value {
+                    aggregate: ({ closure_type.llvm.clone() }, "zeroinitializer"),
+                    element: (ptr, { format!("@{}", super::function_name(*function)) }),
                     indices: [0],
                 };
             };
@@ -67,14 +68,14 @@ impl FunctionEmitter<'_> {
             let environment = self.register();
             emit_instruction! {
                 self;
-                let #{ environment.clone() } = call {
+                let { environment.clone() } = call {
                     tail: false,
-                    result_type: (ptr),
+                    result_type: ptr,
                     callee: direct("mal_runtime_owner_allocate"),
                     arguments: [
-                        typed((ptr), "%mal_context"),
-                        typed(#{ self.types.index_llvm_type() }, #{ environment_layout.size.to_string() }),
-                        typed((ptr), #{ format!(
+                        (ptr, "%mal_context"),
+                        ({ self.types.index_llvm_type() }, { environment_layout.size.to_string() }),
+                        (ptr, { format!(
                             "@mal_destroy_environment_{}",
                             super::function_number(*function)
                         ) }),
@@ -84,12 +85,12 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed(
-                        #{ environment_layout.llvm },
-                        #{ environment_value.value.representation.as_str() },
+                    value: (
+                        { environment_layout.llvm },
+                        { environment_value.value.representation.as_str() },
                     ),
-                    pointer: #{ environment.as_str() },
-                    alignment: #{ environment_layout.alignment },
+                    pointer: { environment.as_str() },
+                    alignment: { environment_layout.alignment },
                     metadata: [],
                 };
             };
@@ -97,9 +98,9 @@ impl FunctionEmitter<'_> {
             let closure = self.register();
             emit_instruction! {
                 self;
-                let #{ closure.clone() } = insert_value {
-                    aggregate: typed(#{ closure_type.llvm }, #{ with_code }),
-                    element: typed((ptr), #{ environment }),
+                let { closure.clone() } = insert_value {
+                    aggregate: ({ closure_type.llvm }, { with_code }),
+                    element: (ptr, { environment }),
                     indices: [1],
                 };
             };

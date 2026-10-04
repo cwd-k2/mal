@@ -34,7 +34,8 @@ crateの境界は、その層だけを必要とする別々の利用者がいる
 | `mal-syntax` | `source`、`diagnostic`、`lexer`、`ast`、`parser`、source graphの読み込み | なし | 全crate |
 | `mal-fmt` | formatter、`mal-fmt` command | `mal-syntax` | 利用者、`mal-lsp` |
 | `mal-frontend` | `resolve`、`check`（specialization含む）、`editor`、`analysis` | `mal-syntax` | `mal-backend`、`mal-compiler`、`mal-lsp` |
-| `mal-backend` | `core`、`anf`、`closure`、`control`、`execution`、`backend`、C11 runtime、`pipeline` | `mal-syntax`、`mal-frontend` | `mal-compiler` |
+| `mal-backend-macros` | generated C / LLVM用のrestricted Rust syntaxをtyped constructor呼び出しへ変換するproc macro | なし | `mal-backend` |
+| `mal-backend` | `core`、`anf`、`closure`、`control`、`execution`、`backend`、C11 runtime、`pipeline` | `mal-syntax`、`mal-frontend`、`mal-backend-macros` | `mal-compiler` |
 | `mal-compiler` | `cli`、`driver`（source graphの配置、file出力、Clang/LLD process）、`malc` command | 上記すべて | 利用者 |
 | `mal-lsp` | LSP server | `mal-syntax`、`mal-frontend`、`mal-fmt` | editor |
 

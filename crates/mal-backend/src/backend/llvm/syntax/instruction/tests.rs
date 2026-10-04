@@ -105,9 +105,9 @@ fn instruction_macro_builds_typed_calls() {
     let instruction = super::super::llvm_instruction! {
         let "%result" = call {
             tail: false,
-            result_type: (int(8_u16)),
+            result_type: int(8_u16),
             callee: direct("observe"),
-            arguments: [...#{ arguments }],
+            arguments: [..{ arguments }],
         };
     }
     .unwrap();

@@ -16,50 +16,38 @@ impl Marshalling<'_> {
     ) -> Option<Expr> {
         let pointer = bridge_pointer(base.clone(), offset, true);
         match &value.kind {
-            plan::Kind::Unit => Some(c_expr! {
-                compound(
-                    (named("MalType_Unit")),
-                    [field("unused", (call("UINT8_C", [number(0)]))),]
-                )
-            }),
+            plan::Kind::Unit => Some(c_expr!(MalType_Unit { unused: UINT8_C(0) })),
             plan::Kind::External => Some(c_expr! {
-                compound(
-                    #{ self.raw_types.c_type(value.ty) },
-                    [field("bits", #{ load(c_type!(ptr(const(named("uintptr_t")))), pointer) })]
-                )
+                { self.raw_types.c_type(value.ty) } {
+                    bits: { load(c_type!(*const uintptr_t), pointer) }
+                }
             }),
             plan::Kind::Product(fields) => {
                 let initializers = fields
                     .iter()
                     .enumerate()
                     .map(|(index, field)| {
-                        Some(c_initializer! {
-                            field(#{ format!("field_{index}") }, #{
-                                    self.read(
-                                        &field.value,
-                                        base.clone(),
-                                        offset.checked_add(field.offset)?,
-                                        context.clone(),
-                                    )?
-                                })
-                        })
+                        Some(Initializer::designated(
+                            format!("field_{index}"),
+                            self.read(
+                                &field.value,
+                                base.clone(),
+                                offset.checked_add(field.offset)?,
+                                context.clone(),
+                            )?,
+                        ))
                     })
                     .collect::<Option<Vec<_>>>()?;
-                Some(c_expr! {
-                    compound(
-                        #{ self.raw_types.c_type(value.ty) },
-                        [...#{ initializers }]
-                    )
-                })
+                Some(Expr::compound_literal(
+                    self.raw_types.c_type(value.ty),
+                    initializers,
+                ))
             }
             plan::Kind::Sum {
                 tag_offset,
                 variants,
             } => self.read_sum(value.ty, *tag_offset, variants, pointer, context),
-            plan::Kind::Scalar => Some(load(
-                c_type!(ptr(const(named(#{ c_scalar_type(value.ty)? })))),
-                pointer,
-            )),
+            plan::Kind::Scalar => Some(load(c_type!(*const { c_scalar_type(value.ty)? }), pointer)),
         }
     }
 
@@ -74,12 +62,7 @@ impl Marshalling<'_> {
         context: Expr,
     ) -> Option<Expr> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.read_helpers.get(&id)) {
-            return Some(c_expr! {
-                call(
-                    #{ helper.clone() },
-                    [#{ context }, #{ pointer }]
-                )
-            });
+            return Some(c_expr!({ helper.clone() }({ context }, { pointer })));
         }
         let helper = self.helper_name("read");
         if let Some(id) = ty.shared_id() {
@@ -96,47 +79,44 @@ impl Marshalling<'_> {
                     field.offset,
                     identifier("context"),
                 )?;
-                Some(c_switch_case! {
-                    (call("UINT32_C", [number(#{ index })])) => {
-                        return (compound(#{ c_type.clone() }, [
-                            field("tag", (call("UINT32_C", [number(#{ index })]))),
-                            path(
-                                #{ ["payload".into(), format!("variant_{index}")] },
-                                #{ payload }
-                            ),
-                        ]));
-                    }
+                let tag = c_expr!(UINT32_C({ index }));
+                let result = Expr::compound_literal(
+                    c_type.clone(),
+                    [
+                        Initializer::designated("tag", tag.clone()),
+                        Initializer::designated_path(
+                            ["payload".into(), format!("variant_{index}")],
+                            payload,
+                        ),
+                    ],
+                );
+                Some(c_switch_cases! {
+                    { tag } => { return { result }; },
                 })
             })
-            .collect::<Option<Vec<_>>>()?;
-        let mut cases = cases;
-        cases.push(c_switch_case! {
-            _ => { #{ trap(
-                identifier("context"),
-                "invalid sum tag at LLVM bridge",
-            ) } }
-        });
-        let tag = load(
-            c_type!(ptr(const(named("uint32_t")))),
-            c_expr!(add((id("value")), (number(#{ tag_offset })))),
-        );
-        self.helpers.push(c_function! {
-            #[static] fn #{ helper.clone() }(
-                "context": ptr(named("MalContext")),
-                "value": ptr(const(named("uint8_t"))),
-            ) -> #{ c_type } {
-                let "tag": named("uint32_t") = #{ tag };
-                switch (id("tag")) {
-                    ...#{ cases },
-                }
+            .collect::<Option<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let failure = trap(identifier("context"), "invalid sum tag at LLVM bridge");
+        let tag = load(c_type!(*const uint32_t), c_expr!(value + { tag_offset }));
+        let body = c_block! {
+            let tag: uint32_t = { tag };
+            match tag {
+                ..{ cases },
+                _ => { { failure }; },
             }
-        });
+        };
+        self.helpers.push(FunctionDefinition::from_signature(
+            c_signature! {
+                #[static] fn { helper.clone() }(
+                    context: *mut MalContext,
+                    value: *const uint8_t,
+                ) -> { c_type }
+            },
+            body,
+        ));
         self.helpers.blank_line();
-        Some(c_expr! {
-            call(
-                #{ helper },
-                [#{ context }, #{ pointer }]
-            )
-        })
+        Some(c_expr!({ helper }({ context }, { pointer })))
     }
 }

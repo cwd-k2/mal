@@ -7,8 +7,8 @@
 //! optimizer sees an ordinary recursive function whose only extra work is one stack check per activation.
 
 use crate::backend::llvm::syntax::{
-    ComparisonKind, ComparisonPredicate, Parameter, Type as LlvmType, llvm_parameters,
-    llvm_signature, llvm_type,
+    ComparisonKind, ComparisonPredicate, Parameter, Type as LlvmType, llvm_parameter,
+    llvm_parameters, llvm_signature, llvm_type,
 };
 use crate::closure::ast::Atom;
 use crate::control::ast::{StateId, Terminator};
@@ -29,12 +29,7 @@ impl FunctionEmitter<'_> {
 
     fn native_context_type(&self) -> Option<LlvmType> {
         let parameter = self.types.value(&self.function.parameter.ty)?;
-        Some(LlvmType::structure([
-            llvm_type!(ptr),
-            llvm_type!(ptr),
-            llvm_type!(ptr),
-            parameter.llvm,
-        ]))
+        Some(llvm_type!(structure([ptr, ptr, ptr, { parameter.llvm }])))
     }
 
     fn native_worker_name(&self) -> String {
@@ -50,12 +45,11 @@ impl FunctionEmitter<'_> {
         &self,
     ) -> Option<Vec<Parameter>> {
         let plan = self.native_scalar_parameter()?;
-        let mut parameters = vec![Parameter::named(llvm_type!(ptr), "%mal_native_context")];
+        let mut parameters = vec![llvm_parameter!("%mal_native_context": ptr)];
         for (index, leaf) in plan.varying.iter().enumerate() {
-            parameters.push(Parameter::named(
-                self.types.value(&leaf.ty)?.llvm,
-                format!("%mal_native_parameter_{index}"),
-            ));
+            parameters.push(llvm_parameter! {
+                { format!("%mal_native_parameter_{index}") }: { self.types.value(&leaf.ty)?.llvm }
+            });
         }
         Some(parameters)
     }

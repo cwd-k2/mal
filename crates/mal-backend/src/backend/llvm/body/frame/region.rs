@@ -1,5 +1,7 @@
 //! Transitions between the functions of a common control region: dispatch on the region target and the jump to it.
 
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use crate::backend::llvm::syntax::{ComparisonKind, ComparisonPredicate, llvm_type};
 use crate::closure::ast::{Atom, FunctionId};
 use crate::control::ast::StateId;
@@ -46,8 +48,8 @@ impl FunctionEmitter<'_> {
             let code = self.register();
             emit_instruction! {
                 self;
-                let #{ code.clone() } = extract_value {
-                    aggregate: typed(#{ closure_type.llvm }, #{ callee.value.representation.clone() }),
+                let { code.clone() } = extract_value {
+                    aggregate: ({ closure_type.llvm }, { callee.value.representation.clone() }),
                     indices: [0],
                 };
             };
@@ -84,18 +86,18 @@ impl FunctionEmitter<'_> {
                 self;
                 call {
                     tail: false,
-                    result_type: (void),
+                    result_type: void,
                     callee: direct("mal_runtime_owner_release"),
-                    arguments: [typed((ptr), #{ previous })],
+                    arguments: [(ptr, { previous })],
                 };
             };
         }
         emit_instruction! {
             self;
             store {
-                value: typed((ptr), #{ environment.as_str() }),
+                value: (ptr, { environment.as_str() }),
                 pointer: "%mal_active_environment",
-                alignment: #{ self.types.pointer_alignment() },
+                alignment: { self.types.pointer_alignment() },
                 metadata: [],
             };
         };
@@ -133,21 +135,21 @@ impl FunctionEmitter<'_> {
             let matched = self.register();
             emit_instruction! {
                 self;
-                let #{ matched.clone() } = compare {
-                    kind: #{ ComparisonKind::Integer },
-                    predicate: #{ ComparisonPredicate::Eq },
-                    ty: (ptr),
-                    left: #{ code },
-                    right: #{ format!("@{}", super::super::function_name(*target)) },
+                let { matched.clone() } = compare {
+                    kind: { ComparisonKind::Integer },
+                    predicate: { ComparisonPredicate::Eq },
+                    ty: ptr,
+                    left: { code },
+                    right: { format!("@{}", super::super::function_name(*target)) },
                 };
             };
             let next = format!("mal_region_dispatch_{}_{}", site.0, index);
             emit_terminator! {
                 self;
                 branch {
-                    condition: #{ matched },
-                    then: #{ format!("mal_region_target_{}_{index}", site.0) },
-                    otherwise: #{ next.clone() },
+                    condition: { matched },
+                    then: { format!("mal_region_target_{}_{index}", site.0) },
+                    otherwise: { next.clone() },
                 };
             };
             self.block(next);
@@ -174,11 +176,11 @@ impl FunctionEmitter<'_> {
             let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
             emit_instruction! {
                 self;
-                let #{ returned.clone() } = call {
+                let { returned.clone() } = call {
                     tail: false,
-                    result_type: #{ result_type.llvm },
-                    callee: indirect(#{ code }),
-                    arguments: [...#{ arguments }],
+                    result_type: { result_type.llvm },
+                    callee: indirect({ code }),
+                    arguments: [..{ arguments }],
                 };
             };
             if self
@@ -222,7 +224,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_state_{}", entry.0) },
+                target: { format!("mal_state_{}", entry.0) },
             };
         };
         Some(())

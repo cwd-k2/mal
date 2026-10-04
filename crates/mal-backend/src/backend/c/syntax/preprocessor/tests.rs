@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    AggregateDefinition, AggregateField, Block, Expr, FunctionDefinition, FunctionSignature,
-    Initializer, MacroInvocation, Parameter, Statement,
+    Block, Expr, FunctionDefinition, FunctionSignature, Initializer, MacroInvocation, Parameter,
+    RecordDefinition, RecordField, Statement,
 };
 
 use super::{Directive, PreprocessorExpr};
@@ -55,12 +55,12 @@ fn renders_multiple_structured_function_items_in_a_macro() {
 
 #[test]
 fn renders_aggregate_templates_without_raw_c_fragments() {
-    let directive = Directive::aggregate_define(
+    let directive = Directive::record_define(
         "DEFINE_PRODUCT",
         ["tag", "fields", "field"],
-        AggregateDefinition::structure(
+        RecordDefinition::structure(
             "tag",
-            [AggregateField::macro_invocation(MacroInvocation::new(
+            [RecordField::from(MacroInvocation::new(
                 "fields",
                 [Expr::identifier("field")],
             ))],

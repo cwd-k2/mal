@@ -2,7 +2,7 @@
 
 use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
-use super::c::syntax::{c_declaration, c_directive};
+use super::c::syntax::{Declaration, Directive};
 use std::fmt;
 
 mod body;
@@ -108,12 +108,12 @@ pub(crate) fn generate_with_header_files(
     let runtime =
         crate::backend::runtime::for_program(body.uses_byte_runtime || main.uses_byte_runtime);
     let mut shim = crate::backend::c::syntax::TranslationUnit::new([
-        c_directive!(include(quoted "program.mal.h")).into(),
-        c_directive!(include(quoted "runtime.h")).into(),
-        c_directive!(include(system "string.h")).into(),
+        Directive::include_quoted("program.mal.h").into(),
+        Directive::include_quoted("runtime.h").into(),
+        Directive::include_system("string.h").into(),
     ]);
     shim.blank_line();
-    shim.push(c_declaration!(fn #{ entry.c_signature() };));
+    shim.push(Declaration::function(entry.c_signature()));
     for bridge in external_bridges {
         shim.blank_line();
         shim.extend(bridge.c_definitions);

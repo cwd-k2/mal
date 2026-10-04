@@ -1,5 +1,6 @@
 //! Slot states: loading, initializing, vacating, and replacing a place, and releasing slots whose owners die.
 
+use crate::backend::llvm::syntax::emit_instruction;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
@@ -14,10 +15,10 @@ impl FunctionEmitter<'_> {
         let value = self.register();
         emit_instruction! {
             self;
-            let #{ value.clone() } = load {
-                ty: #{ value_type.llvm },
-                pointer: #{ format!("%mal_slot_{}", slot.index) },
-                alignment: #{ value_type.alignment },
+            let { value.clone() } = load {
+                ty: { value_type.llvm },
+                pointer: { format!("%mal_slot_{}", slot.index) },
+                alignment: { value_type.alignment },
                 metadata: [],
             };
         };
@@ -36,9 +37,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                pointer: #{ format!("%mal_slot_{}", slot.index) },
-                alignment: #{ value_type.alignment },
+                value: ({ value_type.llvm }, { value.representation.as_str() }),
+                pointer: { format!("%mal_slot_{}", slot.index) },
+                alignment: { value_type.alignment },
                 metadata: [],
             };
         };
@@ -70,9 +71,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ value_type.llvm }, "zeroinitializer"),
-                pointer: #{ pointer },
-                alignment: #{ alignment },
+                value: ({ value_type.llvm }, "zeroinitializer"),
+                pointer: { pointer },
+                alignment: { alignment },
                 metadata: [],
             };
         };
@@ -94,20 +95,20 @@ impl FunctionEmitter<'_> {
         let previous = self.register();
         emit_instruction! {
             self;
-            let #{ previous.clone() } = load {
-                ty: #{ value_type.llvm.clone() },
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: #{ metadata.iter().copied() },
+            let { previous.clone() } = load {
+                ty: { value_type.llvm.clone() },
+                pointer: { pointer },
+                alignment: { alignment },
+                metadata: { metadata.iter().copied() },
             };
         };
         emit_instruction! {
             self;
             store {
-                value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: #{ metadata.iter().copied() },
+                value: ({ value_type.llvm }, { value.representation.as_str() }),
+                pointer: { pointer },
+                alignment: { alignment },
+                metadata: { metadata.iter().copied() },
             };
         };
         self.release_value(&value.ty, &previous)?;

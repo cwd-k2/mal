@@ -1,3 +1,5 @@
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use crate::closure::ast::Atom;
 use crate::control::ast::StateId;
 
@@ -52,11 +54,11 @@ impl FunctionEmitter<'_> {
         let frame_pointer = self.register();
         emit_instruction! {
             self;
-            let #{ frame_pointer.clone() } = get_element_ptr {
+            let { frame_pointer.clone() } = get_element_ptr {
                 inbounds: false,
-                element_type: (int(8_u16)),
-                pointer: #{ reservation.storage },
-                indices: [typed(#{ self.types.index_llvm_type() }, #{ reservation.top.clone() })],
+                element_type: int(8_u16),
+                pointer: { reservation.storage },
+                indices: [({ self.types.index_llvm_type() }, { reservation.top.clone() })],
             };
         };
         if tagged {
@@ -64,8 +66,8 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 store {
-                    value: typed((int(32_u16)), #{ tag.to_string() }),
-                    pointer: #{ frame_pointer.as_str() },
+                    value: (int(32_u16), { tag.to_string() }),
+                    pointer: { frame_pointer.as_str() },
                     alignment: 4,
                     metadata: [],
                 };
@@ -91,19 +93,19 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction! {
                 self;
-                let #{ pointer.clone() } = get_element_ptr {
+                let { pointer.clone() } = get_element_ptr {
                     inbounds: false,
-                    element_type: (int(8_u16)),
-                    pointer: #{ frame_pointer.as_str() },
-                    indices: [typed((int(64_u16)), #{ layout.offset.to_string() })],
+                    element_type: int(8_u16),
+                    pointer: { frame_pointer.as_str() },
+                    indices: [(int(64_u16), { layout.offset.to_string() })],
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed(#{ layout.value_type.llvm.clone() }, #{ value.value.representation.as_str() }),
-                    pointer: #{ pointer },
-                    alignment: #{ layout.value_type.alignment },
+                    value: ({ layout.value_type.llvm.clone() }, { value.value.representation.as_str() }),
+                    pointer: { pointer },
+                    alignment: { layout.value_type.alignment },
                     metadata: [],
                 };
             };
@@ -113,19 +115,19 @@ impl FunctionEmitter<'_> {
             let pointer = self.register();
             emit_instruction! {
                 self;
-                let #{ pointer.clone() } = get_element_ptr {
+                let { pointer.clone() } = get_element_ptr {
                     inbounds: false,
-                    element_type: (int(8_u16)),
-                    pointer: #{ frame_pointer.as_str() },
-                    indices: [typed((int(64_u16)), #{ offset.to_string() })],
+                    element_type: int(8_u16),
+                    pointer: { frame_pointer.as_str() },
+                    indices: [(int(64_u16), { offset.to_string() })],
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed((ptr), #{ environment }),
-                    pointer: #{ pointer },
-                    alignment: #{ self.types.pointer_alignment() },
+                    value: (ptr, { environment }),
+                    pointer: { pointer },
+                    alignment: { self.types.pointer_alignment() },
                     metadata: [],
                 };
             };
@@ -134,19 +136,19 @@ impl FunctionEmitter<'_> {
             let footer = self.register();
             emit_instruction! {
                 self;
-                let #{ footer.clone() } = get_element_ptr {
+                let { footer.clone() } = get_element_ptr {
                     inbounds: false,
-                    element_type: (int(8_u16)),
-                    pointer: #{ frame_pointer },
-                    indices: [typed((int(64_u16)), #{ offset.to_string() })],
+                    element_type: int(8_u16),
+                    pointer: { frame_pointer },
+                    indices: [(int(64_u16), { offset.to_string() })],
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed(#{ self.types.index_llvm_type() }, #{ reservation.top.as_str() }),
-                    pointer: #{ footer },
-                    alignment: #{ self.types.index_alignment() },
+                    value: ({ self.types.index_llvm_type() }, { reservation.top.as_str() }),
+                    pointer: { footer },
+                    alignment: { self.types.index_alignment() },
                     metadata: [],
                 };
             };
@@ -154,9 +156,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ self.types.index_llvm_type() }, #{ reservation.next_top.as_str() }),
-                pointer: #{ self.control_top_pointer() },
-                alignment: #{ self.types.index_alignment() },
+                value: ({ self.types.index_llvm_type() }, { reservation.next_top.as_str() }),
+                pointer: { self.control_top_pointer() },
+                alignment: { self.types.index_alignment() },
                 metadata: [],
             };
         };
@@ -191,7 +193,7 @@ impl FunctionEmitter<'_> {
             emit_terminator! {
                 self;
                 branch {
-                    target: #{ format!("mal_state_{}", self.function.entry.0) },
+                    target: { format!("mal_state_{}", self.function.entry.0) },
                 };
             };
             Some(())

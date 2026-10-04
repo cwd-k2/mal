@@ -1,3 +1,5 @@
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use crate::backend::llvm::syntax::llvm_signature;
 use mal_frontend::check::ast::Type;
 
@@ -15,7 +17,7 @@ impl FunctionEmitter<'_> {
         let value_type = self.types.value(&environment_type)?;
         self.begin_function(llvm_signature! {
             #[linkage(internal)]
-            fn #{ format!(
+            fn { format!(
                 "mal_destroy_environment_{}",
                 function_number(self.function.id)
             ) }(
@@ -26,10 +28,10 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         emit_instruction! {
             self;
-            let #{ environment.clone() } = load {
-                ty: #{ value_type.llvm },
+            let { environment.clone() } = load {
+                ty: { value_type.llvm },
                 pointer: "%mal_environment",
-                alignment: #{ value_type.alignment },
+                alignment: { value_type.alignment },
                 metadata: [],
             };
         };
@@ -51,8 +53,8 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         emit_instruction! {
             self;
-            let #{ environment.clone() } = extract_value {
-                aggregate: typed(#{ closure_type.llvm }, #{ closure.representation.clone() }),
+            let { environment.clone() } = extract_value {
+                aggregate: ({ closure_type.llvm }, { closure.representation.clone() }),
                 indices: [1],
             };
         };
@@ -66,10 +68,10 @@ impl FunctionEmitter<'_> {
         let environment = self.register();
         emit_instruction! {
             self;
-            let #{ environment.clone() } = load {
-                ty: (ptr),
+            let { environment.clone() } = load {
+                ty: ptr,
                 pointer: "%mal_active_environment",
-                alignment: #{ self.types.pointer_alignment() },
+                alignment: { self.types.pointer_alignment() },
                 metadata: [],
             };
         };

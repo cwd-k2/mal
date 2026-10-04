@@ -74,7 +74,7 @@ impl Constant {
 
     fn typed(&self, types: Types) -> Option<TypedConstant> {
         llvm_typed_constant! {
-            typed(#{ types.value(&self.ty)?.llvm }, #{ self.llvm()?.clone() })
+            ({ types.value(&self.ty)?.llvm }, { self.llvm()?.clone() })
         }
     }
 

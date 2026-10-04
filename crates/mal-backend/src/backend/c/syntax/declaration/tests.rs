@@ -22,7 +22,7 @@ fn renders_function_pointer_declarators() {
     let declaration = VariableDeclaration::function_pointer(
         "int32_t",
         "call",
-        [Parameter::unnamed(TypeName::const_named("void").pointer())],
+        [crate::backend::c::syntax::c_parameter!(_ : *const void)],
     );
 
     assert_eq!(declaration.render(), "int32_t (*call)(const void *)");

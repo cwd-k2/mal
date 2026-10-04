@@ -12,17 +12,18 @@ fn composes_types_parameters_and_signatures_with_template_interpolation() {
     let signature = super::llvm_signature! {
         #[linkage(internal)]
         #[attributes(nounwind, willreturn)]
-        fn #{ name }(
+        fn { name }(
             "%context": ptr,
-            ...#{ trailing },
-        ) -> #{ result }
+            ..{ trailing },
+        ) -> { result }
     };
 
     let mut function = FunctionBuilder::new(signature);
     assert!(function.start_block("entry"));
-    assert!(function.terminate(
-        super::llvm_terminator!(return typed(#{ Type::integer(32_u16) }, "0");).unwrap()
-    ));
+    assert!(
+        function
+            .terminate(super::llvm_terminator!(return ({ Type::integer(32_u16) }, "0");).unwrap())
+    );
     assert_eq!(
         function.finish().unwrap().render(),
         concat!(
@@ -48,7 +49,7 @@ fn composes_module_leaf_definitions_with_the_same_template_boundaries() {
         super::llvm_global! {
             byte_owner {
                 name: "message",
-                bytes: #{ b"ok" },
+                bytes: { b"ok" },
                 alignment: 1,
             }
         }
@@ -59,7 +60,7 @@ fn composes_module_leaf_definitions_with_the_same_template_boundaries() {
         super::llvm_metadata!({
             id: 1,
             distinct: true,
-            operands: [integer(int(64), 0), ...#{ extra }],
+            operands: [integer(int(64), 0), ..{ extra }],
         }),
     ]);
 
@@ -98,13 +99,13 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
     let instruction = super::llvm_instruction! {
         let "%result" = call {
             tail: false,
-            result_type: (int(32_u16)),
+            result_type: int(32_u16),
             callee: direct("work"),
             arguments: [
-                typed((int(32_u16)), "1"),
-                #{ dynamic() },
-                ...#{ pairs },
-                ...#{ trailing },
+                (int(32_u16), "1"),
+                { dynamic() },
+                ..{ pairs },
+                ..{ trailing },
             ],
         };
     }
@@ -122,16 +123,15 @@ fn composes_static_embedded_and_runtime_typed_values_in_order() {
 
 #[test]
 fn composes_nested_constants_and_dynamic_fields() {
-    let trailing =
-        [super::llvm_typed_constant!(typed(#{ Type::integer(8_u16) }, atom(7))).unwrap()];
+    let trailing = [super::llvm_typed_constant!(({ Type::integer(8_u16) }, atom(7))).unwrap()];
     let constant = super::llvm_constant! {
         structure([
-            typed(#{ Type::integer(32_u16) }, binary {
-                operator: #{ BinaryOperator::Add },
-                left: typed(#{ Type::integer(32_u16) }, atom(1)),
-                right: typed(#{ Type::integer(32_u16) }, atom(2)),
+            ({ Type::integer(32_u16) }, binary {
+                operator: { BinaryOperator::Add },
+                left: ({ Type::integer(32_u16) }, atom(1)),
+                right: ({ Type::integer(32_u16) }, atom(2)),
             }),
-            ...#{ trailing },
+            ..{ trailing },
         ])
     }
     .unwrap();
@@ -147,8 +147,8 @@ fn composes_switch_cases_and_finishes_the_function() {
     assert!(
         function.terminate(
             super::llvm_terminator! {
-                switch typed(#{ Type::integer(8_u16) }, "%tag") {
-                    cases: [0 => "zero", ...#{ trailing }],
+                switch ({ Type::integer(8_u16) }, "%tag") {
+                    cases: [0 => "zero", ..{ trailing }],
                     default: "other",
                 };
             }

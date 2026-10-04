@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use super::body;
 use crate::backend::abi::Function as AbiFunction;
 use crate::backend::c::syntax::{
-    Expr, Statement, TranslationUnit, TypeName, c_expr, c_function, c_initializer, c_statement,
-    c_switch_case, c_type,
+    Expr, FunctionDefinition, Initializer, Statement, TranslationUnit, TypeName, c_block, c_expr,
+    c_signature, c_statement, c_switch_cases, c_type,
 };
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
@@ -31,10 +31,7 @@ pub(super) fn generate(
     let bridge = AbiFunction::external_bridge(external.id);
     let llvm_declaration = bridge.llvm_declaration();
     let (mut statements, arguments) = match &parameter.kind {
-        plan::Kind::Unit => (
-            vec![c_statement!(cast((named("void")), (id("mal_argument")));)],
-            Vec::new(),
-        ),
+        plan::Kind::Unit => (vec![c_statement!(mal_argument as void;)], Vec::new()),
         plan::Kind::Product(fields) => {
             let arguments = fields
                 .iter()
@@ -56,24 +53,21 @@ pub(super) fn generate(
     };
     let mut call_arguments = vec![context_cast()];
     call_arguments.extend(arguments);
-    let call = c_expr! {
-        call(
-            #{ format!("mal_ext_{}", external.name) },
-            [...#{ call_arguments }]
-        )
-    };
+    let call = c_expr!({ format!("mal_ext_{}", external.name) }(
+        ..{ call_arguments }
+    ));
     match &result.kind {
         plan::Kind::Unit => {
-            statements.push(c_statement!(#{ call };));
+            statements.push(c_statement!(({ call });));
             statements.push(store(
                 "uint8_t",
                 identifier("mal_result"),
-                c_expr!(call("UINT8_C", [number(0)])),
+                c_expr!(UINT8_C(0)),
             ));
         }
         plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
             statements.push(c_statement! {
-                let "result": #{ raw_types.c_type(&external.result) } = #{ call };
+                let result: { raw_types.c_type(&external.result) } = { call };
             });
             statements.extend(marshalling.write(
                 &result,
@@ -91,11 +85,10 @@ pub(super) fn generate(
         }
     }
     marshalling.helpers.blank_line();
-    marshalling.helpers.push(c_function! {
-        signature #{ bridge.c_signature() } {
-            ...#{ statements }
-        }
-    });
+    marshalling.helpers.push(FunctionDefinition::from_signature(
+        bridge.c_signature(),
+        c_block! { ..{ statements } },
+    ));
     Some(Bridge {
         llvm_declaration,
         c_definitions: marshalling.helpers,
@@ -135,46 +128,38 @@ impl<'a> Marshalling<'a> {
 
 fn bridge_pointer(base: Expr, offset: usize, read_only: bool) -> Expr {
     let ty = if read_only {
-        c_type!(ptr(const(named("uint8_t"))))
+        c_type!(*const uint8_t)
     } else {
-        c_type!(ptr(named("uint8_t")))
+        c_type!(*mut uint8_t)
     };
-    let pointer = c_expr!(cast(#{ ty }, #{ base }));
+    let pointer = c_expr!({ base } as { ty });
     if offset == 0 {
         pointer
     } else {
-        c_expr!(add(#{ pointer }, (number(#{ offset }))))
+        c_expr!({ pointer } + { offset })
     }
 }
 
 fn context_cast() -> Expr {
-    c_expr! {
-        cast(
-            #{ c_type!(ptr(named("MalContext"))) },
-            (id("mal_context"))
-        )
-    }
+    c_expr!(mal_context as *mut MalContext)
 }
 
 fn load(ty: TypeName, pointer: Expr) -> Expr {
-    c_expr!(dereference((cast(#{ ty }, #{ pointer }))))
+    c_expr!(*({ pointer } as { ty }))
 }
 
 fn store(ty: impl Into<TypeName>, pointer: Expr, value: Expr) -> Statement {
-    c_statement! {
-        assign(
-            (dereference((cast(#{ c_type!(#{ ty.into().pointer() }) }, #{ pointer })))),
-            #{ value }
-        );
-    }
+    let pointer_type = ty.into().pointer();
+    c_statement!(*({ pointer } as { pointer_type }) = { value };)
 }
 
 fn identifier(name: impl Into<crate::backend::c::syntax::Identifier>) -> Expr {
-    c_expr!(id(#{ name }))
+    Expr::identifier(name)
 }
 
 fn trap(context: Expr, message: &str) -> Statement {
-    c_statement!(call("mal_trap", [#{ context }, string(#{ message })]);)
+    let message = Expr::string(message);
+    c_statement!(mal_trap({ context }, { message });)
 }
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {

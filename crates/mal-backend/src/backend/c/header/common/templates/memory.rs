@@ -1,82 +1,66 @@
 //! Canonical product and sum memory-access templates.
 
 use crate::backend::c::syntax::{
-    Block, Directive, FunctionDefinition, MacroInvocation, Statement, SwitchCase, TranslationUnit,
-    c_block, c_expr, c_signature, c_statement,
+    Directive, Expr, FunctionDefinition, Statement, SwitchCase, TranslationUnit, c_block, c_expr,
+    c_initializers, c_invocation, c_signature, c_statement, c_switch_cases, c_type,
 };
 
 pub(super) fn append_product_memory_template(output: &mut TranslationUnit) {
-    let member = c_expr!(field((id("value")), "member"));
-    let unit = c_expr!(compound((named("mal_Unit_t")), [positional((number(0)))]));
+    let member = c_expr!(value.member);
+    let unit = c_expr!(mal_Unit_t { _0: 0 });
     output.push(Directive::statements_define(
         "MAL_DETAIL_MEMORY_PRODUCT_READ_UNIT",
         ["member"],
-        [c_statement!(assign(#{ member.clone() }, #{ unit });)],
+        [c_statement!({ member.clone() } = { unit };)],
     ));
     output.push(Directive::statements_define(
         "MAL_DETAIL_MEMORY_PRODUCT_READ_VALUE",
         ["member", "reader", "writer", "offset"],
-        [c_statement! {
-            assign(
-                #{ member.clone() },
-                (call("reader", [
-                    id("call"),
-                    add((id("source")), (id("offset"))),
-                ]))
-            );
-        }],
+        [c_statement!({ member.clone() } = reader(call, source + offset);)],
     ));
     output.push(Directive::statements_define(
         "MAL_DETAIL_MEMORY_PRODUCT_WRITE_UNIT",
         ["member"],
-        [c_statement!(cast((named("void")), #{ member.clone() });)],
+        [c_statement!({ member.clone() } as void;)],
     ));
     output.push(Directive::statements_define(
         "MAL_DETAIL_MEMORY_PRODUCT_WRITE_VALUE",
         ["member", "reader", "writer", "offset"],
-        [c_statement! {
-            call("writer", [
-                id("call"),
-                add((id("destination")), (id("offset"))),
-                #{ member },
-            ]);
-        }],
+        [c_statement!(writer(call, destination + offset, { member });)],
     ));
 
-    let mut read_body = Block::default();
-    read_body.push(c_statement!(let "value": named("value_type");));
-    read_body.push(Statement::macro_invocation(MacroInvocation::new(
-        "fields",
-        [
-            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_READ_UNIT")),
-            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_READ_VALUE")),
-        ],
-    )));
-    read_body.push(c_statement!(return (id("value"));));
+    let read_fields: Statement = c_invocation!(fields(
+        MAL_DETAIL_MEMORY_PRODUCT_READ_UNIT,
+        MAL_DETAIL_MEMORY_PRODUCT_READ_VALUE,
+    ))
+    .into();
+    let read_body = c_block! {
+        let value: value_type;
+        { read_fields };
+        return value;
+    };
     let read = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "read_name"(
-                #[maybe_unused] "call": ptr(named("mal_call_t")),
-                #[maybe_unused] "source": ptr(const(named("uint8_t"))),
-            ) -> named("value_type")
+            #[static] #[inline] fn { "read_name" }(
+                #[maybe_unused] call: *mut mal_call_t,
+                #[maybe_unused] source: *const uint8_t,
+            ) -> value_type
         },
         read_body,
     );
-    let mut write_body = Block::default();
-    write_body.push(Statement::macro_invocation(MacroInvocation::new(
-        "fields",
-        [
-            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_WRITE_UNIT")),
-            c_expr!(id("MAL_DETAIL_MEMORY_PRODUCT_WRITE_VALUE")),
-        ],
-    )));
+    let write_fields: Statement = c_invocation!(fields(
+        MAL_DETAIL_MEMORY_PRODUCT_WRITE_UNIT,
+        MAL_DETAIL_MEMORY_PRODUCT_WRITE_VALUE,
+    ))
+    .into();
+    let write_body = c_block! { { write_fields }; };
     let write = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "write_name"(
-                #[maybe_unused] "call": ptr(named("mal_call_t")),
-                #[maybe_unused] "destination": ptr(named("uint8_t")),
-                "value": named("value_type"),
-            ) -> named("void")
+            #[static] #[inline] fn { "write_name" }(
+                #[maybe_unused] call: *mut mal_call_t,
+                #[maybe_unused] destination: *mut uint8_t,
+                value: value_type,
+            ) -> void
         },
         write_body,
     );
@@ -88,13 +72,8 @@ pub(super) fn append_product_memory_template(output: &mut TranslationUnit) {
 }
 
 pub(super) fn append_sum_memory_template(output: &mut TranslationUnit) {
-    let tag = c_expr!(call("UINT32_C", [id("variant_tag")]));
-    let payload = c_expr! {
-        call("reader", [
-            id("call"),
-            add((id("source")), (id("offset"))),
-        ])
-    };
+    let tag = c_expr!(UINT32_C(variant_tag));
+    let payload = c_expr!(reader(call, source + offset));
     output.push(Directive::switch_cases_define(
         "MAL_DETAIL_MEMORY_SUM_READ_CASE",
         [
@@ -107,18 +86,12 @@ pub(super) fn append_sum_memory_template(output: &mut TranslationUnit) {
             "writer",
             "offset",
         ],
-        [SwitchCase::case(
-            c_expr!(id("variant_tag")),
-            c_block! {
-                return (compound((named("value_type")), [
-                    field("tag", #{ tag.clone() }),
-                    path(#{ ["payload".to_string(), "member".to_string()] }, #{ payload }),
-                ]));
-            },
-        )],
+        c_switch_cases! {
+            variant_tag => { return { sum_memory_value(tag.clone(), payload) }; },
+        },
     ));
-    let host_tag = c_expr!(field((id("value")), "tag"));
-    let host_payload = c_expr!(field((field((id("value")), "payload")), "member"));
+    let host_tag = c_expr!(value.tag);
+    let host_payload = c_expr!(value.payload.member);
     output.push(Directive::switch_cases_define(
         "MAL_DETAIL_MEMORY_SUM_WRITE_CASE",
         [
@@ -131,71 +104,49 @@ pub(super) fn append_sum_memory_template(output: &mut TranslationUnit) {
             "writer",
             "offset",
         ],
-        [SwitchCase::case(
-            tag.clone(),
-            c_block! {
-                call("tag_writer", [
-                    id("call"),
-                    id("destination"),
-                    cast((named("tag_type")), #{ host_tag }),
-                ]);
-                call("writer", [
-                    id("call"),
-                    add((id("destination")), (id("offset"))),
-                    #{ host_payload },
-                ]);
+        c_switch_cases! {
+            { tag.clone() } => {
+                tag_writer(call, destination, { host_tag } as tag_type);
+                writer(call, destination + offset, { host_payload });
                 return;
             },
-        )],
+        },
     ));
 
-    let mut read_body = Block::default();
-    read_body.push(Statement::switch(
-        c_expr!(call("tag_reader", [id("call"), id("source")])),
-        [
-            SwitchCase::macro_invocation(MacroInvocation::new(
-                "members",
-                [c_expr!(id("MAL_DETAIL_MEMORY_SUM_READ_CASE"))],
-            )),
-            SwitchCase::default(c_block! {
-                call("mal_call_trap", [
-                    id("call"),
-                    string("invalid canonical sum tag"),
-                ]);
-            }),
-        ]
-        .into(),
-    ));
+    let read_cases: [SwitchCase; 1] =
+        [c_invocation!(members(MAL_DETAIL_MEMORY_SUM_READ_CASE)).into()];
+    let read_body = c_block! {
+        match tag_reader(call, source) {
+            ..{ read_cases },
+            _ => {
+                mal_call_trap(call, "invalid canonical sum tag");
+            },
+        }
+    };
     let read = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "read_name"(
-                #[maybe_unused] "call": ptr(named("mal_call_t")),
-                #[maybe_unused] "source": ptr(const(named("uint8_t"))),
-            ) -> named("value_type")
+            #[static] #[inline] fn { "read_name" }(
+                #[maybe_unused] call: *mut mal_call_t,
+                #[maybe_unused] source: *const uint8_t,
+            ) -> value_type
         },
         read_body,
     );
-    let mut write_body = Block::default();
-    write_body.push(Statement::switch(
-        c_expr!(field((id("value")), "tag")),
-        [
-            SwitchCase::macro_invocation(MacroInvocation::new(
-                "members",
-                [c_expr!(id("MAL_DETAIL_MEMORY_SUM_WRITE_CASE"))],
-            )),
-            SwitchCase::default(c_block! {
-                call("mal_call_trap", [id("call"), string("invalid sum tag")]);
-            }),
-        ]
-        .into(),
-    ));
+    let write_cases: [SwitchCase; 1] =
+        [c_invocation!(members(MAL_DETAIL_MEMORY_SUM_WRITE_CASE)).into()];
+    let write_body = c_block! {
+        match value.tag {
+            ..{ write_cases },
+            _ => { mal_call_trap(call, "invalid sum tag"); },
+        }
+    };
     let write = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "write_name"(
-                #[maybe_unused] "call": ptr(named("mal_call_t")),
-                #[maybe_unused] "destination": ptr(named("uint8_t")),
-                "value": named("value_type"),
-            ) -> named("void")
+            #[static] #[inline] fn { "write_name" }(
+                #[maybe_unused] call: *mut mal_call_t,
+                #[maybe_unused] destination: *mut uint8_t,
+                value: value_type,
+            ) -> void
         },
         write_body,
     );
@@ -210,4 +161,12 @@ pub(super) fn append_sum_memory_template(output: &mut TranslationUnit) {
         ],
         [read, write],
     ));
+}
+
+fn sum_memory_value(tag: Expr, payload: Expr) -> Expr {
+    let initializers = c_initializers! {
+        tag: { tag },
+        payload.member: { payload },
+    };
+    c_expr!({ c_type!(value_type) } { ..{ initializers } })
 }

@@ -23,26 +23,23 @@ fn maps_host_values_without_reusing_raw_type_names() {
             "mal_File_t",
         ),
     ] {
-        assert_eq!(
-            registry.host_value_c_type(&ty, None),
-            c_type!(named(#{ expected }))
-        );
+        assert_eq!(registry.host_value_c_type(&ty, None), c_type!({ expected }));
     }
     assert_eq!(
         registry.host_value_c_type(&product, None),
-        c_type!(named("mal_repr_product_1e5f7ae9f35ae3d3_t"))
+        c_type!(mal_repr_product_1e5f7ae9f35ae3d3_t)
     );
     assert_eq!(
         registry.host_value_c_type(&sum, None),
-        c_type!(named("mal_repr_sum_a47b44facfce4b92_t"))
+        c_type!(mal_repr_sum_a47b44facfce4b92_t)
     );
     assert_eq!(
         registry.host_value_c_type(&Type::UInt64, Some("Count")),
-        c_type!(named("mal_Count_t"))
+        c_type!(mal_Count_t)
     );
     assert_eq!(
         registry.host_value_c_type(&product, Some("Packet")),
-        c_type!(named("mal_Packet_t"))
+        c_type!(mal_Packet_t)
     );
 }
 
@@ -51,7 +48,7 @@ fn maps_bool_before_its_structural_sum_representation() {
     let bool_type = Type::Sum(vec![Type::Unit, Type::Unit].into());
     assert_eq!(
         TypeRegistry::default().host_value_c_type(&bool_type, None),
-        c_type!(named("mal_Bool_t"))
+        c_type!(mal_Bool_t)
     );
 }
 

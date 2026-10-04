@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 use mal_frontend::check::ast::Type;
 
 use super::super::{EmittedValue, FunctionEmitter};
@@ -20,11 +21,11 @@ impl FunctionEmitter<'_> {
         let count = self.register();
         emit_instruction! {
             self;
-            let #{ count.clone() } = call {
+            let { count.clone() } = call {
                 tail: false,
-                result_type: #{ self.types.index_llvm_type() },
+                result_type: { self.types.index_llvm_type() },
                 callee: direct("mal_runtime_buffer_count"),
-                arguments: [typed((ptr), #{ buffer.representation.clone() })],
+                arguments: [(ptr, { buffer.representation.clone() })],
             };
         };
         Some(EmittedValue {
@@ -46,35 +47,35 @@ impl FunctionEmitter<'_> {
         let count = self.register();
         emit_instruction! {
             self;
-            let #{ count.clone() } = call {
+            let { count.clone() } = call {
                 tail: false,
-                result_type: #{ self.types.index_llvm_type() },
+                result_type: { self.types.index_llvm_type() },
                 callee: direct("mal_runtime_buffer_count"),
-                arguments: [typed((ptr), #{ buffer.representation.clone() })],
+                arguments: [(ptr, { buffer.representation.clone() })],
             };
         };
         let owner = self.register();
         emit_instruction! {
             self;
-            let #{ owner.clone() } = call {
+            let { owner.clone() } = call {
                 tail: false,
-                result_type: (ptr),
+                result_type: ptr,
                 callee: direct("mal_runtime_bytes_read"),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), #{ data }),
-                    typed(#{ self.types.index_llvm_type() }, #{ count.clone() }),
+                    (ptr, "%mal_context"),
+                    (ptr, { data }),
+                    ({ self.types.index_llvm_type() }, { count.clone() }),
                 ],
             };
         };
         let copied_data = self.register();
         emit_instruction! {
             self;
-            let #{ copied_data.clone() } = call {
+            let { copied_data.clone() } = call {
                 tail: false,
-                result_type: (ptr),
+                result_type: ptr,
                 callee: direct("mal_runtime_bytes_data"),
-                arguments: [typed((ptr), #{ owner.clone() })],
+                arguments: [(ptr, { owner.clone() })],
             };
         };
         self.make_byte_view(&Type::Symbol, &owner, &copied_data, &count, true)
@@ -92,16 +93,16 @@ impl FunctionEmitter<'_> {
         let buffer = self.register();
         emit_instruction! {
             self;
-            let #{ buffer.clone() } = call {
+            let { buffer.clone() } = call {
                 tail: false,
-                result_type: (ptr),
+                result_type: ptr,
                 callee: direct("mal_runtime_buffer_from"),
                 arguments: [
-                    typed((ptr), "%mal_context"),
-                    typed((ptr), #{ fields.data }),
-                    typed(#{ self.types.index_llvm_type() }, "0"),
-                    typed(#{ self.types.index_llvm_type() }, #{ fields.count }),
-                    typed(#{ self.types.index_llvm_type() }, "1"),
+                    (ptr, "%mal_context"),
+                    (ptr, { fields.data }),
+                    ({ self.types.index_llvm_type() }, "0"),
+                    ({ self.types.index_llvm_type() }, { fields.count }),
+                    ({ self.types.index_llvm_type() }, "1"),
                 ],
             };
         };
@@ -124,9 +125,9 @@ impl FunctionEmitter<'_> {
             let field = self.register();
             emit_instruction! {
                 self;
-                let #{ field.clone() } = extract_value {
-                    aggregate: typed(#{ runtime.llvm.clone() }, #{ value.representation.clone() }),
-                    indices: [#{ index }],
+                let { field.clone() } = extract_value {
+                    aggregate: ({ runtime.llvm.clone() }, { value.representation.clone() }),
+                    indices: [{ index }],
                 };
             };
             field
@@ -149,27 +150,27 @@ impl FunctionEmitter<'_> {
         let with_owner = self.register();
         emit_instruction! {
             self;
-            let #{ with_owner.clone() } = insert_value {
-                aggregate: typed(#{ runtime.llvm.clone() }, "poison"),
-                element: typed((ptr), #{ owner }),
+            let { with_owner.clone() } = insert_value {
+                aggregate: ({ runtime.llvm.clone() }, "poison"),
+                element: (ptr, { owner }),
                 indices: [0],
             };
         };
         let with_data = self.register();
         emit_instruction! {
             self;
-            let #{ with_data.clone() } = insert_value {
-                aggregate: typed(#{ runtime.llvm.clone() }, #{ with_owner }),
-                element: typed((ptr), #{ data }),
+            let { with_data.clone() } = insert_value {
+                aggregate: ({ runtime.llvm.clone() }, { with_owner }),
+                element: (ptr, { data }),
                 indices: [1],
             };
         };
         let result = self.register();
         emit_instruction! {
             self;
-            let #{ result.clone() } = insert_value {
-                aggregate: typed(#{ runtime.llvm }, #{ with_data }),
-                element: typed(#{ self.types.index_llvm_type() }, #{ count }),
+            let { result.clone() } = insert_value {
+                aggregate: ({ runtime.llvm }, { with_data }),
+                element: ({ self.types.index_llvm_type() }, { count }),
                 indices: [2],
             };
         };

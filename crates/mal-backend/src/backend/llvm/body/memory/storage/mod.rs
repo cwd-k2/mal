@@ -1,5 +1,6 @@
 //! Canonical memory layout access shared by Buffer elements and host memory: loads, stores, and field addresses.
 
+use crate::backend::llvm::syntax::emit_instruction;
 mod load;
 mod store;
 
@@ -14,11 +15,11 @@ impl FunctionEmitter<'_> {
         let field = self.register();
         emit_instruction! {
             self;
-            let #{ field.clone() } = get_element_ptr {
+            let { field.clone() } = get_element_ptr {
                 inbounds: false,
-                element_type: (int(8_u16)),
-                pointer: #{ pointer },
-                indices: [typed(#{ self.types.index_llvm_type() }, #{ offset.to_string() })],
+                element_type: int(8_u16),
+                pointer: { pointer },
+                indices: [({ self.types.index_llvm_type() }, { offset.to_string() })],
             };
         };
         field

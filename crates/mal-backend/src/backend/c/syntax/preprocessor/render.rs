@@ -99,14 +99,14 @@ impl Directive {
                     })
                 }
             }
-            Self::AggregateDefine {
+            Self::RecordDefine {
                 name,
                 parameters,
                 definition,
             } => render_replacement(name, parameters, |output| {
                 definition.render_into(output);
             }),
-            Self::AggregateFieldsDefine {
+            Self::RecordFieldsDefine {
                 name,
                 parameters,
                 fields,

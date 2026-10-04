@@ -1,6 +1,8 @@
 //! A recursive call nested as a native call of the worker.
 
 use super::*;
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn emit_native_self_call(
@@ -56,9 +58,9 @@ impl FunctionEmitter<'_> {
                     let register = self.register();
                     emit_instruction! {
                         self;
-                        let #{ register.clone() } = extract_value {
-                            aggregate: typed(#{ argument_type.llvm.clone() }, #{ argument.representation.clone() }),
-                            indices: #{ leaf.path.clone() },
+                        let { register.clone() } = extract_value {
+                            aggregate: ({ argument_type.llvm.clone() }, { argument.representation.clone() }),
+                            indices: { leaf.path.clone() },
                         };
                     };
                     arguments.push((self.types.value(&leaf.ty)?.llvm, register));
@@ -74,11 +76,11 @@ impl FunctionEmitter<'_> {
         let arguments = crate::backend::llvm::syntax::TypedValue::from_pairs(arguments)?;
         emit_instruction! {
             self;
-            let #{ register.clone() } = call {
+            let { register.clone() } = call {
                 tail: false,
-                result_type: #{ result_llvm },
-                callee: direct(#{ name }),
-                arguments: [...#{ arguments }],
+                result_type: { result_llvm },
+                callee: direct({ name }),
+                arguments: [..{ arguments }],
             };
         };
         if let Some(value) = handed_over {
@@ -93,7 +95,7 @@ impl FunctionEmitter<'_> {
         emit_terminator! {
             self;
             branch {
-                target: #{ format!("mal_state_{}", resume.0) },
+                target: { format!("mal_state_{}", resume.0) },
             };
         };
         Some(())

@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
-    Directive, Expr, MacroInvocation, Statement, TranslationUnit, c_block, c_directive, c_expr,
-    c_macro_invocation, c_parameter, c_signature, c_statement, c_type,
+    Directive, Expr, Statement, TranslationUnit, c_block, c_expr, c_invocation, c_items,
+    c_parameter, c_signature, c_statement,
 };
 use crate::backend::source_layout::SourceLayouts;
 use crate::core::ast::TypeAlias;
@@ -27,18 +27,17 @@ impl TypeRegistry {
         for ty in &self.aggregates {
             if host.memory_contains(ty) && !is_bool(ty) {
                 let guard = format!("MAL_DETAIL_MEMORY_REPR_{}_HELPERS", self.index(ty));
-                output.push(c_directive!(ifndef #{ guard.clone() }));
-                output.push(c_directive!(define #{ guard };));
+                let mut guarded = c_items! { define!({ guard.clone() }); };
                 match ty {
                     Type::Product(elements) => self.append_product_memory_template(
-                        &mut output,
+                        &mut guarded,
                         self.index(ty),
                         ty,
                         elements,
                         layouts,
                     ),
                     Type::Sum(members) => self.append_sum_memory_template(
-                        &mut output,
+                        &mut guarded,
                         self.index(ty),
                         ty,
                         members,
@@ -46,7 +45,11 @@ impl TypeRegistry {
                     ),
                     _ => unreachable!("only aggregate types have representation identities"),
                 }
-                output.push(c_directive!(endif));
+                output.extend(c_items! {
+                    if !defined({ guard }) {
+                        ..{ guarded }
+                    }
+                });
                 output.blank_line();
             }
         }
@@ -58,18 +61,12 @@ impl TypeRegistry {
 
     fn memory_read_value(&self, ty: &Type, call: Expr, source: Expr) -> Expr {
         match ty {
-            Type::Unit => c_expr!(compound((named("mal_Unit_t")), [positional((number(0)))])),
+            Type::Unit => c_expr!(mal_Unit_t { _0: 0 }),
             Type::Product(_) | Type::Sum(_) if !is_bool(ty) => c_expr! {
-                call(
-                    #{ format!("mal_detail_memory_read_{}", self.index(ty)) },
-                    [#{ call }, #{ source }]
-                )
+                { format!("mal_detail_memory_read_{}", self.index(ty)) }({ call }, { source })
             },
             _ => c_expr! {
-                call(
-                    #{ format!("mal_detail_memory_read_{}", scalar_name(ty)) },
-                    [#{ call }, #{ source }]
-                )
+                { format!("mal_detail_memory_read_{}", scalar_name(ty)) }({ call }, { source })
             },
         }
     }
@@ -82,18 +79,16 @@ impl TypeRegistry {
         value: Expr,
     ) -> Statement {
         if matches!(ty, Type::Unit) {
-            return c_statement!(cast((named("void")), #{ value }););
+            return c_statement!({ value } as void;);
         }
         let name = match ty {
             Type::Product(_) | Type::Sum(_) if !is_bool(ty) => self.index(ty).to_string(),
             _ => scalar_name(ty).into(),
         };
         c_statement! {
-            call(#{ format!("mal_detail_memory_write_{name}") }, [
-                #{ call },
-                #{ destination },
-                #{ value },
-            ]);
+            { format!("mal_detail_memory_write_{name}") }(
+                { call }, { destination }, { value }
+            );
         }
     }
 }
@@ -150,14 +145,14 @@ fn integer_type(bits: usize) -> Type {
 }
 
 fn offset(base: Expr, offset: impl Into<Offset>) -> Expr {
-    c_expr!(add(#{ base }, #{ offset.into().0 }))
+    c_expr!({ base } + { offset.into().0 })
 }
 
 struct Offset(Expr);
 
 impl From<usize> for Offset {
     fn from(value: usize) -> Self {
-        Self(c_expr!(number(#{ value })))
+        Self(c_expr!({ value }))
     }
 }
 

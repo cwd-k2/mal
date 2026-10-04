@@ -1,19 +1,12 @@
 //! Sum representation conversion and public constructor templates.
 
 use crate::backend::c::syntax::{
-    Block, Directive, FunctionDefinition, MacroInvocation, Statement, SwitchCase, TranslationUnit,
-    c_block, c_expr, c_signature,
+    Directive, Expr, FunctionDefinition, SwitchCase, TranslationUnit, c_block, c_expr,
+    c_initializers, c_invocation, c_signature, c_switch_cases, c_type,
 };
 
 pub(super) fn append_sum_conversion_template(output: &mut TranslationUnit) {
-    let converted = |converter: &str| {
-        c_expr! {
-            call(#{ converter }, [
-                id("call"),
-                field((field((id("value")), "payload")), "member"),
-            ])
-        }
-    };
+    let converted = |converter: &str| c_expr!({ converter }(call, value.payload.member));
     output.push(Directive::switch_cases_define(
         "MAL_DETAIL_SUM_TO_HOST_CASE",
         [
@@ -25,18 +18,11 @@ pub(super) fn append_sum_conversion_template(output: &mut TranslationUnit) {
             "to_host",
             "to_raw",
         ],
-        [SwitchCase::case(
-            c_expr!(call("UINT32_C", [id("variant_tag")])),
-            c_block! {
-                return (compound((named("result_type")), [
-                    field("tag", (call("UINT32_C", [id("variant_tag")]))),
-                    path(
-                        #{ ["payload".to_string(), "member".to_string()] },
-                        #{ converted("to_host") }
-                    ),
-                ]));
+        c_switch_cases! {
+            UINT32_C(variant_tag) => {
+                return { sum_conversion_result(converted("to_host")) };
             },
-        )],
+        },
     ));
     output.push(Directive::switch_cases_define(
         "MAL_DETAIL_SUM_TO_RAW_CASE",
@@ -49,40 +35,26 @@ pub(super) fn append_sum_conversion_template(output: &mut TranslationUnit) {
             "to_host",
             "to_raw",
         ],
-        [SwitchCase::case(
-            c_expr!(call("UINT32_C", [id("variant_tag")])),
-            c_block! {
-                return (compound((named("result_type")), [
-                    field("tag", (call("UINT32_C", [id("variant_tag")]))),
-                    path(
-                        #{ ["payload".to_string(), "member".to_string()] },
-                        #{ converted("to_raw") }
-                    ),
-                ]));
+        c_switch_cases! {
+            UINT32_C(variant_tag) => {
+                return { sum_conversion_result(converted("to_raw")) };
             },
-        )],
+        },
     ));
     let conversion = |name: &str, result: &str, value: &str, case: &str| {
-        let mut body = Block::default();
-        body.push(Statement::switch(
-            c_expr!(field((id("value")), "tag")),
-            [
-                SwitchCase::macro_invocation(MacroInvocation::new(
-                    "members",
-                    [c_expr!(id(#{ case })), c_expr!(id(#{ result }))],
-                )),
-                SwitchCase::default(c_block! {
-                    call("mal_call_trap", [id("call"), string("invalid sum tag")]);
-                }),
-            ]
-            .into(),
-        ));
+        let cases: [SwitchCase; 1] = [c_invocation!(members({ case }, { result })).into()];
+        let body = c_block! {
+            match value.tag {
+                ..{ cases },
+                _ => { mal_call_trap(call, "invalid sum tag"); },
+            }
+        };
         FunctionDefinition::from_signature(
             c_signature! {
-                #[static] #[inline] fn #{ name }(
-                    "call": ptr(named("mal_call_t")),
-                    "value": named(#{ value }),
-                ) -> named(#{ result })
+                #[static] #[inline] fn { name }(
+                    call: *mut mal_call_t,
+                    value: { value },
+                ) -> { result }
             },
             body,
         )
@@ -113,26 +85,18 @@ pub(super) fn append_sum_conversion_template(output: &mut TranslationUnit) {
 }
 
 pub(super) fn append_sum_api_templates(output: &mut TranslationUnit) {
-    let unit_value = c_expr! {
-        compound((named("host_type")), [
-            field("tag", (id("tag_name"))),
-            path(
-                #{ ["payload".to_string(), "member".to_string()] },
-                (compound((named("mal_Unit_t")), [positional((number(0)))]))
-            ),
-        ])
-    };
+    let unit_value = sum_api_value(c_expr!(mal_Unit_t { _0: 0 }));
     let unit_make = FunctionDefinition::from_signature(
-        c_signature!(#[static] #[inline] fn "make_name"() -> named("host_type")),
-        c_block!(return #{ unit_value };),
+        c_signature!(#[static] #[inline] fn { "make_name" }() -> host_type),
+        c_block!(return { unit_value };),
     );
     let unit_return = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "return_name"(
-                "call": ptr(named("mal_call_t")),
-            ) -> named("raw_type")
+            #[static] #[inline] fn { "return_name" }(
+                call: *mut mal_call_t,
+            ) -> raw_type
         },
-        c_block!(return (call("to_raw", [id("call"), call("make_name", [])]));),
+        c_block!(return to_raw(call, make_name());),
     );
     output.push(Directive::function_definitions_define(
         "MAL_DETAIL_DEFINE_SUM_UNIT_API",
@@ -148,33 +112,23 @@ pub(super) fn append_sum_api_templates(output: &mut TranslationUnit) {
         [unit_make, unit_return],
     ));
 
-    let value_value = c_expr! {
-        compound((named("host_type")), [
-            field("tag", (id("tag_name"))),
-            path(
-                #{ ["payload".to_string(), "member".to_string()] },
-                (id("value"))
-            ),
-        ])
-    };
+    let value_value = sum_api_value(c_expr!(value));
     let value_make = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "make_name"(
-                "value": named("value_type"),
-            ) -> named("host_type")
+            #[static] #[inline] fn { "make_name" }(
+                value: value_type,
+            ) -> host_type
         },
-        c_block!(return #{ value_value };),
+        c_block!(return { value_value };),
     );
     let value_return = FunctionDefinition::from_signature(
         c_signature! {
-            #[static] #[inline] fn "return_name"(
-                "call": ptr(named("mal_call_t")),
-                "value": named("value_type"),
-            ) -> named("raw_type")
+            #[static] #[inline] fn { "return_name" }(
+                call: *mut mal_call_t,
+                value: value_type,
+            ) -> raw_type
         },
-        c_block! {
-            return (call("to_raw", [id("call"), call("make_name", [id("value")])]));
-        },
+        c_block! { return to_raw(call, make_name(value)); },
     );
     output.push(Directive::function_definitions_define(
         "MAL_DETAIL_DEFINE_SUM_VALUE_API",
@@ -190,4 +144,20 @@ pub(super) fn append_sum_api_templates(output: &mut TranslationUnit) {
         ],
         [value_make, value_return],
     ));
+}
+
+fn sum_conversion_result(value: Expr) -> Expr {
+    let initializers = c_initializers! {
+        tag: UINT32_C(variant_tag),
+        payload.member: { value },
+    };
+    c_expr!({ c_type!(result_type) } { ..{ initializers } })
+}
+
+fn sum_api_value(value: Expr) -> Expr {
+    let initializers = c_initializers! {
+        tag: tag_name,
+        payload.member: { value },
+    };
+    c_expr!({ c_type!(host_type) } { ..{ initializers } })
 }

@@ -18,7 +18,7 @@ impl ScalarType {
                 llvm_type!(double)
             }
         } else {
-            llvm_type!(int(#{ u16::from(self.bits) }))
+            llvm_type!(int({ u16::from(self.bits) }))
         }
     }
 }

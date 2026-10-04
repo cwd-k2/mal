@@ -55,12 +55,14 @@ instructions and supplies typed operands; it does not assemble LLVM source lines
 or rendered text to recover structure. The model admits only the LLVM subset used by mal and validates function-local
 invariants before rendering. Rendering is the only operation that turns that model into LLVM text.
 
-Template macros cover types, signatures, parameters, declarations, constants, instructions, terminators, globals, and
-metadata. `#{ ... }` embeds one typed Rust node and `...#{ ... }` splices a runtime-generated node sequence. LLVM functions
-and basic blocks remain under `FunctionBuilder`: CFG construction has stateful block, terminator, and entry-instruction
-invariants that should not be hidden in a block macro. Module symbol ordering and uniqueness likewise remain under
-`Module`. Dynamic lowering policy therefore stays in ordinary Rust code. The shared notation and complete boundary are
-documented in
+Procedural macros directly parse types, signatures, parameters, declarations, constants, instructions, terminators,
+globals, and metadata. Instruction fields use Rust-like named fields, typed operands use `(type, value)`, and static types
+such as `int(32)` and `ptr` need no implementation-driven wrapper. `{ ... }` embeds one typed Rust node and `..{ ... }`
+splices a runtime-generated node sequence. `emit_instruction!` and `emit_terminator!` combine syntax admission with the
+only function-emission registration boundary. LLVM functions and basic blocks remain under `FunctionBuilder`: CFG
+construction has stateful block, terminator, and entry-instruction invariants that should not be hidden in a block macro.
+Module symbol ordering and uniqueness likewise remain under `Module`. Dynamic lowering policy therefore stays in ordinary
+Rust code. The shared notation and complete boundary are documented in
 [`docs/implementation/backend-syntax-construction.md`](../../../../../docs/implementation/backend-syntax-construction.md).
 
 `module` builds one logical LLVM module from feature groups. It derives byte-runtime requirements from references in the emitted

@@ -13,26 +13,26 @@ pub(in crate::backend) enum Declaration {
 pub(in crate::backend) struct Comment(String);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend) struct AggregateDefinition {
-    kind: AggregateKind,
+pub(in crate::backend) struct RecordDefinition {
+    kind: RecordKind,
     tag: Option<Identifier>,
-    fields: Vec<AggregateField>,
+    fields: Vec<RecordField>,
     is_typedef: bool,
     alias: Option<Identifier>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(in crate::backend) enum AggregateKind {
+pub(in crate::backend) enum RecordKind {
     Struct,
     Union,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(in crate::backend) enum AggregateField {
+pub(in crate::backend) enum RecordField {
     Declaration(VariableDeclaration),
     MacroInvocation(MacroInvocation),
-    Aggregate {
-        kind: AggregateKind,
+    Record {
+        kind: RecordKind,
         fields: Vec<Self>,
         name: Identifier,
     },
@@ -67,13 +67,13 @@ impl Comment {
     }
 }
 
-impl AggregateDefinition {
+impl RecordDefinition {
     pub(in crate::backend) fn structure(
         tag: impl Into<Identifier>,
-        fields: impl IntoIterator<Item = AggregateField>,
+        fields: impl IntoIterator<Item = RecordField>,
     ) -> Self {
         Self {
-            kind: AggregateKind::Struct,
+            kind: RecordKind::Struct,
             tag: Some(tag.into()),
             fields: fields.into_iter().collect(),
             is_typedef: false,
@@ -83,11 +83,46 @@ impl AggregateDefinition {
 
     pub(in crate::backend) fn typedef_structure(
         tag: Option<String>,
-        fields: impl IntoIterator<Item = AggregateField>,
+        fields: impl IntoIterator<Item = RecordField>,
+        alias: impl Into<Identifier>,
+    ) -> Self {
+        Self::typedef(RecordKind::Struct, tag, fields, alias)
+    }
+
+    #[allow(
+        dead_code,
+        reason = "called by generated c_items! and c_record! expansions"
+    )]
+    pub(in crate::backend) fn union(
+        tag: impl Into<Identifier>,
+        fields: impl IntoIterator<Item = RecordField>,
+    ) -> Self {
+        Self {
+            kind: RecordKind::Union,
+            tag: Some(tag.into()),
+            fields: fields.into_iter().collect(),
+            is_typedef: false,
+            alias: None,
+        }
+    }
+
+    #[allow(dead_code, reason = "called by generated c_items! expansions")]
+    pub(in crate::backend) fn typedef_union(
+        tag: Option<String>,
+        fields: impl IntoIterator<Item = RecordField>,
+        alias: impl Into<Identifier>,
+    ) -> Self {
+        Self::typedef(RecordKind::Union, tag, fields, alias)
+    }
+
+    fn typedef(
+        kind: RecordKind,
+        tag: Option<String>,
+        fields: impl IntoIterator<Item = RecordField>,
         alias: impl Into<Identifier>,
     ) -> Self {
         Self {
-            kind: AggregateKind::Struct,
+            kind,
             tag: tag.map(Identifier::from),
             fields: fields.into_iter().collect(),
             is_typedef: true,
@@ -96,7 +131,7 @@ impl AggregateDefinition {
     }
 }
 
-impl AggregateField {
+impl RecordField {
     pub(in crate::backend) fn variable(
         ty: impl Into<TypeName>,
         name: impl Into<Identifier>,
@@ -114,20 +149,22 @@ impl AggregateField {
         ))
     }
 
-    pub(in crate::backend) fn aggregate(
-        kind: AggregateKind,
+    pub(in crate::backend) fn record(
+        kind: RecordKind,
         fields: impl IntoIterator<Item = Self>,
         name: impl Into<Identifier>,
     ) -> Self {
-        Self::Aggregate {
+        Self::Record {
             kind,
             fields: fields.into_iter().collect(),
             name: name.into(),
         }
     }
+}
 
-    pub(in crate::backend) fn macro_invocation(invocation: MacroInvocation) -> Self {
-        Self::MacroInvocation(invocation)
+impl From<MacroInvocation> for RecordField {
+    fn from(value: MacroInvocation) -> Self {
+        Self::MacroInvocation(value)
     }
 }
 

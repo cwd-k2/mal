@@ -1,7 +1,4 @@
-use crate::backend::c::syntax::{
-    Declaration, MacroInvocation, TranslationUnit, TypeName, c_aggregate, c_declaration,
-    c_directive, c_expr, c_macro_invocation, c_type,
-};
+use crate::backend::c::syntax::{TranslationUnit, TypeName, c_expr, c_invocation, c_items, c_type};
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
 
@@ -16,10 +13,10 @@ impl TypeRegistry {
         let mut output = TranslationUnit::default();
         for name in &host.opaque_names {
             let alias = format!("mal_{name}_t");
-            output.push(c_aggregate! {
-                type #{ alias } = struct {
-                    "mal_detail_bits": named("uintptr_t"),
-                }
+            output.extend(c_items! {
+                type { alias } = struct {
+                    mal_detail_bits: uintptr_t,
+                };
             });
         }
         for ty in &self.aggregates {
@@ -35,17 +32,16 @@ impl TypeRegistry {
             let id = self.index(ty);
             let guard = format!("MAL_DETAIL_HOST_REPR_{id}_DECLARED");
             let alias = format!("mal_repr_{kind}_{id}_t");
-            output.push(c_directive!(ifndef #{ guard.clone() }));
-            output.push(c_directive!(define #{ guard };));
-            output.push(c_declaration! {
-                type #{ alias } =
-                    struct(#{ format!("mal_detail_repr_{kind}_{id}") })
+            output.extend(c_items! {
+                if !defined({ guard.clone() }) {
+                    define!({ guard });
+                    type { alias } = Struct<{ format!("mal_detail_repr_{kind}_{id}") }>;
+                }
             });
-            output.push(c_directive!(endif));
         }
         for alias in aliases {
             if host.exposes_alias(alias) {
-                output.push(self.host_alias_declaration(alias));
+                output.extend(self.host_alias_declaration(alias));
             }
         }
         if !output.is_empty() {
@@ -59,18 +55,15 @@ impl TypeRegistry {
                 self.append_repr_descriptor(&mut output, ty);
             }
             let guard = format!("MAL_DETAIL_HOST_REPR_{}_DEFINED", self.index(ty));
-            output.push(c_directive!(ifndef #{ guard.clone() }));
-            output.push(c_directive!(define #{ guard };));
+            let mut guarded = c_items! { define!({ guard.clone() }); };
             match ty {
                 Type::Product(_) => {
                     let tag = format!("mal_detail_repr_product_{}", self.index(ty));
-                    output.push(c_macro_invocation! {
-                        "MAL_DETAIL_DEFINE_PRODUCT_REPR"([
-                            id(#{ tag }),
-                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) }),
-                            id("MAL_DETAIL_HOST_REPR_FIELD"),
-                        ])
-                    });
+                    guarded.push(c_invocation!(MAL_DETAIL_DEFINE_PRODUCT_REPR(
+                        { tag },
+                        { format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) },
+                        MAL_DETAIL_HOST_REPR_FIELD,
+                    )));
                 }
                 Type::Sum(members) => {
                     let tag = format!("mal_detail_repr_sum_{}", self.index(ty));
@@ -79,41 +72,42 @@ impl TypeRegistry {
                     } else {
                         "MAL_DETAIL_DEFINE_SUM_REPR"
                     };
-                    let mut arguments = vec![c_expr!(id(#{ tag }))];
+                    let mut arguments = vec![c_expr!({ tag })];
                     if !members.is_empty() {
-                        arguments.push(c_expr! {
-                            id(#{ format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) })
-                        });
-                        arguments.push(c_expr!(id("MAL_DETAIL_HOST_REPR_FIELD")));
+                        arguments.push(c_expr!({
+                            format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty))
+                        }));
+                        arguments.push(c_expr!(MAL_DETAIL_HOST_REPR_FIELD));
                     }
-                    output.push(MacroInvocation::new(template, arguments));
+                    guarded.push(c_invocation!({ template }(..{ arguments })));
                 }
                 Type::Function { .. } => continue,
                 _ => unreachable!("only aggregate types have representation identities"),
             }
-            output.push(c_directive!(endif));
+            output.extend(c_items! {
+                if !defined({ guard }) {
+                    ..{ guarded }
+                }
+            });
             output.blank_line();
         }
         output
     }
 
-    fn host_alias_declaration(&self, alias: &TypeAlias) -> Declaration {
+    fn host_alias_declaration(&self, alias: &TypeAlias) -> TranslationUnit {
         let name = format!("mal_{}_t", alias.name);
-        c_declaration! {
-            type #{ name } = #{
-                self.host_value_c_type(&alias.ty, None)
-            }
-        }
+        let source = self.host_value_c_type(&alias.ty, None);
+        c_items! { type { name } = { source }; }
     }
 
     pub(in crate::backend::c) fn header_declarations(&self, host: &HostTypes) -> TranslationUnit {
         let mut output = TranslationUnit::default();
         for name in &host.opaque_names {
             let alias = format!("MalType_{name}");
-            output.push(c_aggregate! {
-                type #{ alias } = struct {
-                    "bits": named("uintptr_t"),
-                }
+            output.extend(c_items! {
+                type { alias } = struct {
+                    bits: uintptr_t,
+                };
             });
         }
         if !host.opaque_names.is_empty() {
@@ -132,11 +126,8 @@ impl TypeRegistry {
         for alias in aliases {
             if host.exposes_external_alias(alias) {
                 let name = format!("MalType_{}", alias.name);
-                output.push(c_declaration! {
-                    type #{ name } = #{
-                        self.c_type(&alias.ty)
-                    }
-                });
+                let source = self.c_type(&alias.ty);
+                output.extend(c_items! { type { name } = { source }; });
             }
         }
         if !output.is_empty() {
@@ -148,7 +139,7 @@ impl TypeRegistry {
     pub(in crate::backend::c) fn header_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
         alias.map_or_else(
             || self.c_type(ty),
-            |alias| c_type!(named(#{ format!("MalType_{alias}") })),
+            |alias| c_type!({ format!("MalType_{alias}") }),
         )
     }
 }

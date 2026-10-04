@@ -1,3 +1,4 @@
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::closure::ast::Pattern;
 use mal_frontend::check::ast::Type;
 
@@ -32,9 +33,9 @@ impl FunctionEmitter<'_> {
                     let register = self.register();
                     emit_instruction! {
                         self;
-                        let #{ register.clone() } = extract_value {
-                            aggregate: typed(#{ aggregate_type.llvm.clone() }, #{ value.representation.clone() }),
-                            indices: [#{ index }],
+                        let { register.clone() } = extract_value {
+                            aggregate: ({ aggregate_type.llvm.clone() }, { value.representation.clone() }),
+                            indices: [{ index }],
                         };
                     };
                     self.store_self_tail_pattern(
@@ -176,9 +177,9 @@ impl FunctionEmitter<'_> {
             let register = self.register();
             emit_instruction! {
                 self;
-                let #{ register.clone() } = extract_value {
-                    aggregate: typed(#{ aggregate_type.llvm.clone() }, #{ value.representation.clone() }),
-                    indices: [#{ index }],
+                let { register.clone() } = extract_value {
+                    aggregate: ({ aggregate_type.llvm.clone() }, { value.representation.clone() }),
+                    indices: [{ index }],
                 };
             };
             self.store_pattern_to_destination(

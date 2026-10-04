@@ -4,8 +4,7 @@
 //! and aggregate templates. File-specific interfaces and target-layout descriptors remain in `header`.
 
 use crate::backend::c::syntax::{
-    TranslationUnit, c_aggregate, c_comment, c_declaration, c_directive, c_expr, c_function,
-    c_signature, c_type,
+    Attribute, Directive, TranslationUnit, c_expr, c_function, c_items,
 };
 use crate::backend::c::types::TypeRegistry;
 
@@ -16,33 +15,35 @@ use super::C_ABI_VERSION_LITERAL;
 
 pub(super) fn emit() -> String {
     let mut output = TranslationUnit::default();
-    for directive in [c_directive!(ifndef "MAL_H"), c_directive!(define "MAL_H";)] {
-        output.push(directive);
-    }
+    output.extend(c_items! { define!(MAL_H); });
     output.blank_line();
-    output.push(c_directive!(include(system "stddef.h")));
-    output.push(c_directive!(include(system "stdint.h")));
-    output.push(c_directive!(include(system "limits.h")));
-    output.push(c_directive!(include(system "float.h")));
-    output.push(c_directive!(include(system "string.h")));
-    output.blank_line();
-    output.push(c_directive! {
-        define "MAL_C_ABI_VERSION" = (number(#{ C_ABI_VERSION_LITERAL }));
+    output.extend(c_items! {
+        include_system!("stddef.h");
+        include_system!("stdint.h");
+        include_system!("limits.h");
+        include_system!("float.h");
+        include_system!("string.h");
     });
     output.blank_line();
-    output.push(c_directive!(if (defined("__clang__"))));
-    output.push(c_directive!(define "MAL_DETAIL_MAYBE_UNUSED" = unused;));
-    output.push(c_directive!(else));
-    output.push(c_directive!(define "MAL_DETAIL_MAYBE_UNUSED";));
-    output.push(c_directive!(endif));
+    let abi_version = crate::backend::c::syntax::Expr::number(C_ABI_VERSION_LITERAL);
+    output.extend(c_items! { define!(MAL_C_ABI_VERSION = { abi_version }); });
     output.blank_line();
-    output.push(c_comment!("Runtime API"));
-    output.blank_line();
-    output.push(c_declaration!(type "MalContext" = struct("MalContext")));
-    output.push(c_aggregate! {
-        type "MalType_Unit" = struct {
-            "unused": named("uint8_t"),
+    let clang_attribute = Directive::define_attribute("MAL_DETAIL_MAYBE_UNUSED", Attribute::Unused);
+    output.extend(c_items! {
+        if defined(__clang__) {
+            { clang_attribute };
+        } else {
+            define!(MAL_DETAIL_MAYBE_UNUSED);
         }
+    });
+    output.blank_line();
+    output.extend(c_items! { comment!("Runtime API"); });
+    output.blank_line();
+    output.extend(c_items! {
+        type MalContext = Struct<MalContext>;
+        type MalType_Unit = struct {
+            unused: uint8_t,
+        };
     });
     for (source, alias) in [
         ("uint8_t", "MalType_Bool"),
@@ -59,39 +60,29 @@ pub(super) fn emit() -> String {
         ("size_t", "MalType_ByteSize"),
         ("size_t", "MalType_USize"),
     ] {
-        output.push(c_declaration!(type #{ alias } = #{ c_type!(named(#{ source })) }));
+        output.extend(c_items! { type { alias } = { source }; });
     }
-    output.push(c_declaration!(type "MalType_Address" = ptr(named("void"))));
-    let width_of = |ty: &str, bits: u32| {
-        c_expr! {
-            equal(
-                (multiply(
-                    (sizeof((cast(#{ c_type!(named(#{ ty })) }, (number(0)))))),
-                    (id("CHAR_BIT"))
-                )),
-                (number(#{ bits }))
-            )
-        }
+    output.extend(c_items! { type MalType_Address = *mut void; });
+    let width_of = |ty: &str, bits: u32| c_expr!(sizeof(0 as { ty }) * CHAR_BIT == { bits });
+    let macro_equals = |name: &str, value: &str| {
+        let value = crate::backend::c::syntax::Expr::number(value);
+        c_expr!({ name } == { value })
     };
-    let macro_equals =
-        |name: &str, value: &str| c_expr!(equal((id(#{ name })), (number(#{ value }))));
     for (condition, message) in [
         (
-            c_expr! {
-                logical_and(#{ width_of("float", 32) }, #{ macro_equals("FLT_MANT_DIG", "24") })
-            },
+            c_expr!({ width_of("float", 32) } && { macro_equals("FLT_MANT_DIG", "24") }),
             "float is not IEEE 754 binary32",
         ),
         (
-            c_expr! {
-                logical_and(#{ width_of("double", 64) }, #{ macro_equals("DBL_MANT_DIG", "53") })
-            },
+            c_expr!({ width_of("double", 64) } && { macro_equals("DBL_MANT_DIG", "53") }),
             "double is not IEEE 754 binary64",
         ),
         (
-            c_expr! {
-                logical_and(#{ macro_equals("FLT_HAS_SUBNORM", "1") }, #{ macro_equals("DBL_HAS_SUBNORM", "1") })
-            },
+            c_expr!(
+                { macro_equals("FLT_HAS_SUBNORM", "1") } && {
+                    macro_equals("DBL_HAS_SUBNORM", "1")
+                }
+            ),
             "the target does not preserve subnormal floating-point values",
         ),
         (
@@ -99,7 +90,7 @@ pub(super) fn emit() -> String {
             "floating-point expressions are evaluated with extra precision",
         ),
     ] {
-        output.push(c_declaration!(static_assert(#{ condition }, #{ message });));
+        output.extend(c_items! { assert!({ condition }, { message }); });
     }
     for (source, alias) in [
         ("MalType_Unit", "mal_Unit_t"),
@@ -118,71 +109,58 @@ pub(super) fn emit() -> String {
         ("MalType_ByteSize", "mal_ByteSize_t"),
         ("MalType_USize", "mal_USize_t"),
     ] {
-        output.push(c_declaration!(type #{ alias } = #{ c_type!(named(#{ source })) }));
+        output.extend(c_items! { type { alias } = { source }; });
     }
-    output.push(c_aggregate! {
-        type "mal_call_t" = struct {
-            "mal_detail_context": ptr(named("MalContext")),
-        }
-    });
-    output.blank_line();
-    output.push(c_directive! {
-        define "mal_false" =
-            (cast((named("mal_Bool_t")), (call("UINT8_C", [number(0)]))));
-    });
-    output.push(c_directive! {
-        define "mal_true" =
-            (cast((named("mal_Bool_t")), (call("UINT8_C", [number(1)]))));
-    });
-    output.blank_line();
-    output.push(c_declaration! {
-        fn #{
-            c_signature! {
-                #[noreturn] fn "mal_trap"(
-                    "context": ptr(named("MalContext")),
-                    "message": ptr(const(named("char"))),
-                ) -> named("void")
-            }
+    output.extend(c_items! {
+        type mal_call_t = struct {
+            mal_detail_context: *mut MalContext,
         };
     });
-    output.push(c_function! {
-        #[static] #[inline] #[noreturn] fn "mal_call_trap"(
-            "call": ptr(named("mal_call_t")),
-            "message": ptr(const(named("char"))),
-        ) -> named("void") {
-            call("mal_trap", [
-                pointer_field((id("call")), "mal_detail_context"),
-                id("message"),
-            ]);
+    output.blank_line();
+    output.extend(c_items! {
+        define!(mal_false = UINT8_C(0) as mal_Bool_t);
+        define!(mal_true = UINT8_C(1) as mal_Bool_t);
+    });
+    output.blank_line();
+    output.extend(c_items! {
+        #[noreturn] fn mal_trap(
+            context: *mut MalContext,
+            message: *const char,
+        ) -> void;
+        #[static] #[inline] #[noreturn] fn mal_call_trap(
+            call: *mut mal_call_t,
+            message: *const char,
+        ) -> void {
+            mal_trap((*call).mal_detail_context, message);
         }
     });
     append_builtin_returns(&mut output);
     output.push(c_function! {
-        #[static] #[inline] fn "mal_detail_convert_Unit"(
-            #[maybe_unused] "call": ptr(named("mal_call_t")),
-            #[maybe_unused] "value": named("mal_Unit_t"),
-        ) -> named("MalType_Unit") {
-            return (compound((named("MalType_Unit")), [positional((number(0)))]));
+        #[static] #[inline] fn mal_detail_convert_Unit(
+            #[maybe_unused] call: *mut mal_call_t,
+            #[maybe_unused] value: mal_Unit_t,
+        ) -> MalType_Unit {
+            return MalType_Unit { _0: 0 };
         }
     });
     output.blank_line();
-    output.push(c_comment!("Canonical scalar memory access"));
+    output.extend(c_items! { comment!("Canonical scalar memory access"); });
     output.blank_line();
     output.push(c_function! {
-        #[static] #[inline] fn "mal_detail_memory_read_Unit"(
-            #[maybe_unused] "call": ptr(named("mal_call_t")),
-            #[maybe_unused] "source": ptr(const(named("uint8_t"))),
-        ) -> named("mal_Unit_t") {
-            return (compound((named("mal_Unit_t")), [positional((number(0)))]));
+        #[static] #[inline] fn mal_detail_memory_read_Unit(
+            #[maybe_unused] call: *mut mal_call_t,
+            #[maybe_unused] source: *const uint8_t,
+        ) -> mal_Unit_t {
+            return mal_Unit_t { _0: 0 };
         }
     });
     output.push(c_function! {
-        #[static] #[inline] fn "mal_detail_memory_write_Unit"(
-            #[maybe_unused] "call": ptr(named("mal_call_t")),
-            #[maybe_unused] "destination": ptr(named("uint8_t")),
-            "value": named("mal_Unit_t"),
-        ) -> named("void") {
-            cast((named("void")), (id("value")));
+        #[static] #[inline] fn mal_detail_memory_write_Unit(
+            #[maybe_unused] call: *mut mal_call_t,
+            #[maybe_unused] destination: *mut uint8_t,
+            value: mal_Unit_t,
+        ) -> void {
+            value as void;
         }
     });
     output.blank_line();
@@ -190,18 +168,20 @@ pub(super) fn emit() -> String {
     output.blank_line();
     append_generated_header_templates(&mut output);
     output.blank_line();
-    output.push(c_directive!(endif));
-    output.render()
+    c_items! {
+        if !defined(MAL_H) {
+            ..{ output }
+        }
+    }
+    .render()
 }
 
 fn append_builtin_returns(output: &mut TranslationUnit) {
     output.push(c_function! {
-        #[static] #[inline] fn "mal_Unit_return"(
-            #[maybe_unused] "call": ptr(named("mal_call_t")),
-        ) -> named("MalType_Unit") {
-            return (compound((named("MalType_Unit")), [
-                field("unused", (call("UINT8_C", [number(0)]))),
-            ]));
+        #[static] #[inline] fn mal_Unit_return(
+            #[maybe_unused] call: *mut mal_call_t,
+        ) -> MalType_Unit {
+            return MalType_Unit { unused: UINT8_C(0) };
         }
     });
     for (raw, host, name) in [
@@ -219,43 +199,34 @@ fn append_builtin_returns(output: &mut TranslationUnit) {
         ("MalType_USize", "mal_USize_t", "USize"),
     ] {
         output.push(c_function! {
-            #[static] #[inline] fn #{ format!("mal_{name}_return") }(
-                #[maybe_unused] "call": ptr(named("mal_call_t")),
-                "value": named(#{ host }),
-            ) -> named(#{ raw }) {
-                return (id("value"));
+            #[static] #[inline] fn { format!("mal_{name}_return") }(
+                #[maybe_unused] call: *mut mal_call_t,
+                value: { host },
+            ) -> { raw } {
+                return value;
             }
         });
     }
     output.push(c_function! {
-        #[static] #[inline] fn "mal_Address_return"(
-            "call": ptr(named("mal_call_t")),
-            "value": named("mal_Address_t"),
-        ) -> named("MalType_Address") {
-            if (equal((id("value")), (number(0)))) {
-                call("mal_call_trap", [
-                    id("call"),
-                    string("invalid Address result"),
-                ]);
+        #[static] #[inline] fn mal_Address_return(
+            call: *mut mal_call_t,
+            value: mal_Address_t,
+        ) -> MalType_Address {
+            if value == 0 {
+                mal_call_trap(call, "invalid Address result");
             }
-            return (id("value"));
+            return value;
         }
     });
     output.push(c_function! {
-        #[static] #[inline] fn "mal_Bool_return"(
-            "call": ptr(named("mal_call_t")),
-            "value": named("mal_Bool_t"),
-        ) -> named("MalType_Bool") {
-            if (logical_and(
-                (not_equal((id("value")), (id("mal_false")))),
-                (not_equal((id("value")), (id("mal_true"))))
-            )) {
-                call("mal_call_trap", [
-                    id("call"),
-                    string("invalid Bool result"),
-                ]);
+        #[static] #[inline] fn mal_Bool_return(
+            call: *mut mal_call_t,
+            value: mal_Bool_t,
+        ) -> MalType_Bool {
+            if value != mal_false && value != mal_true {
+                mal_call_trap(call, "invalid Bool result");
             }
-            return (id("value"));
+            return value;
         }
     });
 }

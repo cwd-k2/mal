@@ -7,9 +7,8 @@ use super::{
     host_signature::{CompilerSignature, ExternalSignatures},
 };
 use crate::backend::c::syntax::{
-    FunctionDefinition, FunctionSignature, MacroInvocation, TranslationUnit, c_block, c_comment,
-    c_declaration, c_directive, c_expr, c_function, c_initializer, c_macro_invocation, c_signature,
-    c_statement,
+    Directive, Expr, FunctionDefinition, FunctionSignature, MacroInvocation, TranslationUnit,
+    c_block, c_expr, c_initializers, c_invocation, c_items, c_signature, c_statement,
 };
 
 mod common;
@@ -36,9 +35,6 @@ pub(super) fn emit(
             .any(|alias| alias.host_memory_access)
     });
     let mut output = TranslationUnit::default();
-    if !umbrella {
-        output.push(c_directive!(ifndef "MAL_BUILD_UMBRELLA"));
-    }
     output.extend(emit_prefix(
         target.index_size * 8,
         memory_access,
@@ -49,7 +45,11 @@ pub(super) fn emit(
         append_interface(&mut output, interface, target);
     }
     if !umbrella {
-        output.push(c_directive!(endif));
+        output = c_items! {
+            if !defined(MAL_BUILD_UMBRELLA) {
+                ..{ output }
+            }
+        };
     }
     output.render()
 }
@@ -65,16 +65,19 @@ fn append_interface(
     let has_body = !body.is_empty();
     let guard = interface_guard(&body.render());
     output.blank_line();
-    output.push(c_directive!(ifndef #{ guard.clone() }));
-    output.push(c_directive!(define #{ guard };));
+    let mut guarded = c_items! { define!({ guard.clone() }); };
     if has_body {
-        output.blank_line();
+        guarded.blank_line();
     }
-    output.extend(body);
+    guarded.extend(body);
     if has_body {
-        output.blank_line();
+        guarded.blank_line();
     }
-    output.push(c_directive!(endif));
+    output.extend(c_items! {
+        if !defined({ guard }) {
+            ..{ guarded }
+        }
+    });
 }
 
 fn interface_body(
@@ -143,7 +146,7 @@ pub(super) fn emit_host(
     types: &TypeRegistry,
     header_name: &str,
 ) -> String {
-    let mut output = TranslationUnit::new([c_directive!(include(quoted #{ header_name })).into()]);
+    let mut output = c_items! { include_quoted!({ header_name }); };
     for external in &interface.externals {
         let signatures = ExternalSignatures::new(external, types);
         let signature = &signatures.host_body;
@@ -152,30 +155,32 @@ pub(super) fn emit_host(
             .parameter_names()
             .into_iter()
             .skip(1)
-            .map(|name| c_statement!(cast((named("void")), (id(#{ name })));));
+            .map(|name| c_statement!({ name } as void;));
+        let message = Expr::string(format!(
+            "external operation `{}` is not implemented",
+            signatures.host_body.operation_name
+        ));
         let body = c_block! {
-            ...#{ unused_parameters }
-            call("mal_call_trap", [
-                id("call"),
-                string(#{ format!(
-                    "external operation `{}` is not implemented",
-                    signatures.host_body.operation_name
-                ) }),
-            ]);
+            ..{ unused_parameters }
+            mal_call_trap(call, { message });
         };
-        output.push(c_function!(macro #{ host_macro_invocation(signature) } body #{ body }));
+        output.push(FunctionDefinition::from_macro(
+            host_macro_invocation(signature),
+            body,
+        ));
     }
     output.render()
 }
 
 fn begin_section(output: &mut TranslationUnit, title: &str) {
     output.blank_line();
-    output.push(c_comment!(#{ title }));
+    output.extend(c_items! { comment!({ title }); });
     output.blank_line();
 }
 
 fn emit_external_declaration(output: &mut TranslationUnit, signature: &CompilerSignature<'_>) {
-    output.push(c_declaration!(fn #{ external_signature(signature, false) };));
+    let signature = external_signature(signature, false);
+    output.extend(c_items! { { signature }; });
 }
 
 fn emit_definition_macro(
@@ -186,16 +191,15 @@ fn emit_definition_macro(
 ) {
     let signature = &signatures.compiler;
     let presence_name = format!("MAL_HAS_EXTERN_{}", signature.operation_name);
-    output.push(c_directive!(define #{ presence_name } = (number(1));));
+    output.extend(c_items! { define!({ presence_name } = 1); });
     let definition_name = format!("MAL_DEFINE_{}", signature.operation_name);
-    output.push(c_directive! {
-        define_items #{ definition_name } {
-            parameters: #{ signatures.host_body.parameter_names() },
-            declarations: #{ [signatures.host_body.signature()] },
-            definitions: #{ [wrapper_definition(signatures, external, types)] },
-            trailing: #{ signatures.host_body.signature() },
-        }
-    });
+    output.push(Directive::function_items_define(
+        definition_name,
+        signatures.host_body.parameter_names(),
+        [signatures.host_body.signature()],
+        [wrapper_definition(signatures, external, types)],
+        signatures.host_body.signature(),
+    ));
 }
 
 fn wrapper_definition(
@@ -203,56 +207,41 @@ fn wrapper_definition(
     external: &crate::core::ast::ExternalOperation,
     types: &TypeRegistry,
 ) -> FunctionDefinition {
-    let mut arguments = vec![c_expr!(address((id("call"))))];
+    let mut arguments = vec![c_expr!(&call)];
     match &external.parameter {
         mal_frontend::check::ast::Type::Unit => {}
         mal_frontend::check::ast::Type::Product(elements) => {
-            let initializers = elements.iter().enumerate().map(|(field, _)| {
-                c_initializer! {
-                    field(
-                        #{ format!("field_{field}") },
-                        (id(#{ format!("argument_{field}") }))
-                    )
-                }
+            let initializers = elements.iter().enumerate().flat_map(|(field, _)| {
+                let name = format!("field_{field}");
+                c_initializers! { { name }: { c_expr!({ format!("argument_{field}") }) } }
             });
-            let raw = c_expr! {
-                compound(
-                    #{ types.c_type(&external.parameter) },
-                    [...#{ initializers }]
-                )
-            };
+            let ty = types.c_type(&external.parameter);
+            let raw = c_expr!({ ty } { ..{ initializers } });
             arguments.push(types.raw_to_host_value(
                 &external.parameter,
                 external.parameter_alias.as_deref(),
-                c_expr!(address((id("call")))),
+                c_expr!(&call),
                 raw,
             ));
         }
         ty => arguments.push(types.raw_to_host_value(
             ty,
             external.parameter_alias.as_deref(),
-            c_expr!(address((id("call")))),
-            c_expr!(id("value")),
+            c_expr!(&call),
+            c_expr!(value),
         )),
     }
-    let call = c_expr! {
-        call(
-            #{ format!("mal_detail_{}", external.name) },
-            [...#{ arguments }]
-        )
-    };
+    let call = c_expr!({ format!("mal_detail_{}", external.name) }(..{ arguments }));
     let terminal = if external.result == mal_frontend::check::ast::Type::Unit {
-        c_statement!(#{ call };)
+        c_statement!(({ call });)
     } else {
-        c_statement!(return #{ call };)
+        c_statement!(return { call };)
     };
     let body = c_block! {
-        let "call": named("mal_call_t") = (compound((named("mal_call_t")), [
-            field("mal_detail_context", (id("context"))),
-        ]));
-        #{ terminal }
+        let call: mal_call_t = mal_call_t { mal_detail_context: context };
+        { terminal }
     };
-    c_function!(signature #{ external_signature(&signatures.compiler, true) } body #{ body })
+    FunctionDefinition::from_signature(external_signature(&signatures.compiler, true), body)
 }
 
 fn host_macro_invocation(
@@ -261,12 +250,9 @@ fn host_macro_invocation(
     let arguments = signature
         .parameter_names()
         .into_iter()
-        .map(|name| c_expr!(id(#{ name })));
-    c_macro_invocation! {
-        #{ format!("MAL_DEFINE_{}", signature.operation_name) }([
-            ...#{ arguments },
-        ])
-    }
+        .map(|name| c_expr!({ name }));
+    let name = format!("MAL_DEFINE_{}", signature.operation_name);
+    c_invocation!({ name }(..{ arguments }))
 }
 
 fn external_signature(signature: &CompilerSignature<'_>, definition: bool) -> FunctionSignature {
@@ -276,8 +262,8 @@ fn external_signature(signature: &CompilerSignature<'_>, definition: bool) -> Fu
         signature.parameters()
     };
     c_signature! {
-        fn #{ format!("mal_ext_{}", signature.operation_name) }(
-            ...#{ parameters },
-        ) -> #{ signature.result_type.clone() }
+        fn { format!("mal_ext_{}", signature.operation_name) }(
+            ..{ parameters },
+        ) -> { signature.result_type.clone() }
     }
 }

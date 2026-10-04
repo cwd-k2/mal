@@ -1,0 +1,13 @@
+[package]
+name = "mal-backend-macros"
+version.workspace = true
+edition.workspace = true
+description = "Procedural syntax macros for the mal compiler backend"
+license.workspace = true
+publish.workspace = true
+
+[lib]
+proc-macro = true
+
+[lints]
+workspace = true

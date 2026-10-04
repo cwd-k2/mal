@@ -1,5 +1,7 @@
 //! Typed share and drop of a managed value, recursing through products and sums.
 
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use mal_frontend::check::ast::Type;
 
 use super::super::FunctionEmitter;
@@ -16,8 +18,8 @@ impl FunctionEmitter<'_> {
                 let owner = self.register();
                 emit_instruction! {
                     self;
-                    let #{ owner.clone() } = extract_value {
-                        aggregate: typed(#{ value_type.llvm }, #{ value }),
+                    let { owner.clone() } = extract_value {
+                        aggregate: ({ value_type.llvm }, { value }),
                         indices: [0],
                     };
                 };
@@ -25,9 +27,9 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (ptr),
+                        result_type: ptr,
                         callee: direct("mal_runtime_bytes_retain"),
-                        arguments: [typed((ptr), "%mal_context"), typed((ptr), #{ owner })],
+                        arguments: [(ptr, "%mal_context"), (ptr, { owner })],
                     };
                 };
                 Some(value.into())
@@ -37,8 +39,8 @@ impl FunctionEmitter<'_> {
                 let environment = self.register();
                 emit_instruction! {
                     self;
-                    let #{ environment.clone() } = extract_value {
-                        aggregate: typed(#{ value_type.llvm }, #{ value }),
+                    let { environment.clone() } = extract_value {
+                        aggregate: ({ value_type.llvm }, { value }),
                         indices: [1],
                     };
                 };
@@ -46,9 +48,9 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (ptr),
+                        result_type: ptr,
                         callee: direct("mal_runtime_owner_retain"),
-                        arguments: [typed((ptr), "%mal_context"), typed((ptr), #{ environment })],
+                        arguments: [(ptr, "%mal_context"), (ptr, { environment })],
                     };
                 };
                 Some(value.into())
@@ -58,9 +60,9 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (ptr),
+                        result_type: ptr,
                         callee: direct("mal_runtime_owner_retain"),
-                        arguments: [typed((ptr), "%mal_context"), typed((ptr), #{ value })],
+                        arguments: [(ptr, "%mal_context"), (ptr, { value })],
                     };
                 };
                 Some(value.into())
@@ -74,9 +76,9 @@ impl FunctionEmitter<'_> {
                     let field = self.register();
                     emit_instruction! {
                         self;
-                        let #{ field.clone() } = extract_value {
-                            aggregate: typed(#{ aggregate_type.llvm.clone() }, #{ value }),
-                            indices: [#{ index }],
+                        let { field.clone() } = extract_value {
+                            aggregate: ({ aggregate_type.llvm.clone() }, { value }),
+                            indices: [{ index }],
                         };
                     };
                     self.retain_value(element, &field)?;
@@ -103,8 +105,8 @@ impl FunctionEmitter<'_> {
                 let owner = self.register();
                 emit_instruction! {
                     self;
-                    let #{ owner.clone() } = extract_value {
-                        aggregate: typed(#{ value_type.llvm }, #{ value }),
+                    let { owner.clone() } = extract_value {
+                        aggregate: ({ value_type.llvm }, { value }),
                         indices: [0],
                     };
                 };
@@ -112,9 +114,9 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (void),
+                        result_type: void,
                         callee: direct("mal_runtime_bytes_release"),
-                        arguments: [typed((ptr), #{ owner })],
+                        arguments: [(ptr, { owner })],
                     };
                 };
             }
@@ -123,8 +125,8 @@ impl FunctionEmitter<'_> {
                 let environment = self.register();
                 emit_instruction! {
                     self;
-                    let #{ environment.clone() } = extract_value {
-                        aggregate: typed(#{ value_type.llvm }, #{ value }),
+                    let { environment.clone() } = extract_value {
+                        aggregate: ({ value_type.llvm }, { value }),
                         indices: [1],
                     };
                 };
@@ -132,9 +134,9 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (void),
+                        result_type: void,
                         callee: direct("mal_runtime_owner_release"),
-                        arguments: [typed((ptr), #{ environment })],
+                        arguments: [(ptr, { environment })],
                     };
                 }
             }
@@ -143,9 +145,9 @@ impl FunctionEmitter<'_> {
                     self;
                     call {
                         tail: false,
-                        result_type: (void),
+                        result_type: void,
                         callee: direct("mal_runtime_owner_release"),
-                        arguments: [typed((ptr), #{ value })],
+                        arguments: [(ptr, { value })],
                     };
                 }
             }
@@ -158,9 +160,9 @@ impl FunctionEmitter<'_> {
                     let field = self.register();
                     emit_instruction! {
                         self;
-                        let #{ field.clone() } = extract_value {
-                            aggregate: typed(#{ aggregate_type.llvm.clone() }, #{ value }),
-                            indices: [#{ index }],
+                        let { field.clone() } = extract_value {
+                            aggregate: ({ aggregate_type.llvm.clone() }, { value }),
+                            indices: [{ index }],
                         };
                     };
                     self.release_value(element, &field)?;
@@ -186,8 +188,8 @@ impl FunctionEmitter<'_> {
         let tag = self.register();
         emit_instruction! {
             self;
-            let #{ tag.clone() } = extract_value {
-                aggregate: typed(#{ sum_type.llvm }, #{ value }),
+            let { tag.clone() } = extract_value {
+                aggregate: ({ sum_type.llvm }, { value }),
                 indices: [0],
             };
         };
@@ -197,9 +199,9 @@ impl FunctionEmitter<'_> {
             .map(|(index, _)| (index.to_string(), format!("mal_{operation}_{id}_{index}")));
         emit_terminator! {
             self;
-            switch typed((int(32_u16)), #{ tag })  {
-                cases: [...#{ cases }],
-                default: #{ format!("mal_{operation}_{id}_invalid") },
+            switch (int(32_u16), { tag })  {
+                cases: [..{ cases }],
+                default: { format!("mal_{operation}_{id}_invalid") },
             };
         };
         self.block(format!("mal_{operation}_{id}_invalid"));
@@ -220,7 +222,7 @@ impl FunctionEmitter<'_> {
             emit_terminator! {
                 self;
                 branch {
-                    target: #{ format!("mal_{operation}_{id}_done") },
+                    target: { format!("mal_{operation}_{id}_done") },
                 };
             };
         }

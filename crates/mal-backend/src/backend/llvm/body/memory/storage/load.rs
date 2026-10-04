@@ -1,5 +1,7 @@
 //! Loads of source values from their canonical memory layout.
 
+use crate::backend::llvm::syntax::emit_instruction;
+use crate::backend::llvm::syntax::emit_terminator;
 use mal_frontend::check::ast::Type;
 
 use super::super::super::{EmittedValue, FunctionEmitter};
@@ -49,10 +51,10 @@ impl FunctionEmitter<'_> {
                 let inserted = self.register();
                 emit_instruction! {
                     self;
-                    let #{ inserted.clone() } = insert_value {
-                        aggregate: typed(#{ product_type.llvm.clone() }, #{ product }),
-                        element: typed(#{ llvm_type.llvm }, #{ field_value.representation }),
-                        indices: [#{ index }],
+                    let { inserted.clone() } = insert_value {
+                        aggregate: ({ product_type.llvm.clone() }, { product }),
+                        element: ({ llvm_type.llvm }, { field_value.representation }),
+                        indices: [{ index }],
                     };
                 };
                 product = inserted;
@@ -73,21 +75,21 @@ impl FunctionEmitter<'_> {
             };
             emit_instruction! {
                 self;
-                let #{ source_tag.clone() } = load {
-                    ty: #{ llvm_type!(int(#{ u16::try_from(layout.tag_bits).ok()? })) },
-                    pointer: #{ pointer },
-                    alignment: #{ alignment },
-                    metadata: #{ metadata.iter().copied() },
+                let { source_tag.clone() } = load {
+                    ty: { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
+                    pointer: { pointer },
+                    alignment: { alignment },
+                    metadata: { metadata.iter().copied() },
                 };
             };
             if super::super::super::types::is_bool(element) {
                 let value = self.register();
                 emit_instruction! {
                     self;
-                    let #{ value.clone() } = cast {
-                        operator: #{ CastOperator::Trunc },
-                        value: typed((int(8_u16)), #{ source_tag }),
-                        to: (int(1_u16)),
+                    let { value.clone() } = cast {
+                        operator: { CastOperator::Trunc },
+                        value: (int(8_u16), { source_tag }),
+                        to: int(1_u16),
                     };
                 };
                 return Some(EmittedValue {
@@ -102,13 +104,13 @@ impl FunctionEmitter<'_> {
                 let extended = self.register();
                 emit_instruction! {
                     self;
-                    let #{ extended.clone() } = cast {
-                        operator: #{ CastOperator::ZExt },
-                        value: typed(
-                            #{ llvm_type!(int(#{ u16::try_from(layout.tag_bits).ok()? })) },
-                            #{ source_tag },
+                    let { extended.clone() } = cast {
+                        operator: { CastOperator::ZExt },
+                        value: (
+                            { llvm_type!(int({ u16::try_from(layout.tag_bits).ok()? })) },
+                            { source_tag },
                         ),
-                        to: (int(32_u16)),
+                        to: int(32_u16),
                     };
                 };
                 extended
@@ -116,10 +118,10 @@ impl FunctionEmitter<'_> {
                 let narrowed = self.register();
                 emit_instruction! {
                     self;
-                    let #{ narrowed.clone() } = cast {
-                        operator: #{ CastOperator::Trunc },
-                        value: typed((int(64_u16)), #{ source_tag }),
-                        to: (int(32_u16)),
+                    let { narrowed.clone() } = cast {
+                        operator: { CastOperator::Trunc },
+                        value: (int(64_u16), { source_tag }),
+                        to: int(32_u16),
                     };
                 };
                 narrowed
@@ -135,9 +137,9 @@ impl FunctionEmitter<'_> {
                 .map(|(index, _)| (index.to_string(), format!("{stem}_variant_{index}")));
             emit_terminator! {
                 self;
-                switch typed((int(32_u16)), #{ tag })  {
-                    cases: [...#{ cases }],
-                    default: #{ format!("{stem}_invalid") },
+                switch (int(32_u16), { tag })  {
+                    cases: [..{ cases }],
+                    default: { format!("{stem}_invalid") },
                 };
             };
             self.block(format!("{stem}_invalid"));
@@ -157,16 +159,16 @@ impl FunctionEmitter<'_> {
                 emit_instruction! {
                     self;
                     store {
-                        value: typed(#{ runtime.llvm.clone() }, #{ sum.representation }),
-                        pointer: #{ storage.as_str() },
-                        alignment: #{ runtime.alignment },
+                        value: ({ runtime.llvm.clone() }, { sum.representation }),
+                        pointer: { storage.as_str() },
+                        alignment: { runtime.alignment },
                         metadata: [],
                     };
                 };
                 emit_terminator! {
                     self;
                     branch {
-                        target: #{ format!("{stem}_loaded") },
+                        target: { format!("{stem}_loaded") },
                     };
                 };
             }
@@ -174,10 +176,10 @@ impl FunctionEmitter<'_> {
             let result = self.register();
             emit_instruction! {
                 self;
-                let #{ result.clone() } = load {
-                    ty: #{ runtime.llvm },
-                    pointer: #{ storage },
-                    alignment: #{ runtime.alignment },
+                let { result.clone() } = load {
+                    ty: { runtime.llvm },
+                    pointer: { storage },
+                    alignment: { runtime.alignment },
                     metadata: [],
                 };
             };
@@ -214,11 +216,11 @@ impl FunctionEmitter<'_> {
         let value = self.register();
         emit_instruction! {
             self;
-            let #{ value.clone() } = load {
-                ty: #{ value_type.llvm },
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: #{ metadata.iter().copied() },
+            let { value.clone() } = load {
+                ty: { value_type.llvm },
+                pointer: { pointer },
+                alignment: { alignment },
+                metadata: { metadata.iter().copied() },
             };
         };
         Some(EmittedValue {

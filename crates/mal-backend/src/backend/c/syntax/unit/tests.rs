@@ -1,4 +1,4 @@
-use super::{AggregateDefinition, AggregateField, AggregateKind, Comment};
+use super::{Comment, RecordDefinition, RecordField, RecordKind};
 use crate::backend::c::syntax::{MacroInvocation, c_expr};
 
 #[test]
@@ -11,13 +11,13 @@ fn comments_cannot_terminate_their_own_delimiter() {
 
 #[test]
 fn renders_nested_aggregate_definitions() {
-    let definition = AggregateDefinition::structure(
+    let definition = RecordDefinition::structure(
         "Value",
         [
-            AggregateField::variable("uint32_t", "tag"),
-            AggregateField::aggregate(
-                AggregateKind::Union,
-                [AggregateField::variable("int32_t", "integer")],
+            RecordField::variable("uint32_t", "tag"),
+            RecordField::record(
+                RecordKind::Union,
+                [RecordField::variable("int32_t", "integer")],
                 "payload",
             ),
         ],
@@ -31,11 +31,11 @@ fn renders_nested_aggregate_definitions() {
 
 #[test]
 fn renders_macro_invocations_as_aggregate_fields() {
-    let definition = AggregateDefinition::structure(
+    let definition = RecordDefinition::structure(
         "Value",
-        [AggregateField::macro_invocation(MacroInvocation::new(
+        [RecordField::from(MacroInvocation::new(
             "fields",
-            [c_expr!(id("field"))],
+            [c_expr!(field)],
         ))],
     );
 

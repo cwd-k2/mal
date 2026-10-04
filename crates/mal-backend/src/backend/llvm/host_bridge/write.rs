@@ -27,25 +27,17 @@ impl Marshalling<'_> {
     ) -> Option<Vec<Statement>> {
         let pointer = bridge_pointer(base.clone(), offset, false);
         match &plan.kind {
-            plan::Kind::Unit => Some(vec![store(
-                "uint8_t",
-                pointer,
-                c_expr!(call("UINT8_C", [number(0)])),
-            )]),
-            plan::Kind::External => Some(vec![store(
-                "uintptr_t",
-                pointer,
-                c_expr!(field(#{ value }, "bits")),
-            )]),
+            plan::Kind::Unit => Some(vec![store("uint8_t", pointer, c_expr!(UINT8_C(0)))]),
+            plan::Kind::External => {
+                Some(vec![store("uintptr_t", pointer, c_expr!({ value }.bits))])
+            }
             plan::Kind::Product(fields) => {
                 let mut statements = Vec::new();
                 for (index, field) in fields.iter().enumerate() {
                     statements.extend(self.write_at(
                         &field.value,
                         base.clone(),
-                        c_expr! {
-                            field(#{ value.clone() }, #{ format!("field_{index}") })
-                        },
+                        c_expr!({ value.clone() }.{ format!("field_{index}") }),
                         offset.checked_add(field.offset)?,
                         context.clone(),
                     )?);
@@ -74,11 +66,7 @@ impl Marshalling<'_> {
     ) -> Option<Statement> {
         if let Some(helper) = ty.shared_id().and_then(|id| self.write_helpers.get(&id)) {
             return Some(c_statement! {
-                call(#{ helper.clone() }, [
-                    #{ context },
-                    #{ pointer },
-                    #{ value },
-                ]);
+                { helper.clone() }({ context }, { pointer }, { value });
             });
         }
         let helper = self.helper_name("write");
@@ -91,49 +79,39 @@ impl Marshalling<'_> {
             let mut statements = self.write_at(
                 &field.value,
                 identifier("value"),
-                c_expr! {
-                    field((field((id("input")), "payload")), #{ format!("variant_{index}") })
-                },
+                c_expr!(input.payload.{ format!("variant_{index}") }),
                 field.offset,
                 identifier("context"),
             )?;
             statements.push(c_statement!(return;));
-            cases.push(c_switch_case! {
-                (call("UINT32_C", [number(#{ index })])) => {
-                    ...#{ statements }
-                }
+            cases.extend(c_switch_cases! {
+                UINT32_C({ index }) => { ..{ statements } },
             });
         }
-        cases.push(c_switch_case! {
-            _ => { #{ trap(
-                identifier("context"),
-                "invalid sum tag at LLVM bridge",
-            ) } }
-        });
+        let failure = trap(identifier("context"), "invalid sum tag at LLVM bridge");
         let tag_store = store(
             "uint32_t",
-            c_expr!(add((id("value")), (number(#{ tag_offset })))),
-            c_expr!(field((id("input")), "tag")),
+            c_expr!(value + { tag_offset }),
+            c_expr!(input.tag),
         );
-        self.helpers.push(c_function! {
-            #[static] fn #{ helper.clone() }(
-                "context": ptr(named("MalContext")),
-                "value": ptr(named("uint8_t")),
-                "input": #{ c_type },
-            ) -> named("void") {
-                #{ tag_store }
-                switch (field((id("input")), "tag")) {
-                    ...#{ cases },
-                }
+        let body = c_block! {
+            { tag_store };
+            match input.tag {
+                ..{ cases },
+                _ => { { failure }; },
             }
-        });
+        };
+        self.helpers.push(FunctionDefinition::from_signature(
+            c_signature! {
+                #[static] fn { helper.clone() }(
+                    context: *mut MalContext,
+                    value: *mut uint8_t,
+                    input: { c_type },
+                ) -> void
+            },
+            body,
+        ));
         self.helpers.blank_line();
-        Some(c_statement! {
-            call(#{ helper }, [
-                #{ context },
-                #{ pointer },
-                #{ value },
-            ]);
-        })
+        Some(c_statement!({ helper }({ context }, { pointer }, { value });))
     }
 }

@@ -1,5 +1,6 @@
 use crate::backend::c::syntax::{
-    Expr, FunctionDefinition, c_block, c_expr, c_function, c_variable,
+    Expr, FunctionDefinition, Statement, VariableDeclaration, c_block, c_expr, c_function,
+    c_signature,
 };
 use mal_frontend::check::ast::Type;
 
@@ -25,16 +26,12 @@ pub(super) fn entry_main(parameter: &Type, types: Types, entry: &str) -> Option<
 
 fn unit_main(entry: &str) -> FunctionDefinition {
     c_function! {
-        fn "main"() -> named("int") {
-            let "context": named("MalContext") = #{ zero_initializer() };
-            let "result": named("int32_t");
-            call(#{ entry }, [
-                address((id("context"))),
-                id("NULL"),
-                address((id("result"))),
-            ]);
-            call("mal_control_destroy", [address((id("context")))]);
-            return (id("result"));
+        fn main() -> int {
+            let context: MalContext = { zero_initializer() };
+            let result: int32_t;
+            { entry }(&context, NULL, &result);
+            mal_control_destroy(&context);
+            return result;
         }
     }
 }
@@ -58,54 +55,47 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     let stride = types.value(element)?.size;
     let value = types.value(parameter)?;
 
+    let argument_declaration = Statement::variable_declaration(
+        VariableDeclaration::array("uint8_t", "argument", number(value.size))
+            .aligned(number(value.alignment)),
+        Some(zero_initializer()),
+    );
     let body = c_block! {
-        let "context": named("MalContext") = #{ zero_initializer() };
-        let "argument_count": named("size_t") = (conditional(
-            (greater((id("mal_argc")), (number(1)))),
-            (cast((named("size_t")), (subtract((id("mal_argc")), (number(1)))))),
-            (number(0))
-        ));
-        let #{
-            c_variable!(array "argument": named("uint8_t"); size (number(#{ value.size })))
-                .aligned(number(value.alignment))
-        } = #{ zero_initializer() };
-        let "arguments": ptr(named("void")) = (call("mal_runtime_buffer_from_arguments", [
-            address((id("context"))),
-            add((id("mal_argv")), (number(1))),
-            id("argument_count"),
-            number(#{ stride }),
-            number(#{ data_offset }),
-            number(#{ length_offset }),
-        ]));
-        call("memcpy", [
-            id("argument"),
-            address((id("arguments"))),
-            sizeof((id("arguments"))),
-        ]);
-        let "result": named("int32_t");
-        call(#{ entry }, [
-            address((id("context"))),
-            id("argument"),
-            address((id("result"))),
-        ]);
+        let context: MalContext = { zero_initializer() };
+        let argument_count: size_t = if mal_argc > 1 { (mal_argc - 1) as size_t } else { 0 };
+        { argument_declaration };
+        let arguments: *mut void = mal_runtime_buffer_from_arguments(
+            &context,
+            mal_argv + 1,
+            argument_count,
+            { number(stride) },
+            { number(data_offset) },
+            { number(length_offset) },
+        );
+        memcpy(argument, &arguments, sizeof(arguments));
+        let result: int32_t;
+        { entry }(&context, argument, &result);
         // The entry only borrows its argument, so the shim drops the buffer and the Symbols it owns.
-        call("mal_runtime_owner_release", [id("arguments")]);
-        call("mal_control_destroy", [address((id("context")))]);
-        return (id("result"));
+        mal_runtime_owner_release(arguments);
+        mal_control_destroy(&context);
+        return result;
     };
 
-    Some(c_function! {
-        fn "main"(
-            "mal_argc": named("int"),
-            "mal_argv": ptr(ptr(named("char"))),
-        ) -> named("int") #{ body }
-    })
+    Some(FunctionDefinition::from_signature(
+        c_signature! {
+            fn main(
+                mal_argc: int,
+                mal_argv: *mut *mut char,
+            ) -> int
+        },
+        body,
+    ))
 }
 
 fn number(value: impl ToString) -> Expr {
-    c_expr!(number(#{ value }))
+    Expr::number(value.to_string())
 }
 
 fn zero_initializer() -> Expr {
-    c_expr!(initializer([number(0)]))
+    c_expr!([0])
 }

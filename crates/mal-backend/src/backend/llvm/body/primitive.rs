@@ -1,5 +1,6 @@
 //! Primitive scalar operations: unary and binary operators, and numeric conversion.
 
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::backend::llvm::syntax::{BinaryOperator, CastOperator, UnaryOperator};
 use crate::closure::ast::Atom;
 use crate::control::ast::StateId;
@@ -26,30 +27,30 @@ impl FunctionEmitter<'_> {
             UnaryPrimitive::Negate if scalar.floating => {
                 emit_instruction! {
                     self;
-                    let #{ register.clone() } = unary {
-                        operator: #{ UnaryOperator::FNeg },
-                        value: typed(#{ scalar.llvm_type() }, #{ operand.representation }),
+                    let { register.clone() } = unary {
+                        operator: { UnaryOperator::FNeg },
+                        value: ({ scalar.llvm_type() }, { operand.representation }),
                     };
                 };
             }
             UnaryPrimitive::Negate => {
                 emit_instruction! {
                     self;
-                    let #{ register.clone() } = binary {
-                        operator: #{ BinaryOperator::Sub },
-                        ty: #{ scalar.llvm_type() },
+                    let { register.clone() } = binary {
+                        operator: { BinaryOperator::Sub },
+                        ty: { scalar.llvm_type() },
                         left: "0",
-                        right: #{ operand.representation },
+                        right: { operand.representation },
                     };
                 };
             }
             UnaryPrimitive::BitwiseNot if !scalar.floating => {
                 emit_instruction! {
                     self;
-                    let #{ register.clone() } = binary {
-                        operator: #{ BinaryOperator::Xor },
-                        ty: #{ scalar.llvm_type() },
-                        left: #{ operand.representation },
+                    let { register.clone() } = binary {
+                        operator: { BinaryOperator::Xor },
+                        ty: { scalar.llvm_type() },
+                        left: { operand.representation },
                         right: "-1",
                     };
                 };
@@ -91,12 +92,12 @@ impl FunctionEmitter<'_> {
                 super::scalar::comparison_predicate(*operator)?.for_scalar(scalar);
             emit_instruction! {
                 self;
-                let #{ register.clone() } = compare {
-                    kind: #{ kind },
-                    predicate: #{ predicate },
-                    ty: #{ scalar.llvm_type() },
-                    left: #{ left.representation },
-                    right: #{ right.representation },
+                let { register.clone() } = compare {
+                    kind: { kind },
+                    predicate: { predicate },
+                    ty: { scalar.llvm_type() },
+                    left: { left.representation },
+                    right: { right.representation },
                 };
             };
             return Some(EmittedValue {
@@ -110,11 +111,11 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         emit_instruction! {
             self;
-            let #{ register.clone() } = binary {
-                operator: #{ instruction },
-                ty: #{ scalar.llvm_type() },
-                left: #{ left.representation },
-                right: #{ right.representation },
+            let { register.clone() } = binary {
+                operator: { instruction },
+                ty: { scalar.llvm_type() },
+                left: { left.representation },
+                right: { right.representation },
             };
         };
         Some(EmittedValue {
@@ -171,10 +172,10 @@ impl FunctionEmitter<'_> {
         let register = self.register();
         emit_instruction! {
             self;
-            let #{ register.clone() } = cast {
-                operator: #{ instruction },
-                value: typed(#{ source.llvm_type() }, #{ operand.representation }),
-                to: #{ target.llvm_type() },
+            let { register.clone() } = cast {
+                operator: { instruction },
+                value: ({ source.llvm_type() }, { operand.representation }),
+                to: { target.llvm_type() },
             };
         };
         Some(EmittedValue {

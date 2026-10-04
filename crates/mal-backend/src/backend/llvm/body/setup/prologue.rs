@@ -2,6 +2,7 @@
 //! environment, and the parameter handoff.
 
 use super::*;
+use crate::backend::llvm::syntax::emit_instruction;
 use crate::backend::llvm::syntax::{llvm_function_attributes, llvm_parameters, llvm_signature};
 
 impl FunctionEmitter<'_> {
@@ -22,7 +23,7 @@ impl FunctionEmitter<'_> {
                     "%mal_context" : ptr,
                     "%mal_control_top" : ptr,
                     "%mal_environment" : ptr,
-                    "%mal_parameter" : #{ parameter.llvm },
+                    "%mal_parameter" : { parameter.llvm },
                 }
             };
         let result = self.types.value(&self.result_type)?;
@@ -39,10 +40,10 @@ impl FunctionEmitter<'_> {
         };
         self.begin_function(llvm_signature! {
             #[linkage(internal)]
-            #[attributes(...#{ attributes })]
-            fn #{ format!("{}{suffix}", function_name(self.function.id)) }(
-                ...#{ parameters },
-            ) -> #{ result.llvm }
+            #[attributes(..{ attributes })]
+            fn { format!("{}{suffix}", function_name(self.function.id)) }(
+                ..{ parameters },
+            ) -> { result.llvm }
         });
         self.block("entry");
         Some(())
@@ -56,9 +57,9 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             let "%mal_control_base" = load {
-                ty: #{ self.types.index_llvm_type() },
+                ty: { self.types.index_llvm_type() },
                 pointer: "%mal_control_top",
-                alignment: #{ self.types.index_alignment() },
+                alignment: { self.types.index_alignment() },
                 metadata: [],
             };
         };
@@ -66,16 +67,16 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 let "%mal_local_control_top" = alloca {
-                    ty: #{ self.types.index_llvm_type() },
-                    alignment: #{ self.types.index_alignment() },
+                    ty: { self.types.index_llvm_type() },
+                    alignment: { self.types.index_alignment() },
                 };
             };
             emit_instruction! {
                 self;
                 store {
-                    value: typed(#{ self.types.index_llvm_type() }, "%mal_control_base"),
+                    value: ({ self.types.index_llvm_type() }, "%mal_control_base"),
                     pointer: "%mal_local_control_top",
-                    alignment: #{ self.types.index_alignment() },
+                    alignment: { self.types.index_alignment() },
                     metadata: [],
                 };
             };
@@ -84,15 +85,15 @@ impl FunctionEmitter<'_> {
             emit_instruction! {
                 self;
                 let "%mal_local_control_storage" = alloca {
-                    ty: (ptr),
-                    alignment: #{ self.types.pointer_alignment() },
+                    ty: ptr,
+                    alignment: { self.types.pointer_alignment() },
                 };
             };
             emit_instruction! {
                 self;
                 let "%mal_local_control_capacity" = alloca {
-                    ty: #{ self.types.index_llvm_type() },
-                    alignment: #{ self.types.index_alignment() },
+                    ty: { self.types.index_llvm_type() },
+                    alignment: { self.types.index_alignment() },
                 };
             };
             self.refresh_control_storage();
@@ -107,9 +108,9 @@ impl FunctionEmitter<'_> {
             let value_type = self.types.value(&slot.ty)?;
             emit_instruction! {
                 self;
-                let #{ format!("%mal_slot_{}", slot.index) } = alloca {
-                    ty: #{ value_type.llvm.clone() },
-                    alignment: #{ value_type.alignment },
+                let { format!("%mal_slot_{}", slot.index) } = alloca {
+                    ty: { value_type.llvm.clone() },
+                    alignment: { value_type.alignment },
                 };
             };
             if crate::execution::ownership::is_managed(&slot.ty) {
@@ -127,26 +128,26 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             let "%mal_active_environment" = alloca {
-                ty: (ptr),
-                alignment: #{ self.types.pointer_alignment() },
+                ty: ptr,
+                alignment: { self.types.pointer_alignment() },
             };
         };
         let environment = self.register();
         emit_instruction! {
             self;
-            let #{ environment.clone() } = call {
+            let { environment.clone() } = call {
                 tail: false,
-                result_type: (ptr),
+                result_type: ptr,
                 callee: direct("mal_runtime_owner_retain"),
-                arguments: [typed((ptr), "%mal_context"), typed((ptr), "%mal_environment")],
+                arguments: [(ptr, "%mal_context"), (ptr, "%mal_environment")],
             };
         };
         emit_instruction! {
             self;
             store {
-                value: typed((ptr), #{ environment }),
+                value: (ptr, { environment }),
                 pointer: "%mal_active_environment",
-                alignment: #{ self.types.pointer_alignment() },
+                alignment: { self.types.pointer_alignment() },
                 metadata: [],
             };
         };

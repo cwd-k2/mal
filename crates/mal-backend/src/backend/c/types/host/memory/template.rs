@@ -21,9 +21,9 @@ impl TypeRegistry {
                 .zip(fields)
                 .enumerate()
                 .map(|(field, (element, layout))| {
-                    let member = c_expr!(id(#{ format!("field_{field}") }));
+                    let member = c_expr!({ format!("field_{field}") });
                     if matches!(element, Type::Unit) {
-                        return MacroInvocation::new("unit", [member]);
+                        return c_invocation!(unit({ member }));
                     }
                     let helper = match element {
                         Type::Product(_) | Type::Sum(_) if !is_bool(element) => {
@@ -31,29 +31,24 @@ impl TypeRegistry {
                         }
                         _ => scalar_name(element).into(),
                     };
-                    MacroInvocation::new(
-                        "value",
-                        [
-                            member,
-                            c_expr!(id(#{ format!("mal_detail_memory_read_{helper}") })),
-                            c_expr!(id(#{ format!("mal_detail_memory_write_{helper}") })),
-                            c_expr!(number(#{ layout.offset })),
-                        ],
-                    )
+                    c_invocation!(value(
+                        { member },
+                        { format!("mal_detail_memory_read_{helper}") },
+                        { format!("mal_detail_memory_write_{helper}") },
+                        { layout.offset },
+                    ))
                 });
         output.push(Directive::invocations_define(
             descriptor.clone(),
             ["unit", "value"],
             invocations,
         ));
-        output.push(c_macro_invocation! {
-            "MAL_DETAIL_DEFINE_MEMORY_PRODUCT"([
-                id(#{ format!("mal_detail_memory_read_{index}") }),
-                id(#{ format!("mal_detail_memory_write_{index}") }),
-                id(#{ self.host_value_c_type(ty, None).to_string() }),
-                id(#{ descriptor }),
-            ])
-        });
+        output.push(c_invocation!(MAL_DETAIL_DEFINE_MEMORY_PRODUCT(
+            { format!("mal_detail_memory_read_{index}") },
+            { format!("mal_detail_memory_write_{index}") },
+            { self.host_value_c_type(ty, None).to_string() },
+            { descriptor },
+        )));
     }
 
     pub(super) fn append_sum_memory_template(
@@ -79,34 +74,29 @@ impl TypeRegistry {
                 }
                 _ => scalar_name(member).into(),
             };
-            MacroInvocation::new(
-                "member",
-                [
-                    c_expr!(id(#{ value_type.clone() })),
-                    c_expr!(id(#{ format!("mal_{tag_name}_t") })),
-                    c_expr!(id(#{ format!("mal_detail_memory_write_{tag_name}") })),
-                    c_expr!(number(#{ variant })),
-                    c_expr!(id(#{ format!("variant_{variant}") })),
-                    c_expr!(id(#{ format!("mal_detail_memory_read_{helper}") })),
-                    c_expr!(id(#{ format!("mal_detail_memory_write_{helper}") })),
-                    c_expr!(number(#{ layout.payload_offset })),
-                ],
-            )
+            c_invocation!(member(
+                { value_type.clone() },
+                { format!("mal_{tag_name}_t") },
+                { format!("mal_detail_memory_write_{tag_name}") },
+                { variant },
+                { format!("variant_{variant}") },
+                { format!("mal_detail_memory_read_{helper}") },
+                { format!("mal_detail_memory_write_{helper}") },
+                { layout.payload_offset },
+            ))
         });
         output.push(Directive::invocations_define(
             descriptor.clone(),
             ["member"],
             invocations,
         ));
-        output.push(c_macro_invocation! {
-            "MAL_DETAIL_DEFINE_MEMORY_SUM"([
-                id(#{ format!("mal_detail_memory_read_{index}") }),
-                id(#{ format!("mal_detail_memory_write_{index}") }),
-                id(#{ value_type }),
-                id(#{ format!("mal_detail_memory_read_{tag_name}") }),
-                id(#{ descriptor }),
-            ])
-        });
+        output.push(c_invocation!(MAL_DETAIL_DEFINE_MEMORY_SUM(
+            { format!("mal_detail_memory_read_{index}") },
+            { format!("mal_detail_memory_write_{index}") },
+            { value_type },
+            { format!("mal_detail_memory_read_{tag_name}") },
+            { descriptor },
+        )));
     }
 
     pub(in crate::backend::c) fn common_scalar_memory_helpers(&self) -> TranslationUnit {

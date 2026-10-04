@@ -1,6 +1,7 @@
 //! Direct element access: the active data pointer, element addresses, and the runtime-owned get and put paths.
 
 use super::*;
+use crate::backend::llvm::syntax::emit_instruction;
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn active_buffer_data(
@@ -10,21 +11,21 @@ impl FunctionEmitter<'_> {
         let slot = self.register();
         emit_instruction! {
             self;
-            let #{ slot.clone() } = call {
+            let { slot.clone() } = call {
                 tail: false,
-                result_type: (ptr),
+                result_type: ptr,
                 callee: direct("mal_runtime_buffer_data_slot"),
-                arguments: [typed((ptr), #{ buffer.representation.clone() })],
+                arguments: [(ptr, { buffer.representation.clone() })],
             };
         };
         let data = self.register();
         emit_instruction! {
             self;
-            let #{ data.clone() } = load {
-                ty: (ptr),
-                pointer: #{ slot },
-                alignment: #{ self.types.pointer_alignment() },
-                metadata: #{ [
+            let { data.clone() } = load {
+                ty: ptr,
+                pointer: { slot },
+                alignment: { self.types.pointer_alignment() },
+                metadata: { [
                     MetadataAttachment::Tbaa(8),
                     MetadataAttachment::AliasScope(6),
                 ] },
@@ -48,9 +49,9 @@ impl FunctionEmitter<'_> {
                 emit_instruction! {
                     self;
                     store {
-                        value: typed(#{ llvm_type!(array(#{ stride }, int(8_u16))) }, "zeroinitializer"),
-                        pointer: #{ storage },
-                        alignment: #{ layout.alignment },
+                        value: ({ llvm_type!(array({ stride }, int(8_u16))) }, "zeroinitializer"),
+                        pointer: { storage },
+                        alignment: { layout.alignment },
                         metadata: [],
                     };
                 };
@@ -61,9 +62,9 @@ impl FunctionEmitter<'_> {
                 emit_instruction! {
                     self;
                     store {
-                        value: typed(#{ value_type.llvm }, #{ value.representation.as_str() }),
-                        pointer: #{ storage },
-                        alignment: #{ alignment },
+                        value: ({ value_type.llvm }, { value.representation.as_str() }),
+                        pointer: { storage },
+                        alignment: { alignment },
                         metadata: [],
                     };
                 };
@@ -84,11 +85,11 @@ impl FunctionEmitter<'_> {
         let loaded = self.register();
         emit_instruction! {
             self;
-            let #{ loaded.clone() } = load {
-                ty: #{ value_type.llvm },
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: #{ buffer_element_metadata() },
+            let { loaded.clone() } = load {
+                ty: { value_type.llvm },
+                pointer: { pointer },
+                alignment: { alignment },
+                metadata: { buffer_element_metadata() },
             };
         };
         if lifecycle == Lifecycle::Owned {
@@ -122,10 +123,10 @@ impl FunctionEmitter<'_> {
         emit_instruction! {
             self;
             store {
-                value: typed(#{ value_type.llvm }, #{ value.representation.clone() }),
-                pointer: #{ pointer },
-                alignment: #{ alignment },
-                metadata: #{ buffer_element_metadata() },
+                value: ({ value_type.llvm }, { value.representation.clone() }),
+                pointer: { pointer },
+                alignment: { alignment },
+                metadata: { buffer_element_metadata() },
             };
         };
         Some(())
@@ -143,21 +144,21 @@ impl FunctionEmitter<'_> {
         let offset = self.register();
         emit_instruction! {
             self;
-            let #{ offset.clone() } = binary {
-                operator: #{ BinaryOperator::Mul },
-                ty: #{ self.types.index_llvm_type() },
-                left: #{ index.representation.clone() },
-                right: #{ stride.to_string() },
+            let { offset.clone() } = binary {
+                operator: { BinaryOperator::Mul },
+                ty: { self.types.index_llvm_type() },
+                left: { index.representation.clone() },
+                right: { stride.to_string() },
             };
         };
         let pointer = self.register();
         emit_instruction! {
             self;
-            let #{ pointer.clone() } = get_element_ptr {
+            let { pointer.clone() } = get_element_ptr {
                 inbounds: false,
-                element_type: (int(8_u16)),
-                pointer: #{ data },
-                indices: [typed(#{ self.types.index_llvm_type() }, #{ offset })],
+                element_type: int(8_u16),
+                pointer: { data },
+                indices: [({ self.types.index_llvm_type() }, { offset })],
             };
         };
         Some(pointer)
