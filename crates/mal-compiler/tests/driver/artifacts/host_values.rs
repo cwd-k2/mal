@@ -96,6 +96,55 @@ fn constructs_nested_buffers_with_the_erased_host_carrier() {
 }
 
 #[test]
+fn lexically_owns_a_named_managed_aggregate_in_c() {
+    let directory = NativeFixture::new("driver-c-owned-aggregate");
+    let source = directory.join("program.mal");
+    let executable = directory.join("program");
+    directory.write(
+        "program.mal",
+        "require \"./host.c\";\n\
+         Packet :: (Buffer<Symbol>, Symbol);\n\
+         extern packet :: Unit -> Packet;\n\
+         main :: Unit -> Int32 := () -> {\n\
+           (values, label) := packet();\n\
+           if (#values == 1usize && values.get(0usize) == \"mal\" && label == \"runtime\")\n\
+           then 0\n\
+           else 1;\n\
+         };",
+    );
+    directory.write(
+        "host.c",
+        "#include \"program.mal.h\"\n\
+         MAL_DEFINE_packet(call) {\n\
+             mal_owned(Packet) discarded = {\n\
+                 .field_0 = mal_buffer(call, mal_type(Symbol), 0),\n\
+                 .field_1 = mal_symbol(call, \"discarded\", 9),\n\
+             };\n\
+             (void)discarded;\n\
+             mal_owned(Packet) packet = {\n\
+                 .field_0 = mal_buffer(call, mal_type(Symbol), 1),\n\
+                 .field_1 = mal_symbol(call, \"runtime\", 7),\n\
+             };\n\
+             mal_push(call, packet.field_0, mal_symbol(call, \"mal\", 3));\n\
+             return mal_move(packet);\n\
+         }\n",
+    );
+
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(directory.run(executable).status.code(), Some(0));
+}
+
+#[test]
 fn transfers_external_opaque_values_through_the_public_c_abi() {
     let directory = NativeFixture::new("driver-llvm-opaque-extern");
     let source = directory.join("program.mal");

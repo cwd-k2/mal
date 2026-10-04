@@ -25,7 +25,7 @@ carrierで保つ置換をcoverage条件とする。これはgeneric externやcal
 mal_type(T)                 /* generated C carrier type */
 mal_product(T, ...)         /* collected product carrier type */
 mal_sum(T, ...)             /* collected sum carrier type */
-mal_owned(T) value          /* optional lexical cleanup */
+mal_owned(T) value          /* optional managed lexical cleanup */
 mal_storage(T)              /* static storage/lifecycle descriptor */
 
 mal_symbol(call, bytes, length)

@@ -9,8 +9,8 @@ _Static_assert(offsetof(mal_Symbol_t, owner) == 0, "Symbol owner offset does not
 _Static_assert(offsetof(mal_Symbol_t, data) == 8, "Symbol data offset does not match the mal target");
 _Static_assert(offsetof(mal_Symbol_t, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_4F6CBADF55D0CD07_H
-#define MAL_GENERATED_INTERFACE_4F6CBADF55D0CD07_H
+#ifndef MAL_GENERATED_INTERFACE_E6D9A33BA0B81CE7_H
+#define MAL_GENERATED_INTERFACE_E6D9A33BA0B81CE7_H
 
 /* Host-visible types */
 
@@ -72,20 +72,13 @@ __attribute__((overloadable)) mal_repr_sum_4647c725c84fdeda_t *mal_detail_sum_ty
 
 #ifndef MAL_DETAIL_REPR_46708725c872772e_LIFECYCLE
 #define MAL_DETAIL_REPR_46708725c872772e_LIFECYCLE
-MAL_DETAIL_DEFINE_SUM_LIFECYCLE(mal_repr_sum_46708725c872772e_t, MAL_DETAIL_REPR_FIELDS_46708725c872772e, mal_detail_storage_share_46708725c872772e, mal_detail_storage_drop_46708725c872772e)
+MAL_DETAIL_DEFINE_SUM_LIFECYCLE(mal_repr_sum_46708725c872772e_t, MAL_DETAIL_REPR_FIELDS_46708725c872772e, mal_detail_storage_share_46708725c872772e, mal_detail_storage_drop_46708725c872772e, mal_detail_cleanup_46708725c872772e)
 #endif
 #ifndef MAL_DETAIL_REPR_1e40e2e9f340e3fc_LIFECYCLE
 #define MAL_DETAIL_REPR_1e40e2e9f340e3fc_LIFECYCLE
-MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(mal_repr_product_1e40e2e9f340e3fc_t, MAL_DETAIL_REPR_FIELDS_1e40e2e9f340e3fc, mal_detail_storage_share_1e40e2e9f340e3fc, mal_detail_storage_drop_1e40e2e9f340e3fc)
+MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(mal_repr_product_1e40e2e9f340e3fc_t, MAL_DETAIL_REPR_FIELDS_1e40e2e9f340e3fc, mal_detail_storage_share_1e40e2e9f340e3fc, mal_detail_storage_drop_1e40e2e9f340e3fc, mal_detail_cleanup_1e40e2e9f340e3fc)
 #endif
-static inline void mal_detail_cleanup_ReadResult(mal_ReadResult_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_WriteStatus(mal_WriteStatus_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
+#define MAL_DETAIL_CLEANUP_ReadResult mal_detail_cleanup_46708725c872772e
 
 /* External operations */
 

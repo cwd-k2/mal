@@ -8,6 +8,11 @@ impl Expr {
         match self {
             Self::Number(value) => output.push_str(value),
             Self::Identifier(value) => output.push_str(value),
+            Self::Parenthesized(value) => {
+                output.push('(');
+                value.render(output);
+                output.push(')');
+            }
             Self::StringLiteral(value) => value.render(output),
             Self::Call { callee, arguments } => {
                 callee.render_postfix_operand(output);
@@ -91,6 +96,7 @@ impl Expr {
             Self::Number(_)
                 | Self::StringLiteral(_)
                 | Self::Identifier(_)
+                | Self::Parenthesized(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
                 | Self::SizeofValue(_)
@@ -109,6 +115,7 @@ impl Expr {
             Self::Number(_)
                 | Self::StringLiteral(_)
                 | Self::Identifier(_)
+                | Self::Parenthesized(_)
                 | Self::Call { .. }
                 | Self::Field { .. }
                 | Self::Cast { .. }

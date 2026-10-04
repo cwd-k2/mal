@@ -84,8 +84,7 @@ fn interface_body(
         output.extend(declarations);
     }
 
-    let mut helpers = types.host_lifecycle_helpers(host, &interface.type_aliases);
-    helpers.extend(types.host_value_helpers(host));
+    let helpers = types.host_lifecycle_helpers(host, &interface.type_aliases);
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.extend(helpers);

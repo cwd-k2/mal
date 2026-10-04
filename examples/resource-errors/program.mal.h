@@ -9,12 +9,12 @@ _Static_assert(offsetof(mal_Symbol_t, owner) == 0, "Symbol owner offset does not
 _Static_assert(offsetof(mal_Symbol_t, data) == 8, "Symbol data offset does not match the mal target");
 _Static_assert(offsetof(mal_Symbol_t, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_3AFFC4720D8CC629_H
-#define MAL_GENERATED_INTERFACE_3AFFC4720D8CC629_H
+#ifndef MAL_GENERATED_INTERFACE_C3307B5EE72485CB_H
+#define MAL_GENERATED_INTERFACE_C3307B5EE72485CB_H
 
 /* Host-visible types */
 
-typedef struct { uintptr_t mal_detail_bits; } mal_File_t;
+typedef struct { uintptr_t bits; } mal_File_t;
 #ifndef MAL_DETAIL_REPR_f2135c7115a77eb0_DECLARED
 #define MAL_DETAIL_REPR_f2135c7115a77eb0_DECLARED
 typedef struct mal_detail_repr_sum_f2135c7115a77eb0 mal_repr_sum_f2135c7115a77eb0_t;
@@ -74,31 +74,9 @@ __attribute__((overloadable)) mal_repr_sum_4647c725c84fdeda_t *mal_detail_sum_ty
 
 #ifndef MAL_DETAIL_REPR_46708725c872772e_LIFECYCLE
 #define MAL_DETAIL_REPR_46708725c872772e_LIFECYCLE
-MAL_DETAIL_DEFINE_SUM_LIFECYCLE(mal_repr_sum_46708725c872772e_t, MAL_DETAIL_REPR_FIELDS_46708725c872772e, mal_detail_storage_share_46708725c872772e, mal_detail_storage_drop_46708725c872772e)
+MAL_DETAIL_DEFINE_SUM_LIFECYCLE(mal_repr_sum_46708725c872772e_t, MAL_DETAIL_REPR_FIELDS_46708725c872772e, mal_detail_storage_share_46708725c872772e, mal_detail_storage_drop_46708725c872772e, mal_detail_cleanup_46708725c872772e)
 #endif
-static inline void mal_detail_cleanup_File(mal_File_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_OpenResult(mal_OpenResult_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_ReadResult(mal_ReadResult_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_CloseResult(mal_CloseResult_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline __attribute__((overloadable)) mal_File_t mal_detail_from_bits(mal_File_t *type_marker MAL_DETAIL_MAYBE_UNUSED, uintptr_t bits) {
-    return (mal_File_t){ .mal_detail_bits = bits };
-}
-
-static inline __attribute__((overloadable)) uintptr_t mal_detail_bits(mal_File_t value) {
-    return value.mal_detail_bits;
-}
+#define MAL_DETAIL_CLEANUP_ReadResult mal_detail_cleanup_46708725c872772e
 
 /* External operations */
 

@@ -9,6 +9,7 @@ pub(in crate::backend) enum Expr {
     Number(NumericLiteral),
     StringLiteral(StringLiteral),
     Identifier(Identifier),
+    Parenthesized(Box<Self>),
     Call {
         callee: Box<Self>,
         arguments: Vec<Self>,
@@ -118,6 +119,10 @@ pub(in crate::backend) enum Designator {
 }
 
 impl Expr {
+    pub(in crate::backend) fn parenthesized(value: Self) -> Self {
+        Self::Parenthesized(Box::new(value))
+    }
+
     pub(in crate::backend) fn number(value: impl Into<NumericLiteral>) -> Self {
         Self::Number(value.into())
     }

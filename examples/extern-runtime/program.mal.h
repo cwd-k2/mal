@@ -9,8 +9,8 @@ _Static_assert(offsetof(mal_Symbol_t, owner) == 0, "Symbol owner offset does not
 _Static_assert(offsetof(mal_Symbol_t, data) == 8, "Symbol data offset does not match the mal target");
 _Static_assert(offsetof(mal_Symbol_t, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_A581DF12273206BF_H
-#define MAL_GENERATED_INTERFACE_A581DF12273206BF_H
+#ifndef MAL_GENERATED_INTERFACE_02880F75C7F885D2_H
+#define MAL_GENERATED_INTERFACE_02880F75C7F885D2_H
 
 /* Host-visible types */
 
@@ -36,14 +36,7 @@ __attribute__((overloadable)) mal_repr_product_1e36b8e9f3384819_t *mal_detail_pr
 
 /* Type helpers */
 
-static inline void mal_detail_cleanup_Sample(mal_Sample_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Samples(mal_Samples_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
+#define MAL_DETAIL_CLEANUP_Samples mal_detail_cleanup_Buffer
 
 /* External operations */
 

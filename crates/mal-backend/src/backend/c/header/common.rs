@@ -1,12 +1,12 @@
 //! Program-independent C ABI surface shared by every generated file header.
 //!
-//! It assembles typed C syntax for runtime declarations, lifecycle and Buffer helpers, bridge
-//! conversions, and aggregate templates. File-specific interfaces and target-layout descriptors
+//! It assembles typed C syntax for runtime declarations, lifecycle and Buffer helpers, opaque
+//! carrier access, and aggregate templates. File-specific interfaces and target-layout descriptors
 //! remain in `header`.
 
 use crate::backend::c::syntax::{
-    Attribute, Declaration, Directive, FunctionSignature, FunctionSpecifier, Parameter,
-    TranslationUnit, TypeName, c_expr, c_function, c_items,
+    Attribute, Declaration, Directive, Expr, FunctionSignature, FunctionSpecifier, Initializer,
+    Parameter, TranslationUnit, TypeName, c_expr, c_items,
 };
 mod templates;
 
@@ -475,19 +475,16 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
             );
         }
     });
-    for name in [
-        "Unit", "Bool", "Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64",
-        "Float32", "Float64", "Symbol", "Buffer", "ByteSize", "USize",
-    ] {
-        output.push(c_function! {
-            #[static] #[inline] fn { format!("mal_detail_cleanup_{name}") }(
-                value: *mut { format!("mal_{name}_t") },
-            ) -> void {
-                mal_detail_release(value);
-                memset(value, 0, sizeof(*value));
-            }
-        });
-    }
+    output.extend(c_items! {
+        #[static] #[inline] fn mal_detail_cleanup_Symbol(value: *mut mal_Symbol_t) -> void {
+            mal_detail_release(value);
+        }
+        #[static] #[inline] fn mal_detail_cleanup_Buffer(value: *mut mal_Buffer_t) -> void {
+            mal_detail_release(value);
+        }
+        define!(MAL_DETAIL_CLEANUP_Symbol = mal_detail_cleanup_Symbol);
+        define!(MAL_DETAIL_CLEANUP_Buffer = mal_detail_cleanup_Buffer);
+    });
     output.push(Directive::host_lifecycle_defines());
     output.push(Directive::owned_type_define());
     output.extend(c_items! {
@@ -495,9 +492,26 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
         define!(mal_buffer(call, element_type, capacity) = mal_detail_buffer(call, mal_storage(element_type), capacity));
         define!(mal_data(buffer) = mal_detail_buffer_data(buffer));
         define!(mal_count(buffer) = mal_detail_buffer_count(buffer));
-        define!(mal_from_bits(type, bits) = mal_detail_from_bits(0 as *mut type, bits));
-        define!(mal_bits(value) = mal_detail_bits(value));
     });
+    output.push(Directive::expression_define(
+        "mal_from_bits",
+        ["type", "raw_bits"],
+        Expr::compound_literal(
+            TypeName::named("type"),
+            [Initializer::designated(
+                "bits",
+                Expr::cast(
+                    TypeName::named("uintptr_t"),
+                    Expr::parenthesized(Expr::identifier("raw_bits")),
+                ),
+            )],
+        ),
+    ));
+    output.push(Directive::expression_define(
+        "mal_bits",
+        ["value"],
+        Expr::parenthesized(Expr::identifier("value")).field("bits"),
+    ));
     output.push(Directive::buffer_push_define());
     output.push(Directive::buffer_mutation_defines());
     output.extend(c_items! {

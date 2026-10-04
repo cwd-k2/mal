@@ -1,4 +1,4 @@
-use crate::backend::c::syntax::{TranslationUnit, c_function, c_invocation, c_items};
+use crate::backend::c::syntax::{Directive, Expr, TranslationUnit, c_invocation, c_items};
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
 
@@ -24,11 +24,13 @@ impl TypeRegistry {
             };
             let host_type = self.host_value_c_type(ty, None);
             let host_type_name = host_type.to_string();
+            let cleanup = format!("mal_detail_cleanup_{id}");
             let invocation = c_invocation!({ format!("MAL_DETAIL_DEFINE_{kind}_LIFECYCLE") }(
                 { host_type_name },
                 { format!("MAL_DETAIL_REPR_FIELDS_{id}") },
                 { format!("mal_detail_storage_share_{id}") },
                 { format!("mal_detail_storage_drop_{id}") },
+                { cleanup },
             ));
             output.extend(c_items! {
                 if !defined({ guard.clone() }) {
@@ -37,22 +39,27 @@ impl TypeRegistry {
                 }
             });
         }
-        for name in host.opaque_names.iter().chain(
-            aliases
-                .iter()
-                .filter(|alias| host.exposes_alias(alias))
-                .map(|alias| &alias.name),
-        ) {
-            output.push(c_function! {
-                #[static] #[inline] fn { format!("mal_detail_cleanup_{name}") }(
-                    value: *mut { format!("mal_{name}_t") },
-                ) -> void {
-                    mal_detail_release(value);
-                    memset(value, 0, sizeof(*value));
-                }
-            });
+        for alias in aliases.iter().filter(|alias| host.exposes_alias(alias)) {
+            let Some(cleanup) = self.managed_cleanup_name(&alias.ty) else {
+                continue;
+            };
+            output.push(Directive::define_expr(
+                format!("MAL_DETAIL_CLEANUP_{}", alias.name),
+                Expr::identifier(cleanup),
+            ));
         }
         output
+    }
+
+    fn managed_cleanup_name(&self, ty: &Type) -> Option<String> {
+        match ty {
+            Type::Symbol => Some("mal_detail_cleanup_Symbol".into()),
+            Type::Buffer(_) => Some("mal_detail_cleanup_Buffer".into()),
+            Type::Product(_) | Type::Sum(_) if self.has_managed_leaf(ty) => {
+                Some(format!("mal_detail_cleanup_{}", self.index(ty)))
+            }
+            _ => None,
+        }
     }
 
     fn has_managed_leaf(&self, ty: &Type) -> bool {

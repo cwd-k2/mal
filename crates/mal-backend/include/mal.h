@@ -167,70 +167,14 @@ static inline size_t mal_detail_buffer_push(mal_call_t *call, mal_Buffer_t buffe
 static inline mal_Symbol_t mal_detail_buffer_snapshot(mal_call_t *call, mal_Buffer_t buffer) {
     return mal_detail_symbol(call, mal_detail_buffer_data(buffer), mal_detail_buffer_count(buffer));
 }
-static inline void mal_detail_cleanup_Unit(mal_Unit_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Bool(mal_Bool_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Int8(mal_Int8_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Int16(mal_Int16_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Int32(mal_Int32_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Int64(mal_Int64_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_UInt8(mal_UInt8_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_UInt16(mal_UInt16_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_UInt32(mal_UInt32_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_UInt64(mal_UInt64_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Float32(mal_Float32_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_Float64(mal_Float64_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
 static inline void mal_detail_cleanup_Symbol(mal_Symbol_t *value) {
     mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
 }
 static inline void mal_detail_cleanup_Buffer(mal_Buffer_t *value) {
     mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
 }
-static inline void mal_detail_cleanup_ByteSize(mal_ByteSize_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
-static inline void mal_detail_cleanup_USize(mal_USize_t *value) {
-    mal_detail_release(value);
-    memset(value, 0, sizeof(*value));
-}
+#define MAL_DETAIL_CLEANUP_Symbol mal_detail_cleanup_Symbol
+#define MAL_DETAIL_CLEANUP_Buffer mal_detail_cleanup_Buffer
 #define mal_storage(type) mal_detail_storage((type *)0, sizeof(type), _Alignof(type))
 #define mal_share(call, value) __extension__ ({ \
     __auto_type mal_detail_shared = (value); \
@@ -250,13 +194,13 @@ static inline void mal_detail_cleanup_USize(mal_USize_t *value) {
 }))
 #define mal_owned(name) mal_type(name) __attribute__((cleanup(MAL_DETAIL_CLEANUP(name))))
 #define MAL_DETAIL_CLEANUP(name) MAL_DETAIL_CLEANUP_EXPAND(name)
-#define MAL_DETAIL_CLEANUP_EXPAND(name) mal_detail_cleanup_##name
+#define MAL_DETAIL_CLEANUP_EXPAND(name) MAL_DETAIL_CLEANUP_##name
 #define mal_symbol(call, source, length) mal_detail_symbol(call, source, length)
 #define mal_buffer(call, element_type, capacity) mal_detail_buffer(call, mal_storage(element_type), capacity)
 #define mal_data(buffer) mal_detail_buffer_data(buffer)
 #define mal_count(buffer) mal_detail_buffer_count(buffer)
-#define mal_from_bits(type, bits) mal_detail_from_bits((type *)0, bits)
-#define mal_bits(value) mal_detail_bits(value)
+#define mal_from_bits(type, raw_bits) (type){ .bits = (uintptr_t)(raw_bits) }
+#define mal_bits(value) (value).bits
 #define mal_push(call, buffer, element) __extension__ ({ \
     __auto_type mal_detail_element = (element); \
     mal_detail_buffer_push((call), (buffer), &mal_detail_element); \
@@ -300,17 +244,19 @@ struct type_tag { \
 #define MAL_DETAIL_PRODUCT_RELEASE_FIELD(context, index, member, type) mal_detail_release(&value->member);
 #define MAL_DETAIL_SUM_RETAIN_CASE(context, index, member, type) case UINT32_C(index): { mal_detail_retain(call, &value->payload.member); return; }
 #define MAL_DETAIL_SUM_RELEASE_CASE(context, index, member, type) case UINT32_C(index): { mal_detail_release(&value->payload.member); return; }
-#define MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(host_type, fields, share_name, drop_name) \
+#define MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(host_type, fields, share_name, drop_name, cleanup_name) \
 static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type *value MAL_DETAIL_MAYBE_UNUSED) { fields(MAL_DETAIL_PRODUCT_RETAIN_FIELD, host_type) } \
 static inline __attribute__((overloadable)) void mal_detail_release(host_type *value MAL_DETAIL_MAYBE_UNUSED) { fields(MAL_DETAIL_PRODUCT_RELEASE_FIELD, host_type) } \
 static inline void share_name(MalContext *context, void *carrier) { mal_detail_retain(context, (host_type *)carrier); } \
 static inline void drop_name(void *carrier) { mal_detail_release((host_type *)carrier); } \
+static inline void cleanup_name(host_type *value) { mal_detail_release(value); } \
 static inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(host_type *type_marker MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) { return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = share_name, .drop = drop_name }; }
-#define MAL_DETAIL_DEFINE_SUM_LIFECYCLE(host_type, fields, share_name, drop_name) \
+#define MAL_DETAIL_DEFINE_SUM_LIFECYCLE(host_type, fields, share_name, drop_name, cleanup_name) \
 static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type *value MAL_DETAIL_MAYBE_UNUSED) { switch (value->tag) { fields(MAL_DETAIL_SUM_RETAIN_CASE, host_type) default: return; } } \
 static inline __attribute__((overloadable)) void mal_detail_release(host_type *value MAL_DETAIL_MAYBE_UNUSED) { switch (value->tag) { fields(MAL_DETAIL_SUM_RELEASE_CASE, host_type) default: return; } } \
 static inline void share_name(MalContext *context, void *carrier) { mal_detail_retain(context, (host_type *)carrier); } \
 static inline void drop_name(void *carrier) { mal_detail_release((host_type *)carrier); } \
+static inline void cleanup_name(host_type *value) { mal_detail_release(value); } \
 static inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(host_type *type_marker MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) { return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = share_name, .drop = drop_name }; }
 
 #endif

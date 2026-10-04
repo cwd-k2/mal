@@ -18,7 +18,7 @@ impl TypeRegistry {
             let alias = format!("mal_{name}_t");
             output.extend(c_items! {
                 type { alias } = struct {
-                    mal_detail_bits: uintptr_t,
+                    bits: uintptr_t,
                 };
             });
         }

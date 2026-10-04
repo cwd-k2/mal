@@ -33,6 +33,12 @@ fn renders_compound_literals_with_designators() {
 }
 
 #[test]
+fn preserves_explicit_parentheses_for_macro_parameters() {
+    let expression = Expr::parenthesized(Expr::identifier("value")).field("bits");
+    assert_eq!(expression.to_string(), "(value).bits");
+}
+
+#[test]
 fn renders_storage_and_control_expressions() {
     let slot = Expr::add(
         Expr::identifier("storage"),

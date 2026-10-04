@@ -100,6 +100,20 @@ fn declares_host_aggregates_in_structural_dependency_order() {
     assert!(!declarations.contains("MalRepr_"));
     assert!(!declarations.contains("to_raw"));
     assert!(!declarations.contains("to_host"));
+
+    let lifecycle = registry.host_lifecycle_helpers(&host, &aliases).render();
+    assert!(lifecycle.contains(concat!(
+        "MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(",
+        "mal_repr_product_1e5f7ae9f35ae3d3_t,"
+    )));
+    assert!(
+        lifecycle.contains("#define MAL_DETAIL_CLEANUP_Packet mal_detail_cleanup_1e5f7ae9f35ae3d3")
+    );
+    assert!(
+        lifecycle.contains("#define MAL_DETAIL_CLEANUP_Result mal_detail_cleanup_11ce2ff4640b9e1d")
+    );
+    assert!(!lifecycle.contains("mal_detail_cleanup_Packet("));
+    assert!(!lifecycle.contains("mal_detail_cleanup_Result("));
 }
 
 #[test]

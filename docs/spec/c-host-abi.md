@@ -69,8 +69,9 @@ layout planにも使う。compiler-facing bridgeとhost bodyの間に別のnomin
 0-based indexである。C bodyはcompound literalまたはinitializerでaggregateを直接構成する。Cがinvalid Bool、sum tag、inactive payload、
 owner、Symbol viewを構成した後の挙動は保証しない。専用のproduct constructorやsum injection helper、境界validationは提供しない。
 
-external opaque typeはone-machine-word carrierであり、`mal_from_bits(mal_type(T), bits)`と`mal_bits(value)`で`uintptr_t`へlosslessに
-変換する。resourceのallocate、clone、close、free、bit pattern validityはoperation固有contractが定める。
+external opaque typeはpublicな`.bits` fieldを持つone-machine-word carrierであり、共通macro
+`mal_from_bits(mal_type(T), bits)`と`mal_bits(value)`で`uintptr_t`へlosslessに変換する。generated headerは型別変換関数を生成しない。
+resourceのallocate、clone、close、free、bit pattern validityはoperation固有contractが定める。
 
 ## Host operation
 
@@ -108,8 +109,10 @@ pointerまたは内部stateをcall後に保持しない。
 fieldにはoperationを行わない。`mal_move`と`mal_drop`はlvalueだけを受け、一度だけ評価する。Cがparameterをcall後も保持する場合はbody中に
 `mal_share`し、後の同じthread上のhost operationかhost cleanupで`mal_drop`する。carrier bitsのcopyだけではlifetimeを延長しない。
 
-`mal_owned(Name)`はsourceで名前を持つclosed typeのlocalへoptionalなlexical cleanupを付ける。scope終了、early return、明示drop、moveを
-同じvacant規則で扱うが、`mal_call_trap`はstack unwindingしない。正しさをautomatic cleanupだけへ依存させない。
+`mal_owned(Name)`はmanaged responsibilityを持つ名前付きclosed typeのC localへoptionalなlexical cleanupを付ける。builtin managed
+leafは`mal.h`のcleanupを使い、generated headerはmanaged aggregate representationごとのcleanupとnamed aliasからそれへの一行macro
+mappingだけを生成する。scope終了、early return、明示drop、moveを同じvacant規則で扱うが、`mal_call_trap`はstack unwindingしない。
+external opaque resourceやtrivial typeへ`mal_owned`を提供せず、正しさをautomatic cleanupだけへ依存させない。
 
 `mal_storage(T)`はsize、alignment、share、dropからなるstatic storage contractを返す。registry、型名検索、dynamic type equalityは持たない。
 `mal_buffer(call, Element, capacity)`はこのcontractをBuffer objectへ保持し、`mal_push`、`mal_replace`、`mal_fill`、`mal_copy`、

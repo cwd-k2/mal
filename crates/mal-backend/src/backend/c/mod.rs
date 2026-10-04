@@ -95,6 +95,8 @@ mod tests {
             "#define mal_move(value)",
             "#define mal_drop(value)",
             "#define mal_owned(name)",
+            "#define mal_from_bits(type, raw_bits) (type){ .bits = (uintptr_t)(raw_bits) }",
+            "#define mal_bits(value) (value).bits",
             "#define mal_buffer(call, element_type, capacity)",
             "#define mal_push(call, buffer, element)",
         ] {
@@ -105,6 +107,9 @@ mod tests {
             "mal_Buffer_make",
             "mal_Buffer_return_move",
             "MAL_DETAIL_DEFINE_SUM_VALUE_API",
+            "mal_detail_from_bits",
+            "mal_detail_bits(",
+            "mal_detail_cleanup_UInt64",
         ] {
             assert!(!header.contains(obsolete), "obsolete `{obsolete}` remains");
         }

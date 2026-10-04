@@ -147,10 +147,12 @@ mal_owned(Symbol) temporary = mal_symbol(call, data, length);
 return mal_move(temporary);
 ```
 
-`cleanup` attributeはoverload集合を直接受け取れないため、generated headerは`mal_owned(T)`から選ばれる型別の薄いcleanup wrapperを
-生成する。scope終了時にはそのwrapperがlvalueをdropする。明示的な`mal_drop`と`mal_move`が元をvacantにするため、cleanupは正常return、
-early return、途中の明示dropに同じ規則を適用できる。ただし`mal_call_trap`はprocessを終了しstack unwindingしないので、trap時の
-cleanup保証には使わない。宣言macroはClang固有syntaxを局所化する。必須の正しさはautomatic cleanupへ依存させない。
+`cleanup` attributeはoverload集合を直接受け取れないため、`mal.h`はbuiltin managed leafのcleanupを持ち、generated headerはmanaged
+aggregate representationごとのcleanupを共通templateから一度だけ定義する。source aliasごとの関数は作らず、`mal_owned(T)`が選ぶ
+cleanupへの一行macro mappingだけを生成する。scope終了時にはそのcleanupがlvalueをdropする。明示的な`mal_drop`と`mal_move`が元を
+vacantにするため、cleanupは正常return、early return、途中の明示dropに同じ規則を適用できる。ただし`mal_call_trap`はprocessを終了し
+stack unwindingしないので、trap時のcleanup保証には使わない。`mal_owned`はmal-managed responsibilityだけを対象とし、external opaque
+resourceやtrivial typeへは提供しない。宣言macroはClang固有syntaxを局所化する。必須の正しさはautomatic cleanupへ依存させない。
 
 ## Bufferのgeneric C surface
 
@@ -205,8 +207,9 @@ return (mal_sum(mal_type(Buffer), mal_type(UInt32))){
 scalarはC valueを直接returnし、Unitは`mal_unit`をreturnする。managed localは`return mal_move(value)`、その場で構成したowned rvalueは
 直接returnする。型別`return_move`は公開せず、invalid Boolやsum tagを構成した後の挙動も保証しない。
 
-external opaque carrierは`mal_from_bits(mal_type(File), bits)`と`mal_bits(value)`で接続する。`mal_drop`はmal-managed responsibilityだけを
-終了し、external resourceの`close`や`free`を行わない。resource cleanupは引き続きoperation固有contractに置く。
+external opaque carrierはpublicな`.bits` fieldを共通macro
+`mal_from_bits(mal_type(File), bits)`と`mal_bits(value)`で包んで接続する。型別変換helperは生成しない。`mal_owned`は提供せず、`mal_drop`も
+external resourceの`close`や`free`を行わない。resource cleanupは引き続きoperation固有contractに置く。
 
 ## 実装時に確認したこと
 

@@ -19,7 +19,7 @@ impl Marshalling<'_> {
             plan::Kind::Unit => Some(c_expr!(mal_Unit_t { unused: UINT8_C(0) })),
             plan::Kind::External => Some(c_expr! {
                 { self.raw_types.c_type(value.ty) } {
-                    mal_detail_bits: { load(c_type!(*const uintptr_t), pointer) }
+                    bits: { load(c_type!(*const uintptr_t), pointer) }
                 }
             }),
             plan::Kind::Symbol {
