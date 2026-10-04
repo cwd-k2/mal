@@ -291,13 +291,13 @@ impl Types {
             alignment,
         )?;
         Some(Some(ValueType {
-            // The zero-length field gives the payload the C union's alignment without turning
-            // any live variant bytes into LLVM padding. Whole-value loads and stores must retain
-            // every payload byte, including bytes that are padding in a different variant.
+            // The byte region retains every payload byte, including bytes that are padding in a
+            // different variant. The trailing zero-length field raises the aggregate alignment
+            // without overlapping any bytes accessed through a variant type.
             llvm: llvm_type! {
                 structure([
-                    array(0, { alignment_anchor }),
                     array({ size }, int(8_u16)),
+                    array(0, { alignment_anchor }),
                 ])
             },
             alignment,
@@ -361,7 +361,7 @@ mod tests {
         let value = types.value(&ty).unwrap();
         let fields = types.sum_fields(&ty).unwrap();
 
-        assert_eq!(value.llvm.to_string(), "{ i32, { [0 x i64], [8 x i8] } }");
+        assert_eq!(value.llvm.to_string(), "{ i32, { [8 x i8], [0 x i64] } }");
         assert_eq!(value.size, 16);
         assert_eq!(
             fields.iter().map(|field| field.offset).collect::<Vec<_>>(),
@@ -378,7 +378,7 @@ mod tests {
         let value = types.value(&ty).unwrap();
         let fields = types.sum_fields(&ty).unwrap();
 
-        assert_eq!(value.llvm.to_string(), "{ i32, { [0 x i64], [16 x i8] } }");
+        assert_eq!(value.llvm.to_string(), "{ i32, { [16 x i8], [0 x i64] } }");
         assert_eq!(value.size, 24);
         assert_eq!(
             fields.iter().map(|field| field.offset).collect::<Vec<_>>(),

@@ -182,6 +182,44 @@ fn preserves_payload_bytes_that_overlap_another_sum_variants_padding() {
 }
 
 #[test]
+fn preserves_sum_payloads_stored_in_buffers_under_optimization() {
+    let directory = NativeFixture::new("driver-llvm-buffered-sum");
+    let source = directory.join("program.mal");
+    directory.write(
+        "program.mal",
+        "Choice :: [Unit, UInt64];\n\
+         none :: Unit -> Choice := () -> [none, some] => [none];\n\
+         some :: UInt64 -> Choice := (value) -> [none, some] => some(value);\n\
+         main :: Unit -> Int32 := () -> {\n\
+           choices := make<Choice>(2usize);\n\
+           choices.fill(0usize, 2usize, none());\n\
+           choices.put(1usize, some(42u64));\n\
+           empty := choices.get(0usize)[() -> { 0i32 }, (_) -> { 1i32 }];\n\
+           value := choices.get(1usize)[() -> { 1i32 }, (found) -> { found.i32 - 42i32 }];\n\
+           empty + value;\n\
+         };",
+    );
+
+    for optimization in ["baseline", "production"] {
+        let executable = directory.join(optimization);
+        let output = directory.malc([
+            OsStr::new("build"),
+            source.as_os_str(),
+            OsStr::new("--output"),
+            executable.as_os_str(),
+            OsStr::new("--optimization"),
+            OsStr::new(optimization),
+        ]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(directory.run(executable).status.code(), Some(0));
+    }
+}
+
+#[test]
 fn runs_sum_results_and_postfix_application_through_llvm() {
     let directory = NativeFixture::new("driver-llvm-sum-result");
     let source = directory.join("program.mal");
