@@ -42,6 +42,7 @@
 | function resultのproducerとconsumerを融合する | [continuation specialization](implementation/continuation-specialization.md) | [compilerの責務境界](implementation/responsibilities.md)、[generated program最適化policy](development/generated-program-optimization.md) |
 | generated C / LLVMの構築を変更する | [C / LLVM構文構築](implementation/backend-syntax-construction.md) | [内部DSL reference](implementation/backend-syntax-reference.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md) |
 | `Buffer`とextern C lifecycleを使う | [`Buffer`](spec/memory.md) | [C runtime extension ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
+| extern Cのlifecycle記述を簡潔にする案を検討する | [C host lifecycle操作の小さな語彙](proposals/c-host-lifecycle-ergonomics.md) | [C runtime extension ABI](spec/c-host-abi.md)、[lifecycle loweringの拡張境界](proposals/engram-lifecycle-foundation.md) |
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
