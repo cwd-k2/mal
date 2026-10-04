@@ -40,9 +40,9 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 | Execution plan | application graph、tail fusion、recursive SCC、edge mode、self-tail parameter leafとしてadmitしたpatternとentry prefix、resume liveness、frameが運ぶsemantic valueとowner |
 | Generated LLVM IR | function body、basic block、call、branch、dispatch、self-tail parameterの物理leaf、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
 | C runtime | allocation、reference count機構、control storage growth、共通flat byte ownerとSymbol汎用操作、fatal resource failure |
-| Generated C shim | process entry、LLVM moduleのroot呼出し、extern call bridge、managed parameter borrow、terminal result move |
+| Generated C shim | process entry、LLVM moduleのroot呼出し、internal byte layoutと単一public carrier間のextern call bridge、managed parameter borrow、result move |
 | Common `mal.h` | builtin carrier、call capability、trap、allocation、generic lifecycleとBuffer operation、C ABI version |
-| Generated C file header | file固有のruntime carrier、aggregate target layout、named/structural type spelling、lifecycle glue、operation definition macro、target assertion |
+| Generated C file header | file固有の単一runtime carrier、aggregate target layout、named/structural type spelling、managed lifecycle glue、direct operation definition macro、target assertion |
 | Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink、明示された外部toolchain argumentとinspection artifactの配送 |
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの
@@ -51,8 +51,8 @@ program固有のclosure environment destructorはfield型と順序を知るた�
 genericなmanaged owner headerのreference count更新と最後のdestructor呼び出しはC runtimeを呼ぶ。
 
 file headerはaggregate helperのfunction bodyを型ごとに複製せず、fieldまたはvariantごとの差分を`MAL_DETAIL_` descriptorとして
-記録する。1つのruntime representation descriptorはvariant index、member名、carrier型、offset、lifecycleを持ち、`mal.h`の
-program非依存templateがC record、share/drop/move、storage operationへ展開する。
+記録する。1つのruntime representation descriptorはvariant index、member名、単一carrier型を持ち、`mal.h`の
+program非依存templateがC recordへ展開する。managed leafを含む型だけがshare/drop/storage glueを生成する。
 巨大なaggregateのdescriptorは一定数のmemberごとに分割し、preprocessorの1つの論理行を無制限に伸ばさない。descriptorとtemplateは
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 

@@ -154,11 +154,7 @@ pub(super) fn emit() -> String {
         )
         .with_specifiers([FunctionSpecifier::Overloadable]),
     );
-    output.extend(c_items! {
-        type mal_call_t = struct {
-            mal_detail_context: *mut MalContext,
-        };
-    });
+    output.extend(c_items! { type mal_call_t = MalContext; });
     output.push(Declaration::function_pointer_type_alias(
         TypeName::named("void"),
         "MalRuntimeRetain",
@@ -287,7 +283,7 @@ pub(super) fn emit() -> String {
             call: *mut mal_call_t,
             message: *const char,
         ) -> void {
-            mal_trap((*call).mal_detail_context, message);
+            mal_trap(call, message);
         }
         #[static] #[inline] fn mal_detail_symbol(
             call: *mut mal_call_t,
@@ -295,7 +291,7 @@ pub(super) fn emit() -> String {
             length: size_t,
         ) -> mal_Symbol_t {
             let owner: *mut void = mal_runtime_bytes_read(
-                (*call).mal_detail_context,
+                call,
                 source,
                 length,
             );
@@ -311,7 +307,7 @@ pub(super) fn emit() -> String {
             capacity: size_t,
         ) -> mal_Buffer_t {
             return mal_runtime_buffer_make(
-                (*call).mal_detail_context,
+                call,
                 stride,
                 capacity,
             );
@@ -324,7 +320,7 @@ pub(super) fn emit() -> String {
             release: MalRuntimeRelease,
         ) -> mal_Buffer_t {
             return mal_runtime_buffer_make_managed(
-                (*call).mal_detail_context,
+                call,
                 stride,
                 capacity,
                 retain,
@@ -339,7 +335,6 @@ pub(super) fn emit() -> String {
         }
     });
     append_host_lifecycle(&mut output);
-    append_raw_conversions(&mut output);
     append_generated_header_templates(&mut output);
     output.blank_line();
     c_items! {
@@ -363,7 +358,7 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
             call: *mut mal_call_t,
             value: *mut mal_Symbol_t,
         ) -> void {
-            mal_runtime_bytes_retain((*call).mal_detail_context, (*value).owner);
+            mal_runtime_bytes_retain(call, (*value).owner);
         }
         #[static] #[inline] #[overloadable] fn mal_detail_release(
             value: *mut mal_Symbol_t,
@@ -374,7 +369,7 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
             call: *mut mal_call_t,
             value: *mut mal_Buffer_t,
         ) -> void {
-            mal_runtime_owner_retain((*call).mal_detail_context, *value);
+            mal_runtime_owner_retain(call, *value);
         }
         #[static] #[inline] #[overloadable] fn mal_detail_release(
             value: *mut mal_Buffer_t,
@@ -385,8 +380,7 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
             context: *mut MalContext,
             carrier: *mut void,
         ) -> void {
-            let call: mal_call_t = mal_call_t { mal_detail_context: context };
-            mal_detail_retain(&call, carrier as *mut mal_Symbol_t);
+            mal_detail_retain(context, carrier as *mut mal_Symbol_t);
         }
         #[static] #[inline] fn mal_detail_symbol_storage_drop(
             carrier: *mut void,
@@ -397,8 +391,7 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
             context: *mut MalContext,
             carrier: *mut void,
         ) -> void {
-            let call: mal_call_t = mal_call_t { mal_detail_context: context };
-            mal_detail_retain(&call, carrier as *mut mal_Buffer_t);
+            mal_detail_retain(context, carrier as *mut mal_Buffer_t);
         }
         #[static] #[inline] fn mal_detail_buffer_storage_drop(
             carrier: *mut void,
@@ -466,7 +459,7 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
             element: *const void,
         ) -> size_t {
             return mal_runtime_buffer_new_move(
-                (*call).mal_detail_context,
+                call,
                 buffer,
                 element,
             );
@@ -508,70 +501,12 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
     output.push(Directive::buffer_push_define());
     output.push(Directive::buffer_mutation_defines());
     output.extend(c_items! {
-        define!(mal_copy(call, destination, destination_offset, source, source_offset, count) = mal_runtime_buffer_copy_values((*call).mal_detail_context, destination, destination_offset, source, source_offset, count));
-        define!(mal_append(call, buffer, source, count) = mal_runtime_buffer_append_values((*call).mal_detail_context, buffer, source, count));
-        define!(mal_extend(call, buffer, count) = mal_runtime_buffer_extend((*call).mal_detail_context, buffer, count));
+        define!(mal_copy(call, destination, destination_offset, source, source_offset, count) = mal_runtime_buffer_copy_values(call, destination, destination_offset, source, source_offset, count));
+        define!(mal_append(call, buffer, source, count) = mal_runtime_buffer_append_values(call, buffer, source, count));
+        define!(mal_extend(call, buffer, count) = mal_runtime_buffer_extend(call, buffer, count));
         define!(mal_truncate(buffer, count) = mal_runtime_buffer_truncate(buffer, count));
-        define!(mal_reserve(call, buffer, capacity) = mal_runtime_buffer_reserve_elements((*call).mal_detail_context, buffer, capacity));
+        define!(mal_reserve(call, buffer, capacity) = mal_runtime_buffer_reserve_elements(call, buffer, capacity));
         define!(mal_snapshot(call, buffer) = mal_detail_buffer_snapshot(call, buffer));
     });
     output.blank_line();
-}
-
-fn append_raw_conversions(output: &mut TranslationUnit) {
-    output.push(c_function! {
-        #[static] #[inline] fn mal_detail_to_raw_Unit(
-            #[maybe_unused] call: *mut mal_call_t,
-            #[maybe_unused] value: mal_Unit_t,
-        ) -> MalType_Unit {
-            return MalType_Unit { unused: UINT8_C(0) };
-        }
-    });
-    for (raw, host, name) in [
-        ("MalType_Int8", "mal_Int8_t", "Int8"),
-        ("MalType_Int16", "mal_Int16_t", "Int16"),
-        ("MalType_Int32", "mal_Int32_t", "Int32"),
-        ("MalType_Int64", "mal_Int64_t", "Int64"),
-        ("MalType_UInt8", "mal_UInt8_t", "UInt8"),
-        ("MalType_UInt16", "mal_UInt16_t", "UInt16"),
-        ("MalType_UInt32", "mal_UInt32_t", "UInt32"),
-        ("MalType_UInt64", "mal_UInt64_t", "UInt64"),
-        ("MalType_Float32", "mal_Float32_t", "Float32"),
-        ("MalType_Float64", "mal_Float64_t", "Float64"),
-        ("MalType_ByteSize", "mal_ByteSize_t", "ByteSize"),
-        ("MalType_USize", "mal_USize_t", "USize"),
-    ] {
-        output.push(c_function! {
-            #[static] #[inline] fn { format!("mal_detail_to_raw_{name}") }(
-                #[maybe_unused] call: *mut mal_call_t,
-                value: { host },
-            ) -> { raw } {
-                return value;
-            }
-        });
-    }
-    output.push(c_function! {
-        #[static] #[inline] fn mal_detail_to_raw_Symbol(
-            #[maybe_unused] call: *mut mal_call_t,
-            value: mal_Symbol_t,
-        ) -> MalType_Symbol {
-            return value;
-        }
-    });
-    output.push(c_function! {
-        #[static] #[inline] fn mal_detail_to_raw_Buffer(
-            #[maybe_unused] call: *mut mal_call_t,
-            value: mal_Buffer_t,
-        ) -> MalType_Buffer {
-            return value;
-        }
-    });
-    output.push(c_function! {
-        #[static] #[inline] fn mal_detail_to_raw_Bool(
-            #[maybe_unused] call: *mut mal_call_t,
-            value: mal_Bool_t,
-        ) -> MalType_Bool {
-            return value;
-        }
-    });
 }

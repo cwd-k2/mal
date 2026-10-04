@@ -3,33 +3,13 @@ use mal_frontend::check::ast::Type;
 
 use super::{
     TypeRegistry,
-    syntax::{
-        FunctionSignature, Parameter, TypeName, c_parameter, c_parameters, c_signature, c_type,
-    },
+    syntax::{FunctionSignature, TypeName, c_parameter, c_parameters, c_signature},
 };
 
-pub(super) struct ExternalSignatures<'a> {
-    pub(super) compiler: CompilerSignature<'a>,
-    pub(super) host_body: HostBodySignature<'a>,
-}
-
-pub(super) struct CompilerSignature<'a> {
-    pub(super) operation_name: &'a str,
-    pub(super) result_type: TypeName,
-    parameters: Vec<CompilerParameter>,
-}
-
-struct CompilerParameter {
-    c_type: TypeName,
-    default_name: String,
-    is_context: bool,
-}
-
-pub(super) struct HostBodySignature<'a> {
+pub(super) struct ExternalSignature<'a> {
     pub(super) operation_name: &'a str,
     result: HostValue<'a>,
     parameter: Option<HostValue<'a>>,
-    raw_result_type: TypeName,
 }
 
 struct HostValue<'a> {
@@ -38,91 +18,9 @@ struct HostValue<'a> {
     c_type: TypeName,
 }
 
-impl<'a> ExternalSignatures<'a> {
+impl<'a> ExternalSignature<'a> {
     pub(super) fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
-        let signatures = Self {
-            compiler: CompilerSignature::new(external, types),
-            host_body: HostBodySignature::new(external, types),
-        };
-        debug_assert!(signatures.host_body.represents(external, types));
-        signatures
-    }
-}
-
-impl<'a> CompilerSignature<'a> {
-    fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
-        let result_type = if external.result == Type::Unit {
-            c_type!(void)
-        } else {
-            types.header_c_type(&external.result, external.result_alias.as_deref())
-        };
-        let mut parameters = vec![CompilerParameter {
-            c_type: c_type!(*mut MalContext),
-            default_name: "context".into(),
-            is_context: true,
-        }];
-
-        match &external.parameter {
-            Type::Unit => {
-                debug_assert!(external.parameter_aliases.is_empty());
-            }
-            Type::Product(elements) => {
-                debug_assert_eq!(external.parameter_aliases.len(), elements.len());
-                for (index, (element, alias)) in
-                    elements.iter().zip(&external.parameter_aliases).enumerate()
-                {
-                    parameters.push(CompilerParameter {
-                        c_type: types.header_c_type(element, alias.as_deref()),
-                        default_name: format!("argument_{index}"),
-                        is_context: false,
-                    });
-                }
-            }
-            parameter => {
-                debug_assert_eq!(external.parameter_aliases.len(), 1);
-                parameters.push(CompilerParameter {
-                    c_type: types
-                        .header_c_type(parameter, external.parameter_aliases[0].as_deref()),
-                    default_name: "value".into(),
-                    is_context: false,
-                });
-            }
-        }
-
-        Self {
-            operation_name: &external.name,
-            result_type,
-            parameters,
-        }
-    }
-
-    pub(super) fn parameters(&self) -> Vec<Parameter> {
-        self.build_parameters(false)
-    }
-
-    pub(super) fn definition_parameters(&self) -> Vec<Parameter> {
-        self.build_parameters(true)
-    }
-
-    fn build_parameters(&self, definition: bool) -> Vec<Parameter> {
-        self.parameters
-            .iter()
-            .map(|parameter| {
-                let name = parameter.default_name.clone();
-                let declaration = c_parameter!({ name }: { parameter.c_type.clone() });
-                if definition && parameter.is_context {
-                    declaration.maybe_unused()
-                } else {
-                    declaration
-                }
-            })
-            .collect()
-    }
-}
-
-impl<'a> HostBodySignature<'a> {
-    fn new(external: &'a ExternalOperation, types: &TypeRegistry) -> Self {
-        Self {
+        let signature = Self {
             operation_name: &external.name,
             result: HostValue {
                 ty: &external.result,
@@ -135,9 +33,9 @@ impl<'a> HostBodySignature<'a> {
                 c_type: types
                     .host_value_c_type(&external.parameter, external.parameter_alias.as_deref()),
             }),
-            raw_result_type: types
-                .host_value_c_type(&external.result, external.result_alias.as_deref()),
-        }
+        };
+        debug_assert!(signature.represents(external, types));
+        signature
     }
 
     pub(super) fn parameter_names(&self) -> Vec<&str> {
@@ -148,16 +46,18 @@ impl<'a> HostBodySignature<'a> {
         names
     }
 
-    pub(super) fn signature(&self) -> FunctionSignature {
+    pub(super) fn signature(&self, definition: bool) -> FunctionSignature {
         let mut parameters = c_parameters!(call: *mut mal_call_t);
-        parameters[0] = parameters[0].clone().maybe_unused();
+        if definition {
+            parameters[0] = parameters[0].clone().maybe_unused();
+        }
         if let Some(parameter) = &self.parameter {
             parameters.push(c_parameter!(value: { parameter.c_type.clone() }));
         }
         c_signature! {
-            #[static] fn { format!("mal_detail_{}", self.operation_name) }(
+            fn { format!("mal_ext_{}", self.operation_name) }(
                 ..{ parameters },
-            ) -> { self.raw_result_type.clone() }
+            ) -> { self.result.c_type.clone() }
         }
     }
 
@@ -190,7 +90,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn separates_flattened_compiler_parameters_from_the_source_host_value() {
+    fn preserves_one_source_carrier_at_the_public_boundary() {
         let external = ExternalOperation {
             id: ExternalOperationId(0),
             name: "inspect".into(),
@@ -202,28 +102,14 @@ mod tests {
             span: Span::new(FileId::new(0), 0, 0),
         };
 
-        let signatures = ExternalSignatures::new(&external, &TypeRegistry::default());
+        let signature = ExternalSignature::new(&external, &TypeRegistry::default());
 
-        assert_eq!(
-            signatures
-                .compiler
-                .parameters
-                .iter()
-                .map(|parameter| parameter.default_name.as_str())
-                .collect::<Vec<_>>(),
-            ["context", "argument_0", "argument_1"]
-        );
-        let parameter = signatures
-            .host_body
-            .parameter
-            .expect("one host value parameter");
+        assert_eq!(signature.parameter_names(), ["call", "value"]);
+        let parameter = signature.parameter.expect("one host value parameter");
         assert_eq!(parameter.ty, &external.parameter);
         assert_eq!(parameter.alias, Some("Request"));
         assert_eq!(parameter.c_type, TypeName::named("mal_Request_t"));
-        assert_eq!(signatures.host_body.result.alias, Some("Count"));
-        assert_eq!(
-            signatures.host_body.result.c_type,
-            TypeName::named("mal_Count_t")
-        );
+        assert_eq!(signature.result.alias, Some("Count"));
+        assert_eq!(signature.result.c_type, TypeName::named("mal_Count_t"));
     }
 }

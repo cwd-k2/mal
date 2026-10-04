@@ -32,20 +32,6 @@ pub(super) fn generate(
     let llvm_declaration = bridge.llvm_declaration();
     let (mut statements, arguments) = match &parameter.kind {
         plan::Kind::Unit => (vec![c_statement!(mal_argument as void;)], Vec::new()),
-        plan::Kind::Product(fields) => {
-            let arguments = fields
-                .iter()
-                .map(|field| {
-                    marshalling.read(
-                        &field.value,
-                        identifier("mal_argument"),
-                        field.offset,
-                        context_cast(),
-                    )
-                })
-                .collect::<Option<Vec<_>>>()?;
-            (Vec::new(), arguments)
-        }
         _ => (
             Vec::new(),
             vec![marshalling.read(&parameter, identifier("mal_argument"), 0, context_cast())?],
@@ -167,22 +153,22 @@ fn trap(context: Expr, message: &str) -> Statement {
 
 fn c_scalar_type(ty: &Type) -> Option<&'static str> {
     if body::types::is_bool(ty) {
-        return Some("MalType_Bool");
+        return Some("mal_Bool_t");
     }
     match ty {
-        Type::Int8 => Some("MalType_Int8"),
-        Type::Int16 => Some("MalType_Int16"),
-        Type::Int32 => Some("MalType_Int32"),
-        Type::Int64 => Some("MalType_Int64"),
-        Type::UInt8 => Some("MalType_UInt8"),
-        Type::UInt16 => Some("MalType_UInt16"),
-        Type::UInt32 => Some("MalType_UInt32"),
-        Type::UInt64 => Some("MalType_UInt64"),
-        Type::Float32 => Some("MalType_Float32"),
-        Type::Float64 => Some("MalType_Float64"),
-        Type::Buffer(_) => Some("MalType_Buffer"),
-        Type::ByteSize => Some("MalType_ByteSize"),
-        Type::USize => Some("MalType_USize"),
+        Type::Int8 => Some("mal_Int8_t"),
+        Type::Int16 => Some("mal_Int16_t"),
+        Type::Int32 => Some("mal_Int32_t"),
+        Type::Int64 => Some("mal_Int64_t"),
+        Type::UInt8 => Some("mal_UInt8_t"),
+        Type::UInt16 => Some("mal_UInt16_t"),
+        Type::UInt32 => Some("mal_UInt32_t"),
+        Type::UInt64 => Some("mal_UInt64_t"),
+        Type::Float32 => Some("mal_Float32_t"),
+        Type::Float64 => Some("mal_Float64_t"),
+        Type::Buffer(_) => Some("mal_Buffer_t"),
+        Type::ByteSize => Some("mal_ByteSize_t"),
+        Type::USize => Some("mal_USize_t"),
         _ => None,
     }
 }

@@ -75,23 +75,6 @@ impl HostTypes {
 
     fn collect_external_type(&mut self, ty: &Type, registry: &mut TypeRegistry) {
         self.collect_type(ty, registry);
-        let mut pending = vec![ty];
-        while let Some(ty) = pending.pop() {
-            let newly_collected = ty.shared_id().map_or_else(
-                || !self.external_types.contains(ty),
-                |id| self.external_collected.insert(id),
-            );
-            if newly_collected {
-                self.external_types.push(ty.clone());
-                match ty {
-                    Type::Product(elements) | Type::Sum(elements) => {
-                        pending.extend(elements.iter())
-                    }
-                    Type::Buffer(element) => pending.push(element),
-                    _ => {}
-                }
-            }
-        }
     }
 
     pub(in crate::backend::c::types) fn contains(&self, ty: &Type) -> bool {
@@ -100,20 +83,7 @@ impl HostTypes {
             || self.types.contains(ty)
     }
 
-    pub(in crate::backend::c::types) fn external_contains(&self, ty: &Type) -> bool {
-        ty.shared_id()
-            .is_some_and(|id| self.external_collected.contains(&id))
-            || self.external_types.contains(ty)
-    }
-
     pub(in crate::backend::c::types) fn exposes_alias(
-        &self,
-        alias: &crate::core::ast::TypeAlias,
-    ) -> bool {
-        self.external_aliases.contains(&alias.name)
-    }
-
-    pub(in crate::backend::c::types) fn exposes_external_alias(
         &self,
         alias: &crate::core::ast::TypeAlias,
     ) -> bool {

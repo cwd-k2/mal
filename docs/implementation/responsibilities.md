@@ -132,7 +132,7 @@ genericsとruntime extension ABIも既存stageのadmission責務に従う。
 | execution ownership | runtime valueをrepresentationと独立な`Lifecycle = Trivial | Owned`へ分類し、Owned valueのuseとdropを計画する。`Buffer` carrierはOwnedだが、external opaque carrierが指すreferentへownershipを拡張しない |
 | LLVM Buffer element | すべてruntime carrier representationを使い、TrivialまたはOwned lifecycleを独立に選ぶ。external opaque carrierは`Trivial`、`Symbol`またはnested Bufferを含むcarrierは`Owned`となり、後者だけretainとreleaseのcallbackを生成する。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
-| C interface | functionを含まないclosed extern typeをABI 0x000a00のruntime carrierへ写し、named carrierとstructural product/sumのtype spelling、managed parameter borrow、recursive share/move/drop、storage descriptor、direct result returnのglueを生成する |
+| C interface | functionを含まないclosed extern typeをABI 0x000a00の単一runtime carrierへ写し、named carrierとstructural product/sumのtype spelling、managed parameter borrow、managed型だけのrecursive share/move/dropとstorage descriptor、wrapperを挟まないdirect extern definitionを生成する |
 | process shim | `argv + 1`をcopyして作ったargument Bufferを`Buffer<Symbol>` rootへ渡し、return後に解放する |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを
@@ -153,7 +153,7 @@ memory preconditionはcheckerやruntimeの防御機構へ移さない。backend�
 
 generated programのoptimizationは既存stageの責務を越えて新しい意味論を作らない。program固有のowner successorは
 `execution/ownership`、そのtyped LLVM operationは`backend/llvm`、共通byte ownerは`runtime/c11/bytes.c`、`Symbol` operation policyは
-`runtime/c11/symbol.c`、public carrierとdirect-return wrapperは`backend/c/header`、LLVM internal valueとのmarshallingは
+`runtime/c11/symbol.c`、public carrierとdirect extern declarationは`backend/c/header`、LLVM internal valueとのmarshallingは
 `backend/llvm/host_bridge`が所有する。着手順と計測gateは
 [generated program最適化policy](../development/generated-program-optimization.md)を正とする。
 

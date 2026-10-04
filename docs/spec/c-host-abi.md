@@ -59,11 +59,11 @@ transparent generic aliasは展開するため`mal_generic`やaliasごとの`*_o
 canonical carrierと互換な`mal_type(Name)`として残す。すべての`Buffer<T>`は`mal_type(Buffer)`へ写し、TはBuffer生成時に渡すstorage
 contractにだけ残す。
 
-primitive、Symbol、Buffer、product、sum、external opaque typeはLLVM moduleと同じruntime carrier layoutを使う。productはsource orderの
+primitive、Symbol、Buffer、product、sum、external opaque typeはLLVM moduleと同じruntime carrier layoutを持つ単一のC carrierを使う。productはsource orderの
 field、sumはtagとvariant payload、Symbolはowner、active data、length、Bufferはstable runtime objectへのpointerである。generated
 headerはpointerとindex幅、Symbolのsizeとfield offsetを`_Static_assert`し、aggregateは同じtarget C ABIのrecord layoutをLLVM側の
-layout planにも使う。compiler-facing bridgeが別のnominal C recordを必要とする場合も、それはgenerated wrapper内部に留め、host bodyへ
-別のraw型やreturn helperを公開しない。別のwire encodingやcanonical host memory layoutは導入しない。
+layout planにも使う。compiler-facing bridgeとhost bodyの間に別のnominal raw carrier、field-wise変換、return helperを置かない。
+別のwire encodingやcanonical host memory layoutは導入しない。
 
 `mal_false`と`mal_true`だけがvalidなBool carrierである。productは`.field_N`、sumは`.tag`と`.payload.variant_N`を持ち、sum tagはvariantの
 0-based indexである。C bodyはcompound literalまたはinitializerでaggregateを直接構成する。Cがinvalid Bool、sum tag、inactive payload、
@@ -74,8 +74,8 @@ external opaque typeはone-machine-word carrierであり、`mal_from_bits(mal_ty
 
 ## Host operation
 
-各external operationには`MAL_HAS_EXTERN_<name>`と`MAL_DEFINE_<name>`を生成する。C implementationは`MAL_DEFINE_<name>`だけでbodyを
-定義し、compiler-facing wrapperを直接定義しない。宣言されたoperationはapplicationの有無にかかわらずすべて定義する。未実装の
+各external operationには`MAL_HAS_EXTERN_<name>`と`MAL_DEFINE_<name>`を生成する。`MAL_DEFINE_<name>`はpublic extern functionの
+signatureへ直接展開し、別のbody functionや変換wrapperを生成しない。宣言されたoperationはapplicationの有無にかかわらずすべて定義する。未実装の
 operationはstubのようにtrapするbodyで定義する。
 
 ```mal
@@ -97,8 +97,9 @@ bodyはCの`return`で一度完了する。owned localをmanaged resultへ渡す
 `return mal_share(call, value);`とする。その場で構成したowned rvalueとtrivial valueは直接returnできる。Unitは`mal_unit`をreturnする。
 空直和は正常にreturnできる値を持たない。
 
-`mal_call_t`は同期call中のruntime capabilityである。runtime allocation、share、trapに利用できるが、program固有continuation、現在の
-control state、Cからmal closureをapplicationするauthorityを持たない。pointerまたは内部stateをcall後に保持しない。
+`mal_call_t`は`MalContext`のpublic aliasであり、extern ABIの先頭parameterとして直接渡す同期runtime capabilityである。runtime allocation、
+share、trapに利用できるが、program固有continuation、現在のcontrol state、Cからmal closureをapplicationするauthorityを持たない。
+pointerまたは内部stateをcall後に保持しない。
 
 ## Lifecycleとstorage
 
@@ -127,8 +128,8 @@ freeはcontract違反である。
 allocation failure、target sizeで表現できないlayoutやlength、hostが明示したrecover不能failureはtrapする。`mal_call_trap`はprocessを
 終了し、一般的なstack unwindingとrollbackを行わない。invalid carrierを境界で検査してtrapへ変換する保証はない。
 
-C bodyは引数から到達するmanaged identity、以前shareして保持したidentity、外部stateを自由に観測、変更できる。generated wrapperと
-LLVM moduleはextern callを未知のmemory clobberとして扱い、effect順序を保持する。
+C bodyは引数から到達するmanaged identity、以前shareして保持したidentity、外部stateを自由に観測、変更できる。LLVM moduleは
+extern callを未知のmemory clobberとして扱い、effect順序を保持する。
 
 runtime contextとmanaged valueはthread-confinedである。同じcall capabilityまたはmanaged carrierへ複数threadから同時にaccessしては
 ならない。worker threadへexternal bytesを渡す場合もbody return前にjoinし、managed resultは元のthreadで構成する。

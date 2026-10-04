@@ -63,7 +63,7 @@ typedef MalType_ByteSize mal_ByteSize_t;
 typedef MalType_USize mal_USize_t;
 typedef void (*mal_detail_sum_key_bool_t)(mal_Unit_t, mal_Unit_t);
 __attribute__((overloadable)) mal_Bool_t *mal_detail_sum_type(mal_detail_sum_key_bool_t);
-typedef struct { MalContext *mal_detail_context; } mal_call_t;
+typedef MalContext mal_call_t;
 typedef void (*MalRuntimeRetain)(MalContext *, void *);
 typedef void (*MalRuntimeRelease)(void *);
 typedef struct { size_t size; size_t alignment; MalRuntimeRetain share; MalRuntimeRelease drop; } mal_storage_descriptor_t;
@@ -97,17 +97,17 @@ void *mal_runtime_buffer_extend(MalContext *context, void *buffer, size_t count)
 void mal_runtime_buffer_truncate(void *buffer, size_t count);
 void mal_runtime_buffer_reserve_elements(MalContext *context, void *buffer, size_t capacity);
 static inline _Noreturn void mal_call_trap(mal_call_t *call, const char *message) {
-    mal_trap(call->mal_detail_context, message);
+    mal_trap(call, message);
 }
 static inline mal_Symbol_t mal_detail_symbol(mal_call_t *call, const void *source, size_t length) {
-    void *owner = mal_runtime_bytes_read(call->mal_detail_context, source, length);
+    void *owner = mal_runtime_bytes_read(call, source, length);
     return (mal_Symbol_t){ .owner = owner, .data = mal_runtime_bytes_data(owner), .length = length };
 }
 static inline mal_Buffer_t mal_detail_buffer_make(mal_call_t *call, size_t stride, size_t capacity) {
-    return mal_runtime_buffer_make(call->mal_detail_context, stride, capacity);
+    return mal_runtime_buffer_make(call, stride, capacity);
 }
 static inline mal_Buffer_t mal_detail_buffer_make_managed(mal_call_t *call, size_t stride, size_t capacity, MalRuntimeRetain retain, MalRuntimeRelease release) {
-    return mal_runtime_buffer_make_managed(call->mal_detail_context, stride, capacity, retain, release);
+    return mal_runtime_buffer_make_managed(call, stride, capacity, retain, release);
 }
 static inline void *mal_detail_buffer_data(mal_Buffer_t value) {
     return *mal_runtime_buffer_data_slot(value);
@@ -120,27 +120,25 @@ static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *c
 static inline __attribute__((overloadable)) void mal_detail_release(void *value MAL_DETAIL_MAYBE_UNUSED) {
 }
 static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call, mal_Symbol_t *value) {
-    mal_runtime_bytes_retain(call->mal_detail_context, value->owner);
+    mal_runtime_bytes_retain(call, value->owner);
 }
 static inline __attribute__((overloadable)) void mal_detail_release(mal_Symbol_t *value) {
     mal_runtime_bytes_release(value->owner);
 }
 static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call, mal_Buffer_t *value) {
-    mal_runtime_owner_retain(call->mal_detail_context, *value);
+    mal_runtime_owner_retain(call, *value);
 }
 static inline __attribute__((overloadable)) void mal_detail_release(mal_Buffer_t *value) {
     mal_runtime_owner_release(*value);
 }
 static inline void mal_detail_symbol_storage_share(MalContext *context, void *carrier) {
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context };
-    mal_detail_retain(&call, (mal_Symbol_t *)carrier);
+    mal_detail_retain(context, (mal_Symbol_t *)carrier);
 }
 static inline void mal_detail_symbol_storage_drop(void *carrier) {
     mal_detail_release((mal_Symbol_t *)carrier);
 }
 static inline void mal_detail_buffer_storage_share(MalContext *context, void *carrier) {
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context };
-    mal_detail_retain(&call, (mal_Buffer_t *)carrier);
+    mal_detail_retain(context, (mal_Buffer_t *)carrier);
 }
 static inline void mal_detail_buffer_storage_drop(void *carrier) {
     mal_detail_release((mal_Buffer_t *)carrier);
@@ -164,7 +162,7 @@ static inline mal_Buffer_t mal_detail_buffer(mal_call_t *call, mal_storage_descr
     return mal_detail_buffer_make(call, storage.size, capacity);
 }
 static inline size_t mal_detail_buffer_push(mal_call_t *call, mal_Buffer_t buffer, const void *element) {
-    return mal_runtime_buffer_new_move(call->mal_detail_context, buffer, element);
+    return mal_runtime_buffer_new_move(call, buffer, element);
 }
 static inline mal_Symbol_t mal_detail_buffer_snapshot(mal_call_t *call, mal_Buffer_t buffer) {
     return mal_detail_symbol(call, mal_detail_buffer_data(buffer), mal_detail_buffer_count(buffer));
@@ -265,73 +263,23 @@ static inline void mal_detail_cleanup_USize(mal_USize_t *value) {
 })
 #define mal_replace(call, buffer, index, element) __extension__ ({ \
     __auto_type mal_detail_element = (element); \
-    mal_runtime_buffer_replace_move((call)->mal_detail_context, (buffer), (index), &mal_detail_element); \
+    mal_runtime_buffer_replace_move((call), (buffer), (index), &mal_detail_element); \
 })
 #define mal_fill(call, buffer, offset, count, element) __extension__ ({ \
     __auto_type mal_detail_element = (element); \
-    mal_runtime_buffer_fill_move((call)->mal_detail_context, (buffer), (offset), (count), &mal_detail_element); \
+    mal_runtime_buffer_fill_move((call), (buffer), (offset), (count), &mal_detail_element); \
 })
-#define mal_copy(call, destination, destination_offset, source, source_offset, count) mal_runtime_buffer_copy_values(call->mal_detail_context, destination, destination_offset, source, source_offset, count)
-#define mal_append(call, buffer, source, count) mal_runtime_buffer_append_values(call->mal_detail_context, buffer, source, count)
-#define mal_extend(call, buffer, count) mal_runtime_buffer_extend(call->mal_detail_context, buffer, count)
+#define mal_copy(call, destination, destination_offset, source, source_offset, count) mal_runtime_buffer_copy_values(call, destination, destination_offset, source, source_offset, count)
+#define mal_append(call, buffer, source, count) mal_runtime_buffer_append_values(call, buffer, source, count)
+#define mal_extend(call, buffer, count) mal_runtime_buffer_extend(call, buffer, count)
 #define mal_truncate(buffer, count) mal_runtime_buffer_truncate(buffer, count)
-#define mal_reserve(call, buffer, capacity) mal_runtime_buffer_reserve_elements(call->mal_detail_context, buffer, capacity)
+#define mal_reserve(call, buffer, capacity) mal_runtime_buffer_reserve_elements(call, buffer, capacity)
 #define mal_snapshot(call, buffer) mal_detail_buffer_snapshot(call, buffer)
 
-static inline MalType_Unit mal_detail_to_raw_Unit(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Unit_t value MAL_DETAIL_MAYBE_UNUSED) {
-    return (MalType_Unit){ .unused = UINT8_C(0) };
-}
-static inline MalType_Int8 mal_detail_to_raw_Int8(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int8_t value) {
-    return value;
-}
-static inline MalType_Int16 mal_detail_to_raw_Int16(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int16_t value) {
-    return value;
-}
-static inline MalType_Int32 mal_detail_to_raw_Int32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int32_t value) {
-    return value;
-}
-static inline MalType_Int64 mal_detail_to_raw_Int64(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Int64_t value) {
-    return value;
-}
-static inline MalType_UInt8 mal_detail_to_raw_UInt8(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt8_t value) {
-    return value;
-}
-static inline MalType_UInt16 mal_detail_to_raw_UInt16(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt16_t value) {
-    return value;
-}
-static inline MalType_UInt32 mal_detail_to_raw_UInt32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt32_t value) {
-    return value;
-}
-static inline MalType_UInt64 mal_detail_to_raw_UInt64(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_UInt64_t value) {
-    return value;
-}
-static inline MalType_Float32 mal_detail_to_raw_Float32(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Float32_t value) {
-    return value;
-}
-static inline MalType_Float64 mal_detail_to_raw_Float64(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Float64_t value) {
-    return value;
-}
-static inline MalType_ByteSize mal_detail_to_raw_ByteSize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_ByteSize_t value) {
-    return value;
-}
-static inline MalType_USize mal_detail_to_raw_USize(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_USize_t value) {
-    return value;
-}
-static inline MalType_Symbol mal_detail_to_raw_Symbol(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Symbol_t value) {
-    return value;
-}
-static inline MalType_Buffer mal_detail_to_raw_Buffer(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Buffer_t value) {
-    return value;
-}
-static inline MalType_Bool mal_detail_to_raw_Bool(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, mal_Bool_t value) {
-    return value;
-}
 /* Generated header templates */
 
-#define MAL_DETAIL_RAW_REPR_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
-raw_type member;
-#define MAL_DETAIL_HOST_REPR_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
-host_type member;
+#define MAL_DETAIL_REPR_FIELD(context, index, member, type) \
+type member;
 #define MAL_DETAIL_DEFINE_PRODUCT_REPR(type_tag, fields, field) \
 struct type_tag { \
     fields(field, type_tag) \
@@ -347,43 +295,22 @@ struct type_tag { \
 struct type_tag { \
     uint32_t tag; \
 };
-#define MAL_DETAIL_REPR_IDENTITY(call, value) value
-#define MAL_DETAIL_PRODUCT_TO_HOST_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
-.member = to_host(call, value.member),
-#define MAL_DETAIL_PRODUCT_TO_RAW_FIELD(context, index, member, raw_type, host_type, to_host, to_raw) \
-.member = to_raw(call, value.member),
-#define MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(to_host_name, to_raw_name, raw_type, host_type, fields) \
-static inline host_type to_host_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, raw_type value) { \
-    return (host_type){ fields(MAL_DETAIL_PRODUCT_TO_HOST_FIELD, host_type) }; \
-} \
-static inline raw_type to_raw_name(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type value) { \
-    return (raw_type){ fields(MAL_DETAIL_PRODUCT_TO_RAW_FIELD, raw_type) }; \
-}
 
-#define MAL_DETAIL_SUM_TO_HOST_CASE(result_type, variant_tag, member, raw_type, host_type, to_host, to_raw) \
-case UINT32_C(variant_tag): { \
-    return (result_type){ .tag = UINT32_C(variant_tag), .payload.member = to_host(call, value.payload.member) }; \
-}
-#define MAL_DETAIL_SUM_TO_RAW_CASE(result_type, variant_tag, member, raw_type, host_type, to_host, to_raw) \
-case UINT32_C(variant_tag): { \
-    return (result_type){ .tag = UINT32_C(variant_tag), .payload.member = to_raw(call, value.payload.member) }; \
-}
-#define MAL_DETAIL_DEFINE_SUM_CONVERSIONS(to_host_name, to_raw_name, raw_type, host_type, members) \
-static inline host_type to_host_name(mal_call_t *call, raw_type value) { \
-    switch (value.tag) { \
-        members(MAL_DETAIL_SUM_TO_HOST_CASE, host_type) \
-        default: { \
-            mal_call_trap(call, "invalid sum tag"); \
-        } \
-    } \
-} \
-static inline raw_type to_raw_name(mal_call_t *call, host_type value) { \
-    switch (value.tag) { \
-        members(MAL_DETAIL_SUM_TO_RAW_CASE, raw_type) \
-        default: { \
-            mal_call_trap(call, "invalid sum tag"); \
-        } \
-    } \
-}
+#define MAL_DETAIL_PRODUCT_RETAIN_FIELD(context, index, member, type) mal_detail_retain(call, &value->member);
+#define MAL_DETAIL_PRODUCT_RELEASE_FIELD(context, index, member, type) mal_detail_release(&value->member);
+#define MAL_DETAIL_SUM_RETAIN_CASE(context, index, member, type) case UINT32_C(index): { mal_detail_retain(call, &value->payload.member); return; }
+#define MAL_DETAIL_SUM_RELEASE_CASE(context, index, member, type) case UINT32_C(index): { mal_detail_release(&value->payload.member); return; }
+#define MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(host_type, fields, share_name, drop_name) \
+static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type *value MAL_DETAIL_MAYBE_UNUSED) { fields(MAL_DETAIL_PRODUCT_RETAIN_FIELD, host_type) } \
+static inline __attribute__((overloadable)) void mal_detail_release(host_type *value MAL_DETAIL_MAYBE_UNUSED) { fields(MAL_DETAIL_PRODUCT_RELEASE_FIELD, host_type) } \
+static inline void share_name(MalContext *context, void *carrier) { mal_detail_retain(context, (host_type *)carrier); } \
+static inline void drop_name(void *carrier) { mal_detail_release((host_type *)carrier); } \
+static inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(host_type *type_marker MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) { return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = share_name, .drop = drop_name }; }
+#define MAL_DETAIL_DEFINE_SUM_LIFECYCLE(host_type, fields, share_name, drop_name) \
+static inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type *value MAL_DETAIL_MAYBE_UNUSED) { switch (value->tag) { fields(MAL_DETAIL_SUM_RETAIN_CASE, host_type) default: return; } } \
+static inline __attribute__((overloadable)) void mal_detail_release(host_type *value MAL_DETAIL_MAYBE_UNUSED) { switch (value->tag) { fields(MAL_DETAIL_SUM_RELEASE_CASE, host_type) default: return; } } \
+static inline void share_name(MalContext *context, void *carrier) { mal_detail_retain(context, (host_type *)carrier); } \
+static inline void drop_name(void *carrier) { mal_detail_release((host_type *)carrier); } \
+static inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(host_type *type_marker MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) { return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = share_name, .drop = drop_name }; }
 
 #endif

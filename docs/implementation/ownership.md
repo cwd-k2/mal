@@ -134,8 +134,8 @@ root result以外のlocal、active environment、control storageを解放する�
 ## Extern C boundary
 
 extern parameterはcall中だけborrowされる。functionを含まないclosed concrete typeはruntime carrierのままC boundaryを通る。Cが
-managed valueをcall後も保持する場合は`mal_share`で型再帰したresponsibilityを作り、後に`mal_drop`する。managed resultはCの
-direct returnへmoveする。
+managed valueをcall後も保持する場合は`mal_share`で型再帰したresponsibilityを作り、後に`mal_drop`する。managed resultは変換wrapperを
+挟まないCのdirect returnへmoveする。
 bridgeはinvalid Bool、sum tag、ownerを検査してadmitせず、contract違反後のbehaviorを保証しない。
 
 process shimは`argv + 1`の各C stringを独立した`Symbol`へcopyし、それらを所有する`Buffer<Symbol>`をrootへ渡す。root parameterは

@@ -3,7 +3,7 @@ use mal_frontend::resolve::ast::TypeId;
 use super::*;
 
 #[test]
-fn maps_host_values_without_reusing_raw_type_names() {
+fn maps_every_boundary_value_to_one_public_carrier() {
     let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
     let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
     let mut registry = TypeRegistry::default();
@@ -92,16 +92,14 @@ fn declares_host_aggregates_in_structural_dependency_order() {
     ));
     assert!(declarations.contains("typedef mal_repr_product_1e5f7ae9f35ae3d3_t mal_Packet_t;"));
     assert!(declarations.contains("typedef mal_repr_sum_11ce2ff4640b9e1d_t mal_Result_t;"));
+    assert!(declarations.contains("field(context, 1, field_1, mal_Symbol_t)"));
     assert!(declarations.contains(concat!(
-        "field(context, 1, field_1, MalType_Symbol, mal_Symbol_t, ",
-        "MAL_DETAIL_REPR_IDENTITY, mal_detail_to_raw_Symbol)"
+        "field(context, 1, variant_1, ",
+        "mal_repr_product_1e5f7ae9f35ae3d3_t)"
     )));
-    assert!(declarations.contains(concat!(
-        "field(context, 1, variant_1, MalRepr_Product_1e5f7ae9f35ae3d3, ",
-        "mal_repr_product_1e5f7ae9f35ae3d3_t, ",
-        "mal_detail_to_host_1e5f7ae9f35ae3d3, ",
-        "mal_detail_to_raw_1e5f7ae9f35ae3d3)"
-    )));
+    assert!(!declarations.contains("MalRepr_"));
+    assert!(!declarations.contains("to_raw"));
+    assert!(!declarations.contains("to_host"));
 }
 
 #[test]

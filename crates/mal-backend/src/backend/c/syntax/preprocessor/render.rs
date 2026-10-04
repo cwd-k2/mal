@@ -60,6 +60,15 @@ impl Directive {
 #define mal_drop(value) ((void)__extension__ ({ \\\n    __auto_type *mal_detail_dropped = &(value); \\\n    mal_detail_release(mal_detail_dropped); \\\n    memset(mal_detail_dropped, 0, sizeof(*mal_detail_dropped)); \\\n}))\n"
                     .into()
             }
+            Self::AggregateLifecycleTemplates => {
+                "#define MAL_DETAIL_PRODUCT_RETAIN_FIELD(context, index, member, type) mal_detail_retain(call, &value->member);\n\
+#define MAL_DETAIL_PRODUCT_RELEASE_FIELD(context, index, member, type) mal_detail_release(&value->member);\n\
+#define MAL_DETAIL_SUM_RETAIN_CASE(context, index, member, type) case UINT32_C(index): { mal_detail_retain(call, &value->payload.member); return; }\n\
+#define MAL_DETAIL_SUM_RELEASE_CASE(context, index, member, type) case UINT32_C(index): { mal_detail_release(&value->payload.member); return; }\n\
+#define MAL_DETAIL_DEFINE_PRODUCT_LIFECYCLE(host_type, fields, share_name, drop_name) \\\nstatic inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type *value MAL_DETAIL_MAYBE_UNUSED) { fields(MAL_DETAIL_PRODUCT_RETAIN_FIELD, host_type) } \\\nstatic inline __attribute__((overloadable)) void mal_detail_release(host_type *value MAL_DETAIL_MAYBE_UNUSED) { fields(MAL_DETAIL_PRODUCT_RELEASE_FIELD, host_type) } \\\nstatic inline void share_name(MalContext *context, void *carrier) { mal_detail_retain(context, (host_type *)carrier); } \\\nstatic inline void drop_name(void *carrier) { mal_detail_release((host_type *)carrier); } \\\nstatic inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(host_type *type_marker MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) { return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = share_name, .drop = drop_name }; }\n\
+#define MAL_DETAIL_DEFINE_SUM_LIFECYCLE(host_type, fields, share_name, drop_name) \\\nstatic inline __attribute__((overloadable)) void mal_detail_retain(mal_call_t *call MAL_DETAIL_MAYBE_UNUSED, host_type *value MAL_DETAIL_MAYBE_UNUSED) { switch (value->tag) { fields(MAL_DETAIL_SUM_RETAIN_CASE, host_type) default: return; } } \\\nstatic inline __attribute__((overloadable)) void mal_detail_release(host_type *value MAL_DETAIL_MAYBE_UNUSED) { switch (value->tag) { fields(MAL_DETAIL_SUM_RELEASE_CASE, host_type) default: return; } } \\\nstatic inline void share_name(MalContext *context, void *carrier) { mal_detail_retain(context, (host_type *)carrier); } \\\nstatic inline void drop_name(void *carrier) { mal_detail_release((host_type *)carrier); } \\\nstatic inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(host_type *type_marker MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) { return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = share_name, .drop = drop_name }; }\n"
+                    .into()
+            }
             Self::OwnedTypeDefine => {
                 "#define mal_owned(name) mal_type(name) __attribute__((cleanup(MAL_DETAIL_CLEANUP(name))))\n\
 #define MAL_DETAIL_CLEANUP(name) MAL_DETAIL_CLEANUP_EXPAND(name)\n\
@@ -71,8 +80,8 @@ impl Directive {
                     .into()
             }
             Self::BufferMutationDefines => {
-                "#define mal_replace(call, buffer, index, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_runtime_buffer_replace_move((call)->mal_detail_context, (buffer), (index), &mal_detail_element); \\\n})\n\
-#define mal_fill(call, buffer, offset, count, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_runtime_buffer_fill_move((call)->mal_detail_context, (buffer), (offset), (count), &mal_detail_element); \\\n})\n"
+                "#define mal_replace(call, buffer, index, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_runtime_buffer_replace_move((call), (buffer), (index), &mal_detail_element); \\\n})\n\
+#define mal_fill(call, buffer, offset, count, element) __extension__ ({ \\\n    __auto_type mal_detail_element = (element); \\\n    mal_runtime_buffer_fill_move((call), (buffer), (offset), (count), &mal_detail_element); \\\n})\n"
                     .into()
             }
             Self::FunctionItemsDefine {
@@ -82,6 +91,14 @@ impl Directive {
                 definitions,
                 trailing_signature,
             } => {
+                if declarations.is_empty() && definitions.is_empty() {
+                    let mut output = format!("#define {name}(");
+                    render_macro_parameters(&mut output, parameters);
+                    output.push_str(") ");
+                    trailing_signature.render_into(&mut output);
+                    output.push('\n');
+                    return output;
+                }
                 let mut prefix = format!("#define {name}(");
                 render_macro_parameters(&mut prefix, parameters);
                 prefix.push_str(") \\\n");
@@ -95,20 +112,6 @@ impl Directive {
                 }
                 trailing_signature.render_multiline(&mut output);
                 output.push('\n');
-                output.finish()
-            }
-            Self::FunctionDefinitionsDefine {
-                name,
-                parameters,
-                definitions,
-            } => {
-                let mut prefix = format!("#define {name}(");
-                render_macro_parameters(&mut prefix, parameters);
-                prefix.push_str(") \\\n");
-                let mut output = MacroReplacementWriter::new(prefix);
-                for definition in definitions {
-                    definition.render_into(&mut output);
-                }
                 output.finish()
             }
             Self::InvocationsDefine {
@@ -144,6 +147,7 @@ impl Directive {
             } => render_replacement(name, parameters, |output| {
                 crate::backend::c::syntax::unit::render::render_fields(output, fields, 0);
             }),
+            #[cfg(test)]
             Self::InitializersDefine {
                 name,
                 parameters,
@@ -152,15 +156,6 @@ impl Directive {
                 for initializer in initializers {
                     initializer.render(output);
                     output.push_str(",\n");
-                }
-            }),
-            Self::SwitchCasesDefine {
-                name,
-                parameters,
-                cases,
-            } => render_replacement(name, parameters, |output| {
-                for case in cases {
-                    case.render(output, 0);
                 }
             }),
             Self::If(condition) => {

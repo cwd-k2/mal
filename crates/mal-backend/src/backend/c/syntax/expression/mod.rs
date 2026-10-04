@@ -233,6 +233,7 @@ impl Expr {
 }
 
 impl Initializer {
+    #[cfg(test)]
     pub(in crate::backend) fn positional(value: Expr) -> Self {
         Self::Value {
             designators: Vec::new(),

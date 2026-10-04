@@ -85,7 +85,7 @@ extern close :: File -> Unit;
 
 ```c
 MAL_DEFINE_openReadOnly(call, path) {
-    char *terminated = mal_runtime_allocate(call->mal_detail_context, path.length + 1);
+    char *terminated = mal_runtime_allocate(call, path.length + 1);
     memcpy(terminated, path.data, path.length);
     terminated[path.length] = '\0';
     FILE *file = fopen(terminated, "rb");

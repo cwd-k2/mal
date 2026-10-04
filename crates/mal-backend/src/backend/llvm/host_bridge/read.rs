@@ -16,10 +16,10 @@ impl Marshalling<'_> {
     ) -> Option<Expr> {
         let pointer = bridge_pointer(base.clone(), offset, true);
         match &value.kind {
-            plan::Kind::Unit => Some(c_expr!(MalType_Unit { unused: UINT8_C(0) })),
+            plan::Kind::Unit => Some(c_expr!(mal_Unit_t { unused: UINT8_C(0) })),
             plan::Kind::External => Some(c_expr! {
                 { self.raw_types.c_type(value.ty) } {
-                    bits: { load(c_type!(*const uintptr_t), pointer) }
+                    mal_detail_bits: { load(c_type!(*const uintptr_t), pointer) }
                 }
             }),
             plan::Kind::Symbol {
@@ -27,7 +27,7 @@ impl Marshalling<'_> {
                 data_offset,
                 length_offset,
             } => Some(c_expr! {
-                MalType_Symbol {
+                mal_Symbol_t {
                     owner: { load(c_type!(*const *mut void), bridge_pointer(base.clone(), offset.checked_add(*owner_offset)?, true)) },
                     data: { load(c_type!(*const *const uint8_t), bridge_pointer(base.clone(), offset.checked_add(*data_offset)?, true)) },
                     length: { load(c_type!(*const size_t), bridge_pointer(base, offset.checked_add(*length_offset)?, true)) },

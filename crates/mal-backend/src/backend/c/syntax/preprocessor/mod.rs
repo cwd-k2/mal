@@ -1,8 +1,9 @@
 use std::ops::Deref;
 
+#[cfg(test)]
+use super::Initializer;
 use super::{
-    Expr, FunctionDefinition, FunctionSignature, Identifier, Initializer, RecordDefinition,
-    RecordField, SwitchCase,
+    Expr, FunctionDefinition, FunctionSignature, Identifier, RecordDefinition, RecordField,
 };
 
 mod render;
@@ -62,6 +63,7 @@ pub(in crate::backend) enum Directive {
         selector: Identifier,
     },
     HostLifecycleDefines,
+    AggregateLifecycleTemplates,
     OwnedTypeDefine,
     BufferPushDefine,
     BufferMutationDefines,
@@ -71,11 +73,6 @@ pub(in crate::backend) enum Directive {
         declarations: Vec<FunctionSignature>,
         definitions: Vec<FunctionDefinition>,
         trailing_signature: FunctionSignature,
-    },
-    FunctionDefinitionsDefine {
-        name: Identifier,
-        parameters: Vec<MacroParameter>,
-        definitions: Vec<FunctionDefinition>,
     },
     InvocationsDefine {
         name: Identifier,
@@ -92,15 +89,11 @@ pub(in crate::backend) enum Directive {
         parameters: Vec<MacroParameter>,
         fields: Vec<RecordField>,
     },
+    #[cfg(test)]
     InitializersDefine {
         name: Identifier,
         parameters: Vec<MacroParameter>,
         initializers: Vec<Initializer>,
-    },
-    SwitchCasesDefine {
-        name: Identifier,
-        parameters: Vec<MacroParameter>,
-        cases: Vec<SwitchCase>,
     },
     If(PreprocessorExpr),
     Ifndef(Identifier),
@@ -211,6 +204,10 @@ impl Directive {
         Self::HostLifecycleDefines
     }
 
+    pub(in crate::backend) fn aggregate_lifecycle_templates() -> Self {
+        Self::AggregateLifecycleTemplates
+    }
+
     pub(in crate::backend) fn owned_type_define() -> Self {
         Self::OwnedTypeDefine
     }
@@ -236,18 +233,6 @@ impl Directive {
             declarations: declarations.into_iter().collect(),
             definitions: definitions.into_iter().collect(),
             trailing_signature,
-        }
-    }
-
-    pub(in crate::backend) fn function_definitions_define(
-        name: impl Into<Identifier>,
-        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        definitions: impl IntoIterator<Item = FunctionDefinition>,
-    ) -> Self {
-        Self::FunctionDefinitionsDefine {
-            name: name.into(),
-            parameters: parameters.into_iter().map(Into::into).collect(),
-            definitions: definitions.into_iter().collect(),
         }
     }
 
@@ -287,6 +272,7 @@ impl Directive {
         }
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn initializers_define(
         name: impl Into<Identifier>,
         parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
@@ -296,18 +282,6 @@ impl Directive {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             initializers: initializers.into_iter().collect(),
-        }
-    }
-
-    pub(in crate::backend) fn switch_cases_define(
-        name: impl Into<Identifier>,
-        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        cases: impl IntoIterator<Item = SwitchCase>,
-    ) -> Self {
-        Self::SwitchCasesDefine {
-            name: name.into(),
-            parameters: parameters.into_iter().map(Into::into).collect(),
-            cases: cases.into_iter().collect(),
         }
     }
 }

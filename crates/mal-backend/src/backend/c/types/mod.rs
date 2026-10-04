@@ -1,8 +1,6 @@
 //! Structural registry and target-aware C mapping of host-visible types.
 
-use crate::backend::c::syntax::{
-    Directive, TranslationUnit, TypeName, c_expr, c_invocation, c_items, c_type,
-};
+use crate::backend::c::syntax::{TypeName, c_type};
 use mal_frontend::check::ast::{SharedTypeId, Type};
 
 mod collect;
@@ -24,8 +22,6 @@ pub(super) struct TypeRegistry {
 pub(super) struct HostTypes {
     types: Vec<Type>,
     collected: std::collections::HashSet<SharedTypeId>,
-    external_types: Vec<Type>,
-    external_collected: std::collections::HashSet<SharedTypeId>,
     external_aliases: std::collections::HashSet<String>,
     opaque_names: Vec<String>,
 }
@@ -68,41 +64,7 @@ impl std::fmt::Display for RepresentationId {
 
 impl TypeRegistry {
     pub(super) fn c_type(&self, ty: &Type) -> TypeName {
-        if is_bool(ty) {
-            return c_type!(MalType_Bool);
-        }
-        match ty {
-            Type::Unit => c_type!(MalType_Unit),
-            Type::Int8 => c_type!(MalType_Int8),
-            Type::Int16 => c_type!(MalType_Int16),
-            Type::Int32 => c_type!(MalType_Int32),
-            Type::Int64 => c_type!(MalType_Int64),
-            Type::UInt8 => c_type!(MalType_UInt8),
-            Type::UInt16 => c_type!(MalType_UInt16),
-            Type::UInt32 => c_type!(MalType_UInt32),
-            Type::UInt64 => c_type!(MalType_UInt64),
-            Type::Float32 => c_type!(MalType_Float32),
-            Type::Float64 => c_type!(MalType_Float64),
-            Type::Symbol => c_type!(MalType_Symbol),
-            Type::ByteSize => c_type!(MalType_ByteSize),
-            Type::USize => c_type!(MalType_USize),
-            Type::External { name, .. } => c_type!({ format!("MalType_{name}") }),
-            Type::Product(_) => {
-                c_type!({ format!("MalRepr_Product_{}", self.index(ty)) })
-            }
-            Type::Sum(_) => c_type!({ format!("MalRepr_Sum_{}", self.index(ty)) }),
-            Type::Function { .. } => {
-                c_type!({ format!("MalRepr_Closure_{}", self.index(ty)) })
-            }
-            Type::Buffer(_) => c_type!(MalType_Buffer),
-            Type::Parameter { .. }
-            | Type::Bound { .. }
-            | Type::Application { .. }
-            | Type::Abstraction { .. }
-            | Type::Opaque { .. } => {
-                unreachable!("these types never enter the C host registry")
-            }
-        }
+        self.host_value_c_type(ty, None)
     }
 
     pub(super) fn host_value_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {

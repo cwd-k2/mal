@@ -1,6 +1,6 @@
 use crate::backend::c::syntax::{
     Declaration, FunctionSignature, FunctionSpecifier, Parameter, TranslationUnit, TypeName,
-    c_expr, c_invocation, c_items, c_type,
+    c_expr, c_invocation, c_items,
 };
 use crate::core::ast::TypeAlias;
 use mal_frontend::check::ast::Type;
@@ -33,7 +33,7 @@ impl TypeRegistry {
                 _ => unreachable!("only aggregate types have representation identities"),
             };
             let id = self.index(ty);
-            let guard = format!("MAL_DETAIL_HOST_REPR_{id}_DECLARED");
+            let guard = format!("MAL_DETAIL_REPR_{id}_DECLARED");
             let alias = format!("mal_repr_{kind}_{id}_t");
             output.extend(c_items! {
                 if !defined({ guard.clone() }) {
@@ -44,7 +44,9 @@ impl TypeRegistry {
         }
         for alias in aliases {
             if host.exposes_alias(alias) {
-                output.extend(self.host_alias_declaration(alias));
+                let name = format!("mal_{}_t", alias.name);
+                let source = self.host_value_c_type(&alias.ty, None);
+                output.extend(c_items! { type { name } = { source }; });
             }
         }
         if !output.is_empty() {
@@ -54,10 +56,10 @@ impl TypeRegistry {
             if !host.contains(ty) || is_bool(ty) {
                 continue;
             }
-            if !host.external_contains(ty) && matches!(ty, Type::Product(_) | Type::Sum(_)) {
+            if matches!(ty, Type::Product(_) | Type::Sum(_)) {
                 self.append_repr_descriptor(&mut output, ty);
             }
-            let guard = format!("MAL_DETAIL_HOST_REPR_{}_DEFINED", self.index(ty));
+            let guard = format!("MAL_DETAIL_REPR_{}_DEFINED", self.index(ty));
             let mut guarded = c_items! { define!({ guard.clone() }); };
             match ty {
                 Type::Product(_) => {
@@ -65,7 +67,7 @@ impl TypeRegistry {
                     guarded.push(c_invocation!(MAL_DETAIL_DEFINE_PRODUCT_REPR(
                         { tag },
                         { format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty)) },
-                        MAL_DETAIL_HOST_REPR_FIELD,
+                        MAL_DETAIL_REPR_FIELD,
                     )));
                 }
                 Type::Sum(members) => {
@@ -80,12 +82,12 @@ impl TypeRegistry {
                         arguments.push(c_expr!({
                             format!("MAL_DETAIL_REPR_FIELDS_{}", self.index(ty))
                         }));
-                        arguments.push(c_expr!(MAL_DETAIL_HOST_REPR_FIELD));
+                        arguments.push(c_expr!(MAL_DETAIL_REPR_FIELD));
                     }
                     guarded.push(c_invocation!({ template }(..{ arguments })));
                 }
                 Type::Function { .. } => continue,
-                _ => unreachable!("only aggregate types have representation identities"),
+                _ => unreachable!("only aggregates have representation identities"),
             }
             self.append_structural_type_selector(&mut guarded, ty);
             output.extend(c_items! {
@@ -121,54 +123,5 @@ impl TypeRegistry {
             )
             .with_specifiers([FunctionSpecifier::Overloadable]),
         );
-    }
-
-    fn host_alias_declaration(&self, alias: &TypeAlias) -> TranslationUnit {
-        let name = format!("mal_{}_t", alias.name);
-        let source = self.host_value_c_type(&alias.ty, None);
-        c_items! { type { name } = { source }; }
-    }
-
-    pub(in crate::backend::c) fn header_declarations(&self, host: &HostTypes) -> TranslationUnit {
-        let mut output = TranslationUnit::default();
-        for name in &host.opaque_names {
-            let alias = format!("MalType_{name}");
-            output.extend(c_items! {
-                type { alias } = struct {
-                    bits: uintptr_t,
-                };
-            });
-        }
-        if !host.opaque_names.is_empty() {
-            output.blank_line();
-        }
-        output.extend(self.declarations(host, true));
-        output
-    }
-
-    pub(in crate::backend::c) fn header_alias_declarations(
-        &self,
-        host: &HostTypes,
-        aliases: &[TypeAlias],
-    ) -> TranslationUnit {
-        let mut output = TranslationUnit::default();
-        for alias in aliases {
-            if host.exposes_external_alias(alias) {
-                let name = format!("MalType_{}", alias.name);
-                let source = self.c_type(&alias.ty);
-                output.extend(c_items! { type { name } = { source }; });
-            }
-        }
-        if !output.is_empty() {
-            output.blank_line();
-        }
-        output
-    }
-
-    pub(in crate::backend::c) fn header_c_type(&self, ty: &Type, alias: Option<&str>) -> TypeName {
-        alias.map_or_else(
-            || self.c_type(ty),
-            |alias| c_type!({ format!("MalType_{alias}") }),
-        )
     }
 }

@@ -54,8 +54,8 @@ castして内部表現を破壊することも防がず、その後の挙動を�
 
 generated headerはruntime carrierのC record、field、sum tagとpayloadを同じtarget ABIから出し、pointer/index幅とSymbol layoutを
 `_Static_assert`でC compilerのlayoutと照合する。C implementationはfieldを直接参照でき、`mal.h`はBuffer data access、managed
-carrier leafのshare/drop、result moveの小さなhelperを提供する。productとsumのlifecycle再帰はhost implementationが型別に組み、
-helperを迂回することも妨げない。
+carrier leafのshare/drop、result moveの小さなhelperを提供する。productとsumのlifecycle再帰はgenerated headerが型別に構成するが、
+host implementationがhelperを迂回することも妨げない。
 
 host bodyは現在と同じく`mal_call_t *`とsource-level parameter一個のruntime carrierを受け、productをflattenしない。parameter
 carrier自体はCのby-value copyであり、managed leafはcallerが保持するidentityへのborrowである。resultはCのdirect returnで

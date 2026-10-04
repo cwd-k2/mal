@@ -35,8 +35,7 @@ fn emit_header_writes_a_standalone_host_interface() {
         String::from_utf8_lossy(&output.stderr)
     );
     let header = std::fs::read_to_string(output_path).unwrap();
-    assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
-    assert!(header.contains("typedef MalType_Buffer MalType_Bytes;"));
+    assert!(header.contains("typedef mal_UInt64_t mal_Count_t;"));
     assert!(header.contains("typedef mal_Buffer_t mal_Bytes_t;"));
     assert!(!header.contains("mal__Internal_t"));
     assert!(!header.contains("mal_Managed_t"));
@@ -47,7 +46,11 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(header.contains("#define MAL_HAS_EXTERN__privateConsume 1"));
     assert!(header.contains("#define MAL_DEFINE_increment(call, value)"));
     assert!(header.contains("#define MAL_DEFINE__privateConsume(call, value)"));
-    assert!(header.contains("MalType_Buffer"));
+    assert!(header.contains("mal_Count_t mal_ext_increment(mal_call_t *call, mal_Count_t value);"));
+    assert!(!header.contains("MalType_Count"));
+    assert!(!header.contains("mal_detail_increment"));
+    assert!(!header.contains("to_raw"));
+    assert!(!header.contains("to_host"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
     assert!(header.ends_with("\n\n#endif\n#endif\n"));
     assert!(header.contains("_H\n\n/* Host-visible types */"));

@@ -28,9 +28,11 @@ impl Marshalling<'_> {
         let pointer = bridge_pointer(base.clone(), offset, false);
         match &plan.kind {
             plan::Kind::Unit => Some(vec![store("uint8_t", pointer, c_expr!(UINT8_C(0)))]),
-            plan::Kind::External => {
-                Some(vec![store("uintptr_t", pointer, c_expr!({ value }.bits))])
-            }
+            plan::Kind::External => Some(vec![store(
+                "uintptr_t",
+                pointer,
+                c_expr!({ value }.mal_detail_bits),
+            )]),
             plan::Kind::Symbol {
                 owner_offset,
                 data_offset,

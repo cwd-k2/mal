@@ -162,6 +162,7 @@ impl RecordField {
         Self::Declaration(VariableDeclaration::new(ty, name))
     }
 
+    #[cfg(test)]
     pub(in crate::backend) fn function_pointer(
         result: impl Into<TypeName>,
         name: impl Into<Identifier>,
