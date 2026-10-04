@@ -10,42 +10,30 @@ use mal_frontend::check::ast::Type;
 use super::super::{EmittedValue, FunctionEmitter};
 pub(in crate::backend::llvm::body) use runtime_owned::OwnedBufferElements;
 
-/// How a Buffer keeps one element. Representation determines the stored layout independently from whether the place
-/// must preserve an owned lifecycle through callbacks collected by [`OwnedBufferElements`].
+/// How a Buffer keeps one element. Layout is independent from whether the place must preserve an
+/// owned lifecycle through callbacks collected by [`OwnedBufferElements`].
 #[derive(Clone, Copy)]
-pub(in crate::backend::llvm::body) enum ElementStorage {
-    Runtime {
-        stride: usize,
-        alignment: usize,
-        lifecycle: Lifecycle,
-    },
+pub(in crate::backend::llvm::body) struct ElementStorage {
+    stride: usize,
+    alignment: usize,
+    lifecycle: Lifecycle,
 }
 
 impl ElementStorage {
     fn stride(self) -> usize {
-        match self {
-            Self::Runtime { stride, .. } => stride,
-        }
+        self.stride
     }
 
     fn lifecycle(self) -> Lifecycle {
-        match self {
-            Self::Runtime { lifecycle, .. } => lifecycle,
-        }
+        self.lifecycle
     }
 
     /// The runtime function for `operation`. A buffer with managed elements must go through the variant that accounts
     /// for the references its elements own; the plain function stays free of that cost.
     fn runtime(self, operation: &str) -> String {
-        match self {
-            Self::Runtime {
-                lifecycle: Lifecycle::Trivial,
-                ..
-            } => format!("mal_runtime_buffer_{operation}"),
-            Self::Runtime {
-                lifecycle: Lifecycle::Owned,
-                ..
-            } => format!("mal_runtime_buffer_{operation}_managed"),
+        match self.lifecycle {
+            Lifecycle::Trivial => format!("mal_runtime_buffer_{operation}"),
+            Lifecycle::Owned => format!("mal_runtime_buffer_{operation}_managed"),
         }
     }
 }
@@ -152,12 +140,12 @@ impl FunctionEmitter<'_> {
                 }
                 let data = self.active_buffer_data(buffer);
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
-                let ElementStorage::Runtime {
-                    alignment,
-                    lifecycle,
-                    ..
-                } = storage;
-                self.emit_runtime_element_get(&pointer, element, alignment, lifecycle)
+                self.emit_runtime_element_get(
+                    &pointer,
+                    element,
+                    storage.alignment,
+                    storage.lifecycle,
+                )
             }
             BufferOperation::Put => {
                 let [buffer, index, value] = operands else {
@@ -173,12 +161,12 @@ impl FunctionEmitter<'_> {
                 if stride != 0 {
                     let data = self.active_buffer_data(buffer);
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
-                    let ElementStorage::Runtime {
-                        alignment,
-                        lifecycle,
-                        ..
-                    } = storage;
-                    self.emit_runtime_element_put(&pointer, value, alignment, lifecycle)?;
+                    self.emit_runtime_element_put(
+                        &pointer,
+                        value,
+                        storage.alignment,
+                        storage.lifecycle,
+                    )?;
                 }
                 Some(emitted_unit())
             }
@@ -262,7 +250,7 @@ impl FunctionEmitter<'_> {
         element: &Type,
     ) -> Option<ElementStorage> {
         let value = self.types.value(element)?;
-        Some(ElementStorage::Runtime {
+        Some(ElementStorage {
             stride: value.size,
             alignment: value.alignment,
             lifecycle: lifecycle(element),

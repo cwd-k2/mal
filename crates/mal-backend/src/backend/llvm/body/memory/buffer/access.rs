@@ -43,33 +43,27 @@ impl FunctionEmitter<'_> {
             return Some("null".into());
         }
         let storage = "%mal_buffer_value";
-        match element_storage {
-            ElementStorage::Runtime {
-                stride, alignment, ..
-            } => {
-                let value_type = self.types.value(&value.ty)?;
-                // C runtime byte operations may inspect aggregate padding, so define the entire
-                // carrier before the typed store writes its semantic fields.
-                emit_instruction! {
-                    self;
-                    store {
-                        value: (array({ stride }, int(8_u16)), "zeroinitializer"),
-                        pointer: { storage },
-                        alignment: { alignment },
-                        metadata: [],
-                    };
-                };
-                emit_instruction! {
-                    self;
-                    store {
-                        value: ({ value_type.llvm }, { value.representation.as_str() }),
-                        pointer: { storage },
-                        alignment: { alignment },
-                        metadata: [],
-                    };
-                };
-            }
-        }
+        let value_type = self.types.value(&value.ty)?;
+        // C runtime byte operations may inspect aggregate padding, so define the entire carrier
+        // before the typed store writes its semantic fields.
+        emit_instruction! {
+            self;
+            store {
+                value: (array({ element_storage.stride }, int(8_u16)), "zeroinitializer"),
+                pointer: { storage },
+                alignment: { element_storage.alignment },
+                metadata: [],
+            };
+        };
+        emit_instruction! {
+            self;
+            store {
+                value: ({ value_type.llvm }, { value.representation.as_str() }),
+                pointer: { storage },
+                alignment: { element_storage.alignment },
+                metadata: [],
+            };
+        };
         Some(storage.into())
     }
 
