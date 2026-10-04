@@ -281,7 +281,11 @@ fn initialize_result() -> Value {
 
 fn uri_to_path(uri: &str) -> Option<PathBuf> {
     let encoded = uri.strip_prefix("file://")?;
-    let encoded = encoded.strip_prefix("localhost").unwrap_or(encoded);
+    let encoded = if let Some(path) = encoded.strip_prefix("localhost") {
+        path.starts_with('/').then_some(path)?
+    } else {
+        encoded.starts_with('/').then_some(encoded)?
+    };
     let bytes = encoded.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut index = 0;

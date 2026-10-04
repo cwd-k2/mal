@@ -171,17 +171,23 @@ fn parse_error_keeps_semantic_requests_unavailable() {
     }));
     assert_eq!(rename.messages[0]["result"], Value::Null);
 
-    for (id, method, empty) in [
-        (12, "textDocument/documentSymbol", json!([])),
-        (13, "textDocument/completion", json!([])),
-    ] {
-        let outcome = server.handle(json!({
-            "jsonrpc": "2.0", "id": id, "method": method,
-            "params": {"textDocument": {"uri": uri}}
-        }));
-        assert_eq!(outcome.messages[0]["result"], empty);
-        assert!(outcome.messages[0].get("error").is_none());
-    }
+    let symbols = server.handle(json!({
+        "jsonrpc": "2.0", "id": 12, "method": "textDocument/documentSymbol",
+        "params": {"textDocument": {"uri": uri}}
+    }));
+    assert_eq!(symbols.messages[0]["result"], json!([]));
+    assert!(symbols.messages[0].get("error").is_none());
+
+    let completion = request_at(
+        &mut server,
+        13,
+        "textDocument/completion",
+        uri,
+        text,
+        text.find("good").unwrap(),
+    );
+    assert_eq!(completion["result"], json!([]));
+    assert!(completion.get("error").is_none());
     let tokens = server.handle(json!({
         "jsonrpc": "2.0", "id": 14, "method": "textDocument/semanticTokens/full",
         "params": {"textDocument": {"uri": uri}}
@@ -390,6 +396,34 @@ fn exit_succeeds_only_after_shutdown() {
             .exit,
         Some(true)
     );
+}
+
+#[test]
+fn rejects_completion_without_a_position() {
+    let uri = "file:///completion-parameters.mal";
+    let mut server = open_document(uri, "value :: Int32 := 1;\n");
+
+    let outcome = server.handle(json!({
+        "jsonrpc": "2.0", "id": 1, "method": "textDocument/completion",
+        "params": {"textDocument": {"uri": uri}}
+    }));
+
+    assert_eq!(outcome.messages[0]["error"]["code"], -32602);
+}
+
+#[test]
+fn accepts_only_local_file_uris() {
+    assert_eq!(
+        uri_to_path("file:///work/main.mal"),
+        Some(PathBuf::from("/work/main.mal"))
+    );
+    assert_eq!(
+        uri_to_path("file://localhost/work/main.mal"),
+        Some(PathBuf::from("/work/main.mal"))
+    );
+    assert_eq!(uri_to_path("file://localhostevil/work/main.mal"), None);
+    assert_eq!(uri_to_path("file://server/work/main.mal"), None);
+    assert_eq!(uri_to_path("file://relative.mal"), None);
 }
 
 mod semantic;

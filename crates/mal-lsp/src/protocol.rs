@@ -30,6 +30,12 @@ pub(crate) fn read_message(reader: &mut impl BufRead) -> io::Result<Option<Value
             ));
         };
         if name.eq_ignore_ascii_case("Content-Length") {
+            if content_length.is_some() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "duplicate Content-Length header",
+                ));
+            }
             content_length = Some(value.trim().parse::<usize>().map_err(|_| {
                 io::Error::new(io::ErrorKind::InvalidData, "invalid Content-Length")
             })?);
@@ -76,6 +82,14 @@ mod tests {
     #[test]
     fn rejects_a_missing_content_length() {
         let input = Cursor::new(b"Other: value\r\n\r\n{}".as_slice());
+        let error = read_message(&mut BufReader::new(input)).unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn rejects_duplicate_content_lengths() {
+        let input = Cursor::new(b"Content-Length: 2\r\nContent-Length: 2\r\n\r\n{}".as_slice());
         let error = read_message(&mut BufReader::new(input)).unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);

@@ -35,7 +35,7 @@ struct PositionParams {
 #[serde(rename_all = "camelCase")]
 struct CompletionParams {
     text_document: TextDocumentIdentifier,
-    position: Option<Position>,
+    position: Position,
 }
 
 impl Server {
@@ -110,20 +110,16 @@ impl Server {
             return error(id, -32602, "document is not open");
         }
         let source = self.documents[&uri].source(&uri);
-        if let Some(position) = request.position
-            && let Some(items) = completion::requirement_completions(&uri, &source, position)
-        {
+        if let Some(items) = completion::requirement_completions(&uri, &source, request.position) {
             return success(id, json!(items));
         }
-        let receiver_context = request.position.is_some_and(|position| {
-            source
-                .byte_offset_utf16(Utf16Position {
-                    line: position.line,
-                    character: position.character,
-                })
-                .and_then(|offset| completion::receiver_suffix_start(source.text(), offset))
-                .is_some()
-        });
+        let receiver_context = source
+            .byte_offset_utf16(Utf16Position {
+                line: request.position.line,
+                character: request.position.character,
+            })
+            .and_then(|offset| completion::receiver_suffix_start(source.text(), offset))
+            .is_some();
         if self.ensure_analyzed(&uri) {
             let Some(document) = self.documents.get_mut(&uri) else {
                 return error(id, -32602, "document is not open");
