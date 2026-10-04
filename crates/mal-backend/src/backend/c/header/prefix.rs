@@ -3,8 +3,7 @@ use crate::backend::c::syntax::{TranslationUnit, c_items};
 use super::C_ABI_VERSION_LITERAL;
 
 pub(super) fn emit_prefix(
-    index_bits: usize,
-    _memory_access: bool,
+    target: crate::backend::llvm::TargetLayout,
     dependencies: &[String],
     umbrella: bool,
 ) -> TranslationUnit {
@@ -20,9 +19,15 @@ pub(super) fn emit_prefix(
     }
     output.blank_line();
     let abi_version = crate::backend::c::syntax::Expr::number(C_ABI_VERSION_LITERAL);
+    let (symbol_size, symbol_offsets) = crate::backend::llvm::symbol_carrier_layout(target);
     output.extend(c_items! {
-        assert!(MAL_C_ABI_VERSION == { abi_version }, "generated header requires mal C ABI 0x000900");
-        assert!(sizeof(0 as size_t) * CHAR_BIT == { index_bits }, "size_t does not match the mal target pointer index width");
+        assert!(MAL_C_ABI_VERSION == { abi_version }, "generated header requires mal C ABI 0x000a00");
+        assert!(sizeof(0 as size_t) == { target.index_size }, "size_t does not match the mal target index width");
+        assert!(sizeof(0 as *mut void) == { target.pointer_size }, "C pointer size does not match the mal target");
+        assert!(sizeof(*(0 as *mut MalType_Symbol)) == { symbol_size }, "Symbol carrier size does not match the mal target");
+        assert!(offsetof(MalType_Symbol, owner) == { symbol_offsets[0] }, "Symbol owner offset does not match the mal target");
+        assert!(offsetof(MalType_Symbol, data) == { symbol_offsets[1] }, "Symbol data offset does not match the mal target");
+        assert!(offsetof(MalType_Symbol, length) == { symbol_offsets[2] }, "Symbol length offset does not match the mal target");
     });
     output
 }

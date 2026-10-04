@@ -1,6 +1,6 @@
 # プログラム構造
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 ## program と source file
 
@@ -19,7 +19,7 @@ file種別はpathの末尾にある`.mal`または`.c`で決める。`.mal` requ
 errorとする。
 
 `.c` requirementは名前を導入せず、`malc`のC build inputへ推移的に追加する。同じcanonical pathのC sourceは
-一度だけcompileする。`.c` requirementの意味は[C host ABI](c-host-abi.md#build-model)に定める。package名、探索path、remote
+一度だけcompileする。`.c` requirementの意味は[C runtime extension ABI](c-host-abi.md#build-model)に定める。package名、探索path、remote
 dependency、namespace、一般的なqualified name、require alias、selective importは持たない。
 
 直接requireした複数fileのpublic名同士、または導入したpublic名と宣言元fileのtop-level名が同じnamespaceで重複すれば
@@ -49,7 +49,7 @@ value binding
 ```mal
 Point :: (Float64, Float64);
 opaque Counter :: Int32;
-extern printBytes :: (Address, USize) -> Unit;
+extern printBytes :: Buffer<UInt8> -> Unit;
 extern sqrt :: Float64 -> Float64;
 
 distance :: (Point, Point) -> Float64 :=
@@ -95,9 +95,9 @@ main :: Buffer<Symbol> -> Int32 := (arguments) ->
 ```
 
 parameterは`argv[1]`以降の各argumentを表す`Symbol`のBufferで、実行ファイル名を含まない。各`Symbol`は終端NULを除くargumentの
-bytesを持ち、起動時にmalへcopyされる。Bufferのcountはargument数に等しく、encodingの解釈はhost contractが提供する。
-argumentはmal-ownedな値であり、`main`のreturnまでという有効期間はない。argumentをhostへ渡すときは、他のSymbolと同じく
-[C host copy](memory.md#c-host-copy-boundary)でhost storageへ書く。
+bytesを持ち、起動時にruntime-managed valueとして構成される。Bufferのcountはargument数に等しく、encodingの解釈はhost contractが
+提供する。argumentはmal-ownedな値であり、`main`のreturnまでという有効期間はない。extern Cへは他のSymbolとBufferと同じruntime
+carrierとして渡せる。
 
 `Unit -> Int32`と`Buffer<Symbol> -> Int32`以外の`main`型はcompile-time errorである。設計理由は
 [D030](../history/decisions/active/D030.md)と[D076](../history/decisions/active/D076.md)に記録する。

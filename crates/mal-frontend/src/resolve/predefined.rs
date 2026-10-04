@@ -52,8 +52,7 @@ predefined_types!(
     FLOAT64_TYPE = 12 => ("Float64", "Float64", "An IEEE 754 binary64 floating-point number."),
     BYTE_SIZE_TYPE = 13 => ("ByteSize", "ByteSize", "A target-width unsigned quantity measured in bytes for host contracts."),
     U_SIZE_TYPE = 14 => ("USize", "USize", "A target-width unsigned integer used for element counts, indices, capacities, and element offsets."),
-    ADDRESS_TYPE = 15 => ("Address", "Address", "An opaque capability for host-managed storage. Only the C host copy primitives and extern contracts interpret its referent."),
-    BUFFER_TYPE = 16 => ("Buffer", "Buffer<T>", "A mutable mal-owned sequence. Copies share the same buffer, and storage is reclaimed after its references disappear."),
+    BUFFER_TYPE = 15 => ("Buffer", "Buffer<T>", "A mutable mal-owned sequence. Copies share the same buffer, and storage is reclaimed after its references disappear."),
 );
 
 // Keep the constant and metadata table in one declaration so name lookup, callable classification,
@@ -83,10 +82,8 @@ predefined_values!(
     GET_VALUE = 3 => ("get", "(Buffer<T>, USize) -> T", "Reads an element from a `Buffer<T>`. The index must be within its current count.", true),
     PUT_VALUE = 4 => ("put", "(Buffer<T>, USize, T) -> Unit", "Replaces an element in a `Buffer<T>`. The index must be within its current count.", true),
     MAKE_VALUE = 5 => ("make", "USize -> Buffer<T>", "Creates an empty `Buffer<T>` with the requested initial capacity.", true),
-    FROM_VALUE = 6 => ("from", "(Address, USize, USize) -> Buffer<T>", "Copies an exact element range from initialized C-host storage into a new `Buffer<T>`.", true),
-    INTO_VALUE = 7 => ("into", "(Buffer<T>, Address, USize, USize) -> Unit", "Copies a Buffer range into C-host storage without consuming or mutating the Buffer.", true),
-    FILL_VALUE = 8 => ("fill", "(Buffer<T>, USize, USize, T) -> Unit", "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
-    COPY_VALUE = 9 => ("copy", "(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit", "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
+    FILL_VALUE = 6 => ("fill", "(Buffer<T>, USize, USize, T) -> Unit", "Assigns one value to a Buffer range, extending its count without creating a gap.", true),
+    COPY_VALUE = 7 => ("copy", "(Buffer<T>, USize, Buffer<T>, USize, USize) -> Unit", "Copies a Buffer range into another range, extending the destination count without creating a gap.", true),
 );
 
 pub(crate) fn first_source_type_id() -> u32 {

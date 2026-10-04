@@ -28,35 +28,6 @@ fn preserves_type_alias_names_as_backend_metadata() {
 }
 
 #[test]
-fn checker_marks_only_public_host_mappable_representable_aliases_for_memory_access() {
-    let program = lower_ok(
-        "extern Handle;\n\
-         Sample :: (Int64, UInt8);\n\
-         _Private :: (Int64, UInt8);\n\
-         Managed :: (Int64, Symbol);\n\
-         Opaque :: Handle;\n\
-         Empty :: [];",
-    );
-
-    let access = program
-        .interface
-        .type_aliases
-        .iter()
-        .map(|alias| (alias.name.as_str(), alias.host_memory_access))
-        .collect::<Vec<_>>();
-    assert_eq!(
-        access,
-        [
-            ("Sample", true),
-            ("_Private", false),
-            ("Managed", false),
-            ("Opaque", false),
-            ("Empty", false),
-        ]
-    );
-}
-
-#[test]
 fn preserves_aliases_immediately_named_by_a_type_definition() {
     let program = lower_ok(
         "Count :: UInt64;\n\
@@ -96,7 +67,7 @@ fn extracts_the_host_interface_without_lowering_value_bindings() {
     let source = SourceFile::new(
         FileId::new(42),
         "core-test.mal",
-        "Pair :: (Address, USize);\n\
+        "Pair :: (Symbol, USize);\n\
          extern send :: Pair -> Unit;\n\
          value :: Int32 := 1;"
             .into(),

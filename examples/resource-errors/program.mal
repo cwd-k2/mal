@@ -1,34 +1,26 @@
 require "./host.c";
 
-extern Allocation;
 extern File;
 
-OwnedBuffer :: (Allocation, Address, USize);
 OpenResult :: [File, UInt32];
-ReadResult :: [USize, UInt32];
+ReadResult :: [Buffer<UInt8>, UInt32];
 CloseResult :: [Unit, UInt32];
 CopyResult :: [Unit, UInt32];
 
-extern allocateBuffer :: USize -> OwnedBuffer;
-// The allocation handle is single-release by contract even though mal values remain copyable.
-extern releaseBuffer :: Allocation -> Unit;
-// The host borrows the path byte range only for the duration of this call.
-extern openReadOnly :: (Address, USize) -> OpenResult;
-extern readFile :: (File, Address, USize) -> ReadResult;
+extern openReadOnly :: Symbol -> OpenResult;
+extern readFile :: File -> ReadResult;
 extern closeFile :: File -> CloseResult;
-extern writeBytes :: (Address, USize) -> Unit;
+extern writeBytes :: Symbol -> Unit;
 extern writeError :: UInt32 -> Unit;
 
-bufferSize :: USize := 4096usize;
-
-copyContents :: (File, Address, USize) -> CopyResult :=
-    (file, memory, capacity) -> [complete, failed] => {
-        length := readFile(file, memory, capacity)[(length) -> length, failed];
-        when (length == 0usize) {
+copyContents :: File -> CopyResult :=
+    (file) -> [complete, failed] => {
+        bytes := readFile(file)[(bytes) -> bytes, failed];
+        when (#bytes == 0usize) {
             complete();
         };
-        writeBytes(memory, length);
-        copyContents(file, memory, capacity)[complete, failed];
+        writeBytes(*bytes);
+        copyContents(file)[complete, failed];
     };
 
 // A transfer failure remains primary if closing the file also fails.
@@ -36,19 +28,10 @@ finishCopy :: (CopyResult, CloseResult) -> CopyResult := (copied, closed) ->
     copied[() -> closed, (error) -> [complete, failed] => failed(error)];
 
 copyPath :: Symbol -> CopyResult := (path) -> {
-    pathBytes := *path;
-    pathLength := #pathBytes;
-    capacity := if (pathLength > bufferSize)
-        then pathLength
-        else bufferSize;
-    (allocation, memory, _) := allocateBuffer(capacity);
-    pathBytes.into(memory, 0usize, pathLength);
-    outcome := openReadOnly(memory, pathLength)[
-        (file) -> file.copyContents(memory, capacity).finishCopy(file.closeFile()),
+    openReadOnly(path)[
+        (file) -> file.copyContents().finishCopy(file.closeFile()),
         (error) -> [complete, failed] => failed(error)
     ];
-    releaseBuffer(allocation);
-    outcome;
 };
 
 main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {

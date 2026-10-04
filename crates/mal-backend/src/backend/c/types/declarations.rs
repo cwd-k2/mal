@@ -25,15 +25,14 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Address
+                | Type::Symbol
+                | Type::Buffer(_)
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Symbol
-                | Type::Parameter { .. }
+                Type::Parameter { .. }
                 | Type::Bound { .. }
                 | Type::Application { .. }
                 | Type::Abstraction { .. }
-                | Type::Buffer(_)
                 | Type::Opaque { .. } => {
                     unreachable!("these types never enter the C host registry")
                 }
@@ -116,15 +115,14 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Address
+                | Type::Symbol
+                | Type::Buffer(_)
                 | Type::ByteSize
                 | Type::USize => unreachable!(),
-                Type::Symbol
-                | Type::Parameter { .. }
+                Type::Parameter { .. }
                 | Type::Bound { .. }
                 | Type::Application { .. }
                 | Type::Abstraction { .. }
-                | Type::Buffer(_)
                 | Type::Opaque { .. } => {
                     unreachable!("these types never enter the C host registry")
                 }
@@ -215,7 +213,8 @@ impl TypeRegistry {
                 format!("mal_detail_to_raw_{}", self.index(element))
             }
             Type::External { name, .. } => format!("mal_{name}_return"),
-            Type::Address => "mal_Address_return".into(),
+            Type::Symbol => "mal_Symbol_return_move".into(),
+            Type::Buffer(_) => "mal_Buffer_return_move".into(),
             _ => identity(),
         };
         if matches!(aggregate, Type::Product(_)) {
@@ -237,7 +236,6 @@ impl TypeRegistry {
                 Type::UInt64 => "UInt64",
                 Type::Float32 => "Float32",
                 Type::Float64 => "Float64",
-                Type::Address => "Address",
                 Type::ByteSize => "ByteSize",
                 Type::USize => "USize",
                 _ => unreachable!("only host scalar types have builtin conversion helpers"),
@@ -260,6 +258,20 @@ impl TypeRegistry {
                     format!("mal_detail_to_host_{name}")
                 } else {
                     format!("mal_{name}_return")
+                }
+            }
+            Type::Symbol => {
+                if direction == "host" {
+                    "MAL_DETAIL_REPR_IDENTITY".into()
+                } else {
+                    "mal_Symbol_return_move".into()
+                }
+            }
+            Type::Buffer(_) => {
+                if direction == "host" {
+                    "MAL_DETAIL_REPR_IDENTITY".into()
+                } else {
+                    "mal_Buffer_return_move".into()
                 }
             }
             _ => format!("mal_{}_return", scalar(element)),

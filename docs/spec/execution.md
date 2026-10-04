@@ -1,6 +1,6 @@
 # 実行意味論
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 ## 評価戦略
 
@@ -136,8 +136,8 @@ internal invariant failureはこの言語上のtrap条件に含めない。
 `malc`のC runtimeは理由をstderrへ出力して`abort()`する。portableなprocess exit codeは規定しない。
 host adapterは回復不能なcontract violationを`mal.h`の`mal_call_trap`で同じ終了へ写像できる。
 
-Addressを使うcopyの範囲、permission、initialization、lifetime違反はhost contract違反であり、Buffer accessのindexと
-copy offsetのprecondition違反も特定の実行結果を保証しない。詳細は[memory](memory.md)に定める。
+Buffer accessとrange operationのprecondition違反、extern Cがruntime carrierとlifecycleを破壊した後の評価は特定の実行結果を
+保証しない。詳細は[memory](memory.md)と[`extern`](extern.md)に定める。
 
 ## core calculus
 

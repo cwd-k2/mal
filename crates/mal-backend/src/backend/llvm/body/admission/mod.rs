@@ -6,12 +6,11 @@ use mal_syntax::diagnostic::Diagnostic;
 mod layout;
 mod operation;
 
-use layout::{admit_host_memory_layouts, admit_runtime_storage};
+use layout::{admit_external_storage, admit_runtime_storage};
 use operation::{admit_atom, admit_operation};
 
 use crate::backend::llvm::TargetLayout;
 use crate::backend::llvm::body::types::Types;
-use crate::backend::source_layout::SourceLayouts;
 pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Result<(), Diagnostic> {
     let maximum = match target.index_size {
         1 => u8::MAX as u128,
@@ -20,9 +19,8 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
         8 => u64::MAX as u128,
         _ => unreachable!("target layout admits only supported index widths"),
     };
-    let layouts = SourceLayouts::new(target);
     let types = Types::for_target(target);
-    admit_host_memory_layouts(program, layouts, &types, maximum)?;
+    admit_external_storage(program, &types, maximum)?;
     admit_control_frames(program, &types, maximum)?;
     admit_runtime_slots(program, &types, maximum)?;
     let mut blocks = program
@@ -42,7 +40,6 @@ pub(super) fn admit(program: &execution::Program, target: TargetLayout) -> Resul
                 binding.pattern.ty(),
                 binding.span,
                 maximum,
-                layouts,
                 &types,
                 &mut blocks,
             )?;

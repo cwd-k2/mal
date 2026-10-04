@@ -21,7 +21,6 @@ pub(in crate::check) fn type_name(ty: &Type) -> String {
                 Type::Float32 => "Float32",
                 Type::Float64 => "Float64",
                 Type::Symbol => "Symbol",
-                Type::Address => "Address",
                 Type::ByteSize => "ByteSize",
                 Type::USize => "USize",
                 Type::Parameter { name, .. } => name,

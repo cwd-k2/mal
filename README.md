@@ -46,7 +46,7 @@ This program shows the main control forms:
 
 `return` and `throw` are ordinary local names, not statements or keywords.
 
-[`docs/spec/scope.md`](docs/spec/scope.md) lists what mal v0.6 includes and excludes.
+[`docs/spec/scope.md`](docs/spec/scope.md) lists what mal v0.7 includes and excludes.
 
 Allocation, files, networking, clocks, randomness, and other platform policy remain on the host
 side of the `extern` boundary.
@@ -55,7 +55,7 @@ side of the `extern` boundary.
 
 The repository is a Cargo workspace under `crates/` that provides the `malc` compiler, the `mal-fmt` formatter, and the
 `mal-lsp` language server, together with checked examples and VS Code, Neovim, and Helix support. The crate structure is
-described in [`docs/implementation/responsibilities.md`](docs/implementation/responsibilities.md). Neovim and Helix share a Tree-sitter grammar. v0.6 is under
+described in [`docs/implementation/responsibilities.md`](docs/implementation/responsibilities.md). Neovim and Helix share a Tree-sitter grammar. v0.7 is under
 development; generated artifacts and host ABI compatibility are not guaranteed across compiler
 versions.
 

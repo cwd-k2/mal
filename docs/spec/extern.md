@@ -1,164 +1,104 @@
-# `extern` 境界
+# `extern`境界
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 ## 目的
 
-I/O、allocation、deallocation、filesystem、network、clock、randomness、process、thread、およびhost固有の
-resource operationはmalの意味論へ個別に取り込まず、program固有のexternal operationに置く。external storageへの
-capabilityは`Address`またはexternal opaque typeで運び、canonical memory representationとの固定された変換には
-[AddressとBuffer](memory.md)を使う。
+I/O、filesystem、network、clock、randomness、process、thread、system call、host resource、native codecなど、mal sourceだけで
+実装しないoperationはprogram固有の`extern` declarationに置く。C implementationは同じcompiler/runtime revisionへ結合する
+runtime extensionであり、mal valueのruntime carrierを直接構築、観測、変更できる。
 
 ```mal
-extern Mem;
-Allocation :: (Mem, Address);
-extern alloc :: ByteSize -> Allocation;
-extern release :: Mem -> Unit;
-extern print :: (Address, USize) -> Unit;
-
-output :: (Address, USize) -> Unit := print;
+extern File;
+extern open :: Symbol -> [UInt32, File];
+extern read :: (File, USize) -> [UInt32, Buffer<UInt8>];
+extern write :: (File, Buffer<UInt8>) -> [UInt32, USize];
+extern close :: File -> Unit;
 ```
 
-external operationは宣言によって通常のtop-level function valueとしてscopeへ入る。呼び出しには通常のapplicationを使い、
-値としてbindingしたり引数やresultとして受け渡したりできる。
+external operationは通常のtop-level function valueとしてscopeへ入る。参照、binding、受け渡しだけではhost operationを実行せず、
+applicationしたときに宣言されたC bodyを一度呼ぶ。local bindingによるshadowingも通常のlexical scopeに従う。
 
-```mal
-main :: Unit -> Int32 := () -> {
-    (mem, address) := alloc(5bytes);
-    bytes := *"hello";
-    bytes.into(address, 0usize, #bytes);
-    output(address, #bytes);
-    release(mem);
-    0
-};
-```
+malはeffect systemを持たず、通常の関数型はpure/impureを区別しない。compilerはextern applicationを外部stateと未知のmemoryを
+観測、変更し得るoperationとして扱い、sourceで観測できる評価順序を変えてはならない。
 
-この例の`address`が指すwritableな5 bytesと`mem`との関係はprogram固有のcontractが定める。
+## Admitted type
 
-function valueの参照、binding、受け渡しだけではhost operationを実行せず、境界transportも起きない。そのfunction valueを
-applicationしたときに宣言されたhost operationを一度呼び出す。local bindingが同名のexternal operationをshadowした場合も、
-通常のlexical scopeに従う。
-
-external operationはExternに関わるoperationのすべてを表す分類ではなく、program固有のnamed host operationである。
-memory operationもExtern-owned storageを観測または変更するが、その表現と評価規則は言語が定め、
-host symbolを呼ばない。両者を配置する規則は[authority policy](../design/authority.md#policyとmechanismを分ける)に
-定める。
-
-## Host-mappable type
-
-extern declarationのparameter型とresult型は、次の閉じた`HostMappable(A)` judgmentを満たさなければならない。
+extern parameterとresultはaliasを展開し、file-local opaque typeをhidden representationへ正規化した後、closed concrete typeで
+なければならない。次を直接または再帰的に含められる。
 
 ```text
-HostMappable(Unit | Bool | numeric scalar | Address | ByteSize | USize) = true
-HostMappable(external opaque type) = true
-HostMappable((A...)) = all HostMappable(A)
-HostMappable([A...]) = all HostMappable(A)
-HostMappable(Symbol | function | Buffer<A> | file-local opaque type) = false
+Unit、Bool、numeric scalar、ByteSize、USize
+external opaque type
+Symbol
+Buffer<A> where Storable(A)
+productとsum
 ```
 
-aliasはconcreteなtype argumentを代入して完全に展開した後に判定する。generic bindingとspecializationをpublic C symbolやheaderへ
-出さない。このjudgmentはmemory safetyやresource safetyを意味しない。各leafがadmission、observation、capability transferの
-どれになるかは[EngramとExtern](engrams.md#境界のoperation)に従う。
+function型を直接またはaggregate、Buffer element、opaque representationを通して含めてはならない。Cからmal closureを呼んで元の
+C activationへ戻るcallback ABI、environment responsibility、program固有continuationを定めないためである。empty sumはparameterや
+aggregate memberとしてcarrierを持てるがvalid valueを持たず、正常なresultとして構築できない。
 
-```text
-HostMappable((Address, USize)) = true
-HostMappable(Symbol)           = false
-HostMappable(Buffer<UInt8>)    = false
-```
+generic extern declarationは認めない。generic bindingはwhole-program specializationで単相化されるが、一つのC definitionへopen type
+parameterを渡すruntime descriptorは存在しない。利用者は必要なconcrete external operationを宣言するか、genericな処理をmalで書く。
 
-byte列は`Symbol`や`Buffer<UInt8>`のcarrierとして渡さず、`Address`と`USize`または`ByteSize`を含む
-operation固有のHostMappableな型で渡す。productの構造的一致だけではpermissionやborrowの方向を決めず、operation contractが
-readable inputまたはwritable capacityと、その範囲、初期化、lifetimeを定める。call-scopedなAddress parameterとそこから派生した
-pointerをhostはcall後に保持しない。extern resultのAddressはcall後にも有効なcapabilityだけを返せる。
+このadmissionはhost implementationの安全性を示さない。C bodyがruntime contractを破った後のprogram behaviorは保証しない。
 
-```mal
-extern print :: (Address, USize) -> Unit;
-extern choose :: [Int32, Address] -> Int32;
-```
+## Source-level semantics
 
-上の二つはvalidである。次はfunction型を含むためinvalidである。
+applicationではargumentを通常の式と同じく左から右へ評価し、continuationであるcalleeをその後に評価する。host bodyが正常に
+resultを一度返した後、その型のmal valueを得たものとして評価を続ける。host bodyがtrapまたはprocess terminationしたpathは
+正常resultを返さない。
 
-```mal
-extern register :: (Int32 -> Unit) -> Unit;
-extern wrapped :: [Unit, Int32 -> Int32] -> Unit;
-extern makeCallback :: Unit -> (Int32 -> Int32);
-```
+scalar、product、sum、Symbol descriptorのcarrier自体はby-valueでC bodyへ渡す。Bufferは共有identityへのhandleであり、productや
+sumに含まれるmanaged leafも同じreferentを指す。Cがborrow中にBuffer identityを変更すれば、malのaliasから変更を観測できる。
+Symbolのbyte値はimmutableであり、Cが完成済みstorageを書き換えた後の挙動は保証しない。
 
-この制約はmal内のfirst-class closureを制限しない。callback ABIとhostによるclosure保持は対象外である。決定理由は[D016](../history/decisions/active/D016.md)に記録する。
+## Managed responsibility
 
-## source-level semantics
+managed parameterはhost bodyが正常returnまたはtrapするまでcallerが保持するborrowである。C bodyはborrow responsibilityをdropしては
+ならない。call後も値を保持する場合は`mal.h`のSymbol/Buffer share operationをmanaged leafへ再帰的に適用し、独立したresponsibilityを
+C-owned storageへ保存する。保存したresponsibilityは同じruntimeとthreadのcontractに従って後にdropする。carrier bitsだけのcopyは
+lifetimeを延長しない。
 
-external declarationはmal側の型だけを宣言する。applicationでは引数を通常の式と同じく左から右へ評価し、
-continuationであるcalleeをその後に評価する。external function valueの評価自体にhostから観測できる作用はない。
-host operationが返り、resultのEngram部分のadmissionとExtern capabilityのtransferが完了した後、宣言された型の
-mal valueを得たものとして評価を続ける。
+managed resultはC bodyが所有する一つのresponsibilityをterminal return helperへmoveする。helper後に同じresponsibilityを使用または
+dropしてはならない。productとsumではactiveなmanaged leafへ再帰的にこの規則を適用する。hostがruntime allocationや別のshareで
+取得し、resultにもC-owned storageにも渡さなかったtemporary responsibilityはhostがdropする。
 
-mal は effect system を持たず、通常の関数型は pure/impure を区別しない。
+`mal.h`はSymbolとBufferのshare/drop、trivialまたはmanaged element Bufferの構築、terminal result moveを提供し、generated headerは
+aggregate constructorとreturn helperを提供する。aggregateの保存やmanaged Buffer callbackはhostがactive managed leafへ再帰して
+実装する。二重move、borrowのdrop、live placeのraw overwrite、invalid ownerなどcontract違反後の結果は保証しない。
 
-```mal
-printValue :: Int32 -> Unit := (x) -> {
-    printInt32(x);
-    ();
-};
-```
+## External opaque type
 
-この型は単に `Int32 -> Unit` である。
+external opaque typeはone-machine-wordのcopyable carrierである。malのcopy、binding、discard、Buffer storageはcarrier bitsだけを扱い、
+resourceのallocate、retain、release、close、freeを暗黙に実行しない。Cはgenerated `from_bits`と`to_bits`で`uintptr_t`へlosslessに
+変換できる。zeroを含むvalid bit pattern、resource identity、permission、lifetime、failureはoperation固有contractが定める。
 
-## host contract
+file、socket、mapping、device allocationなどcall後にも存在するhost resourceはnominalなexternal opaque typeで表せる。raw pointerを
+sourceへ公開する万能型と、任意memoryをdereferenceするpredefined operationは持たない。runtime-managed native objectを新しい
+source typeとして追加する場合は、その型のidentityとshare/dropを別途仕様化する。
 
-型の宣言だけではABI、ownership、lifetime、failureを定義できない。malの実行環境では
-[C host ABI](c-host-abi.md)とprogram固有のoperation contractが少なくとも次を定義する。
+## Host contractとfailure
 
-- symbol の名前解決と calling convention
-- scalar、product、sumの表現
-- opaque value の size、alignment、copy/drop の意味
-- Addressが指すbyte storageの範囲、permission、lifetime
-- host failure を trap、process termination、戻り値のどれへ写像するか
-- host が保持してよい引数と、mal が保持してよい戻り値
-- result capabilityをmalへtransferするcommit pointと、それ以前にhostが取得した一時resourceのcleanup
+型だけではoperation固有の意味を定義できない。C implementationとそのmal-facing APIは少なくとも次を定める。
 
-## boundary transport
+- resource、byte encoding、system call、partial transferの意味
+- argumentとして受け取るshared identityへの変更
+- resultに含めるexternal resourceのpermissionとlifetime
+- recoverable failureをsum result、trap、process terminationのどれへ写すか
+- hostがshareして保持するmanaged valueと、そのdrop point
+- temporary external resourceとmanaged responsibilityのcleanup
 
-admission、observation、capability transferと各leafのlifetime authorityは
-[Engram仕様](engrams.md#境界のoperation)を正とする。この文書はexternの評価と型shapeだけを所有し、C carrier、borrow、
-terminal returnは[C host ABI](c-host-abi.md)が定める。
+`mal_call_trap`はrecover不能なfailureでprocessを終了する。現在のruntimeはtrapから回復しないため一般的なstack unwindingとrollbackを
+提供しない。hostはtrapし得るhelperより前に取得したtemporary external resourceを残さない構成にするか、operation固有のcleanupを
+行う。contract違反を境界で検査することは要求しない。
 
-unboundedなstreaming inputでは、program固有のexternがAddressとcapacityを受け取ってinitialized prefixのUSizeを返す。
-mal側は返されたcountを`from<UInt8>`のlengthとしてBufferへcopyし、必要ならSymbol snapshotへ変換する。
+## Concurrency
 
-opaque value は copyable/droppable な handle bit pattern として振る舞い、resource の close/free 多重実行を言語は防がない。
-決定理由は[D015](../history/decisions/active/D015.md)に記録する。
+runtime contextとmanaged valueはthread-confinedである。C bodyは同じcall capabilityまたはmanaged carrierへ複数threadから同時に
+accessしてはならない。worker threadがexternal bytesだけを処理する場合も、managed resultの構築とreturnは元のruntime threadで行う。
+cross-thread managed sharing、async callback、Cからmalへのreentryはこの境界に含まれない。
 
-host operationがresult capabilityを正常returnする前にtrapするか、capabilityを含まないfailure resultを返す場合、
-そのoperationだけが取得し、callerにもresultにも属さない一時resourceはadapterが解放する。正常resultへ含めた
-capabilityのtransferはreturn時にcommitする。この規則はargumentとして受け取ったresource、以前のcallでtransfer済みの
-resource、またはtrap時の一般的なstack unwindingをcleanupしない。trapし得るruntime helperを呼ぶadapterは、helperより前に
-取得した一時resourceを残さない構成にするか、operation固有のcleanup手段を用意する。
-
-Addressを返すoperationは、指すlive region、permission、lifetimeをhost contractに定める。Addressの複製はstorageを複製せず、
-lifetimeを延長しない。Addressをcopy primitiveへ渡す場合のpreconditionは[AddressとBuffer](memory.md#未検査precondition)に従う。
-
-## ABI と adapter
-
-`extern` 宣言を任意の C function declaration と同一視しない。特にproductとsumはtarget ABIによって引数・戻り値の渡し方が異なる。
-
-`malc`はHostMappableな型だけに一貫したpublic C representationを生成し、必要に応じて手書きまたは生成した小さなC adapterを介して
-host APIを呼ぶ。generated wrapperとhost bodyはtrusted computing baseに含まれるが、raw host resourceそのものではない。
-runtime contextを一時的に借りてadmissionを依頼できても、Engramのownershipやlifetime authorityは得ない。
-C header parserやC type systemはmalに導入しない。
-
-C ABIのhost valueとterminal return規約は[C host ABI](c-host-abi.md#host-operation)だけが定める。決定理由は
-[D040](../history/decisions/active/D040.md)に記録する。
-
-`malc`はprogram固有のC headerを生成する。利用者はそのheaderに対するC sourceを`.mal` fileからrequireする。
-symbolはlink時に解決し、runtime `dlopen`やplugin discoveryは行わない。正確なmappingは
-[C host ABI](c-host-abi.md)に定める。
-
-## trusted boundary
-
-generated adapterはHostMappable valueのtagやAddressなど、C carrierからEngramまたはcapabilityをadmitするために
-[C host ABI](c-host-abi.md)が要求するrepresentation validationを行う。region、permission、lifetime、resource identity、
-operation固有のpostconditionはhost implementationのcontractが保証する。
-
-host implementationとadapterはこのcontractのtrusted computing baseに含まれる。型検査済みmal programは、contractに反して
-早く失効するbuffer、範囲外のAddress、二重解放可能なhandleから保護される保証を持たない。
+正確なC representationとbuild規則は[C ABI](c-host-abi.md)、Buffer lifecycleは[`Buffer`](memory.md)、値のauthorityは
+[EngramとExtern](engrams.md)を正とする。採択理由は[D098](../history/decisions/active/D098.md)に記録する。

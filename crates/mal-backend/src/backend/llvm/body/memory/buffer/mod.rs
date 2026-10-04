@@ -1,9 +1,8 @@
 use crate::backend::llvm::syntax::emit_instruction;
 mod access;
-mod address;
 mod runtime_owned;
 
-use crate::backend::llvm::syntax::{BinaryOperator, MetadataAttachment, llvm_type};
+use crate::backend::llvm::syntax::{BinaryOperator, MetadataAttachment};
 use crate::core::ast::BufferOperation;
 use crate::execution::ownership::{Lifecycle, lifecycle};
 use mal_frontend::check::ast::Type;
@@ -15,9 +14,6 @@ pub(in crate::backend::llvm::body) use runtime_owned::OwnedBufferElements;
 /// must preserve an owned lifecycle through callbacks collected by [`OwnedBufferElements`].
 #[derive(Clone, Copy)]
 pub(in crate::backend::llvm::body) enum ElementStorage {
-    Canonical {
-        stride: usize,
-    },
     Runtime {
         stride: usize,
         alignment: usize,
@@ -28,13 +24,12 @@ pub(in crate::backend::llvm::body) enum ElementStorage {
 impl ElementStorage {
     fn stride(self) -> usize {
         match self {
-            Self::Canonical { stride } | Self::Runtime { stride, .. } => stride,
+            Self::Runtime { stride, .. } => stride,
         }
     }
 
     fn lifecycle(self) -> Lifecycle {
         match self {
-            Self::Canonical { .. } => Lifecycle::Trivial,
             Self::Runtime { lifecycle, .. } => lifecycle,
         }
     }
@@ -43,8 +38,7 @@ impl ElementStorage {
     /// for the references its elements own; the plain function stays free of that cost.
     fn runtime(self, operation: &str) -> String {
         match self {
-            Self::Canonical { .. }
-            | Self::Runtime {
+            Self::Runtime {
                 lifecycle: Lifecycle::Trivial,
                 ..
             } => format!("mal_runtime_buffer_{operation}"),
@@ -158,16 +152,12 @@ impl FunctionEmitter<'_> {
                 }
                 let data = self.active_buffer_data(buffer);
                 let pointer = self.buffer_element_pointer(&data, index, stride)?;
-                match storage {
-                    ElementStorage::Runtime {
-                        alignment,
-                        lifecycle,
-                        ..
-                    } => self.emit_runtime_element_get(&pointer, element, alignment, lifecycle),
-                    ElementStorage::Canonical { .. } => {
-                        self.emit_aligned_buffer_load_at(&pointer, element)
-                    }
-                }
+                let ElementStorage::Runtime {
+                    alignment,
+                    lifecycle,
+                    ..
+                } = storage;
+                self.emit_runtime_element_get(&pointer, element, alignment, lifecycle)
             }
             BufferOperation::Put => {
                 let [buffer, index, value] = operands else {
@@ -183,18 +173,12 @@ impl FunctionEmitter<'_> {
                 if stride != 0 {
                     let data = self.active_buffer_data(buffer);
                     let pointer = self.buffer_element_pointer(&data, index, stride)?;
-                    match storage {
-                        ElementStorage::Runtime {
-                            alignment,
-                            lifecycle,
-                            ..
-                        } => {
-                            self.emit_runtime_element_put(&pointer, value, alignment, lifecycle)?;
-                        }
-                        ElementStorage::Canonical { .. } => {
-                            self.emit_aligned_buffer_store_at(&pointer, value)?;
-                        }
-                    }
+                    let ElementStorage::Runtime {
+                        alignment,
+                        lifecycle,
+                        ..
+                    } = storage;
+                    self.emit_runtime_element_put(&pointer, value, alignment, lifecycle)?;
                 }
                 Some(emitted_unit())
             }
@@ -277,11 +261,6 @@ impl FunctionEmitter<'_> {
         &self,
         element: &Type,
     ) -> Option<ElementStorage> {
-        if let Some(layout) = self.source_layouts.layout(element) {
-            return Some(ElementStorage::Canonical {
-                stride: layout.stride,
-            });
-        }
         let value = self.types.value(element)?;
         Some(ElementStorage::Runtime {
             stride: value.size,

@@ -1,4 +1,4 @@
-// Every lexical category in the v0.6 profile appears in this fixture.
+// Every lexical category in the v0.7 profile appears in this fixture.
 require "./support.mal";
 
 extern Handle;

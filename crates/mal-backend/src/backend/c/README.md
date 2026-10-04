@@ -7,13 +7,13 @@ module lives in `backend/llvm/shim`.
 |---|---|
 | `header`, `header/prefix` | the layout of one file's header, from include guards to the runtime ABI prefix |
 | `header/common` | the program-independent C ABI declarations every header includes |
-| `header/common/templates` | the C templates for aggregate conversion, canonical memory, and public sums |
+| `header/common/templates` | the C templates for aggregate conversion and public sums |
 | `host_signature` | host operation signatures |
 | `types` | the C type of every host-visible type, under one structural identity |
 | `types/collect` | interning of host-visible types under one structural identity |
 | `types/collect/interface` | the host-visible types a program interface reaches |
 | `types/declarations` | the C declarations of registered types and their representation descriptors |
-| `types/host` | constructors, observers, and projections of host-mappable aggregates |
+| `types/host` | constructors, observers, and projections of host-visible runtime aggregates |
 | `types/host/declaration` | the type declarations the host adapter and the public header need |
 | `types/host/memory` | unaligned-safe C access to the canonical layout |
 | `syntax` | typed C syntax nodes and their rendering |

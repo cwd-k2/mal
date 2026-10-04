@@ -1,6 +1,6 @@
-# v0.6 conformance matrix
+# v0.7 conformance matrix
 
-Status: Current v0.6 verification matrix
+Status: Current v0.7 verification matrix
 
 この文書は[`spec/`](../spec/)の規範を実装完了に必要なobservable evidenceへ対応させる。test layerとcommandは
 [test policy](testing.md)を正とする。各行はfocusedなpositive、negative、edge caseと、必要なcross-boundary pathを要求する。
@@ -23,42 +23,39 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [requirements](../spec/generics.md#requirements) | signature内のnested `Buffer<A>`と`Buffer<F<A>>`、alias展開、requirement不足、既知の非storable型 | constructor parameterを渡すgeneric間applicationとBufferを直接受け取るgeneric function |
 | [specialization](../spec/generics.md#specialization) | canonical key共有、same-key recursion、polymorphic recursion rejection、65,536-node boundaryとspan | specialization後のprogramが既存ANF/ownership/backendだけで実行される |
 | [operation family](../spec/operation-families.md) | familyとexact/generic implementationの分類、closed constructor key、constructor pattern rejection、pattern overlap、全parameter束縛、減少、signature不一致、requirement伝播、missing implementation、opaque key | directly required familyへのimplementation、constructor keyまたはgeneric patternから選択したimplementationが既存backendだけで実行される |
-| [file-local opaque type](../spec/types.md#file-local-opaque-type) | declaration identity、同一fileの構築と分解、別fileのrepresentation拒否、recursive representation、HostMappable拒否 | specializationでrepresentationへ消去したproduct/sumを既存backendで実行する |
+| [file-local opaque type](../spec/types.md#file-local-opaque-type) | declaration identity、同一fileの構築と分解、別fileのrepresentation拒否、recursive representation | specializationでrepresentationへ消去したproduct/sumを既存backendとextern bridgeで実行する |
 
-## Memory layoutとaccess
+## Memory representationとaccess
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
 | [Storable](../spec/memory.md#storable) | 全base、`Symbol`、nested product/sum、nested Buffer、empty sum、function、opaqueと、それらを含むaggregate | `Buffer<Symbol>`とnested Bufferの`new`・`get`・`put`・`fill`・`copy`を、成長、上書き、重なるcopy、handle alias、深い再帰の負荷を含めてAddressSanitizerで実行し、ソート、hash table、queue、木、closure、sum、early returnの各programをbaselineとproductionの両方で同じ検査にかける |
-| [Representable](../spec/memory.md#representable) | 全base、nested product/sum、Bool、empty sum、`Symbol`、function、opaque、`Buffer<A>` | representable aggregateのstore/load round-trip、`Symbol`要素と型parameter要素への`from`・`into`の拒否 |
-| [canonical layout](../spec/memory.md#canonical-layout) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride 0 | target data layoutから作ったplanとLLVM/C adapterの一致 |
+| [runtime element representation](../spec/memory.md#runtime-element-representation) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride、managed element lifecycle | target data layoutから作ったLLVM layout、Buffer stride、generated C carrierの一致 |
 | [Buffer access](../spec/memory.md#buffer) | make/new/get/put/fill/copy、empty、growth、Unit、product/sum、aliasとoverlap越しのread-your-writes、read-after-new、generic receiver application | managed lifetimeを含むcompiled artifact、Bufferをhelper・closure・再帰frameへ渡すnative fixture |
-| [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、rangeとhost lifetime contract | C host copy artifact |
-| [target contract](../spec/memory.md#canonical-representationとtarget-contract) | pointer representation幅とindex幅の分離、unrepresentable layout、canonical alignment | targetとsynthetic data layout fixtures |
+| [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、range、growth後のpointer失効 | C hostが構成したBufferをmalと相互に変更するartifact |
 
 ## Buffer、Symbol
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C host copy](../spec/memory.md#c-host-copy-boundary) | offset、length、zero-count、Unit、Address element、operand一回評価 | host storageからBufferへcopyしhost storageへ戻す |
 | [Symbol conversion](../spec/memory.md#symbol-conversion) | snapshot independence、変換元activation終了後のresult lifetime | mutation前後のSymbol/Buffer比較 |
 | [Symbol operator](../spec/symbols.md#operator) | length、byte access、concatenation、`/`と`%`の端点・分割則・左結合range、型の拒否 | range viewを連結・比較するcompiled artifactとmanaged lifetime |
-| [HostMappable](../spec/extern.md#host-mappable-type) | generic alias完全展開、Symbol/Buffer rejection、nested product/sum | Addressと長さだけを使うgenerated headerとC adapterをcompile/link/execute |
+| [extern carrier](../spec/extern.md#admitted-type) | generic extern、functionを含む型、open typeの拒否、Symbol、Buffer、opaque representation、nested product/sumの受理 | managed carrierをCで構成、変更、share/dropし、malと往復するartifact |
 
 ## ABI
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C host ABI](../spec/c-host-abi.md) | ABI `0x000900`、共通`mal.h`、file header、`mal_Address_t`、size_t/index幅assertion、aggregate recursive mapping | generated header、LLVM module、C shim、runtimeを同じClang targetで実行 |
-| [Engram/Extern](../spec/engrams.md) | admission、observation、capability transfer、invalid host representation | Addressと長さで借りたexternal bytesのadmissionとobservation |
+| [C host ABI](../spec/c-host-abi.md) | ABI `0x000a00`、共通`mal.h`、file header、target assertion、aggregate mapping、Symbol/Buffer helper、managed result move | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
+| [Engram/Extern](../spec/engrams.md) | borrowed parameter、shared responsibility、result move、external opaque resource、invalid host representation | hostがmal-owned Bufferを生成し、malの変更をborrowで観測する |
 
 ## Specification cases
 
 [`spec/`](../spec/)の言語規則のうち短いprogramで観測できるものは、`crates/mal-compiler/tests/spec/`のcaseで検査する。
-各caseは、受理、特定の診断による拒否、実行結果のexit code、trapのいずれかを期待する。canonical memory layoutはhost adapterがbyte列を
-照合する。新しい言語規則にはcaseを一つ以上加える。
+各caseは、受理、特定の診断による拒否、実行結果のexit code、trapのいずれかを期待する。runtime carrier ABIはgenerated headerを使う
+C adapterが実際に値を構成、観測して照合する。新しい言語規則にはcaseを一つ以上加える。
 
 ## Completion gate
 
-v0.6実装は、上表のfocused evidence、代表cross-boundary test、既存機能のregression testがすべて通り、
+v0.7実装は、上表のfocused evidence、代表cross-boundary test、既存機能のregression testがすべて通り、
 `nu scripts/dev.nu check`が成功した時点で完了する。防御的trapの存在をpositive contractとしてassertするtestは作らない。

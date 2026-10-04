@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use crate::file;
 
 /// Canonical help text printed by `--help`.
-pub const HELP: &str = "mal-fmt — formatter for mal v0.6
+pub const HELP: &str = "mal-fmt — formatter for mal v0.7
 
 Usage:
   mal-fmt [--write] <source.mal>

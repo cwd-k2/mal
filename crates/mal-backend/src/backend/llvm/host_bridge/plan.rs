@@ -12,6 +12,11 @@ pub(super) struct Value<'a> {
 pub(super) enum Kind<'a> {
     Unit,
     Scalar,
+    Symbol {
+        owner_offset: usize,
+        data_offset: usize,
+        length_offset: usize,
+    },
     External,
     Product(Vec<Field<'a>>),
     Sum {
@@ -40,7 +45,14 @@ impl<'a> Value<'a> {
         }
         let kind = match ty {
             Type::Unit => Kind::Unit,
-            Type::Symbol => return None,
+            Type::Symbol => {
+                let fields = types.symbol_fields()?;
+                Kind::Symbol {
+                    owner_offset: fields.first()?.offset,
+                    data_offset: fields.get(1)?.offset,
+                    length_offset: fields.get(2)?.offset,
+                }
+            }
             Type::External { .. } => Kind::External,
             Type::Product(elements) => Kind::Product(product_fields(ty, elements, types, cache)?),
             Type::Sum(elements) if !types::is_bool(ty) => {

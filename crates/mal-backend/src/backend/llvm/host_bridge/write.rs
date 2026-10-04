@@ -31,6 +31,27 @@ impl Marshalling<'_> {
             plan::Kind::External => {
                 Some(vec![store("uintptr_t", pointer, c_expr!({ value }.bits))])
             }
+            plan::Kind::Symbol {
+                owner_offset,
+                data_offset,
+                length_offset,
+            } => Some(vec![
+                store(
+                    "void *",
+                    bridge_pointer(base.clone(), offset.checked_add(*owner_offset)?, false),
+                    c_expr!({ value.clone() }.owner),
+                ),
+                store(
+                    "const uint8_t *",
+                    bridge_pointer(base.clone(), offset.checked_add(*data_offset)?, false),
+                    c_expr!({ value.clone() }.data),
+                ),
+                store(
+                    "size_t",
+                    bridge_pointer(base, offset.checked_add(*length_offset)?, false),
+                    c_expr!({ value }.length),
+                ),
+            ]),
             plan::Kind::Product(fields) => {
                 let mut statements = Vec::new();
                 for (index, field) in fields.iter().enumerate() {

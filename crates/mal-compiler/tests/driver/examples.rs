@@ -37,7 +37,7 @@ fn focused_examples_build_and_run() {
     for name in [
         "generic-map",
         "monads-and-comonads",
-        "canonical-memory",
+        "extern-runtime",
         "indexed-graph",
     ] {
         let output = run(name);

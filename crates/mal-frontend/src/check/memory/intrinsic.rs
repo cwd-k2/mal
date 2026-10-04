@@ -50,10 +50,6 @@ impl Checker {
     ) -> CheckResult<Expression> {
         let (primitive, parameter) = match reference.id {
             crate::resolve::MAKE_VALUE => (MemoryPrimitive::BufferMake, Type::USize),
-            crate::resolve::FROM_VALUE => (
-                MemoryPrimitive::BufferFromAddress,
-                Type::Product(vec![Type::Address, Type::USize, Type::USize].into()),
-            ),
             _ => unreachable!("caller recognizes memory intrinsic identities"),
         };
         let argument = self.check_argument(arguments, &parameter, span)?;
@@ -93,23 +89,18 @@ impl Checker {
         element: &Type,
         span: Span,
     ) -> CheckResult<()> {
-        if reference.id == crate::resolve::MAKE_VALUE {
-            if !super::super::types::satisfies_storable_requirement(
-                element,
-                &self.active_requirements,
-            ) {
-                return Err(Diagnostic::error("make requires a storable element type")
-                    .with_primary(
-                        span,
-                        format!(
-                            "`{}` is not known to satisfy the Buffer element lifecycle contract",
-                            super::super::types::type_name(element)
-                        ),
-                    )
-                    .into());
-            }
-        } else {
-            super::ensure_copyable_element(element, span)?;
+        debug_assert_eq!(reference.id, crate::resolve::MAKE_VALUE);
+        if !super::super::types::satisfies_storable_requirement(element, &self.active_requirements)
+        {
+            return Err(Diagnostic::error("make requires a storable element type")
+                .with_primary(
+                    span,
+                    format!(
+                        "`{}` is not known to satisfy the Buffer element lifecycle contract",
+                        super::super::types::type_name(element)
+                    ),
+                )
+                .into());
         }
         Ok(())
     }

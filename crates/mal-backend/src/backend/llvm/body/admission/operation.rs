@@ -1,6 +1,5 @@
 //! Admission of each operation and atom: the runtime storage and canonical layouts they need on this target.
 
-use super::layout::admit_canonical_layout;
 use super::*;
 
 pub(super) fn admit_operation<'a>(
@@ -8,7 +7,6 @@ pub(super) fn admit_operation<'a>(
     result_type: &Type,
     span: mal_syntax::source::Span,
     maximum: u128,
-    layouts: SourceLayouts,
     types: &Types,
     blocks: &mut Vec<&'a Block>,
 ) -> Result<(), Diagnostic> {
@@ -40,29 +38,7 @@ pub(super) fn admit_operation<'a>(
                 admit_atom(capture, maximum)?;
             }
         }
-        Operation::Memory {
-            primitive,
-            operands,
-        } => {
-            let element = match primitive {
-                mal_frontend::check::ast::MemoryPrimitive::BufferFromAddress => {
-                    if let Type::Buffer(element) = result_type {
-                        Some(element.as_ref())
-                    } else {
-                        None
-                    }
-                }
-                mal_frontend::check::ast::MemoryPrimitive::BufferIntoAddress => {
-                    operands.first().and_then(|operand| match &operand.ty {
-                        Type::Buffer(element) => Some(element.as_ref()),
-                        _ => None,
-                    })
-                }
-                _ => None,
-            };
-            if let Some(element) = element {
-                admit_canonical_layout(element, span, layouts, maximum)?;
-            }
+        Operation::Memory { operands, .. } => {
             for operand in operands {
                 admit_atom(operand, maximum)?;
             }
@@ -72,10 +48,7 @@ pub(super) fn admit_operation<'a>(
             element,
             operands,
         } => {
-            let stride = layouts
-                .layout(element)
-                .map(|layout| layout.stride)
-                .or_else(|| types.value(element).map(|value| value.size));
+            let stride = types.value(element).map(|value| value.size);
             if let Some(stride) = stride
                 && stride as u128 > maximum
             {

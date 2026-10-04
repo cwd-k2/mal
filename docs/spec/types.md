@@ -1,6 +1,6 @@
 # 型
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 ## 型の構成
 
@@ -12,7 +12,6 @@ T ::=
   | Float32 | Float64
   | ByteSize | USize
   | Symbol
-  | Address
   | Buffer<T>
   | (T, T, ...)
   | []
@@ -35,12 +34,12 @@ declaration identityを持つuser typeである。
 ## Symbol
 
 `Symbol`は言語組み込みのimmutableな有限byte値である。literal、値のlifetime、operatorは[Symbol](symbols.md)、
-`Buffer<UInt8>`とのsnapshot変換は[AddressとBuffer](memory.md#symbol-conversion)を正とする。
+`Buffer<UInt8>`とのsnapshot変換は[`Buffer`](memory.md#symbol-conversion)を正とする。
 
-## AddressとBuffer
+## Buffer
 
-`Address`はhost-managed resourceへのopaque capabilityであり、mal codeはreferentを直接観測しない。`Buffer<T>`は
-mal-ownedなmutable有限sequenceへの共有参照である。型形成、operation、C host copy境界は[AddressとBuffer](memory.md)に定める。
+`Buffer<T>`はmal-ownedなmutable有限sequenceへの共有参照である。型形成、operation、element lifecycleは
+[`Buffer`](memory.md)に定める。mal codeはraw pointer型を持たない。
 
 ## Unit
 
@@ -176,9 +175,9 @@ publicなopaque名は通常のpublic typeと同様に直接`require`したfile�
 representationにprivate typeを含めてもよい。別fileはopaque値をsignature、型argument、productやsumの要素、値の受け渡しに使えるが、
 hidden representationによる構築、分解、operation適用はできない。
 
-layout、lifecycle、`Storable`と`Representable`などの型形成条件はhidden representationから再帰的に導く。opaque wrapperによって
-representationの制約を迂回できない。一方、file-local opaque typeはC host surfaceの`HostMappable`ではなく、外部との変換には
-明示的なmal operationを置く。
+layout、lifecycle、`Storable`などの型形成条件はhidden representationから再帰的に導く。opaque wrapperによってrepresentationの
+制約を迂回できない。extern signatureへ現れたfile-local opaque typeはspecialization後にhidden representationへ正規化し、宣言元fileの
+generated headerがそのruntime carrierをC implementationへ公開する。
 
 generic specialization keyと[operation family](operation-families.md)のkeyにはopaque declaration identityと型argumentを残す。
 representation viewによってkeyを変えない。specialization完了後はopaque boundaryをrepresentationへ消去し、coreとbackendへ

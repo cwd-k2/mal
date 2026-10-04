@@ -7,6 +7,19 @@ impl Declaration {
             Self::TypeAlias { source, alias } => {
                 format!("typedef {}", source.render_declarator(alias))
             }
+            Self::FunctionPointerTypeAlias {
+                result,
+                alias,
+                parameters,
+            } => format!(
+                "typedef {}",
+                VariableDeclaration::function_pointer(
+                    result.clone(),
+                    alias.clone(),
+                    parameters.clone(),
+                )
+                .render()
+            ),
             Self::StaticAssert { condition, message } => {
                 format!("_Static_assert({condition}, {})", Expr::string(message))
             }

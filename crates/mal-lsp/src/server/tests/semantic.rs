@@ -69,7 +69,7 @@ fn serves_hover_navigation_references_and_identity_safe_rename() {
 #[test]
 fn preserves_declared_type_aliases_in_hover() {
     let text =
-        "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
+        "Tree :: (Int64, Symbol, Symbol);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> { n; };\n";
     let uri = "file:///alias-hover.mal";
     let mut server = open_document(uri, text);
 
@@ -83,7 +83,7 @@ fn preserves_declared_type_aliases_in_hover() {
     );
     assert_eq!(
         alias["result"]["contents"]["value"],
-        "```mal\nTree :: (Int64, Address, Address)\n```\n\ntype\n\nDefined in `alias-hover.mal:1:1`"
+        "```mal\nTree :: (Int64, Symbol, Symbol)\n```\n\ntype\n\nDefined in `alias-hover.mal:1:1`"
     );
 
     let function = request_at(

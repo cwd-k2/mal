@@ -8,7 +8,6 @@ use mal_frontend::check::ast::Type;
 use super::{HostTypes, RepresentationId, TypeRegistry, is_bool};
 
 mod declaration;
-mod memory;
 
 impl TypeRegistry {
     pub(in crate::backend::c) fn host_value_helpers(
@@ -237,12 +236,12 @@ impl TypeRegistry {
             Type::Sum(_) if !is_bool(ty) => c_expr! {
                 { format!("mal_detail_to_raw_{}", self.index(ty)) }({ call }, { value })
             },
-            Type::Address => c_expr!(mal_Address_return({ call }, { value })),
             Type::External { .. } => c_expr! {
                 { self.c_type(ty) } { bits: { value }.mal_detail_bits }
             },
             Type::Unit => c_expr!(MalType_Unit { _0: 0 }),
-            Type::Symbol | Type::Function { .. } => {
+            Type::Symbol | Type::Buffer(_) => value,
+            Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => value,
@@ -263,11 +262,11 @@ impl TypeRegistry {
             Type::Sum(_) if !is_bool(ty) => c_expr! {
                 { format!("mal_detail_to_host_{}", self.index(ty)) }({ call }, { value })
             },
-            Type::Address => value,
             Type::External { .. } => c_expr! {
                 { self.host_value_c_type(ty, alias) } { mal_detail_bits: { value }.bits }
             },
-            Type::Symbol | Type::Function { .. } => {
+            Type::Symbol | Type::Buffer(_) => value,
+            Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
             _ => value,

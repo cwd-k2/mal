@@ -22,9 +22,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn version_targets_v06() {
-        assert_eq!(mal_syntax::LANGUAGE_VERSION, "0.6");
-        assert!(version_line().contains("language v0.6"));
+    fn version_targets_v07() {
+        assert_eq!(mal_syntax::LANGUAGE_VERSION, "0.7");
+        assert!(version_line().contains("language v0.7"));
         assert_eq!(
             env!("CARGO_PKG_VERSION"),
             include_str!("../../../VERSION").trim()

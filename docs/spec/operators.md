@@ -1,6 +1,6 @@
 # literalとoperator
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 この文書はnumeric、byte、Symbolのliteral、primitive operator、numeric conversionを定める。application、binding、`if`、
 直和の除去は[式とbinding](expressions.md)、concrete syntaxは[字句と文法](grammar.md)を正とする。

@@ -112,10 +112,6 @@ pub enum SymbolPrimitive {
 pub enum MemoryPrimitive {
     /// Allocate an empty `Buffer<T>` with an initial capacity.
     BufferMake,
-    /// Copy canonical elements from host storage into a new Buffer.
-    BufferFromAddress,
-    /// Copy canonical Buffer elements into host storage.
-    BufferIntoAddress,
     /// Observe the element count of a Buffer view.
     ViewLength,
     /// Snapshot a `Buffer<UInt8>` as an immutable Symbol.

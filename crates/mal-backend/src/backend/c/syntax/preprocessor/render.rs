@@ -123,15 +123,6 @@ impl Directive {
                     output.push_str(",\n");
                 }
             }),
-            Self::StatementsDefine {
-                name,
-                parameters,
-                statements,
-            } => render_replacement(name, parameters, |output| {
-                for statement in statements {
-                    statement.render(output, 0);
-                }
-            }),
             Self::SwitchCasesDefine {
                 name,
                 parameters,

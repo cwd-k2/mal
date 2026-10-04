@@ -1,6 +1,6 @@
 # 式と binding
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 literalとoperatorは[literalとoperator](operators.md)に定める。
 
@@ -116,22 +116,15 @@ generic calleeでも`a.f<T>(b)`は`f<T>(a, b)`と同じapplicationである。
 `.`、value name、parenthesized argument listは全体で一つのapplication suffixである。`a.f`はexpressionではなく、
 field access、property、method value、bound functionを導入しない。
 
-[AddressとBuffer](memory.md)のoperationは通常のexpressionとして評価する。`Symbol`と`Buffer`のlengthは`#`で表す。
+[`Buffer`](memory.md)のoperationは通常のexpressionとして評価する。`Symbol`と`Buffer`のlengthは`#`で表す。
 
 external declarationが導入する名前も通常のfirst-class function valueである。参照や受け渡しではhost operationを
 実行せず、applicationしたときだけ[`extern`境界](extern.md)を越える。
 
-## Memory expression
+## Buffer expression
 
-`Address`の先はhost contractの領域であり、malは直接dereferenceやoffset計算を行わない。C hostとの固定長copyでは、
-要素型がcanonical representationを決める。
-
-```mal
-readUInt64 :: Address -> UInt64 :=
-    (address) -> from<UInt64>(address, 0usize, 1usize).get(0usize);
-```
-
-型、評価、preconditionは[AddressとBuffer](memory.md)に定める。
+Bufferの構築、要素access、range operation、Symbolとのsnapshot変換は通常のprimitive expressionである。operandをsource順に一度だけ
+評価し、型、lifecycle、preconditionは[`Buffer`](memory.md)に定める。mal sourceはraw pointerとexternal memory expressionを持たない。
 
 ## if
 

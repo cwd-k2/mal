@@ -12,7 +12,7 @@ fn emit_header_writes_a_standalone_host_interface() {
          Flag :: Bool;\n\
          Choice :: [Unit, UInt32];\n\
          Count :: UInt64;\n\
-         Bytes :: (Address, USize);\n\
+         Bytes :: Buffer<UInt8>;\n\
          _Internal :: Bytes;\n\
          Managed :: (Int64, Symbol);\n\
          extern increment :: Count -> Count;\n\
@@ -36,32 +36,20 @@ fn emit_header_writes_a_standalone_host_interface() {
     );
     let header = std::fs::read_to_string(output_path).unwrap();
     assert!(header.contains("typedef MalType_UInt64 MalType_Count;"));
-    assert!(header.contains("typedef mal_repr_product_"));
-    assert!(header.contains("_t mal_Bytes_t;"));
-    assert!(
-        header.contains(
-            "MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_Count_read, mal_Count_write, mal_Count_t"
-        )
-    );
-    assert!(
-        header.contains(
-            "MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_Bytes_read, mal_Bytes_write, mal_Bytes_t"
-        )
-    );
-    assert!(!header.contains("mal__Internal_read"));
+    assert!(header.contains("typedef MalType_Buffer MalType_Bytes;"));
+    assert!(header.contains("typedef mal_Buffer_t mal_Bytes_t;"));
     assert!(!header.contains("mal__Internal_t"));
-    assert!(!header.contains("mal_Managed_read"));
+    assert!(!header.contains("mal_Managed_t"));
     assert!(header.contains("#include <mal.h>"));
-    assert!(header.contains("MAL_C_ABI_VERSION == 0x000900u"));
+    assert!(header.contains("MAL_C_ABI_VERSION == 0x000a00u"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN_consume 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN__privateConsume 1"));
     assert!(header.contains("#define MAL_DEFINE_increment(call, value)"));
     assert!(header.contains("#define MAL_DEFINE__privateConsume(call, value)"));
-    assert!(!header.contains("Symbol"));
+    assert!(header.contains("MalType_Buffer"));
     assert!(!header.contains("MAL_HAS_EXTERN_missing"));
     assert!(header.ends_with("\n\n#endif\n#endif\n"));
-    assert!(!header.contains(")\n\nMAL_DETAIL_DEFINE_MEMORY_ALIAS"));
     assert!(header.contains("_H\n\n/* Host-visible types */"));
     assert!(!directory.join("generated/program.c").exists());
 }
@@ -70,10 +58,7 @@ fn emit_header_writes_a_standalone_host_interface() {
 fn emit_header_prints_to_stdout_without_output() {
     let directory = NativeFixture::new("driver-default-header");
     let source = directory.join("source/program.mal");
-    directory.write(
-        "source/program.mal",
-        "extern print :: (Address, USize) -> Unit;",
-    );
+    directory.write("source/program.mal", "extern print :: Symbol -> Unit;");
 
     let output = directory.malc([OsStr::new("emit"), OsStr::new("header"), source.as_os_str()]);
 

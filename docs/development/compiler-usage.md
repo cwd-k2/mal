@@ -1,6 +1,6 @@
 # `malc`利用contract
 
-Status: Current v0.6 development contract
+Status: Current v0.7 development contract
 
 この文書は`malc`のcommand、対応toolchain、生成物を利用者向けに定める。言語の意味は[`spec/`](../spec/)、
 Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository内の検証手順は[test policy](testing.md)を
@@ -64,7 +64,7 @@ language serverのdiagnosticも同じ範囲を報告する。成功時には生�
 `emit header`はhost implementation用のfile headerを出す。require graph全体を型検査するが、指定したsource fileが所有するalias、external
 type、external operationだけを生成する。直接requireした`.mal` fileのheaderは、require pathの末尾を`.mal.h`にしたquoted includeで
 参照する。実行可能な`main` bindingは要求しない。host sourceの隣へ`emit header source.mal -o source.mal.h`のように保存する。
-file headerはtoolchainが提供する`mal.h`をincludeし、要求するC ABI versionを検査する。canonical memory helperのlayoutは、
+file headerはtoolchainが提供する`mal.h`をincludeし、要求するC ABI versionを検査する。runtime carrierのlayoutとtarget assertionは、
 `build`と同じくpinned Clangから取得したtarget data layoutで決める。
 
 `emit host`は指定fileの各external operationを`MAL_DEFINE_<name>`で定義したC stubを出す。stubは既定でsource file名に`.h`を加えた
@@ -141,9 +141,8 @@ host C sourceは自身を所有する`.mal` fileのfile headerをincludeし、LL
 今回の生成物を置き換えないようにする。host sourceの明示的なfile header includeは単独でのeditor supportとcompileのために維持する。
 
 Mal sourceのrequirementとしてのshared object、`dlopen`、実行時symbol discovery、plugin lifecycleは提供しない。
-link時に必要なshared libraryは`--clang-arg`で明示する。
-`Address`を受け渡すadapterはnullを返してはならず、live region、permission、lifetimeを
-[memory contract](../spec/memory.md)に従ってoperation固有のcontractに定める。
+link時に必要なshared libraryは`--clang-arg`で明示する。host adapterはmanaged parameterをborrowとして扱い、保持するときは
+shareし、managed resultをreturn helperへmoveする。詳細は[extern contract](../spec/extern.md#managed-responsibility)に従う。
 
 ## 生成物policy
 

@@ -206,9 +206,6 @@ fn opaque_buffer_uses_memory_operations_only_in_its_declaring_file() {
 }
 
 #[test]
-fn source_opaque_types_do_not_cross_the_extern_boundary() {
-    assert_eq!(
-        check_error("opaque Counter :: Int32; extern inspect :: Counter -> Unit;").message,
-        "external operation `inspect` uses a type that is not host mappable"
-    );
+fn source_opaque_types_cross_the_local_extern_boundary_by_representation() {
+    check_ok("opaque Counter :: Int32; extern inspect :: Counter -> Unit;");
 }

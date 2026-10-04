@@ -55,13 +55,11 @@ pub(super) fn specialize(program: Program) -> Result<MonomorphicProgram, Diagnos
                 binding,
                 ty,
                 element_aliases,
-                host_memory_access,
             } => items.push(Node::new(
                 TopItem::TypeAlias {
                     binding,
                     ty: runtime_type(&ty),
                     element_aliases,
-                    host_memory_access,
                 },
                 item.span,
             )),

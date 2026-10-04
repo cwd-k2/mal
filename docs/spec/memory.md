@@ -1,20 +1,9 @@
-# AddressとBuffer
+# `Buffer`
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
-この文書はhost-managed storageを指す`Address`、mal-owned mutable sequenceである`Buffer<T>`、C hostとのcopy境界を定める。
-surface syntaxは[字句と文法](grammar.md)、public C representationは[C host ABI](c-host-abi.md)を正とする。
-
-## Address
-
-`Address`はhost-managed resourceを指すcopyableなopaque capabilityである。数値、null、要素型、extent、permission、ownership、
-alignment、allocation identityをsource-levelでは持たない。複製してもreferentのlifetimeを延長しない。
-
-mal codeは`Address`をdereference、変更、比較、加減算、integer変換できない。通常のoperationはAddressの向こう側にある表現を
-知らず、Addressを解釈する能力はextern contractまたは後述するC host copy primitiveだけが与える。
-
-`ByteSize`はhost contractがbyte量に使うtarget幅のunsigned量、`USize`は有限collectionの要素数、index、capacityに使う
-target幅のunsigned量である。両者は別のsource typeで、literal suffixは`bytes`と`usize`である。
+この文書はmal-owned mutable sequenceである`Buffer<T>`、element lifecycle、range operationを定める。surface syntaxは
+[字句と文法](grammar.md)、extern Cからruntime carrierを扱う規則は[C ABI](c-host-abi.md)を正とする。
 
 ## Storable
 
@@ -24,7 +13,6 @@ compilerは閉じた`Storable(A)` judgmentを持つ。
 ```text
 Storable(Unit)
 Storable(numeric scalar)
-Storable(Address)
 Storable(ByteSize)
 Storable(USize)
 Storable(Symbol)
@@ -35,76 +23,34 @@ Storable(Buffer<A>)    if Storable(A)
 ```
 
 functionとempty sumはstorableでない。external opaque valueはpointer-widthのtrivialなcarrierとして保存し、Bufferへの格納や
-Bufferからの取得はhost referentのlifetimeを延長せず、closeなどのresource operationも暗黙に行わない。transparent aliasは展開後に判定し、file-local opaque typeは
-hidden representationから判定する。nested Bufferも同じ規則を再帰的に満たさなければならない。
-`Buffer<A>`は`Storable(A)`の場合だけwell-formedである。
+Bufferからの取得はhost referentのlifetimeを延長せず、closeなどのresource operationも暗黙に行わない。transparent aliasは
+展開後に判定し、file-local opaque typeはhidden representationから判定する。nested Bufferも同じ規則を再帰的に
+満たさなければならない。`Buffer<A>`は`Storable(A)`の場合だけwell-formedである。
 
-Buffer elementのread、append、replace、fill、copyはcarrierについてshallowである。要素がBuffer handleなら、返した値と格納された値は
-同じ内側identityを指し、そのidentityへの変更を共有観測する。外側Bufferのreplaceは格納したhandleだけを置き換え、内側Bufferを
-deep copyしない。
-Bufferは格納した`Symbol`またはBuffer handleのresponsibilityを外側Bufferが到達不能になるか要素が上書きされるまで保持する。
+Buffer elementのread、append、replace、fill、copyはcarrierについてshallowである。要素がBuffer handleなら、返した値と格納された
+値は同じ内側identityを指し、そのidentityへの変更を共有観測する。外側Bufferのreplaceは格納したhandleだけを置き換え、内側Bufferを
+deep copyしない。Bufferは格納した`Symbol`またはBuffer handleのresponsibilityを、外側Bufferが到達不能になるか要素が上書きされる
+まで保持する。
 
 functionを除く理由はmutable identityではない。closure environmentの型にはcapture edgeが現れず、同じBufferをcaptureしたclosureを
 そのBufferへ格納するとreference-counted ownership cycleを型から検出できない。Buffer handleの入れ子は、表現に寄与するrecursive
 typeがなくfile-local opaque representationの再帰も拒否されるため、このhidden back-edgeを導入しない。
 
-## Representable
+## Runtime element representation
 
-compilerは閉じた`Representable(A)` judgmentを持つ。これは`Storable(A)`のうち、次の規則からcanonical memory
-representationを構成できる型である。
+Buffer elementはspecialization後のruntime carrier layoutで保存する。primitive widthとalignment、product field offset、sumのtagと
+payload、strideはtarget layoutからcompilerが決める。productはsource order、sumはactive tagとpayloadを保持する。padding、inactive
+payload、runtime owner fieldを含む正確なlayoutはsource semanticsではなく、同じartifactのgenerated C headerとLLVM moduleが共有する
+runtime ABIである。
 
-```text
-Representable(Unit)
-Representable(numeric scalar)
-Representable(Address)
-Representable(ByteSize)
-Representable(USize)
-Representable((A...))       if all Representable(A)
-Representable([A...])       if the sum has at least two variants and all Representable(A)
-```
+layout、stride、offset、allocation sizeをtarget object sizeで表現できない型はartifact生成時に拒否する。extern Cはgenerated headerと
+`mal.h`からruntime carrierを直接扱えるが、別artifact、file、network、永続storageのformatとしてこのlayoutを使えない。
 
-`Symbol`、function、external opaque type、`Buffer<A>`、empty sumはrepresentableでない。transparent aliasは展開後に判定し、
-file-local opaque typeはhidden representationから判定する。これはcanonical memory copyの可否であり、opaque type自体を
-`HostMappable`にはしない。
-
-RepresentableはC host copy boundaryでcanonical representationを持つことを表し、`from<A>`、`buffer.into`、canonical memory
-helperの要素はRepresentableに限る。Address referentが実際にそのrepresentationを持つことや、access可能であることは証明しない。
-
-## Canonical layout
-
-numeric scalar、`Address`、`ByteSize`、`USize`のstrideとrequired alignmentはtarget data layoutから決める。numeric scalarの
-storage幅はbit幅、Addressはdefault address spaceのpointer representation幅、ByteSizeとUSizeはpointer index幅を使う。
-byte orderとscalar representationはbackend host ABIが定める。
-
-`Unit`はstride 0、required alignment 1である。canonical layoutのstrideが0になる型はstorageをdereferenceせず、Bufferと
-C host copy primitiveはlogical countだけを扱う。Unitだけからなるproductとtransparent aliasにも同じ規則を適用する。
-
-productはfieldをsource orderに配置する。先頭offsetは0、後続offsetは直前fieldの末尾からそのfieldのrequired alignmentまで
-前方へ丸める。全体alignmentは全fieldの最大値、strideは最後のfieldの末尾から全体alignmentまで前方へ丸める。
-nested productはflattenしない。
-
-sumは0-based variant indexのtag、padding、全variantで共有するpayload領域の順に配置する。tagはvariant数を表せる最小の
-`UInt8`、`UInt16`、`UInt32`、`UInt64`を使い、`2^64`を超えるvariantを拒否する。payload offsetはtag末尾から全variantの
-最大alignmentまで前方へ丸め、payload extentは全variant strideの最大値とする。sum strideはpayload末尾からsum全体の
-alignmentまで前方へ丸める。
-
-storeはproduct field、sum tag、選択payloadだけを書き、paddingと非選択payloadを変更しなくてよい。loadはそれらを読まない。
-このlayoutは同じartifactと対応adapterの間だけで有効であり、mal runtime representation、public C aggregate carrier、file、
-network、永続storageのformatではない。C hostがこのlayoutを読む場合はpublic carrierをcastせず、
-[C host ABIのnamed alias helper](c-host-abi.md#canonical-memory-access)を使う。
-
-## Canonical representationとtarget contract
-
-backendはcanonical memory専用のtarget layout planを作り、runtime valueの内部layoutを再利用しない。default address spaceの
-pointer representation幅、pointer index幅、primitive ABI alignmentをtarget data layoutから別々に取得する。layout、stride、
-offset、allocation sizeをtargetのobject sizeで表現できない型はartifact生成時に拒否する。C hostのmappingは
-[C host ABI](c-host-abi.md)に定める。
-
-## Buffer
+## Buffer value
 
 `Buffer<A>`はmal-ownedなmutable有限要素列である。値はbuffer identityへの共有参照としてcopyされ、どのaliasから行った変更も
-同じBufferを指す全aliasから観測できる。参照が到達不能になった後のstorage回収はbackendとruntimeが行い、source-levelの
-`free`、retain、releaseは存在しない。
+同じBufferを指す全aliasから観測できる。参照が到達不能になった後のstorage回収はbackendとruntimeが行い、source-levelの`free`、
+retain、releaseは存在しない。
 
 ```text
 make<A>(USize)                     -> Buffer<A>
@@ -116,21 +62,19 @@ Buffer<A>.fill(USize, USize, A)    -> Unit
 Buffer<A>.copy(USize, Buffer<A>, USize, USize) -> Unit
 ```
 
-要素index、count、capacity、length、C host storage上のoffsetは`USize`で表す。domainで座標の役割を名前に残す場合は、
-利用者がそのdomainの宣言としてtransparent aliasを定義できる。aliasはnominal identityを作らず、範囲、carrier identity、
-domain invariantを証明しない。
+要素index、count、capacity、lengthは`USize`で表す。domainで座標の役割を名前に残す場合は、利用者がtransparent aliasを定義できる。
+aliasはnominal identityを作らず、範囲、carrier identity、domain invariantを証明しない。
 
 `make<A>(capacity)`はcount 0のBufferを返す。capacityは初期allocationの要求であり、論理countではない。後続の`new`はcapacityを
 超えてgrowthできる。`new`は末尾へ追加し、その安定した0-based indexを返す。`get`と`put`は現在のindexを読み書きする。
-期待resultが`Buffer<A>`なら`make(capacity)`から`A`を推論できる。期待型がなければ明示形を使う。
-receiver-firstでない`new(buffer, value)`、`get(buffer, index)`、`put(buffer, index, value)`も同じpredefined operationである。
+期待resultが`Buffer<A>`なら`make(capacity)`から`A`を推論できる。期待型がなければ明示形を使う。receiver-firstでない`new`、
+`get`、`put`も同じpredefined operationである。
 
 `buffer.fill(offset, length, value)`は半開区間`[offset, offset + length)`の全要素へ`value`を代入する。
-`buffer.copy(destinationOffset, source, sourceOffset, length)`は`source`の半開区間
-`[sourceOffset, sourceOffset + length)`をreceiverの`[destinationOffset, destinationOffset + length)`へ代入する。
-どちらも既存要素を上書きし、destination rangeが現在の末尾を越える場合はcountをrange末尾まで延ばす。開始offsetは現在の
-count以下でなければならず、未初期化の穴は作らない。長さ0のrangeもこのoffset条件に従う。`copy`でsourceとdestinationが
-同じBufferを指しrangeが重なる場合、operation開始時点のsource rangeをcopyした結果になる。
+`buffer.copy(destinationOffset, source, sourceOffset, length)`は`source`の半開区間をreceiverのdestination rangeへ代入する。
+どちらも既存要素を上書きし、destination rangeが現在の末尾を越える場合はcountをrange末尾まで延ばす。開始offsetは現在のcount以下で
+なければならず、未初期化の穴は作らない。長さ0のrangeもこのoffset条件に従う。sourceとdestinationが同じBufferを指しrangeが
+重なる場合、operation開始時点のsource rangeをcopyした結果になる。
 
 receiver-firstでない形は`fill(buffer, offset, length, value)`と
 `copy(destination, destinationOffset, source, sourceOffset, length)`である。
@@ -139,9 +83,8 @@ operationのoperandはsource順に一度だけ評価する。count、capacity、
 allocationに失敗した場合はtrapする。stride 0でもcountとrange末尾のoverflowはtrapする。
 
 Bufferをfunction parameter、result、aggregate field、closure capture、通常のgeneric argument、別のBufferのelementに置ける。
-Buffer elementは[Storable](#storable)に限る。`get`は格納されたcarrierを返し、`put`、`fill`、`copy`が上書きしたcarrierは以後その
-placeから到達できない。handle elementではcarrierの複製が同じreferentへのauthorityを保存し、referentを複製しない。
-canonical layoutを持たないstorableな要素のBuffer storageは実装が決め、mal codeからもC hostからも観測できない。
+`get`は格納されたcarrierを返し、`put`、`fill`、`copy`が上書きしたcarrierは以後そのplaceから到達できない。handle elementでは
+carrierの複製が同じreferentへのauthorityを保存し、referentを複製しない。
 
 ## Symbol conversion
 
@@ -150,30 +93,9 @@ canonical layoutを持たないstorableな要素のBuffer storageは実装が決
 *Symbol        -> Buffer<UInt8>
 ```
 
-`*buffer`は変換時点のbytesを持つimmutableなSymbol snapshotを返す。以後のBuffer変更はresultを変更しない。
-`*symbol`は同じbytesで初期化した変更可能なBufferを返し、Symbolは変更されない。実装はcopy-on-writeでstorageを共有してよいが、
-source-levelのaliasingとimmutabilityを変えてはならない。operandはconsumeされず、変換後も利用できる。
-
-## C host copy boundary
-
-次のpredefined generic operationはC hostとのcopyを行う。offsetとlengthは`A`の要素単位であり、byte単位ではない。
-
-```text
-from<A>(Address, USize, USize)             -> Buffer<A>
-Buffer<A>.into(Address, USize, USize)      -> Unit
-```
-
-`from<A>(address, offset, length)`はhost storageの半開区間`[offset, offset + length)`をsource順にcopyし、countが`length`の
-新しいBufferを返す。`buffer.into(address, offset, length)`はBufferの同じ半開区間をhost storageの先頭へcopyする。
-期待resultが`Buffer<A>`なら`from(address, offset, length)`から`A`を推論できる。
-`into`はBufferを変更またはconsumeしない。receiver-firstでない形は`into(buffer, address, offset, length)`である。
-
-copyにはcanonical representationを使う。numeric scalar、Address、ByteSize、USizeの幅とalignmentはtarget ABI、
-productはsource順のfieldとpadding、sumはvariant tagとactive payloadを使う。public C aggregate carrier自体のlayoutとは独立であり、
-同じrepresentationをhost codeが扱う場合はgenerated canonical memory helperを使う。
-
-stride 0の型はstorageをdereferenceせず、logical countだけをcopyする。offsetとlengthの加算、byte offset、allocation sizeがtargetで
-表現できない場合と、mal-owned allocationに失敗した場合はtrapする。
+`*buffer`は変換時点のbytesを持つimmutableなSymbol snapshotを返す。以後のBuffer変更はresultを変更しない。`*symbol`は同じbytesで
+初期化した変更可能なBufferを返し、Symbolは変更されない。実装はcopy-on-writeでstorageを共有してよいが、source-levelのaliasingと
+immutabilityを変えてはならない。operandはconsumeされず、変換後も利用できる。
 
 ## 未検査precondition
 
@@ -182,9 +104,6 @@ stride 0の型はstorageをdereferenceせず、logical countだけをcopyする�
 | `buffer.get(index)`、`buffer.put(index, value)` | `index < #buffer` |
 | `buffer.fill(offset, length, value)` | `offset <= #buffer` |
 | `destination.copy(destinationOffset, source, sourceOffset, length)` | `destinationOffset <= #destination`かつ`sourceOffset + length <= #source` |
-| `from<A>(address, offset, length)` | 対象rangeが同じlive storage内にあり、readable、初期化済みで、各要素がvalid canonical representationを持つ |
-| `buffer.into(address, offset, length)` | `offset + length <= #buffer`で、destinationが`length`要素分writableである |
 
-host storageのextent、permission、initialization、lifetime、overlap、Address representationはhost contractが所有する。
-primitiveはこれらを検査せず、違反時の結果を保証しない。zero-stride elementはhost storageのreadability、writability、extentを要求しない。
-Address要素をBufferへcopyしても、そのreferentのlifetimeは延長しない。
+precondition違反時の結果は保証しない。extern Cがruntime carrier、count、owner、element responsibilityを破壊した後のBuffer operationも
+同様に結果を保証しない。

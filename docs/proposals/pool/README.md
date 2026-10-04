@@ -1,11 +1,16 @@
 # Poolとopaque型によるcontainer基盤
 
-Status: Exploratory
+Status: Exploratory; extern integration sections require a v0.7 rebase
+
+> [!IMPORTANT]
+> Poolのidentity、place、container semanticsの検討は継続するが、このdirectoryに残る`Address`、`Representable`、
+> `HostMappable`、canonical host copyを前提としたhost integration案は[D098](../../history/decisions/active/D098.md)で廃止された。
+> 次のPool試作はruntime carrierを直接扱う`extern`と`mal.h`のmanaged Buffer callback上で行い、旧境界を実装要件に使わない。
 
 この文書は、現在の`Buffer<T>`が一つの組み込み型として持つEngram storageのauthorityとsequence policyを分け、少数のtrustedな
 primitiveの上でcontainerをmal sourceとして定義する案の入口である。Poolの言語全体での位置とminimalityは
 [位置付けと根本モデル](model/foundations.md)、状態とoperationの核は[意味論](model/semantics.md)を正とする。現行仕様は
-[AddressとBuffer](../../spec/memory.md)、managed responsibilityは[D055](../../history/decisions/active/D055.md)と
+[`Buffer`](../../spec/memory.md)、managed responsibilityは[D055](../../history/decisions/active/D055.md)と
 [D083](../../history/decisions/active/D083.md)を正とする。
 
 ## 目的

@@ -2,7 +2,7 @@
 
 Status: Current non-normative overview
 
-この文書はv0.6 compilerの現在の実装を記録する。stage ownershipは
+この文書はv0.7 compilerの現在の実装を記録する。stage ownershipは
 [compilerの責務境界](responsibilities.md)を正とする。
 
 ## pipeline
@@ -123,7 +123,7 @@ reference-counted flat storageを使う。`Symbol`と`Buffer<UInt8>`の変換は
 Buffer mutationをSymbolから観測させない。比較とbyte accessはallocationを行わない。targetで表現不能なallocation sizeと
 allocation failureはmal trapへ写像する。
 
-extern symbol、public header、C build input、runtime contextのcontractは[C host ABI](../spec/c-host-abi.md)に従う。
+extern symbol、runtime header、C build input、runtime contextのcontractは[C runtime extension ABI](../spec/c-host-abi.md)に従う。
 argument-aware entryではC shimが`argv + 1`の各C stringをcopyして作った`Symbol`のBufferをLLVM rootの`Buffer<Symbol>`へ渡す。
 
 function valueはcode pointerとenvironment pointerの組へlowerする。closure conversion後の各functionは
@@ -144,21 +144,19 @@ closure environmentの最後のreleaseではcaptureを逆順に破棄する。ta
 recursive regionはprogram固有のtyped frameをC runtimeのgrowable byte storageへ積む。frame payload、resume target、owner moveは
 LLVM側だけが解釈する。詳細は[LLVM backendのownership](ownership.md)を正とする。
 
-LLVM artifact生成前のtarget admissionは、target幅のliteralだけでなく、実際にobject storageを要求するcanonical memory、
+LLVM artifact生成前のtarget admissionは、target幅のliteralだけでなく、実際にobject storageを要求するruntime carrier、
 Buffer element、binding slot、external bridge temporary、closure environment、control frameのsizeも検査する。targetのindex幅で
 表現できないsizeはemitter内部の失敗や切り捨てへ送らず、所有するsource constructのspanを持つdiagnosticとして拒否する。
 
-`Address`はLLVMの`ptr`、`Buffer`はmanaged runtime objectへのpointerへlowerする。C host copy primitiveは
-canonical representationをruntime objectとhost storageの間でcopyし、Buffer element accessはruntimeが保証するalignmentを使う。
-`Symbol`を含む要素はcanonical layoutを持たないので、runtime valueのlayoutで格納し、C host copyの対象にしない。
-host storageの範囲、permission、initialization、lifetimeはtyped IRへ補わず、
-source-levelの[`memory` contract](../spec/memory.md)として保持する。
+`Buffer`はmanaged runtime objectへのpointerへlowerする。すべてのBuffer elementはspecialization後のruntime value layoutで格納し、
+runtimeが保証するalignmentを使う。同じlayout planからgenerated C recordとstatic assertionを作り、別のhost copy representationを
+構成しない。
 
-C representationの収集はhost interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの
+C representationの収集はextern interfaceだけを対象とする。`TypeRegistry`はextern signatureから到達できるstructural typeの
 子representation identityからaggregate keyをbottom-upにinternしてidentityを所有し、`HostTypes`は共有node identityで公開型と
 external opaque type名を分類する。C shimとheaderは同じregistryを参照する。LLVM moduleと
-C shimの間はopaque pointerとout-pointerを基本とするinternal ABIを使い、LLVM aggregate表現をpublic C ABIへ公開しない。
-extern marshallingのlayout planとsum helperはcanonical type DAGの共有nodeごとに一度だけ構成し、同じsubtypeへの複数の辺で
+C shimの間はopaque pointerとout-pointerを基本とするinternal ABIを使う。extern runtime layout planとsum/lifecycle helperは
+canonical type DAGの共有nodeごとに一度だけ構成し、同じsubtypeへの複数の辺で
 再生成しない。
 現在の仕様とtestの対応は[conformance matrix](../development/conformance.md)を正とし、この文書にはtest一覧を重複させない。
 

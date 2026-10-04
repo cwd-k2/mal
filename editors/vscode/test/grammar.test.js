@@ -46,10 +46,9 @@ test("keeps a closing parenthesis inside ')' in a Symbol literal token", async (
   assert.ok(closingParentheses[1].scopes.includes('punctuation.definition.mal'));
 });
 
-test('highlights v0.6 memory syntax', async () => {
+test('highlights Buffer syntax', async () => {
   const grammar = await loadGrammar();
-  const line =
-    'bytes := from<UInt8>(address, 0usize, 16usize); size := #bytes;';
+  const line = 'bytes := make<UInt8>(16usize); bytes.new(0u8); size := #bytes;';
   const tokens = grammar.tokenizeLine(line).tokens.map((token) => ({
     text: line.slice(token.startIndex, token.endIndex),
     scopes: token.scopes,
@@ -62,7 +61,7 @@ test('highlights v0.6 memory syntax', async () => {
         .scopes.includes('keyword.operator.mal'),
     );
   }
-  for (const literal of ['0usize', '16usize']) {
+  for (const literal of ['0u8', '16usize']) {
     assert.ok(
       tokens
         .find((token) => token.text === literal)

@@ -2,13 +2,12 @@
 
 Status: Current design policy
 
-この文書は、memory、resource、host境界を設計するときの判断軸を定める。規範的な型とoperationは
-[EngramとExtern](../spec/engrams.md)を正とし、ここでは個別のABIやsyntaxを重複させない。
-値をoperationへ適用する解釈と、その後のcontrolとの関係は[値、解釈、control](value-interpretation-and-control.md)に置く。
+この文書はmemory、resource、extern境界を設計するときの判断軸を定める。規範的な型とoperationは
+[EngramとExtern](../spec/engrams.md)を正とし、個別のABIやsyntaxをここへ重複させない。
 
-## ownershipより先にauthorityを問う
+## Ownershipより先にauthorityを問う
 
-値やresourceに関する問題では、最初に「誰が所有するか」ではなく、次の決定権がどこにあるかを問う。
+値やresourceに関する問題では、最初に「誰が所有するか」ではなく次の決定権がどこにあるかを問う。
 
 - 何が有効な値か
 - identityを誰が構成できるか
@@ -16,101 +15,79 @@ Status: Current design policy
 - 誰が観測、変更、破棄できるか
 - failureをどちらの規則で扱うか
 
-ownership、borrow、copy、lifetime、permissionは、このauthorityを具体的なoperationへ落とした関係である。
-したがって一つのmemory management mechanismを言語全体の答えとして先に選ばない。
+ownership、borrow、copy、lifetime、permissionは、このauthorityを具体的なoperationへ落とした関係である。一つのmemory management
+mechanismを言語全体の答えとして先に選ばない。
 
-## 非対称な境界
+## Source semanticsとruntime extensionを分ける
 
-Engramはmal内部で意味が成立する側、Externは外部のstate、storage、resourceが成立する側である。両者は対称な
-value categoryではない。malはEngramを構成してExternへ観測させられるが、Externはmal内部のidentityやrootを
-直接構成しない。Externから得たrepresentationはmalによるadmissionを経てEngramになる。
+Engramはmal sourceで意味が成立する値、Externは外部stateとresourceが成立する領域である。mal compilerとruntimeはEngramの
+identity、共有、immutability、managed responsibilityを定める。external opaque valueをEngramへ包んでもreferentのauthorityは
+Externに残り、carrier copyはresourceをcloneしない。
 
-一方、`Address`やexternal opaque handleはEngramへ変換されるdataではなく、Externへのcapabilityとして運ばれる。
-mal valueに包まれてもreferentのauthorityは移らない。この非対称性により、internal valueの回収とexternal
-resourceのclose/freeを同じlifetime mechanismへ結合せずに済む。
+extern Cはこの意味上の分類の外側に隔離されたobserverではなく、mal implementationへ参加するruntime extensionである。generated
+headerが公開するcarrierとlifecycle operationを使い、validなEngramを構築、観測、変更できる。Cがruntime invariantを破れることは、
+invalid valueへ新しいsource semanticsを与えることを意味しない。contract違反後のbehaviorを保証しないことで、runtimeをhostから
+防御する別のmemory modelを持たない。
 
-## 境界では動詞を選ぶ
+## Lifecycleの分担
 
-境界機能を設計するときは、型を一括して「渡せる」とする前にoperationを分類する。
+mal compilerはmanaged responsibilityの発生、share、move、終了を計画し、runtimeがallocationと最後のdropを実行する。source programは
+manual retain、release、freeを持たない。extern parameterはcall中のborrow、managed resultはhostからmalへのowned moveである。
 
-- admission: external representationからmal valueを構成する
-- observation: mal valueを一時borrowまたはcopyして外部から見る
-- capability transfer: external referentへの権限を運ぶ
+Cがmanaged valueをcall後も保持する場合はruntime shareで独立したresponsibilityを作り、後にdropする。carrier bitsだけのcopyは
+lifetimeを延長しない。external resourceのclose、unmap、socket shutdownなどはexternal opaque carrierのcopy/dropへ暗黙に結合せず、
+operation固有contractに残す。native resourceをmanaged dropへ結合するなら、新しいEngram leafとしてdestructor effectまで定める。
 
-product、sum、closureなどの構造はfieldごとに分類する。外側のaggregateがmal-controlledでも、内側のcapabilityが
-指すresourceまでmal-ownedとは限らない。境界をaggregate全体の単一ownershipとして扱わない。
+## Policyとmechanismを分ける
 
-## policyとmechanismを分ける
-
-Externにauthorityがあることと、source-level operationをprogram固有のexternal operationにすることは同じではない。
-resourceを取得または破棄するoperationと、region、permission、lifetime、failureなどhost固有のpolicyを決める
-operationは`extern` contractに置く。一方、既に渡されたcapabilityを使い、言語がcanonical representationを
-定めた値を固定規則でadmitまたはobserveするoperationはlanguage primitiveに置く。
+filesystem、network、process、device、system call、encoding、partial transferなどhost固有policyは型付きextern operationに置く。
+Bufferのshared identity、Symbol snapshot、managed element lifecycleは言語とruntimeの共通mechanismに置く。C libraryやkernelへpointerを
+渡すことはextern implementation detailであり、source-level pointerや汎用memory primitiveを要求しない。
 
 | 問い | 置き場所 |
 |---|---|
-| resource policyまたはhost固有の意味を決めるか | program固有の`extern` contract |
-| canonical representationとの固定された変換か | language primitive |
-| program固有のaggregateまたはprotocol encodingか | malで書くcodec |
-| hostにしか検査、構成、実行できないencodingか | 型固有の`extern` contract |
+| runtime valueのlayout、share、dropか | compiler、generated header、runtime |
+| resource固有の取得、解放、failure、permissionか | extern contract |
+| program固有のaggregateまたはprotocol encodingか | malまたはCで書くcodec |
+| 同期native APIがpointerを要求するか | C body内の一時borrow |
+| call後もkernelやlibraryがstorageを保持するか | pinnedなresource固有typeとcompletion contract |
 
-この規則では、allocationとdeallocationは`extern`、`Address`のbyte offsetとcanonical representationの
-load/storeはprimitiveになる。`Address`はExtern-owned storageへの組み込みcapabilityであり、referentをmal-ownedに
-変えない。primitiveはstorage policyを決めず、`Address`を提供したcontractが定めるregion、permission、lifetimeを
-引き継ぐ。
+runtime carrier layoutは同じartifactのLLVMとC extensionが共有するが、file、network、永続storageのformatではない。protocol encodingと
+runtime ABIを同一視しない。
 
-`Address`は任意のExtern resourceに共通するhandleではなく、hostがordinary byte-addressable storageとして直接公開した
-regionへのopaque data pointerである。hostはresourceを`Address`として返すことで、permissionの範囲内で標準memory operationを
-使うcontractを選ぶ。
-C ABIでpointerとして運ばれても直接memory accessの対象でないfile、socket、directory、deviceなどはexternal opaque
-typeとし、そのoperationは`extern` contractに残す。carrierのC表現ではなく、公開するoperation semanticsが両者を
-分ける。
+## Controlをrepresentationから推測しない
 
-productとsumのmemory representationをlanguage primitiveに置くかは、そのrepresentationをすべてのprogramで共有する
-canonical mechanismとして固定できるかで決める。固定する場合も、source-level memory layout、mal runtime representation、
-public host ABIのcarrier、fileやnetworkのprotocol encodingを同一視しない。canonical memory representationとの変換だけを
-primitiveに置き、program固有のtag、field offset、pointer graph、wire formatはmalで書くcodecに残す。host library固有の
-representationやatomicityが必要な場合は型固有の`extern` contractに置く。
+function valueの参照と受け渡しはmal-controlledなEngramの操作である。extern applicationはmalからCへ同期的に入り、terminal resultか
+trapで完了する。Cがclosure representationを知っても、現在のcontinuation、callback後のresume、suspended C activationをcontextから
+構成できない。generic carrier layoutを公開しても、specialization後に消えたopen type parameterのruntime descriptorにはならない。
 
-この分担はcontrolを失わず、operationごとにwidth、alignment、admissionを再定義するcontractの増殖を避ける。
-同時に、bounds、allocation、lifetimeを追跡するmemory systemを暗黙に言語へ追加しない。
+したがってgeneric externとfunction callbackは、安全性を理由に閉じるのではなく、必要なexecution mechanismを独立して設計するまで
+拒否する。representation公開を未実装のcontrol authorityへ読み替えない。
 
-memory primitiveは未検査のstorage mechanismとして定められる。live region、extent、permission、initialization、representationの
-有効性をoperationのpreconditionに置く場合は、同じ層のoperationで一貫してcallerまたはhost contractへ委ね、違反時の特定の結果を保証しない。
-preconditionを満たしたoperationに必要なmal-owned storageのallocation failureなど、callerが事前に成立させられないfailureは
-言語またはbackendの明示した規則で扱う。実装がmemory corruptionを防ぐために追加の検査を行ってtrapしても、その防御を
-implementation detailとして扱う。採択理由は[D008](../history/decisions/active/D008.md)を正とする。
+## Mechanismを導入する条件
 
-external function valueの参照と受け渡しはmal-controlledなEngramの操作であり、それだけでは境界を越えない。
-そのfunction valueのapplicationがhost operationを実行するときに限り、parameterとresultの各leafへadmission、observation、
-capability transferを適用する。source上の専用call markerではなく、宣言されたfunction identityがcontractを選ぶ。
-
-## mechanismを導入する条件
-
-reference counting、tracing GC、region、borrow checking、finalizerはauthorityそのものではなく実装または検査の
-mechanismである。次の場合にだけ言語機能の候補とする。
+reference counting、tracing GC、region、borrow checking、finalizer、runtime type descriptorはauthorityそのものではない。次の場合にだけ
+言語機能またはruntime mechanismの候補とする。
 
 1. 現在のauthorityを保ったままでは必要な意味を表現できない。
-2. sourceから新しい制約とcostを追跡できる。
-3. Engramの回収とExtern resourceの破棄を混同しない。
-4. host contractを隠すだけでなく、system全体の調査面積を減らす。
+2. sourceまたはextern contractから新しい制約とcostを追跡できる。
+3. Engram回収とExtern resource破棄を混同しない。
+4. 既存のconcrete specializationとgenerated lifecycle glueで表せない実例がある。
 
-観測不能なstorageの回収方式だけを変える場合は、source semanticsを増やさずimplementationで扱う。external resourceの
-破棄が必要な場合は、暗黙のfinalizerより明示的なhost contractを基本とする。`malc`のEngram回収は
-[managed ownership](../implementation/ownership.md)のresponsibility規約に閉じ、Extern resourceのpolicyへ拡張しない。採択理由は
-[D033](../history/decisions/active/D033.md)と[D055](../history/decisions/active/D055.md)を正とする。
+観測不能なstorage回収方式だけを変える場合はsource semanticsを増やさずimplementationで扱う。external resourceの破棄が必要な場合は
+明示的なextern operationを基本とし、managed native typeはdestructorの観測可能性を別に判断する。
 
 ## 新しい境界機能への問い
 
-新しいtype、ABI、memory primitive、callbackを提案するときは、少なくとも次を答える。
+新しいtype、extern ABI、callback、native collectionを提案するときは少なくとも次を答える。
 
-1. valueまたはreferentのauthorityはEngramとExternのどちらにあるか。
-2. crossingはadmission、observation、capability transferのどれか。
-3. aggregateに含まれる各fieldへ分類を再帰適用できるか。
-4. crossing後に誰が何を保持でき、何がlifetimeを延長するか。
-5. invalid representationとfailureを誰が検査するか。
-6. trusted adapterだけで十分か、runtimeによる強制が必要か。
-7. 固定mechanismを再利用せず、新しい独立contractを増やす理由があるか。
+1. source valueとexternal referentのauthorityはどこにあるか。
+2. parameter borrow、host share、result moveのどれが必要か。
+3. aggregateのmanaged leafへlifecycleを再帰適用できるか。
+4. Cが保持できるものとdrop pointはどこか。
+5. invalid representation後を非保証にするか、runtime検査が必要か。
+6. 同期callだけで足りるか、callback、pin、completion、thread transferが必要か。
+7. concrete generated glueを再利用せずdescriptorやregistryを増やす理由があるか。
 
-この問いに短く答えられない機能は、surfaceだけを追加せず境界modelから再検討する。採択に至った経緯は
-[D031](../history/decisions/active/D031.md)に記録する。
+この問いに短く答えられない機能はsurfaceだけを追加せず、value、lifecycle、controlのmodelから再検討する。採択理由は
+[D098](../history/decisions/active/D098.md)を正とする。

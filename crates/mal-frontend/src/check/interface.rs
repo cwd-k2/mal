@@ -33,12 +33,15 @@ impl Checker {
                 ))
                 .with_primary(ty.span, "expected `parameter -> result`"));
             };
-            if !is_host_mappable(&parameter) || !is_host_mappable(&result) {
+            if !is_extern_carrier(&parameter) || !is_extern_carrier(&result) {
                 return Err(Diagnostic::error(format!(
-                    "external operation `{}` uses a type that is not host mappable",
+                    "external operation `{}` uses an unsupported carrier type",
                     binding.name.text
                 ))
-                .with_primary(ty.span, "this type cannot cross the extern boundary"));
+                .with_primary(
+                    ty.span,
+                    "extern carriers must be closed concrete types without functions",
+                ));
             }
             let (source_parameter, source_result) = self
                 .external_function_parts(ty)
@@ -114,7 +117,6 @@ impl Checker {
             | Type::Float32
             | Type::Float64
             | Type::Symbol
-            | Type::Address
             | Type::ByteSize
             | Type::USize
             | Type::Parameter { .. }
@@ -146,6 +148,28 @@ impl Checker {
             })
             .filter(|aliases: &Vec<_>| aliases.len() == elements.len())
             .unwrap_or_else(|| vec![None; elements.len()])
+    }
+
+    pub(super) fn buffer_element_alias(
+        &self,
+        source: &Node<resolved::TypeExpression>,
+    ) -> Option<String> {
+        let mut current = source;
+        loop {
+            match &current.kind {
+                resolved::TypeExpression::Application {
+                    constructor,
+                    arguments,
+                } if constructor.id == resolved::BUFFER_TYPE && arguments.len() == 1 => {
+                    return self.alias_name(&arguments[0]);
+                }
+                resolved::TypeExpression::Parenthesized(inner) => current = inner,
+                resolved::TypeExpression::Named(reference) => {
+                    current = self.aliases.get(&reference.id)?;
+                }
+                _ => return None,
+            }
+        }
     }
 
     fn aggregate_element_sources(
@@ -200,7 +224,7 @@ impl Checker {
     }
 }
 
-pub(super) fn is_host_mappable(ty: &Type) -> bool {
+pub(super) fn is_extern_carrier(ty: &Type) -> bool {
     let mut pending = vec![ty];
     let mut visited = std::collections::HashSet::new();
     while let Some(ty) = pending.pop() {
@@ -219,19 +243,21 @@ pub(super) fn is_host_mappable(ty: &Type) -> bool {
             | Type::UInt64
             | Type::Float32
             | Type::Float64
-            | Type::Address
+            | Type::Symbol
             | Type::ByteSize
             | Type::USize
             | Type::External { .. } => {}
             Type::Product(elements) | Type::Sum(elements) => pending.extend(elements.iter()),
-            Type::Symbol
-            | Type::Parameter { .. }
+            Type::Buffer(element)
+            | Type::Opaque {
+                representation: element,
+                ..
+            } => pending.push(element),
+            Type::Parameter { .. }
             | Type::Bound { .. }
             | Type::Application { .. }
             | Type::Abstraction { .. }
-            | Type::Function { .. }
-            | Type::Buffer(_)
-            | Type::Opaque { .. } => {
+            | Type::Function { .. } => {
                 return false;
             }
         }

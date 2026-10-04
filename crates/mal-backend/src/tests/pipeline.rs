@@ -29,7 +29,7 @@ fn emits_host_stubs_with_a_validated_header_name() {
         vec![SourceFile::new(
             root,
             "memory.mal",
-            "extern print :: (Address, USize) -> Unit;".into(),
+            "extern print :: Symbol -> Unit;".into(),
         )],
         vec![Vec::new()],
         Vec::new(),

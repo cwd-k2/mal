@@ -46,8 +46,7 @@ def "main check" [
     step "VS Code tests" { npm --prefix editors/vscode test }
     step "VS Code package" {
         vscode bundle-server (build_server)
-        cd editors/vscode
-        npm exec -- vsce package --out /tmp/mal-language-support-test.vsix --allow-missing-repository
+        vscode package "/tmp/mal-language-support-test.vsix"
     }
     step "Nix flake" { nix flake check }
 }

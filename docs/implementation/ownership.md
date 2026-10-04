@@ -1,14 +1,14 @@
 # managed valueのownership
 
-Status: Current v0.6 implementation policy
+Status: Current v0.7 implementation policy
 
-この文書はLLVM execution backendとC host boundaryにおけるmanaged valueのlifetimeを定める。source-level lifetime authorityは
-[Engram specification](../spec/engrams.md)、host carrierのcontractは[C host ABI](../spec/c-host-abi.md)を正とする。
+この文書はLLVM execution backendとextern C boundaryにおけるmanaged valueのlifetimeを定める。source-level lifetime authorityは
+[Engram specification](../spec/engrams.md)、C carrierのcontractは[C runtime extension ABI](../spec/c-host-abi.md)を正とする。
 
 ## managed type
 
 `Symbol`、`Buffer`、function closureはownerを持つ。productとsumはmanaged memberを再帰的に含む場合にmanagedである。数値scalar、
-`Unit`、`Address`、`ByteSize`、`USize`、external opaque valueはownerを持たない。この分類は
+`Unit`、`ByteSize`、`USize`、external opaque valueはownerを持たない。この分類は
 `execution::ownership`が一箇所で提供する。
 
 LLVM内の`Symbol`はowner pointer、active data address、byte countからなるviewであり、`Buffer<A>`はmanaged runtime objectへの
@@ -19,17 +19,18 @@ snapshot copyである。closureはcode pointerとnullable environment pointer�
 storage再利用を判断するSymbol concatだけがownerに対するdataのoffsetを導出する。
 
 Buffer objectのmetadataとelement storageは重ならないbyte regionである。pointer一個分以下の初期storageはobject内のunionへ置き、
-それより大きい初期storageとgrowth後のstorageは交換可能なflat byte ownerへ置く。この物理配置はprivate ABIであり、Buffer identityと
-element placeの区別を変えない。LLVMはobject metadata accessとelement accessの非aliasをscope内で表してよいが、growthでactive dataを
-置き換えるruntime writeはそのscope外に置き、slot loadをclobberする。同じallocation内のinline storageにも、別allocationのflat storageにも
-同じ規則を使う。LLVM emitterだけが持つTBAA treeをC runtimeのwriteへ暗黙に適用せず、runtime call後はactive dataを再取得する。
+それより大きい初期storageとgrowth後のstorageは交換可能なflat byte ownerへ置く。この物理配置はruntime内部に留め、exact-match C ABIは
+data pointer、count、構築、growthのoperationを公開する。Buffer identityとelement placeの区別は変わらない。LLVMはobject metadata accessと
+element accessの非aliasをscope内で表してよいが、growthでactive dataを置き換えるruntime writeはそのscope外に置き、slot loadをclobberする。
+同じallocation内のinline storageにも、別allocationのflat storageにも同じ規則を使う。LLVM emitterだけが持つTBAA treeをC runtimeのwriteへ
+暗黙に適用せず、runtime call後はactive dataを再取得する。
 
 ## Bufferのelement
 
-canonical layoutを持つ要素はそのlayoutで、`Symbol`を含む要素はruntime valueのlayoutでBuffer storageに置く。後者のBufferは
+すべての要素をruntime valueのlayoutでBuffer storageに置く。managed elementを持つBufferは
 `make`の時点で、その要素型のretainとreleaseを行うprogram固有のcallbackをruntimeへ渡す。各Live element placeは一つの
 responsibilityを持ち、要素が上書きされるかBufferが破棄されるときに手放す。`fill`と`copy`はcallbackを呼ぶ
-専用のruntime関数へ出力し、canonical要素のBufferはcallbackを持たない関数を使う。callbackを持つ領域とその判定はmanaged要素の
+専用のruntime関数へ出力し、trivial要素のBufferはcallbackを持たない関数を使う。callbackを持つ領域とその判定はmanaged要素の
 Bufferだけが負う。`copy`はsourceのreferenceを全て取ってからdestinationのreferenceを手放すので、範囲が重なっても要素は先に
 解放されない。
 `get`は取り出した値をretainしたownedなresultとして返す。Bufferは共有mutableであり、後続の`put`が要素を手放し得るため、
@@ -45,8 +46,7 @@ LLVM backendはこれをretain、source carrierのzero、releaseとtyped store�
 LLVMの`body/value`はslotのload、initialize、vacate、managed placeのreplaceと、値の型別retain/releaseを共通helperとして所有する。pattern、parameter handoff、
 frame resume、dead-slot cleanup、managed valueを移すoptimizationはこの境界を使い、slotのdirect storeやzeroingを個別に実装しない。
 memory primitiveとBuffer primitiveの複数operandは通常のproduct構築ではない。execution ownershipは論理operandごとにeffectを決め、indexや
-lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。snapshot conversionやC host copyはresultとoperandの
-ownerを共有しない。
+lengthのobservationへ引数伝達だけのaggregate responsibilityを作らない。snapshot conversionはresultとoperandのownerを共有しない。
 
 一つのtransactionではoperandを先に読み、必要な`Share`を完了し、`Consume`するsource carrierをzeroにした後に、
 後継のないresponsibilityを`Drop`して格納をcommitする。owned resultを受け取るwildcardと
@@ -131,12 +131,11 @@ borrowed local aliasのframe fieldはcarrierだけを保存し、同じresume li
 return時はcallee localとactive environmentをreleaseし、frame fieldとcaller environmentをresume activationへ移す。terminal returnでは
 root result以外のlocal、active environment、control storageを解放する。tail edgeはframe shareを作らない。
 
-## host boundary
+## Extern C boundary
 
-extern parameterはcall中だけborrowされる。`Symbol`、`Buffer`、functionと、それらを含むaggregateはHostMappableでないため、
-managed ownerはpublic C boundaryを通らない。C bridgeはHostMappableなscalar、product、sum、external opaque valueをpublic carrierとの間で変換し、
-invalidなBool、sum tag、Addressをpayloadまたはreferentの利用前にtrapする。可変長bytesは`Address`と長さで借り、malへ保持する場合は
-`from<UInt8>`で独立したBufferへcopyする。
+extern parameterはcall中だけborrowされる。functionを含まないclosed concrete typeはruntime carrierのままC boundaryを通る。Cが
+managed valueをcall後も保持する場合は型別shareでresponsibilityを作り、後にdropする。managed resultはterminal helperへmoveする。
+bridgeはinvalid Bool、sum tag、ownerを検査してadmitせず、contract違反後のbehaviorを保証しない。
 
 process shimは`argv + 1`の各C stringを独立した`Symbol`へcopyし、それらを所有する`Buffer<Symbol>`をrootへ渡す。root parameterは
 通常のmal-owned valueとして扱え、`main`のreturn後にshimが自身のargument shareを解放する。

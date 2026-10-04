@@ -109,8 +109,8 @@ f :: Int32 -> Int32 := ((n) -> f(n));
 main :: Unit -> Int64 := () -> 0;
 ### main_args_ok | ok
 main :: Buffer<Symbol> -> Int32 := (a) -> 0;
-### main_args_rejects_address_pairs | err:invalid entry point type
-main :: Buffer<(Address, USize)> -> Int32 := (a) -> 0;
+### main_args_rejects_byte_buffer | err:invalid entry point type
+main :: Buffer<UInt8> -> Int32 := (a) -> 0;
 ### main_missing_ok_lib | ok
 f :: Int32 -> Int32 := (x) -> x;
 ### closure_capture | run:15
@@ -251,12 +251,6 @@ f :: Mem -> (Mem, Mem) := (m) -> (m, m);
 ### opaque_no_equality | err:
 extern Mem;
 f :: (Mem, Mem) -> Bool := (a, b) -> a == b;
-### address_no_equality | err:
-f :: (Address, Address) -> Bool := (a, b) -> a == b;
-### address_no_arith | err:
-f :: (Address, USize) -> Address := (a, n) -> a + n;
-### address_no_conversion | err:
-f :: Address -> USize := (a) -> a.usize;
 ### buffer_no_equality | err:
 f :: (Buffer<Int32>, Buffer<Int32>) -> Bool := (a, b) -> a == b;
 ### buffer_len_prefix_only | ok
@@ -270,16 +264,6 @@ g :: Buffer<UInt8> -> Symbol := (b) -> *b;
 g :: Buffer<Int32> -> Symbol := (b) -> *b;
 ### deref_int | err:
 f :: Int32 -> Int32 := (b) -> *b;
-### from_wrong_address | err:
-f :: Int32 -> Buffer<Int32> := (a) -> from<Int32>(a, 0usize, 1usize);
-### from_ok | ok
-f :: Address -> Buffer<Int32> := (a) -> from<Int32>(a, 0usize, 1usize);
-### from_symbol_elem | err:
-f :: Address -> Buffer<Symbol> := (a) -> from<Symbol>(a, 0usize, 1usize);
-### into_ok | ok
-f :: (Buffer<Int32>, Address) -> Unit := (b, a) -> b.into(a, 0usize, 1usize);
-### into_wrong_len_type | err:
-f :: (Buffer<Int32>, Address) -> Unit := (b, a) -> b.into(a, 0usize, 1i32);
 ### make_needs_type_arg | err:
 f :: Unit -> Unit := () -> { b := make(1usize); (); };
 ### buffer_get_index_type | err:

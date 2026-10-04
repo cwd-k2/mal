@@ -1,6 +1,6 @@
 # Compiler の責務境界
 
-Status: Current v0.6 implementation policy
+Status: Current v0.7 implementation policy
 
 この文書はcompiler codeの分類、各stageのownership、表現の変換境界を定める。pipelineの構成は
 [compiler implementation notes](compiler.md)、言語の挙動は[`spec/`](../spec/)をauthorityとする。
@@ -63,10 +63,9 @@ backendとClangを知らないので、formatterとlanguage serverはcompilerの
 | [`continuation_specialization`](continuation-specialization.md) | `call_pattern`後のclosure programで、関数型resultへの唯一のapplication demand、alias、escape、producerより前から利用可能なargument、effectを越えないintervalを解析する。result join、callback、self-recursive edgeを含む閉じたsliceを証明できた場合だけ、既知call、closure creator、局所product、lexical joinを最終demandから展開したcapture-free workerへproducerとconsumerを融合する。再帰根だけをworker自身へのcallとして残し、source上のoperation名や型constructor名は判断に使わない。`Technique::ContinuationSpecialization`が有効でもrewriteを完了できないsliceは元programを保つ |
 | `flow` | control program上で、各application siteのcalleeとargumentに届き得るfunctionを、closure生成からbinding、aggregate、capture、parameter、result、Bufferの要素を経て求める。ownershipやcall modeは導かない |
 | `execution` | closure-converted programを保持し、operation-levelの`Borrow` / `Store`、semantic application facts、明示的に選択されたoptimization decisionから、continuation graph、recursive region、call mode、semantic frame、`Share` / `Consume`を含むmanaged responsibility factをtarget layoutに依存しない実行計画として構成 |
-| `backend/c` | file別`ProgramInterface`からpublic C file header、build用umbrella header、host stubへの変換 |
-| `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、canonical storage、runtime slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
+| `backend/c` | file別`ProgramInterface`からruntime C file header、build用umbrella header、host stubへの変換 |
+| `backend/llvm` | admitted execution planとtarget data layoutから、target-sized literal、runtime carrier、slot、closure environment、control frameの表現可能性をsource diagnosticで検査し、LLVM moduleとC shimへ変換 |
 | `backend/abi` | LLVM moduleとC shimが共有するinternal bridgeのABI planを一つ構成 |
-| `backend/source_layout` | runtime value layoutと独立に、canonical memoryのstride、alignment、offsetをtarget data layoutから構成 |
 | `runtime/c11` | program非依存のC11 mechanism。allocation、reference count、control storage、Symbol operation、Buffer storageとrange operation |
 | `analysis`、`pipeline` | admitted済みin-memory source graphに対するcompiler stageの構成とstructured outcomeの返却 |
 | `editor` | current tokenから作るsyntax indexと、resolved identity・source上のdeclaration/reference・checked typeから作るsemantic indexをeditor queryへ構成 |
@@ -118,22 +117,22 @@ C shimの共通ABI planへ渡す。
 `driver`は`mal-syntax`が読み込んだsource graphを受け取り、生成物のpath、temporary directory、C compiler processを所有する。`cli`はargumentを
 use caseへ写し、`main`はstdioとprocess exit statusだけを接続する。
 
-## generics、memory、host境界の変換
+## generics、memory、extern境界の変換
 
-genericsとexternal memoryも既存stageのadmission責務に従う。
+genericsとruntime extension ABIも既存stageのadmission責務に従う。
 
 | Boundary | Responsibility |
 |---|---|
 | lexer/parser | generic headerのtype expression列とinitializerの有無、postfix chain、共有tokenをsource-oriented ASTへ構成する。family identityから構文を選ばない |
 | resolve | generic binding、operation family、exact/generic implementation、opaque declaration、型parameterへidentityを与え、source orderと直接requireされたfamily identityからgeneric headerを分類する |
-| check | principal kind scheme、canonical generic/opaque type term、file-local representation view、rigid constructor argumentと通常型の局所型argument推論、`Requirements(T)`、`OperationRequirement`、implementation patternのoverlapと減少、signature、memory operatorの型を検査する。`from`と`buffer.into`はrepresentableな要素だけを受理する |
+| check | principal kind scheme、canonical generic/opaque type term、file-local representation view、rigid constructor argumentと通常型の局所型argument推論、`Requirements(T)`、`OperationRequirement`、implementation patternのoverlapと減少、signature、Buffer operatorとclosed extern typeを検査する |
 | specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、constructor termを含むgeneric instanceをcanonical keyで共有する。concrete operation goalを一意なexact/generic implementationへ解決し、type applicationを正規化してopaqueをrepresentationへ消去し、familyとrequirementを除いた単相checked programをcoreへ渡す |
 | core以降 | kind、type constructor、open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
-| backend source layout | runtime value layoutと独立した共有target layout planを作り、LLVM memory loweringとC canonical memory helperへ同じstrideとoffsetを供給する |
-| execution ownership | runtime valueをrepresentationと独立な`Lifecycle = Trivial | Owned`へ分類し、Owned valueのuseとdropを計画する。`Buffer` carrierはOwnedだが、elementのAddressやexternal opaque carrierが指すreferentへownershipを拡張しない |
-| LLVM Buffer element | canonicalまたはruntime representationと、TrivialまたはOwned lifecycleを独立に選ぶ。external opaque carrierは`Runtime(_, Trivial)`、`Symbol`またはnested Bufferを含むcarrierは`Runtime(_, Owned)`となり、後者だけretainとreleaseのcallbackを生成する。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
+| backend runtime layout | specialization後のruntime carrier layoutを一つ作り、LLVM slot、Buffer element、C recordへ同じsize、alignment、offsetを供給する |
+| execution ownership | runtime valueをrepresentationと独立な`Lifecycle = Trivial | Owned`へ分類し、Owned valueのuseとdropを計画する。`Buffer` carrierはOwnedだが、external opaque carrierが指すreferentへownershipを拡張しない |
+| LLVM Buffer element | すべてruntime carrier representationを使い、TrivialまたはOwned lifecycleを独立に選ぶ。external opaque carrierは`Trivial`、`Symbol`またはnested Bufferを含むcarrierは`Owned`となり、後者だけretainとreleaseのcallbackを生成する。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
-| C interface | HostMappableな型だけをABI 0x000900のfile headerへ写し、SymbolとBufferをpublic interfaceから拒否する |
+| C interface | functionを含まないclosed extern typeをABI 0x000a00のruntime carrierへ写し、managed parameter borrow、host share/drop、result moveのglueを生成する |
 | process shim | `argv + 1`をcopyして作ったargument Bufferを`Buffer<Symbol>` rootへ渡し、return後に解放する |
 
 memory preconditionはcheckerやruntimeの防御機構へ移さない。backendはpreconditionを満たすinputの意味を実装し、内部corruptionを

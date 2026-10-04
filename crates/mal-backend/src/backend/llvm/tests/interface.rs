@@ -6,9 +6,9 @@ fn admits_product_external_calls() {
     for (index, source) in [
         "extern inspect :: (UInt64, UInt64) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, 2u64).i32; };",
         "extern inspect :: Bool -> Bool; main :: Unit -> Int32 := () -> { if (inspect(true)) then { 0 } else { 1 }; };",
-        "extern memory :: Unit -> Address; extern inspect :: (UInt64, Address) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, memory()).i32; };",
-        "extern memory :: Unit -> Address; extern inspect :: (Address, USize) -> (Address, USize); main :: Unit -> Int32 := () -> { (_, length) := inspect(memory(), 1usize); length.i32; };",
-        "extern memory :: Unit -> Address; Packet :: (Address, USize); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () -> { (_, length) := exchange(memory(), 2usize); length.i32; };",
+        "extern text :: Unit -> Symbol; extern inspect :: (UInt64, Symbol) -> UInt64; main :: Unit -> Int32 := () -> { inspect(1u64, text()).i32; };",
+        "extern text :: Unit -> Symbol; extern inspect :: (Symbol, USize) -> (Symbol, USize); main :: Unit -> Int32 := () -> { (_, length) := inspect(text(), 1usize); length.i32; };",
+        "extern text :: Unit -> Symbol; Packet :: (Symbol, USize); extern exchange :: Packet -> Packet; main :: Unit -> Int32 := () -> { (_, length) := exchange(text(), 2usize); length.i32; };",
     ]
     .into_iter()
     .enumerate()
@@ -29,8 +29,8 @@ fn admits_product_external_calls() {
 #[test]
 fn admits_sum_external_calls_recursively() {
     for (index, source) in [
-        "Choice :: [Address, USize]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () -> { 0; };",
-        "Choice :: [Unit, (Address, USize)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := () -> { 0; };",
+        "Choice :: [Symbol, USize]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () -> { 0; };",
+        "Choice :: [Unit, (Buffer<UInt8>, USize)]; Envelope :: (UInt8, Choice); extern inspect :: Envelope -> Envelope; main :: Unit -> Int32 := () -> { 0; };",
         "extern Handle; Choice :: [Unit, (UInt64, Handle)]; extern inspect :: Choice -> Choice; main :: Unit -> Int32 := () -> { 0; };",
     ]
     .into_iter()

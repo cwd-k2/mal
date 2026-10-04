@@ -16,6 +16,18 @@ mod target;
 pub(crate) use optimization::OptimizationSet;
 pub(crate) use target::{TargetLayout, parse as target_layout};
 
+pub(crate) fn symbol_carrier_layout(target: TargetLayout) -> (usize, [usize; 3]) {
+    let types = body::types::Types::for_target(target);
+    let size = types
+        .value(&mal_frontend::check::ast::Type::Symbol)
+        .expect("supported target has a Symbol carrier")
+        .size;
+    let fields = types
+        .symbol_fields()
+        .expect("supported target has Symbol fields");
+    (size, [fields[0].offset, fields[1].offset, fields[2].offset])
+}
+
 /// Target identity and LLVM data layout obtained from the same pinned Clang invocation used to compile artifacts.
 pub struct Target<'a> {
     /// LLVM target triple.

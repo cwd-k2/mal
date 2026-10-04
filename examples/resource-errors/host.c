@@ -14,42 +14,19 @@ static uint32_t io_error(void) {
     return errno == 0 ? (uint32_t)EIO : (uint32_t)errno;
 }
 
-MAL_DEFINE_allocateBuffer(call, size) {
-    if (size == 0) {
-        mal_call_trap(call, "invalid allocation size");
-    }
-    uint8_t *memory = malloc(size);
-    if (memory == NULL) {
-        mal_call_trap(call, "allocation failed");
-    }
-    return mal_OwnedBuffer_return(
-        call,
-        (mal_OwnedBuffer_t){
-            .field_0 = mal_Allocation_from_bits((uintptr_t)memory),
-            .field_1 = memory,
-            .field_2 = size,
-        }
-    );
-}
-
-MAL_DEFINE_releaseBuffer(call, allocation) {
-    free((void *)mal_Allocation_to_bits(allocation));
-    return mal_Unit_return(call);
-}
-
 MAL_DEFINE_openReadOnly(call, path) {
-    if (path.field_1 == SIZE_MAX
-        || (path.field_1 > 0 && memchr(path.field_0, '\0', path.field_1) != NULL)) {
+    if (path.length == SIZE_MAX
+        || (path.length > 0 && memchr(path.data, '\0', path.length) != NULL)) {
         return mal_OpenResult_return_1(call, (uint32_t)EINVAL);
     }
-    char *terminated = malloc(path.field_1 + 1);
+    char *terminated = malloc(path.length + 1);
     if (terminated == NULL) {
         mal_call_trap(call, "file path allocation failed");
     }
-    if (path.field_1 > 0) {
-        memcpy(terminated, path.field_0, path.field_1);
+    if (path.length > 0) {
+        memcpy(terminated, path.data, path.length);
     }
-    terminated[path.field_1] = '\0';
+    terminated[path.length] = '\0';
     errno = 0;
     FILE *file = fopen(terminated, "rb");
     uint32_t error = io_error();
@@ -60,13 +37,18 @@ MAL_DEFINE_openReadOnly(call, path) {
     return mal_OpenResult_return_0(call, mal_File_from_bits((uintptr_t)file));
 }
 
-MAL_DEFINE_readFile(call, value) {
+MAL_DEFINE_readFile(call, file) {
+    uint8_t bytes[4096];
     errno = 0;
-    size_t length = fread(value.field_1, 1, value.field_2, file_handle(value.field_0));
-    if (ferror(file_handle(value.field_0))) {
+    size_t length = fread(bytes, 1, sizeof(bytes), file_handle(file));
+    if (ferror(file_handle(file))) {
         return mal_ReadResult_return_1(call, io_error());
     }
-    return mal_ReadResult_return_0(call, length);
+    mal_Buffer_t result = mal_Buffer_make(call, sizeof(uint8_t), length);
+    for (size_t index = 0; index < length; ++index) {
+        mal_Buffer_new(call, result, &bytes[index], sizeof(uint8_t));
+    }
+    return mal_ReadResult_return_0(call, result);
 }
 
 MAL_DEFINE_closeFile(call, file) {
@@ -78,7 +60,7 @@ MAL_DEFINE_closeFile(call, file) {
 }
 
 MAL_DEFINE_writeBytes(call, value) {
-    if (fwrite(value.field_0, 1, value.field_1, stdout) != value.field_1) {
+    if (fwrite(value.data, 1, value.length, stdout) != value.length) {
         mal_call_trap(call, "cannot write stdout");
     }
     return mal_Unit_return(call);

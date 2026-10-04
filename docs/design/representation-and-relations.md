@@ -3,7 +3,7 @@
 Status: Current design policy
 
 この文書は、再帰的または相互参照を持つdomain structureをmalで表すときの設計方針を定める。個々の型とoperationは
-[型](../spec/types.md)、[external memory](../spec/memory.md)、[`Buffer`](../spec/memory.md)を正とする。
+[型](../spec/types.md)、[`Buffer`](../spec/memory.md)を正とする。
 carrierをoperationへ適用して解釈する全体の設計軸は[値、解釈、control](value-interpretation-and-control.md)に置く。
 
 ## 有限な表現から構造を得る
@@ -24,7 +24,7 @@ authorityを与え、operationが関係を与える。
 
 ## carrier、座標、relation
 
-carrierはrow、column、byte、node recordなどを保持する有限な表現である。index、offset、`Address`は単独でdomain identityにはならず、
+carrierはrow、column、byte、node recordなどを保持する有限な表現である。index、offset、external opaque carrierは単独でdomain identityにはならず、
 特定のcarrierに対する座標として意味を持つ。同じ`USize`値でも、別の`Buffer`を対象にすれば別の要素を指す。
 
 carrierのcolumnが保持する値と、column間またはrow間のrelationを区別する。例えばheap-indexedなsegment indexのmaximum columnと
@@ -65,9 +65,9 @@ domain ontologyと同一視しない方針である。
 
 ## authorityとの直交
 
-同じrelationをmal-ownedな`Buffer`とexternal storageへの`Address`のどちらに載せるかは、resource authorityの違いである。
-tree、graph、tableであることとは別に判断する。`Buffer`のownerが生きていても、要素中の`Address`が指すreferentのlifetimeは延びない。
-外部storageを読むrelation operationは、構造上のinvariantに加えてhost contractのlifetime、permission、initializationを要求する。
+relationをmal-ownedな`Buffer`に載せるか、external opaque resourceに閉じたextern operationで扱うかはresource authorityの違いである。
+tree、graph、tableであることとは別に判断する。Bufferにexternal opaque carrierを格納してもreferentのlifetimeは延びない。
+external resourceを読むrelation operationは、構造上のinvariantに加えてextern contractのlifetimeとpermissionを要求する。
 
 EngramとExternの境界判断は[authority](authority.md)を正とする。domain relationを導入するためだけにexternal ownershipや個別allocatorを
 持ち込まず、recoverable allocation、shared external identityなど固有の要求がある場合だけ別のauthority modelを選ぶ。

@@ -1,162 +1,118 @@
-# C host ABI
+# C runtime extension ABI
 
-Status: Accepted ABI 0x000900 for mal v0.6
+Status: Accepted ABI 0x000a00 for mal v0.7
 
-この文書はmal v0.6の`malc`が生成するC host interfaceを定める。`0x000900`はC ABI自体の
-versionであり、source languageのversionではない。言語側のextern semanticsは
-[`extern`](extern.md)、authorityは[`engrams`](engrams.md)、外部memoryは[`memory`](memory.md)を正とする。
+この文書はmal v0.7の`malc`が生成するC runtime extension interfaceを定める。`0x000a00`はC ABI自体のversionであり、source
+languageのversionではない。source-level semanticsは[`extern`](extern.md)、managed valueは[Engram](engrams.md)と
+[`Buffer`](memory.md)を正とする。
 
 ## Build model
 
-toolchainはprogram非依存の`mal.h`を提供する。`malc emit header file.mal`はrequire graphを検査し、指定したsource fileが所有する
+toolchainはprogram非依存の`mal.h`を提供する。`malc emit header file.mal`はrequire graphを検査し、指定source fileが所有する
 C interfaceをfile headerとして生成する。file headerは`mal.h`と、直接requireした`.mal` fileに対応するfile headerをincludeする。
-host implementationは自身を所有するfile headerをincludeし、生成artifactと同じtarget ABIでcompileする。
+C implementationは自身を所有するfile headerをincludeし、生成artifactと同じtarget ABI、C11 compiler、compile optionでbuildする。
 
-`build`ではroot fileとexternal operationを所有するfile、および後者のrequire先のfile interfaceと同等の宣言を持つ内部umbrella
-header、LLVM module、C shim、C runtimeを構成する。C boundaryを持たない間接fileのpublic aliasはumbrellaに入れない。`.mal` sourceから
-推移的にrequireされた`.c` fileはlink入力になる。build時には今回生成したumbrella headerをC translation unitへ先に読み込み、host
-sourceの隣にある保存済みfile headerが生成物を置き換えない。既存libraryには薄いC adapterを介して接続し、必要なlibrary、object、
-archive、include path、macroなどのtoolchain argumentは`malc`の明示的なbuild optionから渡す。これはsource-level `require`の一部ではない。
+`build`では必要なfile interfaceを持つ内部umbrella header、LLVM module、C shim、runtime、requireされたC sourceを構成する。今回生成した
+umbrella headerをC translation unitへ先に読み込み、host sourceの隣にある保存済みfile headerが生成物を置き換えない。既存library、
+object、archive、include path、macroは`malc`の明示的なbuild optionから渡し、source-level `require`はC package discoveryを行わない。
 
-`mal.h`とfile headerはABI versionを検査し、異なるversionを組み合わせてはならない。ABI versionは次で判定する。
+`mal.h`とgenerated headerは次を検査し、異なるversionを組み合わせない。
 
 ```c
-#define MAL_C_ABI_VERSION 0x000900u
+#define MAL_C_ABI_VERSION 0x000a00u
 ```
 
-`main :: Unit -> Int32`は`main(void)`へ、`main :: Buffer<Symbol> -> Int32`は`main(int, char **)`へlowerする。
-後者ではshimが`argv + 1`の各C stringを終端NULを除いてcopyした`Symbol`のBufferを渡し、`main`のreturn後に解放する。
-argumentのbytesはhostのstorageに依存せず、その解釈はhost contractが提供する。
+ABIはcompiler/runtimeとのexact matchだけを保証する。version間のsource compatibilityとbinary compatibilityは保証せず、compiler更新後は
+generated headerとC sourceを同じartifactとして再compileする。runtime `dlopen`、extension discovery、unload protocolは持たない。
+
+`main :: Unit -> Int32`は`main(void)`へ、`main :: Buffer<Symbol> -> Int32`は`main(int, char **)`へlowerする。後者ではruntimeが
+`argv + 1`の各C stringを終端NULを除くSymbolとして保持するmanaged Bufferを構成し、mal executionへ渡す。
+
+## Common runtime header
+
+`mal.h`はtarget-independentな名前と、そのartifactで使うtarget C ABIに従う公開carrierを宣言する。少なくとも次を含む。
+
+- `MalContext`、Symbol carrier、Buffer handle
+- `MalType_Unit`、numeric scalar、`ByteSize`、`USize`、`MalType_Symbol`、Buffer handle
+- allocation、trap、owner share/drop、byte owner、Bufferのruntime operation
+- `mal_call_t`とcommon carrierのreturn helper
+
+Symbol fieldとBuffer element storageはC implementationから直接参照、変更できる。Buffer object、owner header、byte ownerの内部layoutは
+runtime implementation detailのまま、`mal.h`はdata/countと構築、growth、share/dropのoperationを公開する。helperは安全facadeではなく、
+runtime invariantを正しく構成するcanonical operationである。公開pointerを不正にcastした操作、live elementのraw overwrite、owner、
+count、data pointer、lifecycle callbackの破壊後の挙動は保証しない。
+
+fixed-width integerは`stdint.h`の対応幅、`Float32`はbinary32 `float`、`Float64`はbinary64 `double`、`ByteSize`と`USize`はtarget
+pointer index幅の`size_t`を使う。generated headerはsize、floating-point format、subnormal、`FLT_EVAL_METHOD`をcompile-time assertionで
+検証する。C bodyはround-to-nearest, ties-to-evenを保持し、flush-to-zeroやdenormals-are-zeroを有効にしてreturnしてはならない。
+
+## Program-specific carrier
+
+generated file headerは、そのfileのextern signatureから到達するconcrete runtime carrierと、宣言元fileが所有するaliasとfile-local
+opaque representationを出す。source aliasがあれば`mal_<Alias>_t`、anonymous aggregateにはstructural fingerprintを持つ名前を使う。
+別fileの宣言追加やgraph load orderでfingerprintを変えない。
+
+primitive、Symbol、Buffer、product、sum、external opaque typeはLLVM moduleと同じruntime carrier layoutを使う。productはsource orderの
+field、sumはtagとvariant payload、Symbolはowner、active data、length、Bufferはstable runtime objectへのpointerである。generated
+headerはpointerとindex幅、Symbolのsizeとfield offsetを`_Static_assert`し、aggregateは同じtarget C ABIのrecord layoutをLLVM側の
+layout planにも使う。`mal_<Alias>_t`とcompiler-facing `MalType_<Alias>`の間に生成するfield-wise helperはCのnominalなrecord型を
+接続するだけで、別のwire encodingやcanonical host memory layoutを導入しない。
+
+`mal_false`と`mal_true`だけがvalidなBool carrierである。sum tagはvariantの0-based indexである。Cがinvalid Bool、sum tag、owner、
+Symbol viewを構成した後の挙動は保証しない。constructorとprojection helperはvalid carrierを作る便宜であり、境界validationではない。
+
+external opaque typeはone-machine-word carrierであり、generated `mal_<T>_from_bits(uintptr_t)`と`mal_<T>_to_bits(value)`でlosslessに
+変換する。resourceのallocate、clone、close、free、bit pattern validityはoperation固有contractが定める。
 
 ## Host operation
 
-各external operationには`MAL_HAS_EXTERN_<name>`と`MAL_DEFINE_<name>`を生成する。host implementationは
-`MAL_DEFINE_<name>`だけでbodyを定義し、compiler-facing wrapperを直接定義しない。
-programが宣言したexternal operationは、applicationするかどうかにかかわらずすべてhost implementationが定義する。定義のない
-operationを含むprogramのlinkは保証しない。未実装のoperationは`emit host`のstubのようにtrapするbodyで定義する。
+各external operationには`MAL_HAS_EXTERN_<name>`と`MAL_DEFINE_<name>`を生成する。C implementationは`MAL_DEFINE_<name>`だけでbodyを
+定義し、compiler-facing wrapperを直接定義しない。宣言されたoperationはapplicationの有無にかかわらずすべて定義する。未実装の
+operationはstubのようにtrapするbodyで定義する。
 
 ```mal
-Counter :: UInt64;
-extern increment :: Counter -> Counter;
+extern appendNewline :: Buffer<UInt8> -> Buffer<UInt8>;
 ```
 
 ```c
-MAL_DEFINE_increment(call, value) {
-    return mal_Counter_return(call, value + UINT64_C(1));
+MAL_DEFINE_appendNewline(call, buffer) {
+    mal_Buffer_UInt8_push(call, buffer, UINT8_C('\n'));
+    return mal_Buffer_UInt8_return_move(call, mal_Buffer_UInt8_share(call, buffer));
 }
 ```
 
-bodyのparameterは常に先頭の`mal_call_t *call`と、source-level parameterが`Unit`でない場合の一つのtyped valueである。
-productもflattenせず一つのvalueとして渡す。source aliasがあれば`mal_<Alias>_t`、なければhost value mappingの型を使う。
+body parameterは先頭の`mal_call_t *call`と、source-level parameterがUnitでない場合の一つのruntime carrierである。productもflattenせず
+by-valueの一carrierとして渡す。managed leafはcallerがbody完了まで保持するborrowであり、carrier自体のC copyは新しいresponsibilityを
+作らない。
 
-bodyはresult型に対応するterminal return helperでちょうど一度完了する。helperの結果を保存したり、helper後に処理を
-続けたりしてはならない。
+bodyはresult型に対応するterminal return helperで一度完了する。managed resultではhostが所有するresponsibilityをhelperへmoveし、
+helper後に使用またはdropしない。Unit、scalar、trivial aggregateのhelperも同じbody shapeを保つ。sumはvariant-specific constructorと
+terminal helperを生成する。空直和はnormal return helperを持たない。
 
-- `Unit`: `mal_Unit_return(call)`
-- scalarまたはproduct: `mal_<Type>_return(call, value)`
-- sum: `mal_<Type>_return_<variant>(call, payload)`
-- source aliasのないaggregate: `mal_repr_<kind>_<id>_return...`
+`mal_call_t`は同期call中のruntime capabilityである。runtime allocation、share、trapに利用できるが、program固有continuation、現在の
+control state、Cからmal closureをapplicationするauthorityを持たない。pointerまたは内部stateをcall後に保持しない。
 
-`mal_call_t`はcall-scoped capabilityである。hostはcall終了後にpointerまたはその内部状態を保持してはならない。
-recoverできないcontract違反には`mal_call_trap(call, message)`を使う。
+## Lifecycle helper
 
-## Host value mapping
+`mal.h`はSymbolとBufferについて`share`、`drop`、`return_move`を提供する。productはmanaged field、sumはactive payloadだけへhostが
+再帰し、trivial fieldにはoperationを行わない。Cがparameterをcall後も保持する場合はbody中に独立したresponsibilityを作り、後の同じ
+thread上のhost operationかhost cleanupでdropする。保存したcarrierだけではlifetimeを延長しない。
 
-| mal type | Host C type |
-|---|---|
-| `Unit` | `mal_Unit_t` |
-| `Bool` | `mal_Bool_t` |
-| `IntN` / `UIntN` | 対応する`mal_IntN_t` / `mal_UIntN_t` |
-| `Float32` / `Float64` | `mal_Float32_t` / `mal_Float64_t` |
-| `ByteSize` / `USize` | `mal_ByteSize_t` / `mal_USize_t`（`size_t`） |
-| `Address` | `mal_Address_t`（`void *`） |
-| external opaque type `T` | `mal_T_t` |
-| named alias `T` | `mal_T_t` |
-| anonymous product/sum | `mal_repr_product_<id>_t` / `mal_repr_sum_<id>_t` |
+`mal.h`はBufferのdata pointer、count、trivial element用make/newと、retain/release callbackを受け取るmanaged element用
+make/new-moveを提供する。hostはcarrier fieldとleaf helperを使って型別callbackを実装できる。growthし得るoperation後は以前のelement
+pointerを使用せず再取得する。managed elementのraw overwrite、countを進める前の未初期化place公開、runtime以外によるBuffer
+object/data allocationのfreeはcontract違反である。
 
-fixed-width numeric typeは`stdint.h`の対応幅、`Float32`はbinary32 `float`、`Float64`はbinary64 `double`を使う。
-generated headerは`sizeof(size_t) * CHAR_BIT`がtargetのpointer index幅と一致することをcompile-time assertionで検証する。
-また`float`がbinary32、`double`がbinary64であり、両方がsubnormalを保持し、`FLT_EVAL_METHOD`が0であることも検証し、
-満たさないtargetを拒否する。host adapterはround-to-nearest, ties-to-evenの浮動小数点environmentを保持し、flush-to-zeroや
-denormals-are-zeroを有効にしてreturnしてはならない。
+## Failure、effect、concurrency
 
-`mal_false`と`mal_true`だけがvalidな`mal_Bool_t`である。`mal_Bool_return`はそれ以外をtrapする。
+allocation failure、target sizeで表現できないlayoutやlength、hostが明示したrecover不能failureはtrapする。`mal_call_trap`はprocessを
+終了し、一般的なstack unwindingとrollbackを行わない。invalid carrierを境界で検査してtrapへ変換する保証はない。
 
-productはsource orderの`field_<index>`を持つ。二項以上のsumは`uint32_t tag`と`payload.variant_<index>`を持ち、tagは0始まりである。
-sum helperは`mal_<Type>_tag_<variant>`、pure constructor `mal_<Type>_make_<variant>`、terminal
-`mal_<Type>_return_<variant>`を生成する。parameterとして受けたsumのtagはvalidである。hostがresult内に直接構成した
-nested sumはterminal loweringがactive payloadを読む前にtagを検査し、不正値をtrapする。
-これらはC host ABIのrepresentation helperであり、source-levelのsum constructorや構築authorityを追加しない。
+C bodyは引数から到達するmanaged identity、以前shareして保持したidentity、外部stateを自由に観測、変更できる。generated wrapperと
+LLVM moduleはextern callを未知のmemory clobberとして扱い、effect順序を保持する。
 
-空直和`[]`のC carrierは`uint32_t tag`だけを持ち、payload、constructor、terminal return helperを持たない。validなtagは存在せず、
-hostから`[]`を返す正常完了も存在しない。carrierを宣言できることは値を構築するauthorityをhostへ与えない。
+runtime contextとmanaged valueはthread-confinedである。同じcall capabilityまたはmanaged carrierへ複数threadから同時にaccessしては
+ならない。worker threadへexternal bytesを渡す場合もbody return前にjoinし、managed resultは元のthreadで構成する。
 
-source aliasはtransparentであり、新しいruntime representationを作らない。extern declarationとalias定義に明記された
-alias spellingだけをhost signatureとmember helperへ保存し、構造的一致から別名を推測しない。
-
-## External opaque typeとAddress
-
-external opaque type `T`は一machine wordのcopyable handleである。hostは
-`mal_T_from_bits(uintptr_t)`と`mal_T_to_bits(value)`でlosslessに変換する。この操作はresourceのallocate、clone、close、freeや
-追加authorityを伴わない。resource contractは各operationが定める。
-
-`mal_Address_t`は`void *`であり、null以外をvalidな`Address`とする。terminal return helperはAddressを含むresultを再帰的に
-検査し、nullをtrapする。変換helperは設けない。指すregion、permission、alignment、lifetimeはoperation固有のcontractであり、
-境界通過によって変化しない。`Buffer`はpublic C ABIへ出せない。
-
-`mal.h`はHostMappableなbuiltin carrierとhelperを宣言する。file headerは指定fileのextern signatureから到達できる
-HostMappableなaggregateとopaque型、および後述するcanonical memory accessの対象aliasを生成する。`Symbol`、`Buffer`、function、
-およびそれらを含むaggregateの型名、内部carrier、ownership helperを宣言しない。anonymous productとsumのC名は展開済みの構造だけから
-決まるfingerprintを持ち、source graphのload orderや別fileの宣言追加では変化しない。
-
-可変長bytesはoperation固有のHostMappableなproductとして`Address`と`USize`または`ByteSize`を渡す。読み出しではhostは
-指定範囲をcall中だけborrowし、書き込みではhostが所有する範囲のうちcontractが定めるprefixだけを初期化する。hostはAddressを
-call後に保持しない。長さ、permission、初期化、partial transferの
-postconditionは[AddressとBuffer](memory.md)とoperation固有のcontractを正とする。
-
-## Canonical memory access
-
-header生成対象のsource fileで宣言されたpublicなnongeneric type alias `T`が`HostMappable(T)`と`Representable(T)`をともに満たす場合、
-file headerは次のhelperを生成する。別fileで宣言されたaliasの宣言とhelperは、そのfile headerが所有する。
-
-```c
-mal_T_t mal_T_read(mal_call_t *call, mal_Address_t address, mal_USize_t index);
-void mal_T_write(
-    mal_call_t *call,
-    mal_Address_t address,
-    mal_USize_t index,
-    mal_T_t value
-);
-```
-
-helperは`address`を先頭とするcanonical `T`列の`index`番目を、public C carrierとの間でfieldごとに変換する。compilerが同じ
-target layoutからstride、product field offset、sum tag幅、payload offsetを生成するため、unaligned locationでも利用できる。
-`read`はpaddingと非選択payloadを読まず、`write`はpaddingと非選択payloadを書かない。`Unit`のstrideは0であり、storageを
-dereferenceしない。
-
-`read`はcanonical `Bool`、sum tag、`Address`のvalidityを検査し、`write`はhost carrier内の同じ値を検査する。不正値は
-`mal_call_trap`で終了する。これらはC boundaryで内部corruptionを防ぐadmissionであり、source-level memory primitiveへ検査済み
-semanticsを追加しない。
-
-extent、permission、initialization、lifetime、および`index * stride(T)`のoverflowがないことはcallerとoperation固有contractの
-preconditionである。helperはallocation、retain、releaseを行わず、Addressのauthorityを変更しない。public C carrierのlayoutは
-canonical memory layoutではないため、`mal_T_t *`へのcast、`sizeof(mal_T_t)`によるstride推定、field addressの直接対応は保証しない。
-private aliasと、二つのjudgmentのどちらかを満たさないaliasにはhelperもcarrierも追加公開しない。
-
-## Failureとconcurrency
-
-allocation failure、target sizeで表現できないlength、不正なBool/tag/Address、またはhost adapterが検出したoperation contract違反はtrapする。
-sum loweringはtag検査前にpayloadを読まない。terminal conversion中にallocation failureが起きる現在のruntimeではtrapが
-processを終了するためrollback frameを設けない。
-
-C runtimeのcontextとmanaged valueはthread-confinedである。同じcall capabilityへ複数threadから同時にaccessしては
-ならない。hostがAddressの範囲を別threadで処理する場合もbody return前にjoinし、operation固有のpermissionを守る。
-
-## Reserved namesとcompatibility
-
-`mal_`と`MAL_` prefixはgenerated header/runtime用に予約する。uppercase `MAL_`はpreprocessor macro、lowercase `mal_`は型、
-function、constantに使う。`MAL_DEFINE_<name>`が展開するcompiler-facing declarationと`mal_detail_` memberは実装detailであり、
-host contractとして直接参照してはならない。
-
-`mal.h`、generated file header、およびlinked artifactのsource compatibilityまたはbinary compatibilityを異なるC ABI version間で
-保証しない。host sourceと`.mal` sourceをauthorityとし、compilerのC ABI version更新後にはfile headerを再生成する。
+`mal_`と`MAL_` prefixはgenerated headerとruntime用に予約する。uppercaseはmacro、lowercaseは型、function、constantに使う。
+採択理由は[D098](../history/decisions/active/D098.md)に記録する。

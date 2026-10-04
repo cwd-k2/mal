@@ -1,10 +1,10 @@
 # Managed bytes
 
-The host initializes a bounded transfer area, and `from<UInt8>` admits that initialized prefix into
-a mal-owned `Buffer`. Assignment creates an alias to the same growable mutable identity. Converting
+The host creates and returns a mal-owned `Buffer<UInt8>` directly through `extern`. Assignment
+creates an alias to the same growable mutable identity. Converting
 the Buffer to `Symbol` creates an immutable snapshot, so later mutation and append through the alias
-do not alter the earlier text value. `buffer.into` copies the final range back to external storage;
-no managed identity crosses the host boundary.
+do not alter the earlier text value. The final bytes cross back as a borrowed `Symbol`; the host may
+inspect its carrier during the call without taking over mal's reference.
 
 > [!NOTE]
 > Assigning a Buffer copies its managed identity, while converting it to Symbol copies its current

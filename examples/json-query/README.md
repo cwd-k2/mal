@@ -18,10 +18,9 @@ sentinel. `JsonStatistics` is opaque outside the parser and is observed through 
 > The frame Buffer is a carrier for parser continuations. Its indices have stack meaning only through
 > the push, replace, and pop operations owned by `parser.mal`.
 
-The host allocation is released immediately after its initialized prefix is admitted into a
-mal-owned Buffer; parsing receives an immutable Symbol snapshot. Output is copied through a fixed
-staging area in chunks. Strings and escape syntax are validated, but `\u` escapes are not decoded
-and unpaired UTF-16 surrogates are not rejected.
+The host reads stdin directly into a mal-owned `Buffer<UInt8>` and moves it into mal; parsing receives
+an immutable Symbol snapshot. Output crosses back as a borrowed `Symbol`. Strings and escape syntax
+are validated, but `\u` escapes are not decoded and unpaired UTF-16 surrogates are not rejected.
 
 ```nu
 nix develop --command cargo run -p mal-compiler -- build examples/json-query/program.mal --output /tmp/mal-json-query

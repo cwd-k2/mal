@@ -190,7 +190,6 @@ struct FunctionEmitter<'a> {
     buffer_value_storage: Option<(usize, usize)>,
     needs_symbol_result_slot: bool,
     types: Types,
-    source_layouts: crate::backend::source_layout::SourceLayouts,
     top_levels: &'a TopLevelConstants,
     ownership: &'a crate::execution::OwnershipPlan,
     optimizations: &'a super::optimization::OptimizationPlan,

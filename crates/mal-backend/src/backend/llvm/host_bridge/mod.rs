@@ -65,7 +65,10 @@ pub(super) fn generate(
                 c_expr!(UINT8_C(0)),
             ));
         }
-        plan::Kind::Product(_) | plan::Kind::Sum { .. } | plan::Kind::External => {
+        plan::Kind::Product(_)
+        | plan::Kind::Sum { .. }
+        | plan::Kind::External
+        | plan::Kind::Symbol { .. } => {
             statements.push(c_statement! {
                 let result: { raw_types.c_type(&external.result) } = { call };
             });
@@ -177,7 +180,7 @@ fn c_scalar_type(ty: &Type) -> Option<&'static str> {
         Type::UInt64 => Some("MalType_UInt64"),
         Type::Float32 => Some("MalType_Float32"),
         Type::Float64 => Some("MalType_Float64"),
-        Type::Address => Some("MalType_Address"),
+        Type::Buffer(_) => Some("MalType_Buffer"),
         Type::ByteSize => Some("MalType_ByteSize"),
         Type::USize => Some("MalType_USize"),
         _ => None,

@@ -29,13 +29,9 @@ fn parenthesized_memory_operation_names_keep_their_predefined_identity() {
 }
 
 #[test]
-fn checks_c_host_copy_primitives_and_symbol_snapshots() {
+fn checks_symbol_and_buffer_snapshots() {
     check_ok(
-        "snapshot :: (Address, USize) -> Symbol := (address, count) -> {
-           bytes :: Buffer<UInt8> := from(address, 0usize, count);
-           bytes.into(address, 0usize, count);
-           *bytes;
-         };
+        "snapshot :: Buffer<UInt8> -> Symbol := (bytes) -> *bytes;
          mutable :: Symbol -> Buffer<UInt8> := (symbol) -> *symbol;",
     );
 }
@@ -50,9 +46,6 @@ fn rejects_invalid_buffer_operations_without_preserving_retired_syntax() {
         "bad :: Buffer<Int32> -> Unit := (values) -> values.fill(0usize, 1bytes, 1i32);",
         "bad :: (Buffer<Int32>, Buffer<UInt32>) -> Unit := (target, source) -> target.copy(0usize, source, 0usize, 1usize);",
         "bad :: Buffer<Int32> -> Int32 := (values) -> values.get(0bytes);",
-        "bad :: Buffer<Int32> -> Unit := (values) -> values.into(0usize, 0usize, 1usize);",
-        "bad :: Address -> Buffer<Symbol> := (address) -> from<Symbol>(address, 0usize, 1usize);",
-        "extern bad :: Buffer<Int32> -> Unit;",
     ] {
         assert!(check_error(text).primary.is_some(), "input: {text}");
     }

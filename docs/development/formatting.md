@@ -1,6 +1,6 @@
 # source formattingの方針
 
-Status: Current v0.6 policy and implementation
+Status: Current v0.7 policy and implementation
 
 この文書は`mal-fmt`が生成するcanonical layoutを定める。受理するsyntaxは[`grammar`](../spec/grammar.md)を正とする。
 

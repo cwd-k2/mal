@@ -16,10 +16,7 @@ impl Checker {
         expected: Option<&Type>,
     ) -> CheckResult<Expression> {
         if let Some((reference, type_arguments)) = referenced_generic_value(callee)
-            && matches!(
-                reference.id,
-                crate::resolve::MAKE_VALUE | crate::resolve::FROM_VALUE
-            )
+            && reference.id == crate::resolve::MAKE_VALUE
         {
             return self.check_memory_intrinsic(reference, type_arguments, arguments, span);
         }
@@ -35,10 +32,7 @@ impl Checker {
             );
         }
         if let Some(reference) = referenced_value(callee)
-            && matches!(
-                reference.id,
-                crate::resolve::MAKE_VALUE | crate::resolve::FROM_VALUE
-            )
+            && reference.id == crate::resolve::MAKE_VALUE
         {
             return self.check_inferred_memory_intrinsic(reference, arguments, span, expected);
         }
@@ -55,7 +49,6 @@ impl Checker {
                     | crate::resolve::PUT_VALUE
                     | crate::resolve::FILL_VALUE
                     | crate::resolve::COPY_VALUE
-                    | crate::resolve::INTO_VALUE
             )
         {
             return self.check_memory_operation(reference, arguments, span);

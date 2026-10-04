@@ -69,7 +69,7 @@ toolの選択、基本command、local生成物の扱いは[性能調査toolと�
 - direct call、self-tail loop、deep non-tail unwind
 - first-class call cycleとheterogeneous frame
 - managed Bufferのread/write、`Symbol` comparison/concatenation、C host copy
-- managed product、sum、closure environment、HostMappable valueのextern round trip
+- managed product、sum、closure environment、Symbol、Bufferのextern round trip
 - checked-in example corpus
 
 意味論fixtureとperformance fixtureを兼用してよいが、期待resultとresource invariantを先に固定する。performance差だけを理由に検証を弱めない。

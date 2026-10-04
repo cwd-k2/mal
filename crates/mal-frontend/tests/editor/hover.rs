@@ -56,18 +56,18 @@ fn preserves_declared_aliases_in_symbol_types() {
 
 #[test]
 fn expands_only_the_hovered_alias() {
-    let text = "Tree :: (Int64, Address, Address);\nForest :: (Tree, Tree);\n";
+    let text = "Tree :: (Int64, Symbol, Buffer<UInt8>);\nForest :: (Tree, Tree);\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
     let tree = document.hover_at(text.find("Tree").unwrap()).unwrap();
-    assert_eq!(tree.ty, "(Int64, Address, Address)");
+    assert_eq!(tree.ty, "(Int64, Symbol, Buffer<UInt8>)");
     let forest = document.hover_at(text.find("Forest").unwrap()).unwrap();
     assert_eq!(forest.ty, "(Tree, Tree)");
 }
 
 #[test]
 fn function_and_parameter_hovers_preserve_declared_aliases() {
-    let text = "Tree :: (Int64, Address, Address);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> n;\nHandler :: Tree -> Int64;\ng :: Handler := (tree) -> 0;\n";
+    let text = "Tree :: (Int64, Symbol, Buffer<UInt8>);\nf :: (Tree, Int64) -> Int64 := (tree, n) -> n;\nHandler :: Tree -> Int64;\ng :: Handler := (tree) -> 0;\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
     let function = document.hover_at(text.find("f ::").unwrap()).unwrap();
@@ -189,15 +189,18 @@ fn receiver_first_callees_support_function_editor_features() {
 
 #[test]
 fn indexes_buffer_intrinsics_and_types_as_predefined_symbols() {
-    let text = "build :: Unit -> Buffer<Int32> := () -> make<Int32>(1usize);\n\
-                admit :: Address -> Buffer<Int32> := (address) -> from<Int32>(address, 0usize, 1usize);\n\
-                publish :: (Buffer<Int32>, Address) -> Unit := (values, address) -> values.into(address, 0usize, #values);\n";
+    let text = "build :: Unit -> Buffer<Int32> := () -> {\n\
+                    values := make<Int32>(1usize);\n\
+                    values.new(1i32);\n\
+                    values.put(0usize, values.get(0usize));\n\
+                    values.fill(0usize, 1usize, 2i32);\n\
+                    values.copy(0usize, values, 0usize, 1usize);\n\
+                    values;\n\
+                };\n";
     let document = mal_frontend::editor::analyze(&source(text)).expect("semantic document");
 
-    for (name, offset) in [
-        ("from", text.find("from<Int32>").unwrap()),
-        ("into", text.find("into(address").unwrap()),
-    ] {
+    for name in ["make", "new", "get", "put", "fill", "copy"] {
+        let offset = text.find(name).unwrap();
         let occurrence = document
             .occurrence_at(offset)
             .expect("intrinsic occurrence");
@@ -205,9 +208,7 @@ fn indexes_buffer_intrinsics_and_types_as_predefined_symbols() {
         assert_eq!(occurrence.kind, SymbolKind::Function);
         assert!(document.hover_at(offset).is_some());
     }
-    for name in [
-        "Buffer", "from", "into", "make", "new", "get", "put", "fill", "copy",
-    ] {
+    for name in ["Buffer", "make", "new", "get", "put", "fill", "copy"] {
         assert!(
             document
                 .completions()

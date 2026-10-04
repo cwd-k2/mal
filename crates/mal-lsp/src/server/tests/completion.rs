@@ -57,19 +57,15 @@ fn serves_buffer_intrinsics_as_functions_and_indexed_type_completions() {
             .iter()
             .any(|item| item["label"] == "Buffer" && item["kind"] == 7)
     );
-    assert!(items.iter().any(|item| {
-        item["label"] == "from"
-            && item["kind"] == 3
-            && item["documentation"]["value"]
-                .as_str()
-                .is_some_and(|documentation| documentation.contains("C-host storage"))
-    }));
-    for name in ["make", "from", "into", "new", "get", "put", "fill", "copy"] {
+    for name in ["make", "new", "get", "put", "fill", "copy"] {
         assert!(
             items
                 .iter()
                 .any(|item| item["label"] == name && item["kind"] == 3)
         );
+    }
+    for retired in ["from", "into"] {
+        assert!(!items.iter().any(|item| item["label"] == retired));
     }
 
     let tokens = server.handle(json!({

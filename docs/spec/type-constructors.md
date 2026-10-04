@@ -1,6 +1,6 @@
 # kindとtype constructor
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 この文書はkind inference、partial type application、canonical type-level termを定める。generic valueの型argument推論は
 [parametric polymorphism](generics.md)、operation keyは[operation family](operation-families.md)を正とする。

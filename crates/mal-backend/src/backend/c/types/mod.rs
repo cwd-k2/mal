@@ -27,8 +27,6 @@ pub(super) struct HostTypes {
     external_types: Vec<Type>,
     external_collected: std::collections::HashSet<SharedTypeId>,
     external_aliases: std::collections::HashSet<String>,
-    memory_types: Vec<Type>,
-    memory_collected: std::collections::HashSet<SharedTypeId>,
     opaque_names: Vec<String>,
 }
 
@@ -51,7 +49,8 @@ enum ElementKey {
     UInt64,
     Float32,
     Float64,
-    Address,
+    Symbol,
+    Buffer(RepresentationId),
     ByteSize,
     USize,
     External(String),
@@ -84,7 +83,7 @@ impl TypeRegistry {
             Type::UInt64 => c_type!(MalType_UInt64),
             Type::Float32 => c_type!(MalType_Float32),
             Type::Float64 => c_type!(MalType_Float64),
-            Type::Address => c_type!(MalType_Address),
+            Type::Symbol => c_type!(MalType_Symbol),
             Type::ByteSize => c_type!(MalType_ByteSize),
             Type::USize => c_type!(MalType_USize),
             Type::External { name, .. } => c_type!({ format!("MalType_{name}") }),
@@ -95,12 +94,11 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 c_type!({ format!("MalRepr_Closure_{}", self.index(ty)) })
             }
-            Type::Symbol
-            | Type::Parameter { .. }
+            Type::Buffer(_) => c_type!(MalType_Buffer),
+            Type::Parameter { .. }
             | Type::Bound { .. }
             | Type::Application { .. }
             | Type::Abstraction { .. }
-            | Type::Buffer(_)
             | Type::Opaque { .. } => {
                 unreachable!("these types never enter the C host registry")
             }
@@ -126,7 +124,7 @@ impl TypeRegistry {
             Type::UInt64 => c_type!(mal_UInt64_t),
             Type::Float32 => c_type!(mal_Float32_t),
             Type::Float64 => c_type!(mal_Float64_t),
-            Type::Address => c_type!(mal_Address_t),
+            Type::Symbol => c_type!(mal_Symbol_t),
             Type::ByteSize => c_type!(mal_ByteSize_t),
             Type::USize => c_type!(mal_USize_t),
             Type::External { name, .. } => c_type!({ format!("mal_{name}_t") }),
@@ -135,15 +133,25 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Symbol
-            | Type::Parameter { .. }
+            Type::Buffer(_) => c_type!(mal_Buffer_t),
+            Type::Parameter { .. }
             | Type::Bound { .. }
             | Type::Application { .. }
             | Type::Abstraction { .. }
-            | Type::Buffer(_)
             | Type::Opaque { .. } => {
-                unreachable!("these types are not host mappable")
+                unreachable!("open types are not extern carriers")
             }
+        }
+    }
+
+    fn element_id(&self, ty: &Type) -> RepresentationId {
+        match ty {
+            Type::Product(_) | Type::Sum(_) => self.index(ty),
+            _ => RepresentationId(
+                mal_frontend::check::type_fingerprint::TypeFingerprints::default()
+                    .signature(&Type::Unit, ty)
+                    .1,
+            ),
         }
     }
 }

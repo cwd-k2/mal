@@ -1,0 +1,14 @@
+require "./host.c";
+
+Sample :: (Int64, UInt8);
+Samples :: Buffer<Sample>;
+
+extern sampleStorage :: Unit -> Samples;
+extern inspectSamples :: Samples -> Int32;
+
+main :: Unit -> Int32 := () -> {
+    samples := sampleStorage();
+    (number, byte) := samples.get(1usize);
+    samples.put(1usize, (number + 1i64, byte + 1u8));
+    inspectSamples(samples);
+};

@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use super::{
     Expr, FunctionDefinition, FunctionSignature, Identifier, Initializer, RecordDefinition,
-    RecordField, Statement, SwitchCase,
+    RecordField, SwitchCase,
 };
 
 mod render;
@@ -87,11 +87,6 @@ pub(in crate::backend) enum Directive {
         name: Identifier,
         parameters: Vec<MacroParameter>,
         initializers: Vec<Initializer>,
-    },
-    StatementsDefine {
-        name: Identifier,
-        parameters: Vec<MacroParameter>,
-        statements: Vec<Statement>,
     },
     SwitchCasesDefine {
         name: Identifier,
@@ -262,18 +257,6 @@ impl Directive {
             name: name.into(),
             parameters: parameters.into_iter().map(Into::into).collect(),
             initializers: initializers.into_iter().collect(),
-        }
-    }
-
-    pub(in crate::backend) fn statements_define(
-        name: impl Into<Identifier>,
-        parameters: impl IntoIterator<Item = impl Into<MacroParameter>>,
-        statements: impl IntoIterator<Item = Statement>,
-    ) -> Self {
-        Self::StatementsDefine {
-            name: name.into(),
-            parameters: parameters.into_iter().map(Into::into).collect(),
-            statements: statements.into_iter().collect(),
         }
     }
 

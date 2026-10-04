@@ -1,7 +1,5 @@
 mod buffer;
 mod dispatch;
-mod product;
-mod storage;
 mod transfer;
 mod view;
 

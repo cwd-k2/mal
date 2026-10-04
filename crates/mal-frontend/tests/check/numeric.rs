@@ -320,18 +320,18 @@ fn rejects_operations_outside_target_quantity_algebra() {
 }
 
 #[test]
-fn rejects_address_values_as_numbers() {
+fn rejects_buffer_values_as_numbers() {
     for text in [
-        "bad :: (Address, Address) -> Bool := (left, right) -> left == right;",
-        "bad :: (Address, ByteSize) -> Address := (address, offset) -> address - offset;",
-        "bad :: Address -> Address := (address) -> address + 1usize;",
-        "bad :: Address -> USize := (address) -> address.usize;",
+        "bad :: (Buffer<UInt8>, Buffer<UInt8>) -> Bool := (left, right) -> left == right;",
+        "bad :: Buffer<UInt8> -> Buffer<UInt8> := (value) -> value + value;",
+        "bad :: Buffer<UInt8> -> USize := (value) -> value.usize;",
     ] {
         let message = check_error(text).message;
         assert!(
             message.contains("not defined")
                 || message.contains("type mismatch")
-                || message.contains("numeric value"),
+                || message.contains("numeric value")
+                || message.contains("operator"),
             "input: {text}"
         );
     }

@@ -2,11 +2,16 @@
 #include <mal.h>
 #include "box.mal.h"
 
-_Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
-_Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
+_Static_assert(MAL_C_ABI_VERSION == 0x000a00u, "generated header requires mal C ABI 0x000a00");
+_Static_assert(sizeof((size_t)0) == 8, "size_t does not match the mal target index width");
+_Static_assert(sizeof((void *)0) == 8, "C pointer size does not match the mal target");
+_Static_assert(sizeof(*(MalType_Symbol *)0) == 24, "Symbol carrier size does not match the mal target");
+_Static_assert(offsetof(MalType_Symbol, owner) == 0, "Symbol owner offset does not match the mal target");
+_Static_assert(offsetof(MalType_Symbol, data) == 8, "Symbol data offset does not match the mal target");
+_Static_assert(offsetof(MalType_Symbol, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_A7E4354306512C9A_H
-#define MAL_GENERATED_INTERFACE_A7E4354306512C9A_H
+#ifndef MAL_GENERATED_INTERFACE_40AC143EC65A4706_H
+#define MAL_GENERATED_INTERFACE_40AC143EC65A4706_H
 
 /* Host-visible types */
 
@@ -35,26 +40,10 @@ MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_11bb4291f5045bdf, MAL_DETAIL_REPR
 #define MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_DECLARED
 typedef struct mal_detail_repr_product_11bb4291f5045bdf mal_repr_product_11bb4291f5045bdf_t;
 #endif
-#ifndef MAL_DETAIL_HOST_REPR_4647c325c84fd80e_DECLARED
-#define MAL_DETAIL_HOST_REPR_4647c325c84fd80e_DECLARED
-typedef struct mal_detail_repr_sum_4647c325c84fd80e mal_repr_sum_4647c325c84fd80e_t;
-#endif
-typedef mal_repr_sum_4647c325c84fd80e_t mal_Division_t;
 
 #ifndef MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_DEFINED
 #define MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_DEFINED
 MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_11bb4291f5045bdf, MAL_DETAIL_REPR_FIELDS_11bb4291f5045bdf, MAL_DETAIL_HOST_REPR_FIELD)
-#endif
-
-#ifndef MAL_DETAIL_REPR_FIELDS_4647c325c84fd80e_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_4647c325c84fd80e_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_4647c325c84fd80e(field, context) \
-field(context, 0, variant_0, MalType_Unit, mal_Unit_t, mal_detail_convert_Unit, mal_detail_convert_Unit) \
-field(context, 1, variant_1, MalType_Int32, mal_Int32_t, mal_Int32_return, mal_Int32_return)
-#endif
-#ifndef MAL_DETAIL_HOST_REPR_4647c325c84fd80e_DEFINED
-#define MAL_DETAIL_HOST_REPR_4647c325c84fd80e_DEFINED
-MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4647c325c84fd80e, MAL_DETAIL_REPR_FIELDS_4647c325c84fd80e, MAL_DETAIL_HOST_REPR_FIELD)
 #endif
 
 /* Type helpers */
@@ -63,18 +52,6 @@ MAL_DETAIL_DEFINE_SUM_REPR(mal_detail_repr_sum_4647c325c84fd80e, MAL_DETAIL_REPR
 #define MAL_DETAIL_HOST_REPR_11bb4291f5045bdf_HELPERS
 MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_11bb4291f5045bdf, mal_repr_product_11bb4291f5045bdf_return, MalRepr_Product_11bb4291f5045bdf, mal_repr_product_11bb4291f5045bdf_t, MAL_DETAIL_REPR_FIELDS_11bb4291f5045bdf)
 #endif
-
-/* Canonical memory access */
-
-#ifndef MAL_DETAIL_MEMORY_REPR_4647c325c84fd80e_HELPERS
-#define MAL_DETAIL_MEMORY_REPR_4647c325c84fd80e_HELPERS
-#define MAL_DETAIL_MEMORY_MEMBERS_4647c325c84fd80e(member) \
-member(mal_repr_sum_4647c325c84fd80e_t, mal_UInt8_t, mal_detail_memory_write_UInt8, 0, variant_0, mal_detail_memory_read_Unit, mal_detail_memory_write_Unit, 4) \
-member(mal_repr_sum_4647c325c84fd80e_t, mal_UInt8_t, mal_detail_memory_write_UInt8, 1, variant_1, mal_detail_memory_read_Int32, mal_detail_memory_write_Int32, 4)
-MAL_DETAIL_DEFINE_MEMORY_SUM(mal_detail_memory_read_4647c325c84fd80e, mal_detail_memory_write_4647c325c84fd80e, mal_repr_sum_4647c325c84fd80e_t, mal_detail_memory_read_UInt8, MAL_DETAIL_MEMORY_MEMBERS_4647c325c84fd80e)
-#endif
-
-MAL_DETAIL_DEFINE_MEMORY_ALIAS(mal_Division_read, mal_Division_write, mal_Division_t, 8, mal_detail_memory_read_4647c325c84fd80e, mal_detail_memory_write_4647c325c84fd80e)
 
 /* External operations */
 

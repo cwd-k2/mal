@@ -17,25 +17,14 @@ main :: Buffer<Symbol> -> Int32 := (arguments) -> [return] => {
         return(2);
     };
 
-    path := *arguments.get(0usize);
-    (transfer, capacity) := transferBuffer();
-    when (#path >= capacity) {
-        writeStderr("source path is too long\n");
-        return(1);
-    };
-    path.into(transfer, 0usize, #path);
-
-    source := readSource(transfer, #path)[
+    path := arguments.get(0usize);
+    sourceBuffer := readSource(path)[
         (source) -> source,
         (error) -> {
             writeStderr("cannot read source, errno " + error.u64.decimal() + "\n");
             return(1);
         }
     ];
-    (allocation, address, length) := source;
-    sourceBuffer := from<UInt8>(address, 0usize, length);
-    releaseSource(allocation);
-
     output := compile(*sourceBuffer)[
         (message) -> {
             writeStderr(message);

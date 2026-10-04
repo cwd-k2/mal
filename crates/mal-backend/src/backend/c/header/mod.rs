@@ -16,7 +16,7 @@ mod prefix;
 
 use self::prefix::emit_prefix;
 
-const C_ABI_VERSION_LITERAL: &str = "0x000900u";
+const C_ABI_VERSION_LITERAL: &str = "0x000a00u";
 
 pub(super) fn emit_common() -> String {
     common::emit()
@@ -28,19 +28,8 @@ pub(super) fn emit(
     dependencies: &[String],
     umbrella: bool,
 ) -> String {
-    let memory_access = interfaces.iter().any(|interface| {
-        interface
-            .type_aliases
-            .iter()
-            .any(|alias| alias.host_memory_access)
-    });
     let mut output = TranslationUnit::default();
-    output.extend(emit_prefix(
-        target.index_size * 8,
-        memory_access,
-        dependencies,
-        umbrella,
-    ));
+    output.extend(emit_prefix(target, dependencies, umbrella));
     for interface in interfaces {
         append_interface(&mut output, interface, target);
     }
@@ -84,7 +73,7 @@ fn interface_body(
     interface: &ProgramInterface,
     types: &TypeRegistry,
     host: &HostTypes,
-    target: crate::backend::llvm::TargetLayout,
+    _target: crate::backend::llvm::TargetLayout,
 ) -> TranslationUnit {
     let signatures: Vec<_> = interface
         .externals
@@ -104,16 +93,6 @@ fn interface_body(
     if !helpers.is_empty() {
         begin_section(&mut output, "Type helpers");
         output.extend(helpers);
-    }
-
-    let memory_helpers = types.memory_helpers(
-        host,
-        &interface.type_aliases,
-        crate::backend::source_layout::SourceLayouts::new(target),
-    );
-    if !memory_helpers.is_empty() {
-        begin_section(&mut output, "Canonical memory access");
-        output.extend(memory_helpers);
     }
 
     if !interface.externals.is_empty() {

@@ -4,9 +4,9 @@
 
 use super::*;
 use crate::resolve::ast::{
-    ADDRESS_TYPE, BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE,
-    INT16_TYPE, INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE,
-    UINT32_TYPE, UINT64_TYPE, UNIT_TYPE,
+    BOOL_TYPE, BUFFER_TYPE, BYTE_SIZE_TYPE, FLOAT32_TYPE, FLOAT64_TYPE, INT8_TYPE, INT16_TYPE,
+    INT32_TYPE, INT64_TYPE, SYMBOL_TYPE, U_SIZE_TYPE, UINT8_TYPE, UINT16_TYPE, UINT32_TYPE,
+    UINT64_TYPE, UNIT_TYPE,
 };
 
 impl Checker {
@@ -209,7 +209,6 @@ pub(in crate::check::types) fn predefined_type(id: TypeId) -> Option<Type> {
         FLOAT64_TYPE => Type::Float64,
         BOOL_TYPE => Type::Sum(vec![Type::Unit, Type::Unit].into()),
         SYMBOL_TYPE => Type::Symbol,
-        ADDRESS_TYPE => Type::Address,
         BYTE_SIZE_TYPE => Type::ByteSize,
         U_SIZE_TYPE => Type::USize,
         _ => return None,

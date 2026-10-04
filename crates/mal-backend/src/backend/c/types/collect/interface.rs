@@ -1,4 +1,4 @@
-//! The host-visible types a program interface reaches: extern signatures and the aliases admitted for canonical memory.
+//! The host-visible types reached by extern signatures and their source aliases.
 
 use super::*;
 
@@ -43,11 +43,6 @@ impl HostTypes {
             }
         }
         for alias in &interface.type_aliases {
-            if alias.host_memory_access {
-                host.collect_memory_type(&alias.ty, registry);
-            }
-        }
-        for alias in &interface.type_aliases {
             if host.exposes_alias(alias) {
                 registry.collect(&alias.ty);
             }
@@ -67,8 +62,12 @@ impl HostTypes {
                 .map_or_else(|| !self.types.contains(ty), |id| self.collected.insert(id));
             if newly_collected {
                 self.types.push(ty.clone());
-                if let Type::Product(elements) | Type::Sum(elements) = ty {
-                    pending.extend(elements.iter());
+                match ty {
+                    Type::Product(elements) | Type::Sum(elements) => {
+                        pending.extend(elements.iter())
+                    }
+                    Type::Buffer(element) => pending.push(element),
+                    _ => {}
                 }
             }
         }
@@ -84,25 +83,12 @@ impl HostTypes {
             );
             if newly_collected {
                 self.external_types.push(ty.clone());
-                if let Type::Product(elements) | Type::Sum(elements) = ty {
-                    pending.extend(elements.iter());
-                }
-            }
-        }
-    }
-
-    fn collect_memory_type(&mut self, ty: &Type, registry: &mut TypeRegistry) {
-        self.collect_type(ty, registry);
-        let mut pending = vec![ty];
-        while let Some(ty) = pending.pop() {
-            let newly_collected = ty.shared_id().map_or_else(
-                || !self.memory_types.contains(ty),
-                |id| self.memory_collected.insert(id),
-            );
-            if newly_collected {
-                self.memory_types.push(ty.clone());
-                if let Type::Product(elements) | Type::Sum(elements) = ty {
-                    pending.extend(elements.iter());
+                match ty {
+                    Type::Product(elements) | Type::Sum(elements) => {
+                        pending.extend(elements.iter())
+                    }
+                    Type::Buffer(element) => pending.push(element),
+                    _ => {}
                 }
             }
         }
@@ -112,12 +98,6 @@ impl HostTypes {
         ty.shared_id()
             .is_some_and(|id| self.collected.contains(&id))
             || self.types.contains(ty)
-    }
-
-    pub(in crate::backend::c::types) fn memory_contains(&self, ty: &Type) -> bool {
-        ty.shared_id()
-            .is_some_and(|id| self.memory_collected.contains(&id))
-            || self.memory_types.contains(ty)
     }
 
     pub(in crate::backend::c::types) fn external_contains(&self, ty: &Type) -> bool {
@@ -130,7 +110,7 @@ impl HostTypes {
         &self,
         alias: &crate::core::ast::TypeAlias,
     ) -> bool {
-        alias.host_memory_access || self.external_aliases.contains(&alias.name)
+        self.external_aliases.contains(&alias.name)
     }
 
     pub(in crate::backend::c::types) fn exposes_external_alias(

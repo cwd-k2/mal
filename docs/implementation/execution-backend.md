@@ -2,7 +2,7 @@
 
 Status: Current implementation design
 
-この文書は`malc`が記述programを実行物へ変換するときのLLVM IR、C runtime、public C interfaceの
+この文書は`malc`が記述programを実行物へ変換するときのLLVM IR、C runtime、runtime extension C interfaceの
 責務境界を定める。採択理由は[D041](../history/decisions/active/D041.md)、現在実装のmodule配置は
 [compilerの責務境界](responsibilities.md)、control変換は
 [application control lowering](application-control-lowering.md)、外部根拠は
@@ -14,7 +14,7 @@ Status: Current implementation design
 
 - LLVM IRは、解析済みMal programに固有の実行計画を所有する。
 - C runtimeは、programによらないstorageと汎用operationを所有する。
-- 共通`mal.h`、C shim、generated file headerは、hostへ公開するC ABIを所有する。
+- 共通`mal.h`、C shim、generated file headerは、extern Cへ公開するexact-match runtime ABIを所有する。
 
 `malc`が使用するtarget toolchainはpinned Clang/LLVMに限定し、runtime、shim、host adapterのsource languageはC11とする。
 GCCその他のC compilerとのsource compatibility、option compatibility、ABI compatibilityは設計条件にしない。
@@ -40,9 +40,9 @@ generated function body全体を一つのLLVM optimization unitとして構成�
 | Execution plan | application graph、tail fusion、recursive SCC、edge mode、self-tail parameter leafとしてadmitしたpatternとentry prefix、resume liveness、frameが運ぶsemantic valueとowner |
 | Generated LLVM IR | function body、basic block、call、branch、dispatch、self-tail parameterの物理leaf、program固有frame型、scalar演算、aggregate構築・分解、closure entry、typed cleanup |
 | C runtime | allocation、reference count機構、control storage growth、共通flat byte ownerとSymbol汎用操作、fatal resource failure |
-| Generated C shim | process entry、LLVM moduleのroot呼出し、extern call marshalling、terminal return、public valueと内部valueの変換 |
-| Common `mal.h` | program非依存のbuiltin carrier、call capability、trap、canonical scalar memory access、generated helper template、public C ABI version |
-| Generated C file header | file固有のhost-visible type、aggregate shapeとtarget layoutのdescriptor、helper templateの適用、operation definition macro、observer、constructor、target assertion |
+| Generated C shim | process entry、LLVM moduleのroot呼出し、extern call bridge、managed parameter borrow、terminal result move |
+| Common `mal.h` | builtin carrier、call capability、trap、allocation、ownerとBuffer operation、C ABI version |
+| Generated C file header | file固有のruntime carrier、aggregate target layout、operation definition macro、constructor、target assertion |
 | Driver | 同一targetと互換toolchainによるLLVM module、runtime C、shim C、requireされたC sourceのcompileとlink、明示された外部toolchain argumentとinspection artifactの配送 |
 
 program固有のdata operationはdataを扱っていてもLLVM IRに属する。product fieldのprojection、sum tag branch、frame fieldへの
@@ -50,10 +50,9 @@ owner moveは実行計画の一部である。共通byte storage、reference cou
 program固有のclosure environment destructorはfield型と順序を知るためLLVM IRに置く。closure environment、Buffer、Poolが共有する
 genericなmanaged owner headerのreference count更新と最後のdestructor呼び出しはC runtimeを呼ぶ。
 
-file headerはaggregate helperのfunction bodyやraw/host representationのfield列を型ごとに複製せず、fieldまたはvariantごとの差分を
-`MAL_DETAIL_` descriptorとして記録する。1つのrepresentation descriptorはvariant index、member名、raw型、host型、双方向の変換を持ち、
-`mal.h`のprogram非依存templateがraw/host representation定義と型変換へ展開する。canonical memory accessはtarget layout固有の
-offsetやreader・writerを必要とするため、別descriptorを使う。
+file headerはaggregate helperのfunction bodyを型ごとに複製せず、fieldまたはvariantごとの差分を`MAL_DETAIL_` descriptorとして
+記録する。1つのruntime representation descriptorはvariant index、member名、carrier型、offset、lifecycleを持ち、`mal.h`の
+program非依存templateがC record、constructor、share/drop/replaceへ展開する。
 巨大なaggregateのdescriptorは一定数のmemberごとに分割し、preprocessorの1つの論理行を無制限に伸ばさない。descriptorとtemplateは
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 
@@ -64,9 +63,9 @@ includeしても宣言を重複させない。直接requireしたfile headerのi
 
 ## Cとの境界
 
-public host interfaceは現在のC ABIを維持し、LLVM IRの型、calling convention、frame、closure carrierを公開しない。LLVMはCより
-低水準であり、`ccc`を指定するだけではsource-level C aggregateのtarget ABI loweringをfrontendに代わって構成しない。このため
-LLVM backendはhost-visible productとsumをLLVM function signatureで直接受け渡さない。Symbolはpublic host interfaceへ出さない。
+extern C interfaceはruntime carrier layoutを公開するが、LLVM calling convention、control frame、closure carrierは公開しない。LLVMは
+Cより低水準なので、generated C shimが同じtarget layout planのC recordとinternal pointer/out-pointer bridgeを接続する。Symbolと
+Bufferを含むmanaged carrierもこのbridgeを通る。
 
 LLVM moduleとgenerated C shim、C runtimeの内部bridgeは、`void` result、opaque pointer、input pointer、result out-pointerを
 基本とする。fixed-width scalarをsignatureで直接渡す場合や共有record layoutが必要な場合は、一つのbackend ABI planからC

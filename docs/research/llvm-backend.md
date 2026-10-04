@@ -52,18 +52,17 @@ malへの含意:
 - LLVM moduleとC artifactは同じtargetへcompileし、異なるdata layoutをlinkしない。
 - textual LLVM IRをversion-independentなpublic interchange formatにしない。
 
-## Opaque pointerとsource operation
+## Opaque pointerとruntime implementation
 
 [LLVM Language Referenceのpointer type](https://llvm.org/docs/LangRef.html#pointer-type)は`ptr`をmemory locationを指定する
 opaque typeとし、address spaceごとのrepresentation sizeとindex sizeを分ける。representationは単一のinteger addressに
 限らず、non-integral pointerやboundsとpermissionを持つcapability pointerもmodelに含む。IRはその内部componentを
 productとして公開せず、`getelementptr`、`load`、`store`などのpointer operationで扱う。
 
-malの`Address`もnumeric addressではなく、targetが表現するopaque data-pointer capabilityである。LLVM module内ではdefault address
-spaceの`ptr`、C host interfaceでは`void *`へ写すが、両者はinternal execution representationとpublic host carrierである。sourceはpointerの内部表現を観測せず、
-storage accessはhost contractとC host copy primitiveを通じて行う。canonical representationに含まれる`Address`もintegerとして
-観測せず、pointer valueとして保存、復元する。採択済みのsource operationとlayout authorityは
-[external memory specification](../spec/memory.md)を正とする。
+mal sourceは任意memoryを指す汎用pointer型を持たない。LLVMの`ptr`はBuffer object、managed owner、Symbol view、runtime内部storageを
+実装するために使い、C runtime extensionにはそれらを含むruntime carrierをそのまま公開する。pointer representation sizeとindex
+sizeを分けるtarget layoutの性質は、Buffer stride、aggregate field、generated C assertionの計算で保持する。採択済みのsource
+operationとlayout authorityは[`Buffer` specification](../spec/memory.md)と[C host ABI](../spec/c-host-abi.md)を正とする。
 
 ## C runtimeとLTO
 

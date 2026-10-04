@@ -14,13 +14,11 @@ pub(crate) fn lower_interface(program: &checked::Program) -> ProgramInterface {
                 binding,
                 ty,
                 element_aliases,
-                host_memory_access,
             } => {
                 interface.type_aliases.push(TypeAlias {
                     name: binding.name.text.clone(),
                     ty: ty.clone(),
                     element_aliases: element_aliases.clone(),
-                    host_memory_access: *host_memory_access,
                     span: item.span,
                 });
             }

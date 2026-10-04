@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn maps_host_values_without_reusing_raw_type_names() {
-    let product = Type::Product(vec![Type::UInt64, Type::Address].into());
+    let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
     let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
     let mut registry = TypeRegistry::default();
     registry.collect(&sum);
@@ -14,7 +14,8 @@ fn maps_host_values_without_reusing_raw_type_names() {
         (Type::Int32, "mal_Int32_t"),
         (Type::UInt64, "mal_UInt64_t"),
         (Type::Float64, "mal_Float64_t"),
-        (Type::Address, "mal_Address_t"),
+        (Type::Symbol, "mal_Symbol_t"),
+        (Type::Buffer(Type::UInt8.into()), "mal_Buffer_t"),
         (
             Type::External {
                 id: TypeId(3),
@@ -31,7 +32,7 @@ fn maps_host_values_without_reusing_raw_type_names() {
     );
     assert_eq!(
         registry.host_value_c_type(&sum, None),
-        c_type!(mal_repr_sum_a47b44facfce4b92_t)
+        c_type!(mal_repr_sum_11ce2ff4640b9e1d_t)
     );
     assert_eq!(
         registry.host_value_c_type(&Type::UInt64, Some("Count")),
@@ -54,7 +55,7 @@ fn maps_bool_before_its_structural_sum_representation() {
 
 #[test]
 fn declares_host_aggregates_in_structural_dependency_order() {
-    let product = Type::Product(vec![Type::UInt64, Type::Address].into());
+    let product = Type::Product(vec![Type::UInt64, Type::Symbol].into());
     let sum = Type::Sum(vec![Type::Unit, product.clone()].into());
     let mut registry = TypeRegistry::default();
     registry.collect(&sum);
@@ -68,14 +69,12 @@ fn declares_host_aggregates_in_structural_dependency_order() {
             name: "Packet".into(),
             ty: product,
             element_aliases: vec![None, None],
-            host_memory_access: false,
             span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
         },
         crate::core::ast::TypeAlias {
             name: "Result".into(),
             ty: sum,
             element_aliases: vec![None, Some("Packet".into())],
-            host_memory_access: false,
             span: mal_syntax::source::Span::new(mal_syntax::source::FileId::new(0), 0, 0),
         },
     ];
@@ -89,13 +88,13 @@ fn declares_host_aggregates_in_structural_dependency_order() {
         "{declarations}"
     );
     assert!(declarations.contains(
-        "typedef struct mal_detail_repr_sum_a47b44facfce4b92 mal_repr_sum_a47b44facfce4b92_t;"
+        "typedef struct mal_detail_repr_sum_11ce2ff4640b9e1d mal_repr_sum_11ce2ff4640b9e1d_t;"
     ));
     assert!(declarations.contains("typedef mal_repr_product_1e5f7ae9f35ae3d3_t mal_Packet_t;"));
-    assert!(declarations.contains("typedef mal_repr_sum_a47b44facfce4b92_t mal_Result_t;"));
+    assert!(declarations.contains("typedef mal_repr_sum_11ce2ff4640b9e1d_t mal_Result_t;"));
     assert!(declarations.contains(concat!(
-        "field(context, 1, field_1, MalType_Address, mal_Address_t, ",
-        "MAL_DETAIL_REPR_IDENTITY, mal_Address_return)"
+        "field(context, 1, field_1, MalType_Symbol, mal_Symbol_t, ",
+        "MAL_DETAIL_REPR_IDENTITY, mal_Symbol_return_move)"
     )));
     assert!(declarations.contains(concat!(
         "field(context, 1, variant_1, MalRepr_Product_1e5f7ae9f35ae3d3, ",

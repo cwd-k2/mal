@@ -8,6 +8,14 @@ export def bundle-server [server: string] {
     cp --force $server ($EXTENSION | path join server/mal-lsp)
 }
 
+# Package the extension from its own directory. Keeping the directory change in this command avoids
+# depending on the caller's closure environment when the repository-wide checks invoke it.
+export def package [vsix: string] {
+    cd $EXTENSION
+    rm --force $vsix
+    run-external npm "exec" "--" "vsce" "package" "--out" $vsix "--allow-missing-repository"
+}
+
 # Launch VS Code with the extension, either as an Extension Development Host or, where that is not
 # supported (for example WSL remote-cli), by installing a packaged VSIX into the remote host.
 export def launch [
@@ -44,8 +52,7 @@ export def launch [
 
     let vsix = "/tmp/mal-language-support.vsix"
     print "Packaging and installing the extension into the remote host..."
-    cd $EXTENSION
-    npm exec -- vsce package --out $vsix --allow-missing-repository
+    package $vsix
     run-external $launcher.command "--install-extension" $vsix "--force"
     print "Opening the repository with the installed remote extension..."
     run-external $launcher.command "--new-window" $repository

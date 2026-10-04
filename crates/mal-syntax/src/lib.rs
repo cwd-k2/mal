@@ -16,4 +16,4 @@ pub mod source;
 /// Canonical language name used by tools and generated metadata.
 pub const LANGUAGE_NAME: &str = "mal";
 /// Language specification version implemented by this workspace.
-pub const LANGUAGE_VERSION: &str = "0.6";
+pub const LANGUAGE_VERSION: &str = "0.7";

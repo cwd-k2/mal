@@ -1,6 +1,6 @@
 # 字句と文法
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 ## Sourceとidentifier
 

@@ -1,135 +1,17 @@
 use super::*;
 
 #[test]
-fn accesses_canonical_memory_through_named_alias_helpers() {
-    let directory = NativeFixture::new("driver-canonical-memory-helpers");
+fn constructs_a_managed_element_buffer_in_the_c_runtime_extension() {
+    let directory = NativeFixture::new("driver-c-managed-buffer");
     let source = directory.join("program.mal");
     let executable = directory.join("program");
     directory.write(
         "program.mal",
         "require \"./host.c\";\n\
-         Sample :: (Int64, UInt8);\n\
-         extern storage :: Unit -> Address;\n\
-         extern inspect :: Address -> Unit;\n\
+         extern words :: Unit -> Buffer<Symbol>;\n\
          main :: Unit -> Int32 := () -> {\n\
-           address := storage();\n\
-           values := make<Sample>(1usize);\n\
-           values.new((41i64, 1u8));\n\
-           values.into(address, 0usize, 1usize);\n\
-           inspect(address);\n\
-           (number, byte) := from<Sample>(address, 0usize, 1usize).get(0usize);\n\
-           (number + byte.i64 - 44i64).i32;\n\
-         };",
-    );
-    directory.write(
-        "host.c",
-        "#include \"program.mal.h\"\n\
-         static uint8_t bytes[16];\n\
-         MAL_DEFINE_storage(call) {\n\
-             return mal_Address_return(call, bytes);\n\
-         }\n\
-         MAL_DEFINE_inspect(call, address) {\n\
-             mal_Sample_t sample = mal_Sample_read(call, address, 0);\n\
-             if (sample.field_0 != 41 || sample.field_1 != 1) {\n\
-                 mal_call_trap(call, \"unexpected canonical value\");\n\
-             }\n\
-             sample.field_0 += 1;\n\
-             sample.field_1 += 1;\n\
-             mal_Sample_write(call, address, 0, sample);\n\
-             return mal_Unit_return(call);\n\
-         }\n",
-    );
-
-    let unavailable = directory.join("must-not-be-used");
-    let output = directory.malc_with_env(
-        [
-            OsStr::new("build"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ],
-        OsStr::new("CC"),
-        unavailable.as_os_str(),
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(directory.run(executable).status.code(), Some(0));
-}
-
-#[test]
-fn bridges_bytes_through_borrowed_addresses_in_the_public_c_abi() {
-    let directory = NativeFixture::new("driver-llvm-byte-address-extern");
-    let source = directory.join("program.mal");
-    let executable = directory.join("program");
-    directory.write(
-        "program.mal",
-        "require \"./host.c\";\n\
-         extern memory :: Unit -> Address;\n\
-         extern inspect :: (Address, USize) -> UInt8;\n\
-         main :: Unit -> Int32 := () -> {\n\
-           address := memory();\n\
-           bytes := *(\"x\" + \"y\");\n\
-           bytes.into(address, 0usize, #bytes);\n\
-           inspect(address, #bytes).i32 - 1;\n\
-         };",
-    );
-    directory.write(
-        "host.c",
-        "#include \"program.mal.h\"\n\
-         static uint8_t bytes[2];\n\
-         MAL_DEFINE_memory(call) {\n\
-             return mal_Address_return(call, bytes);\n\
-         }\n\
-         MAL_DEFINE_inspect(call, value) {\n\
-             uint8_t valid = value.field_0 == bytes\n\
-                 && value.field_1 == 2\n\
-                 && bytes[0] == 'x'\n\
-                 && bytes[1] == 'y';\n\
-             return mal_UInt8_return(call, valid);\n\
-         }\n",
-    );
-
-    let unavailable = directory.join("must-not-be-used");
-    let output = directory.malc_with_env(
-        [
-            OsStr::new("build"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ],
-        OsStr::new("CC"),
-        unavailable.as_os_str(),
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(directory.run(executable).status.code(), Some(0));
-}
-
-#[test]
-fn marshals_address_products_through_the_public_c_abi() {
-    let directory = NativeFixture::new("driver-llvm-product-extern");
-    let source = directory.join("program.mal");
-    let executable = directory.join("program");
-    directory.write(
-        "program.mal",
-        "require \"./host.c\";\n\
-         Packet :: (UInt64, Address, USize);\n\
-         extern memory :: Unit -> Address;\n\
-         extern exchange :: Packet -> Packet;\n\
-         main :: Unit -> Int32 := () -> {\n\
-           address := memory();\n\
-           bytes := *\"ab\";\n\
-           bytes.into(address, 0usize, #bytes);\n\
-           (number, returned, length) := exchange(41u64, address, #bytes);\n\
-           if (number == 42u64 && *from<UInt8>(returned, 0usize, length) == \"ab\")\n\
+           values := words();\n\
+           if (#values == 2usize && values.get(0usize) == \"mal\" && values.get(1usize) == \"runtime\")\n\
            then 0\n\
            else 1;\n\
          };",
@@ -137,113 +19,32 @@ fn marshals_address_products_through_the_public_c_abi() {
     directory.write(
         "host.c",
         "#include \"program.mal.h\"\n\
-         static uint8_t bytes[2];\n\
-         MAL_DEFINE_memory(call) {\n\
-             return mal_Address_return(call, bytes);\n\
+         static void retain_symbol(MalContext *context, void *carrier) {\n\
+             mal_Symbol_t *value = carrier;\n\
+             (void)mal_runtime_bytes_retain(context, value->owner);\n\
          }\n\
-         MAL_DEFINE_exchange(call, value) {\n\
-             if (value.field_1 != bytes || value.field_2 != 2\n\
-                 || bytes[0] != 'a' || bytes[1] != 'b') {\n\
-                 mal_call_trap(call, \"unexpected packet\");\n\
-             }\n\
-             return mal_Packet_return(\n\
-                 call,\n\
-                 (mal_Packet_t){\n\
-                     .field_0 = value.field_0 + 1,\n\
-                     .field_1 = value.field_1,\n\
-                     .field_2 = value.field_2,\n\
-                 }\n\
+         static void release_symbol(void *carrier) {\n\
+             mal_Symbol_t *value = carrier;\n\
+             mal_runtime_bytes_release(value->owner);\n\
+         }\n\
+         MAL_DEFINE_words(call) {\n\
+             mal_Buffer_t values = mal_Buffer_make_managed(\n\
+                 call, sizeof(mal_Symbol_t), 2, retain_symbol, release_symbol\n\
              );\n\
+             mal_Symbol_t first = mal_Symbol_from_bytes(call, \"mal\", 3);\n\
+             mal_Symbol_t second = mal_Symbol_from_bytes(call, \"runtime\", 7);\n\
+             mal_Buffer_new_managed_move(call, values, &first, sizeof(first));\n\
+             mal_Buffer_new_managed_move(call, values, &second, sizeof(second));\n\
+             return mal_Buffer_return_move(call, values);\n\
          }\n",
     );
 
-    let unavailable = directory.join("must-not-be-used");
-    let output = directory.malc_with_env(
-        [
-            OsStr::new("build"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ],
-        OsStr::new("CC"),
-        unavailable.as_os_str(),
-    );
-
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert_eq!(directory.run(executable).status.code(), Some(0));
-}
-
-#[test]
-fn marshals_active_sum_payloads_recursively_through_the_public_c_abi() {
-    let directory = NativeFixture::new("driver-llvm-sum-extern");
-    let source = directory.join("program.mal");
-    let executable = directory.join("program");
-    directory.write(
-        "program.mal",
-        "require \"./host.c\";\n\
-         Bytes :: (Address, USize);\n\
-         Choice :: [Unit, (UInt64, Bytes)];\n\
-         Envelope :: (UInt8, Choice);\n\
-         extern memory :: Unit -> Address;\n\
-         extern exchange :: Envelope -> Envelope;\n\
-         makeChoice :: (UInt64, Bytes) -> Choice := (value) -> [none, some] => { some(value) };\n\
-         main :: Unit -> Int32 := () -> {\n\
-           address := memory();\n\
-           bytes := *\"ab\";\n\
-           bytes.into(address, 0usize, #bytes);\n\
-           (number, choice) := exchange(41u8, makeChoice(7u64, (address, #bytes)));\n\
-           choice[\n\
-             () -> { 1 },\n\
-             (packet) -> {\n\
-               (bias, returned) := packet;\n\
-               (returnedAddress, length) := returned;\n\
-               if (number == 42u8) then {\n\
-                 if (bias == 7u64) then {\n\
-                   if (*from<UInt8>(returnedAddress, 0usize, length) == \"ab\") then { 0 } else { 2 };\n\
-                 } else { 3 };\n\
-               } else { 4 };\n\
-             }];\n\
-         };",
-    );
-    directory.write(
-        "host.c",
-        "#include \"program.mal.h\"\n\
-         static uint8_t bytes[2];\n\
-         MAL_DEFINE_memory(call) {\n\
-             return mal_Address_return(call, bytes);\n\
-         }\n\
-         MAL_DEFINE_exchange(call, value) {\n\
-             if (value.field_1.tag != mal_Choice_tag_1) {\n\
-                 mal_call_trap(call, \"unexpected choice\");\n\
-             }\n\
-             mal_Bytes_t payload = value.field_1.payload.variant_1.field_1;\n\
-             if (payload.field_0 != bytes || payload.field_1 != 2\n\
-                 || bytes[0] != 'a' || bytes[1] != 'b') {\n\
-                 mal_call_trap(call, \"unexpected payload\");\n\
-             }\n\
-             return mal_Envelope_return(\n\
-                 call,\n\
-                 (mal_Envelope_t){.field_0 = value.field_0 + 1, .field_1 = value.field_1}\n\
-             );\n\
-         }\n",
-    );
-
-    let unavailable = directory.join("must-not-be-used");
-    let output = directory.malc_with_env(
-        [
-            OsStr::new("build"),
-            source.as_os_str(),
-            OsStr::new("--output"),
-            executable.as_os_str(),
-        ],
-        OsStr::new("CC"),
-        unavailable.as_os_str(),
-    );
-
+    let output = directory.malc([
+        OsStr::new("build"),
+        source.as_os_str(),
+        OsStr::new("--output"),
+        executable.as_os_str(),
+    ]);
     assert!(
         output.status.success(),
         "{}",

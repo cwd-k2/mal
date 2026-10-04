@@ -1,5 +1,5 @@
-use super::{Comment, RecordDefinition, RecordField, RecordKind};
-use crate::backend::c::syntax::{MacroInvocation, c_expr};
+use super::{Comment, Declaration, RecordDefinition, RecordField, RecordKind};
+use crate::backend::c::syntax::{MacroInvocation, Parameter, TypeName, c_expr};
 
 #[test]
 fn comments_cannot_terminate_their_own_delimiter() {
@@ -7,6 +7,17 @@ fn comments_cannot_terminate_their_own_delimiter() {
         Comment::new("source */ injected").render(),
         "/* source * / injected */\n"
     );
+}
+
+#[test]
+fn renders_function_pointer_type_aliases() {
+    let declaration = Declaration::function_pointer_type_alias(
+        "void",
+        "Retain",
+        [Parameter::unnamed(TypeName::named("void").pointer())],
+    );
+
+    assert_eq!(declaration.render(), "typedef void (*Retain)(void *);\n");
 }
 
 #[test]

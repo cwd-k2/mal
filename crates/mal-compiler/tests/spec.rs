@@ -230,29 +230,3 @@ fn opaque_type_and_generic_operation_rules() {
 fn evaluation_semantics() {
     run_all(include_str!("spec/evaluation.txt"));
 }
-
-#[test]
-fn canonical_memory_layout_matches_the_specification() {
-    let fixture = NativeFixture::new("spec-layout");
-    let program =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/spec/layout/program.mal");
-    let executable = fixture.join("layout");
-    let built = fixture.malc([
-        std::ffi::OsStr::new("build"),
-        program.as_os_str(),
-        std::ffi::OsStr::new("-o"),
-        executable.as_os_str(),
-    ]);
-    assert!(
-        built.status.success(),
-        "{}",
-        String::from_utf8_lossy(&built.stderr)
-    );
-    let output = fixture.run(&executable);
-    assert!(
-        output.status.success(),
-        "exit {:?}: {}",
-        output.status.code(),
-        String::from_utf8_lossy(&output.stderr)
-    );
-}

@@ -10,15 +10,15 @@ append to that emitter and produce one immutable Symbol snapshot only after succ
 instead of repeatedly copying the complete generated module. Nested loops use structural recursion;
 straight-line source uses a tail edge.
 
-`host.mal` owns a bounded process-lifetime transfer area. The C host reads source into one external
-allocation, mal admits it and releases the handle, and later output is copied through the transfer
-area in chunks. Source paths must be shorter than the 4,096-byte transfer capacity; source and output
-sizes are not limited by that staging area. File and output failures remain typed sums without
-exposing platform syscall shapes.
+`host.mal` owns the runtime extension surface. The C host borrows the path as a `Symbol`, reads the
+file directly into a mal-owned `Buffer<UInt8>`, and moves that buffer into mal. Generated LLVM is
+returned to C as a borrowed `Symbol` and written without a transfer area. File and output failures
+remain typed sums without exposing platform syscall shapes.
 
 > [!NOTE]
-> External source storage is authority only while reading. Compilation starts from an immutable
-> Symbol after its bytes have been admitted and the allocation has been released.
+> The host may inspect and construct runtime carriers directly. Correct Buffer ownership and the
+> validity of external file resources are part of this example's extern contract, not language
+> safety guarantees.
 
 ```nu
 nix develop --command cargo run -p mal-compiler -- build examples/compiler-pipeline/program.mal --output /tmp/mal-bfc

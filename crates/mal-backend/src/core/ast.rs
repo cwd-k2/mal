@@ -38,7 +38,6 @@ pub(crate) struct TypeAlias {
     pub name: String,
     pub ty: Type,
     pub element_aliases: Vec<Option<String>>,
-    pub host_memory_access: bool,
     pub span: Span,
 }
 

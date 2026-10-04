@@ -1,6 +1,6 @@
 # `Symbol`
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 ## 値
 
@@ -12,9 +12,8 @@ valid UTF-8も保証しない。
 支配し、source programやhostは個別のstorage identityを観測しない。値のcopyは同じimmutable byte sequenceを
 与えるが、descriptorやallocationの同一性は言語の意味に含まれない。
 
-literalのbytesはprogram imageのstatic storageに置いてよい。連結とexternal bytesのadmissionで得るruntime storageは
-host storageを参照せず、malが所有する。`Buffer<UInt8>`からの変換は変換時点のbytesをimmutable snapshotとして保持する。
-host bytesは`from<UInt8>`でBufferへcopyしてから`*`でSymbolにする。
+literalのbytesはprogram imageのstatic storageに置いてよい。連結とextern Cがruntimeへ構築したSymbolのstorageはmal runtimeが
+回収する。`Buffer<UInt8>`からの変換は変換時点のbytesをimmutable snapshotとして保持する。
 
 ## literal
 
@@ -70,14 +69,14 @@ length、byte access、equalityは既存のbyte sequenceを観測するoperation
 有効なoperandに対して内部表現だけを理由とするstorage allocationやallocation failureを追加してはならない。
 `*symbol`によるBuffer変換と`*buffer`によるSymbol変換はoperandをconsumeしない。実装はcopy-on-writeでstorageを共有してよいが、
 Bufferの変更をSymbolから観測できてはならない。
-`Symbol`自体はextern境界を通らない。
+`Symbol`はextern Cへruntime carrierとして渡せる。parameterはimmutable byte viewへのborrow、resultはhostが構築したmanaged
+responsibilityのmoveである。Cが完成済みSymbol storageを書き換えた後の挙動は保証しない。
 
 byte accessはimmutableなbyte valueに対する位置指定のobservationである。反復的な更新または再利用可能なsequenceには
 `Buffer<UInt8>`、host resource固有のaccessにはextern contractを使う。
 
 ## mutable bytesとの分離
 
-`Symbol`の内容は変更できない。mutableなmal-owned bytesは`Buffer<UInt8>`、host-owned storageはAddressとextern contractで表す。
+`Symbol`の内容は変更できない。mutableなmal-owned bytesは`Buffer<UInt8>`、host resourceはexternal opaque typeとextern contractで表す。
 `Symbol`は`Int64`などと同じくBufferの要素になれるので、Symbolの列は`Buffer<Symbol>`で表し、要素の入れ替えは
 Symbolの内容を変更しない。
-C host storageとのcopyは`from<UInt8>`と`buffer.into`だけが行う。

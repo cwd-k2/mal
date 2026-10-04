@@ -1,11 +1,11 @@
 # `extern`をruntime extension境界にする提案
 
-Status: Accepted for specification and implementation
+Status: Implemented in v0.7
 
 この文書は、`extern`をmanaged valueから隔離したpublic C value境界ではなく、同じcompiler/runtime revisionへ結合する
-runtime extension境界として再定義する案を管理する。現在の規範は[`extern`](../spec/extern.md)、
-[C host ABI](../spec/c-host-abi.md)、[AddressとBuffer](../spec/memory.md)、[EngramとExtern](../spec/engrams.md)を正とし、
-本案は採択前のため現在のprogramがここに記すABIへ依存してはならない。
+runtime extension境界として再定義した変更の背景と移行範囲を記録する。現在の規範は[`extern`](../spec/extern.md)、
+[C host ABI](../spec/c-host-abi.md)、[`Buffer`](../spec/memory.md)、[EngramとExtern](../spec/engrams.md)を正とし、
+採択判断は[D098](../history/decisions/active/D098.md)を正とする。
 
 ## 目的
 
@@ -44,17 +44,18 @@ trampolineが必要だからである。これらは安全性のための制限�
 ## Runtime extension ABI
 
 toolchainはprogram非依存の`mal.h`を提供し、generated file headerはそれをincludeする。別のsafe ABIを持たないため、共通headerも
-safe/unsafeに分割しない。`mal.h`はruntime object、共通carrier、allocation、lifecycle operationを宣言する。generated file
-headerはprogram固有のaggregate、normalized opaque representation、extern signature、型別lifecycle glueを宣言する。
+safe/unsafeに分割しない。`mal.h`は共通carrier、call context、allocation、lifecycle operationを宣言する。generated file
+headerはprogram固有のaggregate、normalized opaque representation、extern signatureを宣言する。
 
-このABIは内部layoutを隠さない。少なくとも`MalContext`、`MalBuffer`、byte owner、`Symbol` view、managed owner header、Pool kernelと、
-それらに必要なretain、release、allocation、reserve、growthをCから参照できる。Cはfieldを直接読み書きしてよい。helperは安全性を
-強制するfacadeではなく、正しいruntime invariantとlifecycleを実装するcanonical operationである。
+このABIはSymbol viewとprogram固有carrierのfield、Buffer element storageを公開する。Buffer object、byte owner、managed owner headerの
+物理layoutはruntime内部に留め、`mal.h`はretain、release、allocation、data access、reserve、growthをCから使えるoperationとして公開する。
+helperは安全性を強制するfacadeではなく、正しいruntime invariantとlifecycleを実装するcanonical operationである。Cが公開pointerを
+castして内部表現を破壊することも防がず、その後の挙動を保証しない。
 
-generated headerはruntime carrierのC record、field、sum tagとpayload、size、alignmentを同じtarget layout planから出し、
-`_Static_assert`でC compilerのlayoutと照合する。C implementationはfieldを直接参照でき、Buffer elementには型付きdata access、
-sumの構築、managed carrierのshare/drop/replace、result moveの小さなhelperを生成する。Cがfield offsetやlifecycle再帰を独自計算する
-必要はないが、helperを迂回することは妨げない。
+generated headerはruntime carrierのC record、field、sum tagとpayloadを同じtarget ABIから出し、pointer/index幅とSymbol layoutを
+`_Static_assert`でC compilerのlayoutと照合する。C implementationはfieldを直接参照でき、`mal.h`はBuffer data access、managed
+carrier leafのshare/drop、result moveの小さなhelperを提供する。productとsumのlifecycle再帰はhost implementationが型別に組み、
+helperを迂回することも妨げない。
 
 host bodyは現在と同じく`mal_call_t *`とsource-level parameter一個のruntime carrierを受け、productをflattenしない。parameter
 carrier自体はCのby-value copyであり、managed leafはcallerが保持するidentityへのborrowである。resultは型別terminal helperで

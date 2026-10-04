@@ -143,13 +143,11 @@ impl Checker {
                 let ty = self.expand_type_id(binding.id, binding.name.span)?;
                 let element_aliases = match &ty {
                     Type::Product(_) | Type::Sum(_) => self.aggregate_aliases(value, &ty),
+                    Type::Buffer(_) => vec![self.buffer_element_alias(value)],
                     _ => Vec::new(),
                 };
                 (
                     TopItem::TypeAlias {
-                        host_memory_access: !binding.name.text.starts_with('_')
-                            && interface::is_host_mappable(&ty)
-                            && types::is_memory_representable(&ty),
                         binding: binding.clone(),
                         ty,
                         element_aliases,

@@ -1,180 +1,128 @@
-# C host interface例
+# C runtime extension実装例
 
-Status: Current ABI 0x000900 examples for mal v0.6
+Status: Current v0.7 examples
 
-この文書は[C host ABI](../spec/c-host-abi.md)を代表的なexternal operationへ適用する例を示す。public headerへ出るのは
-[`HostMappable`](../spec/extern.md#host-mappable-type)な型だけである。すべてのbodyは`mal_call_t`を受け、型付きresult operationを
-C `return` expressionで返す。
+この文書はgenerated file headerを使うC bodyの代表形を示す。型、lifecycle、failureの規範は
+[`extern`](../spec/extern.md)と[C runtime extension ABI](../spec/c-host-abi.md)を正とする。C bodyは安全なFFIの外側にあり、
+runtime carrierを直接壊せるtrusted extensionである。
 
-## Scalar
-
-```mal
-extern increment :: Int64 -> Int64;
-extern write :: Int64 -> Unit;
-```
-
-```c
-MAL_DEFINE_increment(call, value) {
-    return mal_Int64_return(call, value + INT64_C(1));
-}
-
-MAL_DEFINE_write(call, value) {
-    if (printf("%" PRId64 "\n", value) < 0) {
-        mal_call_trap(call, "cannot write value");
-    }
-    return mal_Unit_return(call);
-}
-```
-
-## Borrowed readable bytes
+## Symbolをborrowして観測する
 
 ```mal
-ReadableBytes :: (Address, USize);
-extern writeBytes :: ReadableBytes -> USize;
+extern writeBytes :: Symbol -> Unit;
 ```
 
 ```c
 MAL_DEFINE_writeBytes(call, bytes) {
-    size_t written = fwrite(bytes.field_0, 1, bytes.field_1, stdout);
-    if (written == 0 && bytes.field_1 != 0 && ferror(stdout)) {
-        mal_call_trap(call, "cannot write bytes");
+    if (fwrite(bytes.data, 1, bytes.length, stdout) != bytes.length) {
+        mal_call_trap(call, "write failed");
     }
-    return mal_USize_return(call, written);
-}
-```
-
-`bytes.field_0`は少なくとも`bytes.field_1` bytesを読めるというoperation contractを持つ。hostはpointerをbody return後に保持せず、
-変更も解放もしない。resultは消費したprefixの長さであり、mal側がremainderを再送するかを決める。
-
-## Borrowed writable bytes
-
-```mal
-WritableBytes :: (Address, USize);
-extern readBytes :: WritableBytes -> USize;
-```
-
-```c
-MAL_DEFINE_readBytes(call, bytes) {
-    size_t length = fread(bytes.field_0, 1, bytes.field_1, stdin);
-    if (length == 0 && ferror(stdin)) {
-        mal_call_trap(call, "cannot read bytes");
-    }
-    return mal_USize_return(call, length);
-}
-```
-
-hostはcapacity以下のprefixだけを初期化する。mal側はresultをcapacity以下とするcontractを信頼し、そのprefixをhost storageからBufferへ
-admitしてから外部bufferを再利用できる。host-owned pointerを`Symbol` resultとして返さない。
-
-## Product and sum
-
-```mal
-Packet :: (UInt64, Address, USize);
-SendResult :: [USize, UInt32];
-extern sendPacket :: Packet -> SendResult;
-```
-
-```c
-MAL_DEFINE_sendPacket(call, packet) {
-    Transfer sent = send_frame(packet.field_0, packet.field_1, packet.field_2);
-    if (sent.error != 0) {
-        return mal_SendResult_return_1(call, sent.error);
-    }
-    return mal_SendResult_return_0(call, sent.length);
-}
-```
-
-productはsource orderのfieldを持つ。sum resultはvariant-specific terminal returnで構成し、host codeがtagを直接組み立てる必要を
-なくす。Addressの範囲とpermissionはPacketの構造から推測せず、`sendPacket`のcontractが定める。
-
-## Canonical memory
-
-```mal
-Sample :: (Int64, UInt8);
-extern updateSample :: Address -> Unit;
-```
-
-```c
-MAL_DEFINE_updateSample(call, address) {
-    mal_Sample_t sample = mal_Sample_read(call, address, 0);
-    sample.field_0 += 1;
-    mal_Sample_write(call, address, 0, sample);
     return mal_Unit_return(call);
 }
 ```
 
-`address`がcanonical `Sample`列の先頭を指すというcontractは`updateSample`が定める。helperはunaligned access、field padding、sum tagを
-compilerのtarget layoutに従って処理する。`mal_Sample_t *`へcastせず、extent、permission、lifetimeは別途保証する。
+`bytes`はbody終了まで有効なborrowであり、`owner`をdropしない。call後にも保持する場合はbody中に
+`mal_Symbol_share(call, bytes)`し、保存したresponsibilityを後で`mal_Symbol_drop`する。`data`だけを保存してもlifetimeは延びない。
 
-## External opaque capability
+## Bufferを構成してmoveする
+
+```mal
+extern readBytes :: Unit -> Buffer<UInt8>;
+```
+
+```c
+MAL_DEFINE_readBytes(call) {
+    mal_Buffer_t result = mal_Buffer_make(call, sizeof(mal_UInt8_t), 4096);
+    for (;;) {
+        const int byte = fgetc(stdin);
+        if (byte == EOF) {
+            if (ferror(stdin)) {
+                mal_Buffer_drop(result);
+                mal_call_trap(call, "read failed");
+            }
+            return mal_Buffer_return_move(call, result);
+        }
+        const mal_UInt8_t value = (mal_UInt8_t)byte;
+        mal_Buffer_new(call, result, &value, sizeof(value));
+    }
+}
+```
+
+`mal_Buffer_make`が返すresponsibilityはC bodyが所有する。正常resultでは`return_move`へ渡し、それ以後は使用もdropもしない。
+trap前に解放したいtemporaryは明示的にdropする。`mal_Buffer_new`などgrowthし得るoperationの後は、以前
+`mal_Buffer_data`で得たpointerを再利用しない。
+
+## Bufferをborrowして変更する
+
+```mal
+Sample :: (Int64, UInt8);
+Samples :: Buffer<Sample>;
+extern adjust :: Samples -> Unit;
+```
+
+```c
+MAL_DEFINE_adjust(call, samples) {
+    if (mal_Buffer_count(samples) == 0) {
+        return mal_Unit_return(call);
+    }
+    mal_Sample_t *values = mal_Buffer_data(samples);
+    values[0].field_0 += 1;
+    values[0].field_1 += 1;
+    return mal_Unit_return(call);
+}
+```
+
+Buffer handleはshared identityを指すため、この変更はmal側のaliasから観測できる。Cはgenerated headerの型とruntimeが決めたstrideを
+使う。別のwire layoutやhost copy layoutはない。
+
+## External opaque resource
 
 ```mal
 extern File;
 OpenResult :: [File, UInt32];
-PathBytes :: (Address, USize);
-extern openReadOnly :: PathBytes -> OpenResult;
+extern openReadOnly :: Symbol -> OpenResult;
+extern close :: File -> Unit;
 ```
 
 ```c
 MAL_DEFINE_openReadOnly(call, path) {
-    char *terminated = copy_and_terminate(path.field_0, path.field_1);
-    if (terminated == NULL) {
-        mal_call_trap(call, "path allocation failed");
-    }
-
+    char *terminated = mal_runtime_allocate(call->mal_detail_context, path.length + 1);
+    memcpy(terminated, path.data, path.length);
+    terminated[path.length] = '\0';
     FILE *file = fopen(terminated, "rb");
-    uint32_t error = file == NULL ? current_error() : UINT32_C(0);
-    free(terminated);
-
+    mal_runtime_deallocate(terminated);
     if (file == NULL) {
-        return mal_OpenResult_return_1(call, error);
+        return mal_OpenResult_return_1(call, (mal_UInt32_t)errno);
     }
-    return mal_OpenResult_return_0(call, mal_File_from_bits((uintptr_t)file));
+    return mal_OpenResult_return_0(
+        call,
+        mal_File_from_bits((uintptr_t)(void *)file)
+    );
+}
+
+MAL_DEFINE_close(call, file) {
+    FILE *handle = (FILE *)(void *)mal_File_to_bits(file);
+    if (fclose(handle) != 0) {
+        mal_call_trap(call, "close failed");
+    }
+    return mal_Unit_return(call);
 }
 ```
 
-`File`の有効性、保持、close、failure mappingはExtern authorityに残る。`to_bits`と`from_bits`はresourceをallocate、clone、close、
-freeしない。pathのAddressはcall-scopedだが、正常resultのFile capabilityはoperation contractが定める期間だけ有効である。
+external opaque typeはbitsのcopyだけを行い、resource lifecycleを自動化しない。valid bit pattern、close回数、failure mappingは各operationの
+contractが所有する。
 
-## External cleanup before failure
+## Productとsum
 
-```mal
-extern Socket;
-SocketPair :: (Socket, Socket);
-CreateResult :: [SocketPair, UInt32];
-extern createSocketPair :: Unit -> CreateResult;
-```
+source aliasから生成された`mal_<Alias>_t`はfieldをsource順に持つ。sumは`tag`と`payload.variant_<n>`を持ち、generated
+`mal_<Alias>_make_<n>`と`mal_<Alias>_return_<n>`を使ってactive variantを構成できる。managed payloadを含むresultでは、active
+payloadのresponsibilityもterminal helperへmoveされる。
 
-```c
-MAL_DEFINE_createSocketPair(call) {
-    int sockets[2];
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) != 0) {
-        return mal_CreateResult_return_1(call, current_error());
-    }
+## `mal_call_t`の範囲
 
-    if (!configure_socket(sockets[0]) || !configure_socket(sockets[1])) {
-        uint32_t error = current_error();
-        close(sockets[1]);
-        close(sockets[0]);
-        return mal_CreateResult_return_1(call, error);
-    }
+`mal_call_t`は同期body中のruntime allocation、share、trapに使う。Cからmal closureを呼ぶexecution control、program continuation、
+async completion tokenではない。pointerと内部stateをbody終了後に保持しない。runtime contextとmanaged carrierはthread-confinedであり、
+worker threadを使う場合もbody return前にjoinし、managed resultは元のthreadで構成する。
 
-    mal_SocketPair_t pair = {
-        .field_0 = mal_Socket_from_bits((uintptr_t)sockets[0]),
-        .field_1 = mal_Socket_from_bits((uintptr_t)sockets[1]),
-    };
-    return mal_CreateResult_return_0(call, pair);
-}
-```
-
-result transfer前のexternal resourceはadapterが片付ける。generic `mal_call_t` cleanup stackへ移さない。
-
-## Exampleから確認する性質
-
-- bodyで特別扱いするcurrent-call objectは`mal_call_t`だけである。
-- parameter、local、nested field、resultは同じ`mal_<T>_t`規則を使う。
-- public aggregateとopaque型はHostMappableなextern surface、またはentry sourceのcanonical memory helper対象aliasから到達する。
-- byte列はAddressと長さで借り、Symbol、Buffer、managed ownerをhost codeへ出さない。
-- productは通常のC valueとしてcopy、変更、再構成できる。
-- sumは`make_<variant>`と`return_<variant>`でvalid tagを構成する。
-- Engramのadmission、Extern capabilityのtransfer、Extern cleanupを一つのownershipへ統合しない。
+repository内の実行可能例は[`managed-bytes`](../../examples/managed-bytes/)、
+[`extern-runtime`](../../examples/extern-runtime/)、[`resource-errors`](../../examples/resource-errors/)に置く。

@@ -1,5 +1,5 @@
 use crate::resolve::ast as resolved;
-use crate::resolve::{COPY_VALUE, FILL_VALUE, GET_VALUE, INTO_VALUE, NEW_VALUE, PUT_VALUE};
+use crate::resolve::{COPY_VALUE, FILL_VALUE, GET_VALUE, NEW_VALUE, PUT_VALUE};
 use mal_syntax::ast::Node;
 use mal_syntax::diagnostic::Diagnostic;
 use mal_syntax::source::Span;
@@ -17,7 +17,7 @@ impl Checker {
         let expected = match reference.id {
             NEW_VALUE | GET_VALUE => 2,
             PUT_VALUE => 3,
-            INTO_VALUE | FILL_VALUE => 4,
+            FILL_VALUE => 4,
             COPY_VALUE => 5,
             _ => unreachable!("caller recognizes predefined memory operations"),
         };
@@ -74,14 +74,6 @@ impl Checker {
                 ],
                 Type::Unit,
             ),
-            INTO_VALUE => {
-                super::ensure_copyable_element(&element, receiver.span)?;
-                (
-                    MemoryPrimitive::BufferIntoAddress,
-                    vec![Type::Address, Type::USize, Type::USize],
-                    Type::Unit,
-                )
-            }
             _ => unreachable!("caller recognizes predefined memory operations"),
         };
         let operands = self.check_operands_after(receiver, &arguments[1..], &operand_types)?;

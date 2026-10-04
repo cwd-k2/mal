@@ -79,46 +79,6 @@ fn rejects_symbol_literal_storage_larger_than_the_target_index_range() {
 }
 
 #[test]
-fn rejects_canonical_layouts_larger_than_the_target_index_range() {
-    let mut text = String::from("T0 :: UInt64;\n");
-    for index in 1..=13 {
-        text.push_str(&format!("T{index} :: (T{}, T{});\n", index - 1, index - 1));
-    }
-    text.push_str("main :: Unit -> Int32 := () -> 0i32;");
-    let source = SourceFile::new(FileId::new(97), "llvm-target-layout.mal", text);
-    let checked = mal_frontend::analysis::check(&source).expect("check target layout fixture");
-    let core = crate::core::lower(
-        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
-    );
-    let anf = crate::anf::lower(&core);
-    let closure = crate::closure::convert(&anf);
-    let execution =
-        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
-
-    let error = match generate(
-        &execution,
-        Target {
-            triple: "synthetic-unknown-none",
-            data_layout: "e-p:16:16-i64:64",
-        },
-        OptimizationSet::production(),
-    ) {
-        Ok(_) => panic!("canonical layout exceeds the 16-bit target range"),
-        Err(error) => error,
-    };
-    let Error::Diagnostic(diagnostic) = error else {
-        panic!("target admission must return a diagnostic")
-    };
-    let primary = diagnostic.primary.expect("layout diagnostic span");
-    assert!(
-        source.text()[primary.span.start()..primary.span.end()].starts_with("T13 ::"),
-        "diagnostic points at the oversized alias"
-    );
-    assert!(primary.message.contains("65536"));
-    assert!(primary.message.contains("65535"));
-}
-
-#[test]
 fn rejects_external_layouts_larger_than_the_target_index_range() {
     let mut text = String::from("_T0 :: UInt64;\n");
     for index in 1..=5 {
@@ -405,53 +365,5 @@ fn rejects_oversized_runtime_owned_buffer_elements() {
         "diagnostic points at the runtime-owned Buffer operation"
     );
     assert!(primary.message.contains("98304"));
-    assert!(primary.message.contains("65535"));
-}
-
-#[test]
-fn rejects_oversized_canonical_host_copy_elements() {
-    let mut text = String::from("extern memory :: Unit -> Address;\n_T0 :: UInt64;\n");
-    for index in 1..=13 {
-        text.push_str(&format!(
-            "_T{index} :: (_T{}, _T{});\n",
-            index - 1,
-            index - 1
-        ));
-    }
-    text.push_str(
-        "main :: Unit -> Int32 := () -> { address := memory(); from<_T13>(address, 0usize, 0usize); 0i32; };",
-    );
-    let source = SourceFile::new(FileId::new(99), "llvm-host-copy-layout.mal", text);
-    let checked = mal_frontend::analysis::check(&source).expect("check host copy layout fixture");
-    let core = crate::core::lower(
-        &mal_frontend::check::specialize(checked).expect("specialize checked program"),
-    );
-    let anf = crate::anf::lower(&core);
-    let closure = crate::closure::convert(&anf);
-    let execution =
-        crate::execution::lower(closure, crate::execution::OptimizationSet::production());
-
-    let error = match generate(
-        &execution,
-        Target {
-            triple: "synthetic-unknown-none",
-            data_layout: "e-p:16:16-i64:64",
-        },
-        OptimizationSet::production(),
-    ) {
-        Ok(_) => panic!("host copy element stride exceeds the 16-bit target range"),
-        Err(error) => error,
-    };
-    let Error::Diagnostic(diagnostic) = error else {
-        panic!("target admission must return a diagnostic")
-    };
-    let primary = diagnostic
-        .primary
-        .expect("host copy layout diagnostic span");
-    assert!(
-        source.text()[primary.span.start()..primary.span.end()].contains("from<_T13>"),
-        "diagnostic points at the host copy operation"
-    );
-    assert!(primary.message.contains("65536"));
     assert!(primary.message.contains("65535"));
 }

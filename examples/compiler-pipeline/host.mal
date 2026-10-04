@@ -1,45 +1,13 @@
 require "./host.c";
 
-extern SourceAllocation;
-
-TransferBuffer :: (Address, USize);
-SourceBytes :: (SourceAllocation, Address, USize);
-ReadResult :: [SourceBytes, UInt32];
+ReadResult :: [Buffer<UInt8>, UInt32];
 WriteStatus :: [Unit, UInt32];
 
-// The process-lifetime transfer area is reused for paths and bounded output chunks.
-extern transferBuffer :: Unit -> TransferBuffer;
-// The path range is borrowed only for this call; successful source storage remains externally owned.
-extern readSource :: (Address, USize) -> ReadResult;
-extern releaseSource :: SourceAllocation -> Unit;
-extern writeChunk :: (Int32, Address, USize) -> WriteStatus;
+extern readSource :: Symbol -> ReadResult;
+extern writeChunk :: (Int32, Symbol) -> WriteStatus;
 
-_inputOutputError :: UInt32 := 5u32;
-
-_writeFrom :: (Int32, Buffer<UInt8>, Address, USize, USize) -> WriteStatus :=
-    (descriptor, bytes, memory, capacity, offset) -> [return] => {
-        when (offset == #bytes) {
-            return([success, failure] => success());
-        };
-        remaining := #bytes - offset;
-        length := if (remaining < capacity)
-            then remaining
-            else capacity;
-        bytes.into(memory, offset, length);
-        writeChunk(descriptor, memory, length)[
-            () -> (),
-            (error) -> return([success, failure] => failure(error))
-        ];
-        when (length == 0usize) {
-            return([success, failure] => failure(_inputOutputError));
-        };
-        return(_writeFrom(descriptor, bytes, memory, capacity, offset + length));
-    };
-
-writeDescriptor :: (Int32, Symbol) -> WriteStatus := (descriptor, value) -> {
-    (memory, capacity) := transferBuffer();
-    _writeFrom(descriptor, *value, memory, capacity, 0usize);
-};
+writeDescriptor :: (Int32, Symbol) -> WriteStatus := (descriptor, value) ->
+    writeChunk(descriptor, value);
 
 writeStdout :: Symbol -> WriteStatus := (value) -> writeDescriptor(1i32, value);
 writeStderr :: Symbol -> WriteStatus := (value) -> writeDescriptor(2i32, value);

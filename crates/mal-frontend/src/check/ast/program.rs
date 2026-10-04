@@ -62,10 +62,8 @@ pub enum TopItem {
         binding: TypeBinding,
         /// The canonical aliased type.
         ty: Type,
-        /// Source alias names corresponding to immediate structural elements.
+        /// Source alias names corresponding to immediate aggregate or buffer elements.
         element_aliases: Vec<Option<String>>,
-        /// Whether the alias was admitted for canonical host-memory access.
-        host_memory_access: bool,
     },
     /// A source-defined opaque type retained until specialization erases its boundary.
     OpaqueType {

@@ -90,22 +90,6 @@ fn emits_snapshot_symbol_conversions() {
 }
 
 #[test]
-fn emits_c_host_buffer_copy_primitives() {
-    let module = generate_module(
-        "extern memory :: Unit -> Address;
-         main :: Unit -> Int32 := () -> {
-           address := memory();
-           values := from<UInt64>(address, 2usize, 3usize);
-           values.into(address, 1usize, 2usize);
-           (#values).i32 - 3i32;
-         };",
-    );
-
-    assert!(module.contains("call ptr @mal_runtime_buffer_from"));
-    assert!(module.contains("call void @mal_runtime_buffer_into"));
-}
-
-#[test]
 fn stores_symbol_elements_as_runtime_values_with_retain_and_release_callbacks() {
     let module = generate_module(
         "main :: Unit -> Int32 := () -> {
@@ -191,7 +175,7 @@ fn accounts_for_element_references_only_in_managed_buffer_operations() {
 }
 
 #[test]
-fn keeps_canonical_storage_for_elements_without_managed_values() {
+fn keeps_runtime_carrier_storage_for_elements_without_managed_values() {
     let module = generate_module(
         "main :: Unit -> Int32 := () -> {
            values := make<Int64>(1usize);

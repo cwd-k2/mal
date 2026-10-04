@@ -166,7 +166,7 @@ fn forms_buffer_types_only_for_storable_elements() {
 }
 
 #[test]
-fn rejects_non_host_mappable_types_at_the_host_boundary() {
+fn admits_closed_managed_types_at_the_extern_boundary() {
     for source in [
         "extern inspect :: Symbol -> Unit;",
         "extern inspect :: Buffer<UInt8> -> Unit;",
@@ -174,18 +174,14 @@ fn rejects_non_host_mappable_types_at_the_host_boundary() {
         "extern inspect :: (Int32, Buffer<UInt8>) -> Unit;",
         "Payload :: [UInt8, Symbol]; extern inspect :: Payload -> Unit;",
     ] {
-        assert_eq!(
-            check_error(source).message,
-            "external operation `inspect` uses a type that is not host mappable",
-            "source: {source}"
-        );
+        check_ok(source);
     }
 }
 
 #[test]
-fn admits_address_and_length_descriptors_at_the_host_boundary() {
+fn admits_nested_runtime_carriers_at_the_extern_boundary() {
     check_ok(
-        "Bytes :: (Address, USize);\n\
+        "Bytes :: (Buffer<UInt8>, USize);\n\
          Transfer :: [Bytes, UInt32];\n\
          extern exchange :: Bytes -> Transfer;",
     );

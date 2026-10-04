@@ -82,8 +82,8 @@ mal への含意:
 - `extern print :: Symbol -> Unit` という型だけでは相互運用仕様は完成しない。
 - pointer を source language から隠しても、buffer の ownership と lifetime は消えない。
 - opaque resource を unrestricted value とするなら、resource safety を保証しないことを明記する必要がある。
-- `Symbol`と`Buffer`をextern carrierにせず、可変長bytesは`Address`と長さでcall中だけ借りる。malへ保持するbytesは
-  `from<UInt8>`で`Buffer`へcopyし、必要なら`Symbol` snapshotへ変換するため、host storageのlifetimeから切り離せる。
+- `extern`を同一process・同一runtime revisionへ結合するtrusted extension boundaryとし、`Symbol`と`Buffer`をruntime carrierのまま渡す。
+  parameter borrow、明示的なshare/drop、result moveをABIで定め、wire ABIや安全なFFIとしては扱わない。
 
 ## 調査からの結論
 

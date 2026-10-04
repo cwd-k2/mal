@@ -5,8 +5,19 @@ pub(in crate::backend::c::syntax) mod render;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(in crate::backend) enum Declaration {
     Function(FunctionSignature),
-    TypeAlias { source: TypeName, alias: Identifier },
-    StaticAssert { condition: Expr, message: String },
+    TypeAlias {
+        source: TypeName,
+        alias: Identifier,
+    },
+    FunctionPointerTypeAlias {
+        result: TypeName,
+        alias: Identifier,
+        parameters: Vec<super::Parameter>,
+    },
+    StaticAssert {
+        condition: Expr,
+        message: String,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -50,6 +61,18 @@ impl Declaration {
         Self::TypeAlias {
             source: source.into(),
             alias: alias.into(),
+        }
+    }
+
+    pub(in crate::backend) fn function_pointer_type_alias(
+        result: impl Into<TypeName>,
+        alias: impl Into<Identifier>,
+        parameters: impl IntoIterator<Item = super::Parameter>,
+    ) -> Self {
+        Self::FunctionPointerTypeAlias {
+            result: result.into(),
+            alias: alias.into(),
+            parameters: parameters.into_iter().collect(),
         }
     }
 

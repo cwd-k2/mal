@@ -1,88 +1,45 @@
 #ifndef MAL_BUILD_UMBRELLA
 #include <mal.h>
 
-_Static_assert(MAL_C_ABI_VERSION == 0x000900u, "generated header requires mal C ABI 0x000900");
-_Static_assert((sizeof((size_t)0) * CHAR_BIT) == 64, "size_t does not match the mal target pointer index width");
+_Static_assert(MAL_C_ABI_VERSION == 0x000a00u, "generated header requires mal C ABI 0x000a00");
+_Static_assert(sizeof((size_t)0) == 8, "size_t does not match the mal target index width");
+_Static_assert(sizeof((void *)0) == 8, "C pointer size does not match the mal target");
+_Static_assert(sizeof(*(MalType_Symbol *)0) == 24, "Symbol carrier size does not match the mal target");
+_Static_assert(offsetof(MalType_Symbol, owner) == 0, "Symbol owner offset does not match the mal target");
+_Static_assert(offsetof(MalType_Symbol, data) == 8, "Symbol data offset does not match the mal target");
+_Static_assert(offsetof(MalType_Symbol, length) == 16, "Symbol length offset does not match the mal target");
 
-#ifndef MAL_GENERATED_INTERFACE_13C8463E160D2820_H
-#define MAL_GENERATED_INTERFACE_13C8463E160D2820_H
-
-/* Host-visible types */
-
-#ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DECLARED
-#define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DECLARED
-typedef struct MalRepr_Product_1e5c20e9f358150e MalRepr_Product_1e5c20e9f358150e;
-#endif
-
-#ifndef MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e_DEFINED
-#define MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e(field, context) \
-field(context, 0, field_0, MalType_Address, mal_Address_t, MAL_DETAIL_REPR_IDENTITY, mal_Address_return) \
-field(context, 1, field_1, MalType_USize, mal_USize_t, MAL_DETAIL_REPR_IDENTITY, MAL_DETAIL_REPR_IDENTITY)
-#endif
-#ifndef MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
-#define MAL_DETAIL_RAW_REPR_1e5c20e9f358150e_DEFINED
-MAL_DETAIL_DEFINE_PRODUCT_REPR(MalRepr_Product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_RAW_REPR_FIELD)
-#endif
-
-#ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DECLARED
-#define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DECLARED
-typedef struct mal_detail_repr_product_1e5c20e9f358150e mal_repr_product_1e5c20e9f358150e_t;
-#endif
-
-#ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DEFINED
-#define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_DEFINED
-MAL_DETAIL_DEFINE_PRODUCT_REPR(mal_detail_repr_product_1e5c20e9f358150e, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e, MAL_DETAIL_HOST_REPR_FIELD)
-#endif
-
-/* Type helpers */
-
-#ifndef MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
-#define MAL_DETAIL_HOST_REPR_1e5c20e9f358150e_HELPERS
-MAL_DETAIL_DEFINE_PRODUCT_CONVERSIONS(mal_detail_to_host_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_return, MalRepr_Product_1e5c20e9f358150e, mal_repr_product_1e5c20e9f358150e_t, MAL_DETAIL_REPR_FIELDS_1e5c20e9f358150e)
-#endif
+#ifndef MAL_GENERATED_INTERFACE_BDFA12043D898034_H
+#define MAL_GENERATED_INTERFACE_BDFA12043D898034_H
 
 /* External operations */
 
-MalType_Address mal_ext_transferBuffer(MalContext *context);
-MalType_USize mal_ext_receive(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
-void mal_ext_send(MalContext *context, MalType_Address argument_0, MalType_USize argument_1);
+MalType_Buffer mal_ext_receive(MalContext *context);
+void mal_ext_send(MalContext *context, MalType_Symbol value);
 
 /* External definition helpers */
 
-#define MAL_HAS_EXTERN_transferBuffer 1
-#define MAL_DEFINE_transferBuffer(call) \
-static MalType_Address mal_detail_transferBuffer(mal_call_t *call); \
-MalType_Address mal_ext_transferBuffer(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
-    mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_transferBuffer(&call); \
-} \
-static MalType_Address mal_detail_transferBuffer( \
-    mal_call_t *call \
-)
-
 #define MAL_HAS_EXTERN_receive 1
-#define MAL_DEFINE_receive(call, value) \
-static MalType_USize mal_detail_receive(mal_call_t *call, mal_repr_product_1e5c20e9f358150e_t value); \
-MalType_USize mal_ext_receive(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
+#define MAL_DEFINE_receive(call) \
+static MalType_Buffer mal_detail_receive(mal_call_t *call); \
+MalType_Buffer mal_ext_receive(MalContext *context MAL_DETAIL_MAYBE_UNUSED) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    return mal_detail_receive(&call, mal_detail_to_host_1e5c20e9f358150e(&call, (MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 })); \
+    return mal_detail_receive(&call); \
 } \
-static MalType_USize mal_detail_receive( \
-    mal_call_t *call, \
-    mal_repr_product_1e5c20e9f358150e_t value \
+static MalType_Buffer mal_detail_receive( \
+    mal_call_t *call \
 )
 
 #define MAL_HAS_EXTERN_send 1
 #define MAL_DEFINE_send(call, value) \
-static MalType_Unit mal_detail_send(mal_call_t *call, mal_repr_product_1e5c20e9f358150e_t value); \
-void mal_ext_send(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Address argument_0, MalType_USize argument_1) { \
+static MalType_Unit mal_detail_send(mal_call_t *call, mal_Symbol_t value); \
+void mal_ext_send(MalContext *context MAL_DETAIL_MAYBE_UNUSED, MalType_Symbol value) { \
     mal_call_t call = (mal_call_t){ .mal_detail_context = context }; \
-    mal_detail_send(&call, mal_detail_to_host_1e5c20e9f358150e(&call, (MalRepr_Product_1e5c20e9f358150e){ .field_0 = argument_0, .field_1 = argument_1 })); \
+    mal_detail_send(&call, value); \
 } \
 static MalType_Unit mal_detail_send( \
     mal_call_t *call, \
-    mal_repr_product_1e5c20e9f358150e_t value \
+    mal_Symbol_t value \
 )
 
 #endif

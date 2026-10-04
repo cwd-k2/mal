@@ -22,6 +22,17 @@ impl Marshalling<'_> {
                     bits: { load(c_type!(*const uintptr_t), pointer) }
                 }
             }),
+            plan::Kind::Symbol {
+                owner_offset,
+                data_offset,
+                length_offset,
+            } => Some(c_expr! {
+                MalType_Symbol {
+                    owner: { load(c_type!(*const *mut void), bridge_pointer(base.clone(), offset.checked_add(*owner_offset)?, true)) },
+                    data: { load(c_type!(*const *const uint8_t), bridge_pointer(base.clone(), offset.checked_add(*data_offset)?, true)) },
+                    length: { load(c_type!(*const size_t), bridge_pointer(base, offset.checked_add(*length_offset)?, true)) },
+                }
+            }),
             plan::Kind::Product(fields) => {
                 let initializers = fields
                     .iter()

@@ -19,7 +19,6 @@ impl<'a> FunctionEmitter<'a> {
         optimizations: &'a super::super::optimization::OptimizationPlan,
     ) -> Option<Self> {
         let types = Types::for_program(target, &execution.lowered.functions);
-        let source_layouts = crate::backend::source_layout::SourceLayouts::new(target);
         let function = *index.control_functions.get(&id)?;
         let lowered = *index.lowered_functions.get(&id)?;
         if types.value(&function.parameter.ty).is_none()
@@ -47,8 +46,7 @@ impl<'a> FunctionEmitter<'a> {
             &types,
             local_control_top || local_control_storage,
         )?;
-        let scratch =
-            scratch::Scratch::measure(execution, index, &region.states, &types, &source_layouts)?;
+        let scratch = scratch::Scratch::measure(execution, index, &region.states, &types)?;
         Some(Self {
             mode: EmissionMode::Standard,
             execution,
@@ -69,7 +67,6 @@ impl<'a> FunctionEmitter<'a> {
             buffer_value_storage: scratch.buffer_value,
             needs_symbol_result_slot: scratch.symbol_result,
             types,
-            source_layouts,
             top_levels,
             ownership,
             optimizations,

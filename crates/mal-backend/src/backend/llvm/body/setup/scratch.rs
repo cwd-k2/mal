@@ -21,7 +21,6 @@ impl Scratch {
         index: &ProgramIndex<'_>,
         states: &[StateId],
         types: &Types,
-        source_layouts: &crate::backend::source_layout::SourceLayouts,
     ) -> Option<Self> {
         let bindings = || {
             states
@@ -48,13 +47,10 @@ impl Scratch {
                             | crate::core::ast::BufferOperation::Fill,
                         element,
                         ..
-                    } => source_layouts
-                        .layout(element)
-                        .map(|layout| (layout.stride, layout.alignment))
-                        .or_else(|| {
-                            let value = types.value(element)?;
-                            Some((value.size, value.alignment))
-                        }),
+                    } => {
+                        let value = types.value(element)?;
+                        Some((value.size, value.alignment))
+                    }
                     _ => None,
                 })
                 .filter(|(size, _)| *size != 0),

@@ -3,7 +3,7 @@
 この文書は、知りたい内容からauthorityへ到達するためのindexである。言語の紹介とbuild例はrepository rootの
 [`README.md`](../README.md)に置き、ここでは規則や手順を重複させない。
 
-言語仕様と`malc`はいずれも **v0.6** である。実装のconformance条件は
+言語仕様は **v0.7**、現在の`malc`実装は移行中である。実装のconformance条件は
 [conformance matrix](development/conformance.md)、compilerの現在の構成と責務は`docs/implementation/`で管理する。
 
 ## 言語を読む順序
@@ -19,7 +19,7 @@
 7. [EngramとExtern](spec/engrams.md)
 8. [parametric polymorphism](spec/generics.md)
 9. [Symbol](spec/symbols.md)
-10. [AddressとBuffer](spec/memory.md)
+10. [`Buffer`](spec/memory.md)
 11. [式と binding](spec/expressions.md)
 12. [literalとoperator](spec/operators.md)
 13. [result boundaryとcompletion](spec/control.md)
@@ -41,7 +41,7 @@
 | execution backendを変更する | [実行backendの責務境界](implementation/execution-backend.md) | [生成物例](implementation/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | function resultのproducerとconsumerを融合する | [continuation specialization](implementation/continuation-specialization.md) | [compilerの責務境界](implementation/responsibilities.md)、[generated program最適化policy](development/generated-program-optimization.md) |
 | generated C / LLVMの構築を変更する | [C / LLVM構文構築](implementation/backend-syntax-construction.md) | [内部DSL reference](implementation/backend-syntax-reference.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md) |
-| `Address`、`Buffer`、C host copyを使う | [AddressとBuffer](spec/memory.md) | [C host ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
+| `Buffer`とextern C lifecycleを使う | [`Buffer`](spec/memory.md) | [C runtime extension ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |

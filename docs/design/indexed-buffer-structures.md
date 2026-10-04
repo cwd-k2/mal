@@ -1,9 +1,9 @@
 # indexで結ぶBuffer構造
 
-Status: Current v0.6 design guidance
+Status: Current v0.7 design guidance
 
 この文書はBuffer上に座標構造を作る際のmodeling方針を記録する。現在の型規則とBuffer operation signatureは
-[型](../spec/types.md)と[AddressとBuffer](../spec/memory.md)を正とする。
+[型](../spec/types.md)と[`Buffer`](../spec/memory.md)を正とする。
 
 `Buffer<T>`の要素に`USize`座標を格納すると、recursive typeを導入せずにtree、DAG、graphを表現できる。
 Bufferは物理的なcarrierであり、座標の意味やtopologyの不変条件はdomain operationが所有する。
@@ -33,8 +33,8 @@ Buffer<T>.fill(USize, USize, T)            -> Unit
 Buffer<T>.copy(USize, Buffer<T>, USize, USize) -> Unit
 ```
 
-domain aliasはtransparentなので、これらのoperationと整数operationへそのまま渡せる。count、capacity、length、外部storageの
-offsetのように座標とは異なる量へdomainの座標名を付けず、`USize`のまま表す。
+domain aliasはtransparentなので、これらのoperationと整数operationへそのまま渡せる。count、capacity、lengthのように座標とは
+異なる量へdomainの座標名を付けず、`USize`のまま表す。
 
 Buffer値をbindingや引数へ渡すcopyは同じmutable identityへのaliasを作る。したがって、更新operationは次のいずれを行うかを明記する。
 
@@ -45,5 +45,5 @@ rowを並べ替えるoperationは、carrier相対の全座標も同時にremap�
 この性質を使って複数のcolumnをnode座標とedge座標で結合する実行例は
 [`indexed-graph`](../../examples/indexed-graph/README.md)を参照する。
 
-外部resourceに属するnode、recoverable allocation、個別releaseが必要な構造には`Address`とextern contractを使う。
-その場合、malはAddressのreferentを知らず、`from<T>`と`buffer.into`によるcopy可能な範囲だけをC hostとのcopy primitiveが提供する。
+外部resourceに属するnode、recoverable allocation、個別releaseが必要な構造にはexternal opaque typeと型付きextern operationを使う。
+extern Cはruntime carrierを直接扱えるが、resourceのlifetimeとfailure policyはoperation contractに残す。

@@ -7,21 +7,22 @@
 /* Internal ABI between generated LLVM code and the runtime. A context belongs to one thread. Every function that
  * allocates traps on failure and on size overflow instead of returning an error. */
 
-/* Growable storage for suspended calls of recursive regions. */
+#ifndef MAL_H
+/* Standalone runtime users do not include the public host header. Keep this definition synchronized with `mal.h`. */
 typedef struct {
     unsigned char *storage;
     size_t capacity;
 } MalControlArena;
 
-typedef struct MalContext {
+typedef struct {
     MalControlArena control;
-    /* The lowest stack address a native recursive call may reach before it continues in the control arena. */
     uintptr_t native_stack_limit;
 } MalContext;
 
 /* Program-specific lifecycle glue for one runtime carrier stored in place. */
 typedef void (*MalRuntimeRetain)(MalContext *context, void *carrier);
 typedef void (*MalRuntimeRelease)(void *carrier);
+#endif
 
 /* A window onto bytes kept alive by `owner`. A NULL owner or an immortal static owner needs no reference counting. */
 typedef struct {

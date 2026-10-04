@@ -43,10 +43,8 @@ fn argument_main(parameter: &Type, types: Types, entry: &str) -> Option<Function
     if **element != Type::Symbol {
         return None;
     }
-    // A Symbol view is an owner, a data address, and a byte count, laid out like `(Address, Address, USize)`. The
-    // runtime callbacks read the owner as the first field.
-    let view = Type::Product(vec![Type::Address, Type::Address, Type::USize].into());
-    let view_fields = types.product_fields(&view)?;
+    // A Symbol view stores its owner, data pointer, and byte count. Runtime callbacks read the owner first.
+    let view_fields = types.symbol_fields()?;
     if view_fields.first()?.offset != 0 {
         return None;
     }

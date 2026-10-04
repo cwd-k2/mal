@@ -13,7 +13,7 @@ mod tests;
 use options::{Flag, TOOLCHAIN_FLAGS, parse};
 
 /// Canonical help text printed by an empty invocation and `--help`.
-pub const HELP: &str = "malc — compiler for mal v0.6
+pub const HELP: &str = "malc — compiler for mal v0.7
 
 Usage:
   malc <command> [options]

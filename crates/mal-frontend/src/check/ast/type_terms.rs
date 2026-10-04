@@ -55,8 +55,6 @@ pub enum Type {
     Float64,
     /// An immutable owned byte string.
     Symbol,
-    /// An opaque capability for host-managed storage.
-    Address,
     /// A target-width unsigned byte quantity.
     ByteSize,
     /// A target-width unsigned element count or index.
@@ -158,7 +156,6 @@ impl PartialEq for Type {
                 | (Self::Float32, Self::Float32)
                 | (Self::Float64, Self::Float64)
                 | (Self::Symbol, Self::Symbol)
-                | (Self::Address, Self::Address)
                 | (Self::ByteSize, Self::ByteSize)
                 | (Self::USize, Self::USize) => {}
                 (

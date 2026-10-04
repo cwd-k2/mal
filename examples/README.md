@@ -10,8 +10,8 @@ larger programs combine earlier ideas without redefining them.
 | 2 | [`control-and-iteration`](control-and-iteration/) | How are early results and bounded-stack iteration expressed without mutable bindings? |
 | 3 | [`generic-map`](generic-map/) | How do opaque generic types and exact operation implementations form a reusable module? |
 | 4 | [`monads-and-comonads`](monads-and-comonads/) | How do operation families keyed by type constructors express monads, comonads, and similar abstractions? |
-| 5 | [`managed-bytes`](managed-bytes/) | What is shared by a `Buffer`, copied by a `Symbol`, and transferred through an `Address`? |
-| 6 | [`canonical-memory`](canonical-memory/) | How are typed values encoded in possibly unaligned external memory? |
+| 5 | [`managed-bytes`](managed-bytes/) | How do a host-created `Buffer` and a borrowed `Symbol` cross `extern`? |
+| 6 | [`extern-runtime`](extern-runtime/) | How does C create, mutate, and inspect mal runtime carriers directly? |
 | 7 | [`indexed-graph`](indexed-graph/) | How can opaque columns and validation give indices domain meaning? |
 | 8 | [`resource-errors`](resource-errors/) | How are recoverable host failures and manual resource contracts composed? |
 | 9 | [`json-query`](json-query/) | How does an explicit state machine parse streaming-shaped data into a small result? |

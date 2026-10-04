@@ -44,19 +44,6 @@ impl FunctionEmitter<'_> {
         }
         let storage = "%mal_buffer_value";
         match element_storage {
-            ElementStorage::Canonical { stride } => {
-                let layout = self.source_layouts.layout(&value.ty)?;
-                emit_instruction! {
-                    self;
-                    store {
-                        value: ({ llvm_type!(array({ stride }, int(8_u16))) }, "zeroinitializer"),
-                        pointer: { storage },
-                        alignment: { layout.alignment },
-                        metadata: [],
-                    };
-                };
-                self.emit_aligned_source_store_at(storage, value)?;
-            }
             ElementStorage::Runtime { alignment, .. } => {
                 let value_type = self.types.value(&value.ty)?;
                 emit_instruction! {

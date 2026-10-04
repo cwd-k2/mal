@@ -20,12 +20,12 @@ Status: Historical records
 | managed ownership | [D033](active/D033.md)、[D035](active/D035.md)、[D041](active/D041.md)、[D055](active/D055.md)、[D057](active/D057.md)、[D058](active/D058.md)、[D075](active/D075.md)、[D080](active/D080.md)、[D083](active/D083.md)、[D096](active/D096.md) |
 | Float | [D009](active/D009.md)、[D019](active/D019.md) |
 | literalとscalar operation | [D011](active/D011.md)、[D013](active/D013.md)、[D020](active/D020.md)、[D021](active/D021.md)、[D025](active/D025.md)、[D035](active/D035.md) |
-| externとopaque value | [D012](active/D012.md)、[D015](active/D015.md)、[D016](active/D016.md)、[D039](active/D039.md)、[D040](active/D040.md)、[D053](active/D053.md)、[D054](active/D054.md)、[D074](active/D074.md)、[D078](active/D078.md)、[D084](active/D084.md)、[D088](active/D088.md) |
+| externとopaque value | [D012](active/D012.md)、[D015](active/D015.md)、[D016](active/D016.md)、[D039](active/D039.md)、[D040](active/D040.md)、[D078](active/D078.md)、[D084](active/D084.md)、[D088](active/D088.md)、[D098](active/D098.md) |
 | top-level initialization | [D018](active/D018.md) |
 | predefined名 | [D077](active/D077.md) |
 | source file requirement | [D032](active/D032.md) |
 | generics、Buffer、operation family | [D052](active/D052.md)、[D075](active/D075.md)、[D081](active/D081.md)、[D085](active/D085.md)、[D086](active/D086.md)、[D089](active/D089.md)、[D092](active/D092.md)、[D093](active/D093.md)、[D094](active/D094.md)、[D095](active/D095.md)、[D096](active/D096.md) |
-| EngramとExternのauthority | [D028](active/D028.md)、[D029](active/D029.md)、[D031](active/D031.md)、[D033](active/D033.md)、[D035](active/D035.md)、[D040](active/D040.md)、[D052](active/D052.md)、[D053](active/D053.md)、[D054](active/D054.md)、[D074](active/D074.md)、[D082](active/D082.md) |
+| EngramとExternのauthority | [D028](active/D028.md)、[D029](active/D029.md)、[D031](active/D031.md)、[D033](active/D033.md)、[D035](active/D035.md)、[D040](active/D040.md)、[D052](active/D052.md)、[D082](active/D082.md)、[D098](active/D098.md) |
 | 実行環境 | [D030](active/D030.md)、[D041](active/D041.md)、[D070](active/D070.md)、[D071](active/D071.md)、[D076](active/D076.md) |
 
 ## Superseded decisions
@@ -48,6 +48,8 @@ Status: Historical records
 | [D042](superseded/D042.md) | valueとcontinuationの双方向表記 | [D048](superseded/D048.md) |
 | [D048](superseded/D048.md) | sum return binder | [D049](active/D049.md) |
 | [D050](superseded/D050.md) | bodyとbinder boundaryの統一 | [D051](active/D051.md) |
+| [D053](superseded/D053.md) | managed valueを除外したHostMappable C ABI | [D098](active/D098.md) |
+| [D054](superseded/D054.md) | canonical memoryのnamed alias helper | [D098](active/D098.md) |
 | [D056](superseded/D056.md) | Cursor loadとRegion index | [memory specification](../../spec/memory.md) |
 | [D059](superseded/D059.md) | Packed builderのstable data access | [D061](superseded/D061.md)、[D063](superseded/D063.md) |
 | [D060](superseded/D060.md) | lazy Packed preparation | [D062](superseded/D062.md) |
@@ -57,6 +59,7 @@ Status: Historical records
 | [D064](superseded/D064.md) | Buffer helperの`noalias` | [memory specification](../../spec/memory.md) |
 | [D068](superseded/D068.md) | scoped Region API | [memory specification](../../spec/memory.md) |
 | [D073](superseded/D073.md) | `(Address, USize)`のprocess argument | [D076](active/D076.md) |
+| [D074](superseded/D074.md) | host-owned storageだけを使うC copy境界 | [D098](active/D098.md) |
 | [D079](superseded/D079.md) | predefined phantom `Index<T>` | [memory specification](../../spec/memory.md) |
 
 historical record内の旧構文や旧名称は当時の判断を保存するために残す。現在のsyntaxやbehaviorとして引用せず、

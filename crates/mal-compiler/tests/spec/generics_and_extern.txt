@@ -44,18 +44,6 @@ g :: Unit -> Buffer<Symbol> := () -> f<Symbol>("x");
 ### generic_requirement_nested_buffer_ok | ok
 f<A> :: A -> Buffer<A> := (v) -> make<A>(1usize);
 g :: Buffer<Int32> -> Buffer<Buffer<Int32>> := (v) -> f<Buffer<Int32>>(v);
-### generic_from_parameter_element | err:Representable
-read<A> :: Address -> Buffer<A> := (address) -> from<A>(address, 0usize, 1usize);
-### into_symbol_element | err:Representable
-write :: (Buffer<Symbol>, Address) -> Unit := (names, address) -> names.into(address, 0usize, 1usize);
-### generic_into_parameter_element | err:Representable
-write<A> :: (Buffer<A>, Address) -> Unit := (values, address) -> values.into(address, 0usize, 1usize);
-### into_symbol_aggregate_element | err:Representable
-write :: (Buffer<(Int32, Symbol)>, Address) -> Unit := (values, address) -> values.into(address, 0usize, 1usize);
-### from_symbol_element | err:Representable
-read :: Address -> Buffer<Symbol> := (address) -> from<Symbol>(address, 0usize, 1usize);
-### from_nested_buffer_element | err:Representable
-read :: Address -> Buffer<Buffer<Int32>> := (address) -> from<Buffer<Int32>>(address, 0usize, 1usize);
 ### generic_buffer_param_ok | ok
 first<A> :: Buffer<A> -> A := (b) -> b.get(0usize);
 ### generic_dup_param | err:
@@ -89,14 +77,14 @@ B :: Buffer<[]>;
 ### buffer_of_unit_ok | ok
 B :: Buffer<Unit>;
 ### buffer_of_product_sum_ok | ok
-B :: Buffer<(Int32, [Unit, Address], USize)>;
+B :: Buffer<(Int32, [Unit, Symbol], USize)>;
 ### buffer_two_args | err:
 B :: Buffer<Int32, Int32>;
 ### buffer_partial_constructor | ok
 B :: Buffer;
-### extern_symbol_param | err:
+### extern_symbol_param | ok
 extern f :: Symbol -> Unit;
-### extern_buffer_param | err:
+### extern_buffer_param | ok
 extern f :: Buffer<UInt8> -> Unit;
 ### extern_fn_param | err:
 extern f :: (Int32 -> Int32) -> Unit;
@@ -104,15 +92,15 @@ extern f :: (Int32 -> Int32) -> Unit;
 extern f :: [Unit, Int32 -> Int32] -> Unit;
 ### extern_fn_result | err:
 extern f :: Unit -> (Int32 -> Int32);
-### extern_nested_symbol | err:
+### extern_nested_symbol | ok
 extern f :: (Int32, Symbol) -> Unit;
-### extern_alias_symbol | err:
+### extern_alias_symbol | ok
 S :: Symbol;
 extern f :: S -> Unit;
 ### extern_bytes_ok | ok
-extern print :: (Address, USize) -> Unit;
-### extern_sum_addr_ok | ok
-extern choose :: [Int32, Address] -> Int32;
+extern print :: Symbol -> Unit;
+### extern_sum_buffer_ok | ok
+extern choose :: [Int32, Buffer<UInt8>] -> Int32;
 ### extern_opaque_ok | ok
 extern File;
 extern open :: Unit -> File;

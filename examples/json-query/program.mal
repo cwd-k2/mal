@@ -10,9 +10,7 @@ _reportParseError :: Symbol -> Int32 := (message) -> {
 };
 
 _runQuery :: Query -> Int32 := (query) -> {
-    (input, address, length) := readStdin();
-    sourceBytes := from<UInt8>(address, 0usize, length);
-    releaseInput(input);
+    sourceBytes := readStdin();
     source := *sourceBytes;
     parsed := source.parseDocument();
     parsed[

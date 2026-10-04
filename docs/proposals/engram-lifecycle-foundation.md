@@ -59,8 +59,8 @@ Buffer element callbackとclosure environment destructorはruntime contractが�
 - share、drop、moveまたはrelocation
 - immutable valueかshared mutable identityか
 - 保持する子Engramと、reference-count cycleを作らない根拠
-- `Storable`、`Representable`、`HostMappable`の各property
-- Extern境界がある場合のadmission、observation、capability transfer
+- `Storable`とclosed extern carrierとしてのadmission
+- Extern境界がある場合のborrow、share/drop、result move
 
 drop時の処理は子Engramとmal-owned storageの回収に限り、I/OやExtern resourceの`close`のような観測可能な作用を持たせない。
 

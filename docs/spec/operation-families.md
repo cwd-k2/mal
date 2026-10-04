@@ -1,6 +1,6 @@
 # operation family
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 この文書は、generic signatureをcanonical typeごとのimplementationへcompile-timeで結ぶoperation familyを定める。
 型argument推論の一般規則は[parametric polymorphism](generics.md)、構文は[字句と文法](grammar.md)を正とする。

@@ -23,7 +23,7 @@ fn no_arguments_prints_help_successfully() {
 fn version_uses_the_version_contract() {
     let outcome = execute(args(&["--version"]));
     assert_eq!(outcome.status, ExitStatus::Success);
-    assert_eq!(outcome.stdout, "malc 0.6.0-dev (language v0.6)\n");
+    assert_eq!(outcome.stdout, "malc 0.7.0-dev (language v0.7)\n");
 }
 
 #[test]

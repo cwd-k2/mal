@@ -1,9 +1,9 @@
 # parametric polymorphism
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 この文書は型parameter、generic aliasとvalue binding、built-in型形成条件、specializationを定める。concrete syntaxは
-[字句と文法](grammar.md)、Bufferの型形成は[AddressとBuffer](memory.md)を正とする。
+[字句と文法](grammar.md)、Bufferの型形成は[`Buffer`](memory.md)を正とする。
 型ごとのimplementation選択は[operation family](operation-families.md)を正とする。
 
 ## Declarationとapplication
@@ -31,9 +31,8 @@ kind検査を受ける。矛盾するconstraintと、解決後も未確定なarg
 
 推論対象はcall siteごとの型argumentだけである。generic本体のopaqueな型parameterはrigidであり、concrete typeへ具体化しない。
 implementation候補やspecialization済みinstanceを推論の情報源にしない。`Buffer<A>`のpredefined operation（`new`、`get`、`put`、
-`fill`、`copy`、`into`、`#`）はgeneric bindingではなく、receiverまたはargumentから`A`を決める。`make`と`from`は期待される
-`Buffer<A>` resultから`A`を推論でき、期待型がなければ`make<A>`、`from<A>`と明示する。
-[AddressとBuffer](memory.md#buffer)に各operationの型を定める。
+`fill`、`copy`、`#`）はgeneric bindingではなく、receiverまたはargumentから`A`を決める。`make`は期待される`Buffer<A>` resultから
+`A`を推論でき、期待型がなければ`make<A>`と明示する。[`Buffer`](memory.md#buffer-value)に各operationの型を定める。
 
 型parameterの名前は、そのdeclarationから見える型名、すなわちpredefined型、直接requireしたfileから導入した型、同じfileの
 top-level型と同じであってはならない。型parameterは型名をshadowしないため、declaration内の型名は常に一つのものを指す。
@@ -96,18 +95,12 @@ isLive<F, M, V> :: (F<M, V>, USize) -> Bool :=
 
 `isLive`の`V`はkind多相だが、`peek`は`V`にkind `Type`を求める。この等式は`isLive`のkind requirementになる。
 
-`from<A>`と`buffer.into`は`Representable(A)`を要求する。opaqueな型parameterはrepresentableと仮定できないので、generic本体は
-型parameterの要素にこれらを使えない。callerがconcrete type argumentで`from`をspecializeすると、copy primitiveがstatic
-representationを選ぶ。
-
 ```mal
 readFirst<A> :: Buffer<A> -> A := (buffer) -> buffer.get(0usize);
 writeFirst<A> :: (Buffer<A>, A) -> Unit := (buffer, value) -> buffer.put(0usize, value);
 ```
 
-`Buffer<A>`は通常のgeneric argument、parameter、resultとして使える。`Storable(A)`はBufferが要素を保持できることだけを示す。
-`Representable(A)`はC host copy representationの存在だけを示し、Address referentのextent、permission、initialization、
-lifetime、valid representationを証明しない。
+`Buffer<A>`は通常のgeneric argument、parameter、resultとして使える。`Storable(A)`はBufferが要素を保持できることを示す。
 
 ## Specialization
 
@@ -127,7 +120,7 @@ file-local opaque typeはhidden representationへ展開せず、declaration iden
 resource failureは別の規則である。specializationはapplicationを正規化し、file-local opaque typeをhidden representationへ消去する。
 ANF以降はkind、constructor term、generic declaration、type argument、opaque boundary、requirement、dictionaryを受け取らない。
 
-## Host境界
+## Extern境界
 
-generic bindingはmal source間だけで使える。generated C header、extern ABI、host adapterへgeneric binding、specialization、型parameterを
-公開しない。generic aliasはconcrete argumentを代入して完全に展開した後、[`HostMappable`](extern.md#host-mappable-type)で判定する。
+generic bindingはmal source間だけで使える。generated C headerとextern ABIへgeneric binding、specialization、open type parameterを
+公開しない。generic aliasはconcrete argumentを代入して完全に展開し、closed runtime carrierとしてextern admissionを判定する。

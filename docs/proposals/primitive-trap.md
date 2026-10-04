@@ -14,7 +14,7 @@ mal sourceだけでは、programが到達してはならない状態を表明で
 
 ## 現状
 
-`(Address, USize) -> []`のようなexternをhostが実装すれば、同じ効果を表現できる。空直和`[]`を返すexternは宣言でき、
+`Symbol -> []`のようなexternをhostが実装すれば、同じ効果を表現できる。空直和`[]`を返すexternは宣言でき、
 `fail()[]`のようにempty eliminationで受けるとその後は到達不能になる。ただしこの方法にはhost C sourceが必要であり、hostを持たない
 program固有のhost C sourceを用意しなければ使えない。
 

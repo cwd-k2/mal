@@ -1,5 +1,5 @@
 {
-  description = "mal v0.6 toolchain and development environment";
+  description = "mal v0.7 toolchain and development environment";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
@@ -168,10 +168,10 @@
       };
 
       apps.${system} = {
-        default = app malc "mal v0.6 compiler";
-        malc = app malc "mal v0.6 compiler";
-        mal-fmt = app mal-fmt "mal v0.6 formatter";
-        mal-lsp = app mal-lsp "mal v0.6 language server";
+        default = app malc "mal v0.7 compiler";
+        malc = app malc "mal v0.7 compiler";
+        mal-fmt = app mal-fmt "mal v0.7 formatter";
+        mal-lsp = app mal-lsp "mal v0.7 language server";
       };
 
       checks.${system} = {

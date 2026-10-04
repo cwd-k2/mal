@@ -1,35 +1,6 @@
 require "./host.c";
 
-extern InputAllocation;
-StdinBytes :: (InputAllocation, Address, USize);
-OutputBuffer :: (Address, USize);
+extern readStdin :: Unit -> Buffer<UInt8>;
+extern writeBytes :: Symbol -> Unit;
 
-// Reads standard input into storage retained until releaseInput receives its allocation authority.
-extern readStdin :: Unit -> StdinBytes;
-// Releases the storage returned by readStdin after its initialized prefix has been admitted.
-extern releaseInput :: InputAllocation -> Unit;
-// Returns reusable process-lifetime staging storage for standard output.
-extern outputBuffer :: Unit -> OutputBuffer;
-// Writes an initialized prefix of the staging buffer to standard output.
-extern writeBytes :: OutputBuffer -> Unit;
-
-// Each tail step publishes one bounded chunk before carrying the untouched suffix forward.
-_writeBuffer :: (Address, USize, Buffer<UInt8>, USize) -> Unit :=
-    (memory, capacity, bytes, offset) -> [return] => {
-        when (offset == #bytes) {
-            return();
-        };
-
-        remainingLength := #bytes - offset;
-        transferred := if (remainingLength < capacity)
-            then remainingLength
-            else capacity;
-        bytes.into(memory, offset, transferred);
-        writeBytes(memory, transferred);
-        return(_writeBuffer(memory, capacity, bytes, offset + transferred));
-    };
-
-writeStdout :: Symbol -> Unit := (value) -> {
-    (memory, capacity) := outputBuffer();
-    _writeBuffer(memory, capacity, *value, 0usize);
-};
+writeStdout :: Symbol -> Unit := (value) -> writeBytes(value);

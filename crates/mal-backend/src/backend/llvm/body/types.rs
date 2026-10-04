@@ -76,7 +76,7 @@ impl Types {
                 alignment: 1,
                 size: 1,
             }),
-            Type::Address | Type::Buffer(_) => Some(ValueType {
+            Type::Buffer(_) => Some(ValueType {
                 llvm: llvm_type!(ptr),
                 alignment: self.target.pointer_alignment,
                 size: self.target.pointer_size,
@@ -117,7 +117,11 @@ impl Types {
     }
 
     fn byte_view(&self) -> Option<ValueType> {
-        aggregate_type(vec![
+        aggregate_type(self.byte_view_fields()?)
+    }
+
+    fn byte_view_fields(&self) -> Option<Vec<ValueType>> {
+        Some(vec![
             ValueType {
                 llvm: llvm_type!(ptr),
                 alignment: self.target.pointer_alignment,
@@ -136,6 +140,10 @@ impl Types {
                 size: self.target.index_size,
             },
         ])
+    }
+
+    pub(in crate::backend::llvm) fn symbol_fields(&self) -> Option<Vec<Field>> {
+        field_layouts(&self.byte_view_fields()?)
     }
 
     pub(in crate::backend::llvm) fn index_llvm_type(&self) -> LlvmType {
@@ -347,7 +355,8 @@ mod tests {
 
         assert_eq!(types.value(&Type::UInt16).unwrap().alignment, 4);
         assert_eq!(types.value(&Type::UInt64).unwrap().alignment, 4);
-        assert_eq!(types.value(&Type::Address).unwrap().alignment, 4);
-        assert_eq!(types.value(&Type::Address).unwrap().size, 8);
+        let buffer = Type::Buffer(Type::UInt8.into());
+        assert_eq!(types.value(&buffer).unwrap().alignment, 4);
+        assert_eq!(types.value(&buffer).unwrap().size, 8);
     }
 }

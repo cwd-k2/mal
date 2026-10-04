@@ -1,6 +1,6 @@
 # result boundaryとcompletion
 
-Status: Accepted v0.6
+Status: Accepted v0.7
 
 この文書はlexical result boundary、式のcompletion、`when`、空直和`[]`の規則を定める。
 通常のlambda、application、sum eliminationの規則は[式とbinding](expressions.md)を正とする。

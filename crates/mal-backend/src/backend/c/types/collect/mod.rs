@@ -25,6 +25,9 @@ impl TypeRegistry {
                         pending.extend(elements.iter().rev().map(|element| (element, false)));
                     }
                 }
+                Type::Buffer(element) => {
+                    pending.push((element, false));
+                }
                 Type::Function { .. } => {
                     unreachable!("type checking excludes functions from extern signatures")
                 }
@@ -40,17 +43,15 @@ impl TypeRegistry {
                 | Type::UInt64
                 | Type::Float32
                 | Type::Float64
-                | Type::Address
+                | Type::Symbol
                 | Type::ByteSize
                 | Type::USize => {}
-                Type::Symbol
-                | Type::Parameter { .. }
+                Type::Parameter { .. }
                 | Type::Bound { .. }
                 | Type::Application { .. }
                 | Type::Abstraction { .. }
-                | Type::Buffer(_)
                 | Type::Opaque { .. } => {
-                    unreachable!("open or memory-indexed types are not host mappable")
+                    unreachable!("open types are not extern carriers")
                 }
             }
         }
@@ -111,7 +112,8 @@ impl TypeRegistry {
             Type::UInt64 => super::ElementKey::UInt64,
             Type::Float32 => super::ElementKey::Float32,
             Type::Float64 => super::ElementKey::Float64,
-            Type::Address => super::ElementKey::Address,
+            Type::Symbol => super::ElementKey::Symbol,
+            Type::Buffer(element) => super::ElementKey::Buffer(self.element_id(element)),
             Type::ByteSize => super::ElementKey::ByteSize,
             Type::USize => super::ElementKey::USize,
             Type::External { name, .. } => super::ElementKey::External(name.clone()),
@@ -119,14 +121,12 @@ impl TypeRegistry {
             Type::Function { .. } => {
                 unreachable!("type checking excludes functions from extern signatures")
             }
-            Type::Symbol
-            | Type::Parameter { .. }
+            Type::Parameter { .. }
             | Type::Bound { .. }
             | Type::Application { .. }
             | Type::Abstraction { .. }
-            | Type::Buffer(_)
             | Type::Opaque { .. } => {
-                unreachable!("open or memory-indexed types are not host mappable")
+                unreachable!("open types are not extern carriers")
             }
         }
     }
@@ -161,16 +161,19 @@ fn fingerprint(key: &super::AggregateKey) -> u64 {
             super::ElementKey::UInt64 => 8,
             super::ElementKey::Float32 => 9,
             super::ElementKey::Float64 => 10,
-            super::ElementKey::Address => 11,
-            super::ElementKey::ByteSize => 12,
-            super::ElementKey::USize => 13,
-            super::ElementKey::External(_) => 14,
-            super::ElementKey::Aggregate(_) => 15,
+            super::ElementKey::Symbol => 11,
+            super::ElementKey::Buffer(_) => 12,
+            super::ElementKey::ByteSize => 13,
+            super::ElementKey::USize => 14,
+            super::ElementKey::External(_) => 15,
+            super::ElementKey::Aggregate(_) => 16,
         };
         write_byte(state, tag);
         match element {
             super::ElementKey::External(name) => write_bytes(state, name.as_bytes()),
-            super::ElementKey::Aggregate(id) => write_bytes(state, &id.0.to_le_bytes()),
+            super::ElementKey::Aggregate(id) | super::ElementKey::Buffer(id) => {
+                write_bytes(state, &id.0.to_le_bytes())
+            }
             _ => {}
         }
     }
