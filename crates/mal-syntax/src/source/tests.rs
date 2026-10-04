@@ -93,3 +93,29 @@ fn rejects_positions_inside_utf8_or_utf16_characters_and_line_endings() {
         None
     );
 }
+
+#[test]
+#[should_panic]
+fn source_graph_rejects_a_requirement_with_an_unknown_target() {
+    let file = FileId::new(0);
+    let source = SourceFile::new(file, "main.mal", "".into());
+    let requirement = SourceRequirement {
+        target: FileId::new(1),
+        span: Span::new(file, 0, 0),
+    };
+
+    SourceGraph::new(file, vec![source], vec![vec![requirement]], Vec::new());
+}
+
+#[test]
+#[should_panic]
+fn source_graph_rejects_a_requirement_span_from_another_file() {
+    let file = FileId::new(0);
+    let source = SourceFile::new(file, "main.mal", "".into());
+    let requirement = SourceRequirement {
+        target: file,
+        span: Span::new(FileId::new(1), 0, 0),
+    };
+
+    SourceGraph::new(file, vec![source], vec![vec![requirement]], Vec::new());
+}

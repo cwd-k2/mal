@@ -35,6 +35,18 @@ impl SourceGraph {
         assert!(root.index() < files.len() as u32);
         for (index, file) in files.iter().enumerate() {
             assert_eq!(file.id().index(), index as u32);
+            for (requirement_index, requirement) in requirements[index].iter().enumerate() {
+                assert!(requirement.target.index() < files.len() as u32);
+                assert!(file.contains(requirement.span));
+                assert!(
+                    requirements[index][..requirement_index]
+                        .iter()
+                        .all(|previous| previous.target != requirement.target)
+                );
+            }
+        }
+        for (index, path) in c_sources.iter().enumerate() {
+            assert!(!c_sources[..index].contains(path));
         }
         Self {
             root,
