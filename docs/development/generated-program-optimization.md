@@ -68,7 +68,7 @@ toolの選択、基本command、local生成物の扱いは[性能調査toolと�
 - scalar arithmeticとbranch
 - direct call、self-tail loop、deep non-tail unwind
 - first-class call cycleとheterogeneous frame
-- managed Bufferのread/write、`Symbol` comparison/concatenation、C host copy
+- managed Bufferのread/write、`Symbol` comparison/concatenation、C extension round trip
 - managed product、sum、closure environment、Symbol、Bufferのextern round trip
 - checked-in example corpus
 

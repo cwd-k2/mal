@@ -2,7 +2,7 @@
 
 This is the broad syntax and type-system entry point. It combines products and destructuring, a
 sum-valued division result, direct result binders, an escaping closure, wrapping `Int32` arithmetic,
-and a narrow C host operation. `WithInt32` partially applies a binary type constructor, while
+and a narrow C runtime extension operation. `WithInt32` partially applies a binary type constructor, while
 `duplicate<F, A>` accepts that constructor and the imported opaque `Box` as higher-kinded arguments.
 The inferred element type supplies each remaining `A`.
 

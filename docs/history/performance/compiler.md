@@ -93,9 +93,9 @@ memoizeする。`[UInt8, UInt64]`の64-bit target上の内部sizeは従来の16 
 ## 2026-10-04 C runtime carrier bridge
 
 上記の12 byte sumは64-bit C ABIの`uint32_t` tagと`uint64_t` union payloadが作る16 byte carrierと一致せず、Buffer elementの
-strideも異なっていた。payloadの最大sizeを最大alignmentへ丸め、zero-length scalarでalignmentだけを与えることでLLVM carrierも
-16 byteにした。alignment用に実在variantを使うと、そのvariantのpaddingと重なる別variantのlive byteがsum全体のload/storeで
-失われるため、payloadの全byteは独立したarray fieldで表す。これによりC shimの再帰的marshallingとsum tag validationを削除し、
+strideも異なっていた。payloadの最大sizeを最大alignmentへ丸め、byte array後方のzero-length scalarでalignmentだけを与えることで
+LLVM carrierも16 byteにした。alignment用に実在variantを使うと、そのvariantのpaddingと重なる別variantのlive byteがsum全体の
+load/storeで失われるため、payloadの全byteは先頭の独立したarray fieldで表す。これによりC shimの再帰的marshallingとsum tag validationを削除し、
 同一carrierをinternal pointer storageから直接load/storeできるようになった。`resource-errors`のshimは4,213 byteから
 1,791 byteへ減り、production executableのtextは6,828 byteから6,972 byteへ増えた。
 
@@ -104,6 +104,12 @@ sum carrierを10,000,000回C extensionと往復し、各callで`volatile` state�
 14,172,462、GNU timeの最大RSSが双方3,032 KiBであり、LTO後の速度、命令数、memoryは実質同じだった。baselineは命令数が
 2,825,182,701から3,555,182,833、textが7,232 byteから8,881 byteへ増え、123.0 msから306.8 msへ遅化した。
 baselineはcorrectness pathとして維持し、productionの採用判断をこの非最適化時の速度へ依存させない。
+
+alignment導入後のalgorithm corpusでは、sumを要素に持つgeneric mapだけがproductionで誤ったchecksumを返した。原因はtag後の
+paddingだった。LLVM aggregate storeはpaddingを定義しないが、C runtimeの`fill`はzero fast pathを選ぶためcarrier全byteを走査する。
+LTOは未定義paddingから作る分岐を最適化でき、nativeとValgrindで異なる誤結果になった。C runtimeへbytewiseに渡すBuffer一時領域を
+typed store前に全strideゼロ初期化し、paddingも定義してから渡すよう変更した。`Buffer<[Unit, UInt64]>`のfill、put、getをbaselineと
+productionで実行する回帰を追加し、generic mapのMAL/C/Rust checksum一致とMemcheck error 0を確認した。
 
 ## 2026-09-13 alias dependency
 

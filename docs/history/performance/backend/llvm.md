@@ -643,3 +643,25 @@ cycleはborrowの証明として採用しない。これによりsource順やpro
 2.9%短く、Mal / Cは1.195倍から1.160倍へ縮小した。実時間sampleの分散が大きいため、局所変更の効果量はCallgrindを主な根拠とする。
 269 Mal sample、269 C sample、79 maximum-order比較、72 diagnostic variantはすべて通過した。このnested borrow defectは解消し、035に
 残る12.73 M instructionsは別の生成形状として再診断する。
+
+## 2026-10-04 — C runtime extension ABI移行後の全corpus
+
+source-level `Address`とcanonical copy境界の削除後、Typical 90の共有scannerを`Buffer<UInt8>` parameterへ移行した。token destinationは
+`(Buffer<UInt8>, USize, USize)`でbuffer、offset、capacityを渡し、C extensionがcall中だけ`mal_data`からpointerを得る。固定長token
+storageを使っていた10問も同じdense Bufferへ移した。host contract違反を一般に防ぐ境界ではないが、この共有helperはcorpus自体の欠陥を
+早期に検出するため、offsetとcapacityがcurrent count内であることを検査する。
+
+`7ab56cc7`、Clang 21.1.8、Hyperfine 1.20.0、Valgrind 3.27.1で全79問を再buildした。269 MAL sample、269 direct C sample、79件の
+maximum-order出力が一致した。浮動出力を近似比較する066はexact stdoutを要求する標準timing runnerから除き、残る78問を2 warmup、
+実行順を交互にした10 roundで測定した。MAL / Cのper-problem median比は中央値1.03、幾何平均1.04、範囲0.69--1.42だった。
+各問題のmedianを単純合計した値は3,587.46 ms対3,436.25 msである。
+
+同じ78問のmaximum-order inputについて、Callgrindを`main`から一回、GNU `time`のmaximum RSSを3回、ELF section sizeを一回測った。
+全件のinstruction比は中央値1.00だが、process setupが支配する020と067の42.08倍、10.61倍により幾何平均は1.11となる。双方5 ms以上の
+45問ではinstruction比の中央値0.99、幾何平均0.98である。RSS比は全78問で中央値1.00、幾何平均1.12、双方5 ms以上では1.00、1.21だった。
+ELF text比は中央値1.65、幾何平均1.62である。最大RSS比は056の5.56、次いで043の3.52であり、speedやinstructionと同じ一軸へ
+まとめず、各algorithmの同時live storage差として残す。
+
+この再測定ではruntime extension bridgeを全体の共通overheadとして分離できる系統差はなかった。5 ms以上のinstructionがほぼ同じ一方、
+wall-clockとRSSのproblem別分布はalgorithm、整数幅、storage表現、recursion loweringの差を引き続き反映する。raw timing JSON、全78問の
+instruction、RSS、file/text/data/bss size CSV、再現runnerはignored `.scratch/typical90/`に置いた。

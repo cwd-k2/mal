@@ -5,7 +5,7 @@ Status: Historical measurement record
 この文書は、2026-10-03のLLVM backendでgenerics、higher-kinded operation family、nested Bufferが
 どこまで消去され、どこにruntime costが残るかをCおよびRustの対応programと比較した記録である。
 言語規則は[generics](../../spec/generics.md)、[operation family](../../spec/operation-families.md)、
-[AddressとBuffer](../../spec/memory.md)を正とし、Buffer単体の以前の測定は
+[`Buffer`](../../spec/memory.md)を正とし、Buffer単体の以前の測定は
 [Buffer生成物とownership cost](buffer.md)を参照する。
 
 ## 測定条件
@@ -296,8 +296,9 @@ specialization、call-pattern rewrite、LTOで型と高階dispatchを消せる�
 continuation specializationが関数を値として返すrepresentationを消去する。これはPoolのoccupancy、authority、coordinate modelとも、
 Buffer elementの`Storable`判定とも別のoptimizer責務である。
 
-`Storable`は「placeがcarrier lifecycleを完結できるか」というsource admission、`Lifecycle = Trivial | Owned`はその実装計画、
-`Representable`はcanonical memory copy、`HostMappable`はpublic C boundaryという現在の分離を保つ。
+`Storable`は「placeがcarrier lifecycleを完結できるか」というsource admission、`Lifecycle = Trivial | Owned`はその実装計画として
+分離する。D098以後のexternはfunctionを含まないclosed concrete runtime carrierを直接共有し、`Representable`、`HostMappable`、
+canonical memory copyを別のsource judgmentとして持たない。
 `duplicate<Focus>`がnested opaque carrierとして動いたことは、`Managed`を`Storable`の代わりのsource predicateへ持ち上げずとも、
 representationとlifecycleを再帰できることを確認している。
 
@@ -316,3 +317,23 @@ IxPoolの非公開runtime kernelはこれらを解くための汎用allocatorや
 
 raw CSV、Callgrind、Massif、Memcheck、pre-codegen bitcode、比較source、Nushell runnerはignored
 `.scratch/performance/generics-audit/`と`.scratch/performance/continuation-specialization/`に保存した。
+
+## 2026-10-04 — C runtime extension ABI後の再測定
+
+ABI `0x000a00`のdirect carrier bridgeとsum alignment修正後に、現行compilerで同じ5 workloadを再buildした。Clang 21.1.8、
+Rust 1.97.1、Valgrind 3.27.1を使い、MAL/Cは`-O2 -flto`、Rustは`-C opt-level=3 -C lto=fat
+-C codegen-units=1 -C panic=abort`とした。3 warmup後に実行順を巡回して20回測り、全実装のexit codeを先に照合した。
+
+| Case | MAL / C / Rust median | MAL / C / Rust instructions | MAL / C / Rust peak RSS |
+|:---|:---|:---|:---|
+| `control` | 3.61 / 1.93 / 3.76 ms | 16.25 / 10.00 / 16.35 M | 1,440 / 1,436 / 2,132 KiB |
+| `nested-buffer` | 8.33 / 3.60 / 4.00 ms | 49.04 / 21.88 / 22.39 M | 16,156 / 6,936 / 8,624 KiB |
+| `map` | 5.71 / 5.12 / 4.41 ms | 15.68 / 3.67 / 4.38 M | 7,452 / 7,448 / 8,112 KiB |
+| `state` | 1.69 / 1.52 / 1.64 ms | 2.22 / 0.72 / 0.80 M | 3,232 / 2,968 / 3,504 KiB |
+| `focus` | 3.85 / 2.50 / 3.53 ms | 45.93 / 24.15 / 35.51 M | 5,276 / 3,352 / 5,808 KiB |
+
+`state`のMALはcontinuation specializationにより9 allocation、1,602,200 requested bytesとなり、旧600,003 allocation、
+38,400,112 bytesの表現は残らない。`nested-buffer`は131,074 allocation、13,107,328 requested bytesで、packedなC/Rust referenceとの
+representation差が引き続き支配する。MALとCは全caseでMemcheck error 0かつ全heap blockを解放した。Rustは標準runtimeの
+still-reachable blockを`--errors-for-leak-kinds=all`が報告するが、lost blockはなかった。ELF file sizeはMAL 15,664--16,488 byte、
+C 5,864--6,664 byte、Rust 385,544--385,936 byteだった。Rustは標準runtimeを含むため、言語間のcode size倍率には使わない。

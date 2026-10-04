@@ -15,7 +15,7 @@ Status: Historical records
 | genericsとmanaged container | [generics](generics.md) | HKT、monad、nested BufferのC/Rust比較と抽象消去の境界 |
 | managed value | [managed Engram](managed-engrams.md) | C backend当時のownership costと回帰条件 |
 | Buffer element storage | [Buffer](buffer.md) | LLVM backendのcanonical elementとruntime-owned handleのC比較 |
-| C host boundary | [C host ABI](c-host-abi.md) | headerとadapter生成の測定 |
+| C runtime extension boundary | [C ABI](c-host-abi.md) | headerとextension生成の測定 |
 | compiler自身 | [compiler compile-time](compiler.md) | frontend、lowering、editor queryの規模と深度 |
 
 新しい測定は対象を所有する既存文書へ日付順に追加する。実装世代を跨ぐ記録は`backend/`、program集合を横断する

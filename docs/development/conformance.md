@@ -32,7 +32,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 | [Storable](../spec/memory.md#storable) | 全base、`Symbol`、nested product/sum、nested Buffer、empty sum、function、opaqueと、それらを含むaggregate | `Buffer<Symbol>`とnested Bufferの`new`・`get`・`put`・`fill`・`copy`を、成長、上書き、重なるcopy、handle alias、深い再帰の負荷を含めてAddressSanitizerで実行し、ソート、hash table、queue、木、closure、sum、early returnの各programをbaselineとproductionの両方で同じ検査にかける |
 | [runtime element representation](../spec/memory.md#runtime-element-representation) | primitive width/alignment、product padding/tail padding、sum tag/payload、nested shape、Unit stride、managed element lifecycle | target data layoutから作ったLLVM layout、Buffer stride、generated C carrierの一致 |
 | [Buffer access](../spec/memory.md#buffer) | make/new/get/put/fill/copy、empty、growth、Unit、product/sum、aliasとoverlap越しのread-your-writes、read-after-new、generic receiver application | managed lifetimeを含むcompiled artifact、Bufferをhelper・closure・再帰frameへ渡すnative fixture |
-| [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、range、growth後のpointer失効 | C hostが構成したBufferをmalと相互に変更するartifact |
+| [preconditions](../spec/memory.md#未検査precondition) | zero-count、zero-stride、range、growth後のpointer失効 | C extensionが構成したBufferをmalと相互に変更するartifact |
 
 ## Buffer、Symbol
 
@@ -46,7 +46,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C host ABI](../spec/c-host-abi.md) | ABI `0x000a00`、共通`mal.h`、file header、target assertion、`mal_type`とstructural type spelling、direct return、再帰的lifecycle、storage-aware Buffer操作 | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
+| [C runtime extension ABI](../spec/c-host-abi.md) | ABI `0x000a00`、共通`mal.h`、file header、target assertion、`mal_type`とstructural type spelling、direct return、再帰的lifecycle、storage-aware Buffer操作 | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
 | [Engram/Extern](../spec/engrams.md) | borrowed parameter、再帰的なshare/move/drop、external opaque resource、invalid host representation | hostがmanaged elementを含むBufferを生成・変更し、malとの往復後にborrowで観測する |
 
 ## Specification cases

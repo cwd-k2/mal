@@ -10,7 +10,7 @@ append to that emitter and produce one immutable Symbol snapshot only after succ
 instead of repeatedly copying the complete generated module. Nested loops use structural recursion;
 straight-line source uses a tail edge.
 
-`host.mal` owns the runtime extension surface. The C host borrows the path as a `Symbol`, reads the
+`host.mal` owns the runtime extension surface. The C extension borrows the path as a `Symbol`, reads the
 file directly into a mal-owned `Buffer<UInt8>`, and moves that buffer into mal. Generated LLVM is
 returned to C as a borrowed `Symbol` and written without a transfer area. File and output failures
 remain typed sums without exposing platform syscall shapes.

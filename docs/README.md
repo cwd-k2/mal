@@ -25,7 +25,7 @@
 13. [result boundaryとcompletion](spec/control.md)
 14. [実行意味論](spec/execution.md)
 15. [`extern` 境界](spec/extern.md)
-16. [C host ABI](spec/c-host-abi.md)
+16. [C runtime extension ABI](spec/c-host-abi.md)
 17. [プログラム構造](spec/programs.md)
 18. [字句・文法](spec/grammar.md)
 
@@ -34,7 +34,7 @@
 | 目的 | 最初に読む文書 | 次に参照するauthority |
 |---|---|---|
 | 値、application、continuationの設計軸を理解する | [値、解釈、control](design/value-interpretation-and-control.md) | [実行意味論](spec/execution.md)、[result boundaryとcompletion](spec/control.md) |
-| `malc`を使う | [`malc`利用contract](development/compiler-usage.md) | [C host ABI](spec/c-host-abi.md) |
+| `malc`を使う | [`malc`利用contract](development/compiler-usage.md) | [C runtime extension ABI](spec/c-host-abi.md) |
 | formatterを使う | [formatting policy](development/formatting.md) | [grammar](spec/grammar.md) |
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
@@ -56,7 +56,7 @@
 | 型変数を字面で型名と区別する案を検討する | [型変数を字面で型名と区別する案](proposals/type-variable-spelling.md) | [operation family](spec/operation-families.md)、[D094](history/decisions/active/D094.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/active/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
-| C host adapterを書く | [C host interface例](development/c-host-interface-examples.md) | [C host ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
+| C runtime extensionを書く | [C runtime extension実装例](development/c-host-interface-examples.md) | [C runtime extension ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
 | 性能を評価する | [性能調査toolと作業領域](development/performance-investigation.md) | [generated program最適化policy](development/generated-program-optimization.md)、[性能測定履歴](history/performance/)、[test方針](development/testing.md) |

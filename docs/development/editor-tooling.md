@@ -91,7 +91,7 @@ LSP configをconsumer側で登録する。Helixではpackage rootを`HELIX_RUNTI
 `mal`、language server commandを`mal-lsp`とする。editorのuser configuration、workspace trust、root detection、起動directoryに
 依存するlauncherはconsumerが所有し、mal repositoryの絶対pathや`tools/*/target`を参照しない。
 
-C host adapterを編集するprojectは、adapterを所有する`.mal` sourceから
+C runtime extensionを編集するprojectは、extensionを所有する`.mal` sourceから
 `malc emit header source.mal -o source.mal.h`でfile headerを生成し、toolchainの`include`をclangdのinclude pathに加える。
 NixのClang wrapperを使う場合、`.clangd`でC11を指定し、clangdへ
 `--query-driver=/nix/store/*-clang-wrapper-*/bin/clang`を渡す。生成file headerが直接requireする別の`.mal`のheaderも同じ相対配置に生成する。
