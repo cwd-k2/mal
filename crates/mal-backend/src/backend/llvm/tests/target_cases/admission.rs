@@ -274,7 +274,7 @@ fn rejects_closure_environments_larger_than_the_target_index_range() {
 }
 
 #[test]
-fn rejects_oversized_canonical_buffer_elements() {
+fn rejects_oversized_buffer_elements() {
     let mut text = String::from("_T0 :: UInt64;\n");
     for index in 1..=13 {
         text.push_str(&format!(

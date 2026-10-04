@@ -57,6 +57,9 @@ static MalBuffer *mal_buffer_make(
     MalRuntimeRetain retain,
     MalRuntimeRelease release
 ) {
+    if ((retain == NULL) != (release == NULL)) {
+        mal_trap(context, "buffer lifecycle callback mismatch");
+    }
     size_t bytes = mal_buffer_bytes(context, capacity, stride);
     MalBuffer *buffer = mal_buffer_allocate(context, sizeof(MalBuffer), mal_buffer_destroy);
     buffer->stride = stride;

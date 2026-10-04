@@ -161,7 +161,7 @@ fn accounts_for_element_references_only_in_managed_buffer_operations() {
     assert!(!managed.contains("call void @mal_runtime_buffer_fill("));
     assert!(!managed.contains("call void @mal_runtime_buffer_copy("));
 
-    let canonical = generate_module(
+    let trivial = generate_module(
         "main :: Unit -> Int32 := () -> {
            values := make<Int64>(2usize);
            values.new(1i64);
@@ -170,8 +170,8 @@ fn accounts_for_element_references_only_in_managed_buffer_operations() {
            (#values).i32 - 1i32;
          };",
     );
-    assert!(canonical.contains("call i64 @mal_runtime_buffer_new("));
-    assert!(!canonical.contains("_managed(ptr %mal_context"));
+    assert!(trivial.contains("call i64 @mal_runtime_buffer_new("));
+    assert!(!trivial.contains("_managed(ptr %mal_context"));
 }
 
 #[test]

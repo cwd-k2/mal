@@ -19,5 +19,7 @@ mod examples;
 mod examples_tools;
 #[path = "driver/failures.rs"]
 mod failures;
+#[path = "driver/runtime_buffer.rs"]
+mod runtime_buffer;
 #[path = "driver/runtime_pool.rs"]
 mod runtime_pool;
