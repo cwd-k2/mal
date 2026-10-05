@@ -1,6 +1,6 @@
 # Poolの意味論
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、Poolのstate、place、source carrierの観測則、operation lawを定める。言語全体での位置と採択理由は
 [位置付けと根本モデル](foundations.md)、source APIの区分は[Pool primitive](../api/pool.md)、responsibilityの効果は

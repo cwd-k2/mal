@@ -1,12 +1,12 @@
 # identityと型判定
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、共通の[Pool state](semantics.md#pool-state)に対するsource carrierの観測則と、Poolに関係する
 `Storable`、`Representable`、`HostMappable`の境界を管理する。Pool全体のauthorityは
 [根本モデル](foundations.md#authority)、responsibilityの遷移は
 [runtime contract](../runtime/contract.md#responsibility)、ImPoolのAPIは[Pool primitive](../api/pool.md#impool)を正とする。
-現行仕様の`Storable`は[AddressとBuffer](../../../spec/memory.md#storable)に定める。Buffer handleのadmissionは
+現行仕様の`Storable`は[`Buffer`](../../../spec/memory.md#storable)に定める。Buffer handleのadmissionは
 [D096](../../../history/decisions/active/D096.md)で先に採択した。本書に残る拡張はexternal opaque carrierとPool carrierであり、
 それぞれ実装可能性とPool採択に対応する後続decisionで現行仕様を更新する。
 

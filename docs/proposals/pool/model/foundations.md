@@ -1,6 +1,6 @@
 # Poolの位置付けと根本モデル
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、Poolがmal全体のどのauthorityを担い、なぜsystem全体のminimalityを改善するかを定める。
 Poolの状態とoperationの形式的な核は[意味論](semantics.md)、responsibilityの移動は

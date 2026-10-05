@@ -1,10 +1,10 @@
 # BufferとVector
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、一つの密な列をshared mutable identityとして扱う`Buffer`と、structural snapshotとして扱う`Vector`の意味、
 operationの分担、現行Bufferからの移行境界を管理する。Pool primitiveの区分は[Pool primitive](pool.md#区分)、現行Bufferの
-規範的な意味とpreconditionは[AddressとBuffer](../../../spec/memory.md)、Vectorの参照実装は
+規範的な意味とpreconditionは[`Buffer`](../../../spec/memory.md)、Vectorの参照実装は
 [列のcontainer](../containers/sequences.md#vector)を正とする。
 
 現行仕様にはVector、IxPool、ImPoolは存在しない。本書は採択済みBuffer APIを直ちに変更する決定ではなく、Pool案を採択するときに
@@ -145,7 +145,7 @@ symbol : Vector<UInt8> -> Symbol
 
 runtimeは`Representable`なelement carrierをcanonical layoutで連続に置き、admissionとobservationをbulk copyで実装してよい。
 この配置はsourceから観測できない。host側のextent、permission、initialization、representationと、offset、length、allocation sizeの
-overflowは、現行の[C host copy boundary](../../../spec/memory.md#c-host-copy-boundary)と同じcontractを引き継ぐ。
+overflowを含むhost storageとの交換contractは、v0.7のruntime extension境界に合わせて再設計する必要がある。
 
 `Symbol`は意味の上ではimmutableなbyte sequenceだが、Vector一般のaliasではない。text operation、literal、専用表現を持つ既存型であり、
 `symbol`と`freeze(*symbol)`が二つの型の値を変換する。実装上`Symbol`を`Vector<UInt8>`と同じowner/view表現にしてもよいが、

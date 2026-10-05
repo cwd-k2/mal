@@ -1,11 +1,11 @@
 # runtime contract
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、Pool stateをtrusted layerがどう保持し、semantic identityを物理allocationからどう分け、responsibilityをどう動かし、
 どの条件を誰が保証するかを管理する。Poolのauthorityは[位置付けと根本モデル](../model/foundations.md)、operation lawは
 [意味論](../model/semantics.md#operation-law)、primitiveの一覧は[Pool primitive](../api/pool.md)、型形成条件は
-[identity](../model/identity.md#poolの最小案)、現在の規範は[AddressとBuffer](../../../spec/memory.md)、
+[identity](../model/identity.md#storableの原理)、現在の規範は[`Buffer`](../../../spec/memory.md)、
 [実行意味論](../../../spec/execution.md)、[managed valueのownership](../../../implementation/ownership.md)を正とする。
 
 ## authority boundary

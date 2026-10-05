@@ -1,6 +1,6 @@
 # Pool primitive
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、共通のPool state algebraをIxPoolとImPoolのsource APIへ写し、意味と計算量を定める核と、定数倍の費用のために持つ
 周辺へ分ける。Poolの位置は[根本モデル](../model/foundations.md)、核の導出は[意味論](../model/semantics.md#最小核の導出)、

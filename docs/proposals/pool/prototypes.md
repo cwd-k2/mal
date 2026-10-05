@@ -1,6 +1,6 @@
 # 試作で確かめたこと
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](README.md) applies
 
 2026-10-03に現行compilerで全prototypeを2 GiBのcgroup内でもう一度実行した。C hostの正常系5件とprecondition違反2件、
 Buffer emulationの8件がすべて期待どおり終了した。Memcheckを通したBuffer emulationは全allocationを解放し、error 0だった。

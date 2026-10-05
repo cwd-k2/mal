@@ -1,11 +1,11 @@
 # IxPool上のBuffer実装
 
-Status: Exploratory example
+Status: Exploratory example; [v0.7 rebase notice](../README.md) applies
 
-この文書は、[AddressとBuffer](../../../spec/memory.md)が定める`Buffer<A>`のsequence operationを、IxPoolの核と周辺operation、
+この文書は、[`Buffer`](../../../spec/memory.md)が定める`Buffer<A>`のsequence operationを、IxPoolの核と周辺operation、
 Vectorで実装した擬似codeを示す。host operationはVectorを正規形として意味を分解できるが、現行Buffer APIから除くかは
 [BufferとVector](../api/buffer-vector.md#buffer)が別に管理する。IxPool primitiveの規則は
-[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は[AddressとBuffer](../../../spec/memory.md)を正とする。
+[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は[`Buffer`](../../../spec/memory.md)を正とする。
 
 以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
 

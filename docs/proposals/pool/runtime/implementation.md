@@ -1,6 +1,6 @@
 # compilerとruntimeの実装
 
-Status: Exploratory support document
+Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
 
 この文書は、[runtime contract](contract.md#runtime-representation)をcompilerとruntimeがどう分担して実装するかと、検証の段階を
 管理する。Poolのsource semantics、C runtime object、LLVM allocation objectを分ける規則は
