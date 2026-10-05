@@ -138,7 +138,7 @@
         pname = "mal-language-support-check";
         inherit version;
         src = ./editors/vscode;
-        npmDepsHash = "sha256-AimvSkY/IpOuZeQk4Km2PeL/RKSN+2pm9crKJeHheUI=";
+        npmDepsHash = "sha256-9RJ9+/rCDIwmKudxA9jJpLrvprmVPcIqaE5ZG/dVzU4=";
         npmRebuildFlags = [ "--ignore-scripts" ];
         dontNpmBuild = true;
         doCheck = true;
