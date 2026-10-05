@@ -151,11 +151,10 @@ def step [name: string, action: closure] {
     do $action
 }
 
-# Re-run this script's subcommand inside `nix develop` when the toolchain is missing.
+# Re-run this script's subcommand inside the pinned `nix develop` environment.
 # Returns true when the work was delegated and the caller should stop.
 def reenter [subcommand: list<string>, --flags: list<string> = []]: nothing -> bool {
-    let tools = ["cargo" "tree-sitter" "rg" "node"]
-    if ($env.MAL_DEV_SHELL? == "1") or ($tools | all {|tool| (which $tool | is-not-empty) }) {
+    if $env.MAL_DEV_SHELL? == "1" {
         return false
     }
     print "Entering the pinned development environment..."

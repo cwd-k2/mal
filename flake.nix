@@ -201,6 +201,7 @@
           nodejs
         ];
         RUSTC_WRAPPER = "${pkgs.sccache}/bin/sccache";
+        MAL_DEV_SHELL = "1";
         # Keep one compiler artifact cache instead of retaining Cargo incremental state as well.
         CARGO_INCREMENTAL = "0";
         # rust-analyzer resolves the standard library sources from here.
