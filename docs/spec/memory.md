@@ -3,7 +3,7 @@
 Status: Accepted v0.7
 
 この文書はmal-owned mutable sequenceである`Buffer<T>`、element lifecycle、range operationを定める。surface syntaxは
-[字句と文法](grammar.md)、extern Cからruntime carrierを扱う規則は[C ABI](c-host-abi.md)を正とする。
+[字句と文法](grammar.md)、extern Cからruntime carrierを扱う規則は[C host value API](c-host-api.md)を正とする。
 
 ## Storable
 

@@ -6,7 +6,7 @@ Status: Exploratory support document; rebased on mal v0.7
 lifecycle、extern admissionの境界を管理する。Pool全体のauthorityは[根本モデル](foundations.md#authority)、responsibilityの遷移は
 [runtime contract](../runtime/contract.md#responsibility)、ImPoolのAPIは[Pool primitive](../api/pool.md#impool)を正とする。
 現行`Storable`とruntime carrierは[`Buffer`](../../../spec/memory.md)、extern境界は
-[`extern`](../../../spec/extern.md)と[C ABI](../../../spec/c-host-abi.md)を正とする。
+[`extern`](../../../spec/extern.md)と[C host value API](../../../spec/c-host-api.md)を正とする。
 
 ## 判定が答える問い
 

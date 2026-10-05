@@ -26,23 +26,24 @@
 14. [実行意味論](spec/execution.md)
 15. [`extern` 境界](spec/extern.md)
 16. [C runtime extension ABI](spec/c-host-abi.md)
-17. [プログラム構造](spec/programs.md)
-18. [字句・文法](spec/grammar.md)
+17. [C host value API](spec/c-host-api.md)
+18. [プログラム構造](spec/programs.md)
+19. [字句・文法](spec/grammar.md)
 
 ## 目的別の入口
 
 | 目的 | 最初に読む文書 | 次に参照するauthority |
 |---|---|---|
 | 値、application、continuationの設計軸を理解する | [値、解釈、control](design/value-interpretation-and-control.md) | [実行意味論](spec/execution.md)、[result boundaryとcompletion](spec/control.md) |
-| `malc`を使う | [`malc`利用contract](development/compiler-usage.md) | [C runtime extension ABI](spec/c-host-abi.md) |
+| `malc`を使う | [`malc`利用contract](development/compiler-usage.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
 | formatterを使う | [formatting policy](development/formatting.md) | [grammar](spec/grammar.md) |
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
 | compilerを変更する | [compilerの責務境界](implementation/responsibilities.md) | [implementation notes](implementation/compiler.md)、[Engram ownership](implementation/ownership.md)、[test方針](development/testing.md) |
 | execution backendを変更する | [実行backendの責務境界](implementation/execution-backend.md) | [生成物例](implementation/llvm-backend-artifacts.md)、[LLVM backend調査](research/llvm-backend.md) |
 | function resultのproducerとconsumerを融合する | [continuation specialization](implementation/continuation-specialization.md) | [compilerの責務境界](implementation/responsibilities.md)、[generated program最適化policy](development/generated-program-optimization.md) |
 | generated C / LLVMの構築を変更する | [C / LLVM構文構築](implementation/backend-syntax-construction.md) | [内部DSL reference](implementation/backend-syntax-reference.md)、[compilerの責務境界](implementation/responsibilities.md)、[test方針](development/testing.md) |
-| `Buffer`とextern C lifecycleを使う | [`Buffer`](spec/memory.md) | [C runtime extension ABI](spec/c-host-abi.md)、[authority](design/authority.md) |
-| extern Cのlifecycle APIの採択過程を調べる | [C host lifecycle操作の小さな語彙](history/studies/c-host-lifecycle-ergonomics.md) | [C runtime extension ABI](spec/c-host-abi.md)、[利用scenarioによる監査](history/studies/c-host-api-scenarios.md) |
+| `Buffer`とextern C lifecycleを使う | [`Buffer`](spec/memory.md) | [C host value API](spec/c-host-api.md)、[authority](design/authority.md) |
+| extern Cのlifecycle APIの採択過程を調べる | [C host lifecycle操作の小さな語彙](history/studies/c-host-lifecycle-ergonomics.md) | [C host value API](spec/c-host-api.md)、[利用scenarioによる監査](history/studies/c-host-api-scenarios.md) |
 | table、tree、graphなどのdata modelを設計する | [表現と関係を分ける](design/representation-and-relations.md) | [`Buffer`](spec/memory.md)、[index構造](design/indexed-buffer-structures.md) |
 | application control loweringを変更する | [application control lowering](implementation/application-control-lowering.md) | [compilerの責務境界](implementation/responsibilities.md)、[Engram ownership](implementation/ownership.md) |
 | primitive `trap`を検討する | [first-class primitive `trap`の導入計画](proposals/primitive-trap.md) | [実行意味論](spec/execution.md#trap)、[C host ABI](spec/c-host-abi.md#failureとconcurrency) |
@@ -56,7 +57,7 @@
 | 型変数を字面で型名と区別する案を検討する | [型変数を字面で型名と区別する案](proposals/type-variable-spelling.md) | [operation family](spec/operation-families.md)、[D094](history/decisions/active/D094.md) |
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/active/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
-| C runtime extensionを書く | [C runtime extension実装例](development/c-host-interface-examples.md) | [C runtime extension ABI](spec/c-host-abi.md)、[EngramとExtern](spec/engrams.md) |
+| C runtime extensionを書く | [C runtime extension guide](guide/c-runtime-extension.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
 | 性能を評価する | [性能調査toolと作業領域](development/performance-investigation.md) | [generated program最適化policy](development/generated-program-optimization.md)、[性能測定履歴](history/performance/)、[test方針](development/testing.md) |
@@ -67,6 +68,7 @@
 | 場所 | 役割 |
 |---|---|
 | `spec/` | 利用者と実装者が従う規範的仕様 |
+| `guide/` | 規範を参照しながら機能を理解し利用するための説明と例 |
 | `design/` | 現在の設計policyと、複数の規範領域を横断する判断軸 |
 | `implementation/` | `malc`の現在の責務、構成、実行backend |
 | `development/` | repositoryを変更・検証する現在の手順とpolicy |

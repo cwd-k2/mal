@@ -60,5 +60,5 @@ allocation failureなど有効なEngram構築を完了できない場合はtrap�
 source-level trapを保証せず、その後のbehaviorを保証しない。resource固有failureをsum result、trap、process terminationのどれへ
 写すかはextern contractが定める。
 
-正確なextern signatureは[`extern`](extern.md)、C representationは[C runtime extension ABI](c-host-abi.md)、Buffer lifecycleは
+正確なextern signatureは[`extern`](extern.md)、C representationは[C host value API](c-host-api.md)、Buffer lifecycleは
 [`Buffer`](memory.md)を正とする。採択理由は[D098](../history/decisions/active/D098.md)に記録する。

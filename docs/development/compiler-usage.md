@@ -3,7 +3,8 @@
 Status: Current v0.7 development contract
 
 この文書は`malc`のcommand、対応toolchain、生成物を利用者向けに定める。言語の意味は[`spec/`](../spec/)、
-Cとの型・lifetime対応は[C host ABI](../spec/c-host-abi.md)、repository内の検証手順は[test policy](testing.md)を
+C artifactとbuildの規則は[C host ABI](../spec/c-host-abi.md)、型・lifetime対応は
+[C host value API](../spec/c-host-api.md)、repository内の検証手順は[test policy](testing.md)を
 正とする。
 
 ## 対応環境

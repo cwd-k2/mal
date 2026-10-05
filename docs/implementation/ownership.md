@@ -3,7 +3,7 @@
 Status: Current v0.7 implementation policy
 
 この文書はLLVM execution backendとextern C boundaryにおけるmanaged valueのlifetimeを定める。source-level lifetime authorityは
-[Engram specification](../spec/engrams.md)、C carrierのcontractは[C runtime extension ABI](../spec/c-host-abi.md)を正とする。
+[Engram specification](../spec/engrams.md)、C carrierのcontractは[C host value API](../spec/c-host-api.md)を正とする。
 
 ## managed type
 

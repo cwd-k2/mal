@@ -1,10 +1,30 @@
-# C runtime extension実装例
+# C runtime extension guide
 
-Status: Current v0.7 examples
+Status: Current v0.7 guide
 
-この文書はgenerated file headerを使うC bodyの代表形を示す。型、lifecycle、failureの規範は
-[`extern`](../spec/extern.md)と[C runtime extension ABI](../spec/c-host-abi.md)を正とする。C bodyは安全なFFIの外側にあり、
-runtime carrierを直接壊せるtrusted extensionである。
+この文書はgenerated file headerを使うC bodyの読み方と代表形を示す。型とlifecycleは
+[C host value API](../spec/c-host-api.md)、buildとcall boundaryは[C runtime extension ABI](../spec/c-host-abi.md)、source-level semanticsは
+[`extern`](../spec/extern.md)を正とする。C bodyは安全なFFIの外側にあり、runtime carrierを直接壊せるtrusted extensionである。
+
+## C++とRustとの対応
+
+次の対応は理解のための近似であり、C host APIがC++またはRustのobject modelや静的検査を実装することを意味しない。
+
+| Mal C host API | C++で近いもの | Rustで近いもの | 主な違い |
+|---|---|---|---|
+| Borrow | reference、non-owning pointer | `&T`、`&mut T` | C compilerはlifetimeも排他性も検査しない |
+| `mal_share` | `shared_ptr`のcopy、共有handleのcopy constructor | `Rc::clone`、`Arc::clone` | 同じmanaged identityのresponsibilityを増やし、deep cloneしない |
+| `mal_move` | move construction、`std::move` | 通常のmove | sourceをzeroのvacant carrierにし、C compilerは再利用を拒否しない |
+| `mal_drop` | destructor、`reset` | `drop`、`Drop` | 明示Dropはsourceをvacantにし、C compilerは二重Dropを拒否しない |
+| `mal_owned(T)` | RAII local | owned binding | wrapper型ではなく、C cleanup attributeを付けるoptionalな宣言形 |
+| `mal_storage(T)` | type-erased containerのlayoutとoperation table | `Layout`とclone/drop function table | type identity、reflection、dynamic dispatchを持たない |
+
+trivial carrierはC assignmentでcopyでき、Rustの`Copy`やC++のtrivial copyに近い。managed carrierのbitsだけをcopyしてもresponsibilityは
+増えず、Borrowとして元のlifetime内でしか使えない。独立して保持する場合は`mal_share`する。C++の一般的なmoved-from objectはvalidだが
+値が未指定であるのに対し、`mal_move`後のMal carrierはvacantであり、再び値として使わない。
+
+C++ exceptionやunwind modeのRust panicと異なり、`mal_call_trap`はstackをunwindしない。`mal_owned`のcleanupへtrap時のreleaseを依存させず、
+trap前に必要なDropは明示する。
 
 ## Symbolをborrowして観測する
 

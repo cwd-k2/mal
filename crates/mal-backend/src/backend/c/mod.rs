@@ -94,6 +94,8 @@ mod tests {
             "#define mal_type(name)",
             "#define mal_product(...)",
             "#define mal_sum(...)",
+            "generated product carrier type",
+            "generated sum carrier type",
             "#define mal_share(call, value)",
             "#define mal_move(value)",
             "#define mal_drop(value)",

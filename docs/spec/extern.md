@@ -100,5 +100,5 @@ runtime contextとmanaged valueはthread-confinedである。C bodyは同じcall
 accessしてはならない。worker threadがexternal bytesだけを処理する場合も、managed resultの構築とreturnは元のruntime threadで行う。
 cross-thread managed sharing、async callback、Cからmalへのreentryはこの境界に含まれない。
 
-正確なC representationとbuild規則は[C ABI](c-host-abi.md)、Buffer lifecycleは[`Buffer`](memory.md)、値のauthorityは
+正確なC representationは[C host value API](c-host-api.md)、build規則は[C ABI](c-host-abi.md)、Buffer lifecycleは[`Buffer`](memory.md)、値のauthorityは
 [EngramとExtern](engrams.md)を正とする。採択理由は[D098](../history/decisions/active/D098.md)に記録する。

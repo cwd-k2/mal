@@ -13,7 +13,9 @@
 #define mal_type(name) MAL_DETAIL_NAMED_TYPE(name)
 #define MAL_DETAIL_NAMED_TYPE(name) MAL_DETAIL_NAMED_TYPE_EXPAND(name)
 #define MAL_DETAIL_NAMED_TYPE_EXPAND(name) mal_##name##_t
+/** Structural type form: expands an ordered list of carrier types to its generated product carrier type. */
 #define mal_product(...) __typeof__(*mal_detail_product_type((void (*)(__VA_ARGS__))0))
+/** Structural type form: expands an ordered list of carrier types to its generated sum carrier type. */
 #define mal_sum(...) __typeof__(*mal_detail_sum_type((void (*)(__VA_ARGS__))0))
 
 #if defined(__clang__)

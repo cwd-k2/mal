@@ -62,7 +62,7 @@ productとして公開せず、`getelementptr`、`load`、`store`などのpointe
 mal sourceは任意memoryを指す汎用pointer型を持たない。LLVMの`ptr`はBuffer object、managed owner、Symbol view、runtime内部storageを
 実装するために使い、C runtime extensionにはそれらを含むruntime carrierをそのまま公開する。pointer representation sizeとindex
 sizeを分けるtarget layoutの性質は、Buffer stride、aggregate field、generated C assertionの計算で保持する。採択済みのsource
-operationとlayout authorityは[`Buffer` specification](../spec/memory.md)と[C host ABI](../spec/c-host-abi.md)を正とする。
+operationとlayout authorityは[`Buffer` specification](../spec/memory.md)と[C host value API](../spec/c-host-api.md)を正とする。
 
 ## C runtimeとLTO
 

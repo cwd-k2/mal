@@ -51,9 +51,17 @@ impl Directive {
 #define MAL_DETAIL_NAMED_TYPE_EXPAND(name) mal_##name##_t\n"
                     .into()
             }
-            Self::StructuralTypeDefine { name, selector } => format!(
-                "#define {name}(...) __typeof__(*{selector}((void (*)(__VA_ARGS__))0))\n"
-            ),
+            Self::StructuralTypeDefine { name, selector } => {
+                let aggregate = match &**name {
+                    "mal_product" => "product",
+                    "mal_sum" => "sum",
+                    _ => "structural",
+                };
+                format!(
+                    "/** Structural type form: expands an ordered list of carrier types to its generated {aggregate} carrier type. */\n\
+#define {name}(...) __typeof__(*{selector}((void (*)(__VA_ARGS__))0))\n"
+                )
+            }
             Self::HostLifecycleDefines => {
                 "/** Storage query operator: describes a carrier's size, alignment, and storage Share/Drop callbacks. Like sizeof and _Alignof, it obtains information from a type; evaluating it performs no lifecycle operation. */\n\
 #define mal_storage(type) mal_detail_storage((type *)0, sizeof(type), _Alignof(type))\n\
