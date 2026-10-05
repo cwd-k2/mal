@@ -11,7 +11,7 @@ growth policyを各containerで繰り返さないための関数である。
 
 ## open addressing Map
 
-linear probingのMapである。Metaは要素数で、どのprobe列も途中にVacantを含まない。削除はtombstoneを置かず、後続のentryを穴へ
+linear probingのMapである。Headerは要素数で、どのprobe列も途中にVacantを含まない。削除はtombstoneを置かず、後続のentryを穴へ
 詰めてこのinvariantを保つ。
 
 ```mal
@@ -44,7 +44,7 @@ _closeGap<K, V> :: (HashMap<K, V>, USize, USize) -> Unit := (map, gap, index) ->
 mapRemove<K, V> :: (HashMap<K, V>, K) -> [Unit, V] := (map, key) -> [missing, found] => {
     index := _locate(map, key)[missing, (index) -> index];
     (_, value) := takeAt(map, index);
-    setMeta(map, meta(map) - 1usize);
+    setHeader(map, header(map) - 1usize);
     _closeGap(map, index, _next(map, index));
     found(value);
 };
@@ -76,34 +76,34 @@ generationとfree listを要素用のIxPoolへ置けない。
 ```mal
 opaque SlotKey<T> :: (USize, UInt64); // coordinate、発行時のgeneration
 
-// values: Metaは要素数。generations: 発行した全coordinateでLive、Metaは発行数。free: 空いたcoordinateのstack。
+// values: Headerは要素数。generations: 発行した全coordinateでLive、Headerは発行数。free: 空いたcoordinateのstack。
 opaque SlotMap<T> :: (IxPool<USize, T>, IxPool<USize, UInt64>, IxPool<USize, UInt64>);
 
 _current<T> :: (SlotMap<T>, SlotKey<T>) -> Bool := ((_, generations, _), (index, generation)) ->
-    index < meta(generations) && getAt(generations, index) == generation;
+    index < header(generations) && getAt(generations, index) == generation;
 
 slotMapRemove<T> :: (SlotMap<T>, SlotKey<T>) -> [Unit, T] := (pool, id) -> [missing, found] => {
     when (!_current(pool, id)) missing();
     (values, generations, free) := pool;
     (index, generation) := id;
     value := takeAt(values, index);
-    setMeta(values, meta(values) - 1usize);
+    setHeader(values, header(values) - 1usize);
     putAt(generations, index, generation + 1u64);
-    vacated := meta(free);
+    vacated := header(free);
     ensureCapacity(free, vacated + 1usize);
     initAt(free, vacated, index.u64);
-    setMeta(free, vacated + 1usize);
+    setHeader(free, vacated + 1usize);
     found(value);
 };
 ```
 
 挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`SlotKey<T>`の照合は利用者が古い`SlotKey<T>`を持ち
 続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`SlotKey<T>`にSlotMapのidentityを含めないため、別の
-SlotMapの`SlotKey<T>`を区別しない。区別が要るなら、SlotMapごとの番号をMetaに持って`SlotKey<T>`へ含める。
+SlotMapの`SlotKey<T>`を区別しない。区別が要るなら、SlotMapごとの番号をHeaderに持って`SlotKey<T>`へ含める。
 
 ## 木
 
-節点`(key, value, left, right)`をslotに置き、子をcoordinateで指す二分探索木である。`nodes`のMetaは`(root, size)`で、空いた
+節点`(key, value, left, right)`をslotに置き、子をcoordinateで指す二分探索木である。`nodes`のHeaderは`(root, size)`で、空いた
 coordinateは`free`のstackで再利用する。
 
 ```mal
@@ -112,12 +112,12 @@ opaque Tree :: (IxPool<(USize, USize), _Node>, IxPool<USize, UInt64>);
 
 _release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
     takeAt(nodes, link.usize);
-    (root, size) := meta(nodes);
-    setMeta(nodes, (root, size - 1usize));
-    vacated := meta(free);
+    (root, size) := header(nodes);
+    setHeader(nodes, (root, size - 1usize));
+    vacated := header(free);
     ensureCapacity(free, vacated + 1usize);
     initAt(free, vacated, link);
-    setMeta(free, vacated + 1usize);
+    setHeader(free, vacated + 1usize);
 };
 ```
 

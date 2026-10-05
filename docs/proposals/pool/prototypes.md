@@ -1,36 +1,60 @@
 # 試作で確かめたこと
 
-Status: Exploratory support document; [v0.7 rebase notice](README.md) applies
+Status: Current mal v0.7 experiments; historical C-host evidence separated
 
-2026-10-03に現行compilerで全prototypeを2 GiBのcgroup内でもう一度実行した。C hostの正常系5件とprecondition違反2件、
-Buffer emulationの8件がすべて期待どおり終了した。Memcheckを通したBuffer emulationは全allocationを解放し、error 0だった。
-最大の`generic-check`は23,935 allocation、51,931,056 requested bytesであり、制限内で完走した。この再確認は意味論とlifecycleの
-回帰検査であって、後述の過去のwall-clock値を更新する測定ではない。
+現在の再現可能な試作は二層ある。`runtime/c11/pool.c`と
+[`runtime_pool.rs`](../../../crates/mal-compiler/tests/driver/runtime_pool.rs)は、source constructからまだ選択されず`mal.h`にも公開しない
+内部kernelとして、初回採択に必要なrepresentationとlifecycleを検証する。`.scratch/pool-prototype/`は現行Buffer上のmal source
+semantic referenceとして、Pool周辺、container、ImPool、Vector候補を検証する。後者はPoolのfrontend admissionやloweringを実装したものではない。
 
-この文書は、compilerを変えずにPool案を動かした二つの試作と、その結果を管理する（2026-09-30から10-03）。試作のsourceはrepositoryに含めず、
-結論と、その結論が依拠する条件だけを記録する。IxPool APIは[Pool primitive](api/pool.md)、試作から抜き出したcodeは
-[列のcontainer](containers/sequences.md)と[keyで引くcontainer](containers/keyed.md)を正とする。
+2026-10-05に試作をmal v0.7の前提へ更新した。用語と内部entry pointを`Header`へ揃え、bitmap occupancy、stable shared identity、
+growth後のcoordinate保存、zero-stride payload、capacityとallocation sizeのoverflow trapを検査する。managed caseでは、external opaque
+相当のtrivial bits、owned child、plain tagを同じspecialization後runtime carrierに置き、HeaderとslotのreadだけがShare、exchangeと
+relocationがMove、最後のhandle releaseがHeaderと全Live slotをDropすることを検査する。`-O2 -flto`とAddressSanitizer/UBSanの二構成で
+同じharnessをcompile、link、executeする。
 
-## 二つの試作
+このcurrent prototypeはD098のdirect carrier modelと整合するが、Poolをextern signatureへ公開する試作ではない。C harnessはcompilerと
+runtimeの内部境界を直接検査する。extern側の前提は、既に採択済みのBuffer、Symbol、aggregate runtime carrierと型別lifecycle glueを
+再利用できることに限る。Poolのextern admissionは初回採択から除外する。
 
-- C host試作：占有tagを検査するC hostがIxPoolのstorageを持ち、要素型ごとの核をoperation familyでhostへ渡す。preconditionへの
-  違反はtrapになる。要素はhostへ渡せる型に限られ、IxPoolの寿命はないため明示的に解放する。`Symbol`もextern境界を通らないため、
-  同じoperationを持つhost側のtextで代用した。
-- Buffer上のemulation：現在の言語だけで、`Buffer<M>`のMetaと`Buffer<Slot<V>>`のslotとしてIxPoolの核を実装した。ImPool、
-  `freeze`と`thaw`、Vectorとhostとの交換もここに置き、preconditionへの違反は戻らない。
+## 現行runtime kernelが確かめること
 
-二つの試作は、周辺のoperationとstack、binary heap、Map、Deque、SlotMap、木を一つのsourceで共有して動く。containerはIxPoolの
-核と周辺にしか依存せず、二つの試作は一つの意味の二つの実装である。[検証の段階](runtime/implementation.md#検証の段階)の
-step 6から8の一部に当たる。
+- aliasが同じstable identityを指し、Header交換とslot交換を相互に観測する。
+- physical growthがbacking allocationを移しても既存coordinate、occupancy、carrier bitsを保存し、新coordinateをVacantにする。
+- runtime carrierのtrivial fieldをそのまま保存し、Owned fieldだけを型別callbackでShare、Dropする。
+- Headerとelementのcallback contractを共通化し、read、exchange、relocation、終了のresponsibility回数を区別する。
+- terminal trapを持つ四つのoverflow経路と、zero-sized Header / elementでも残るslot stateを検査する。
 
-ImPoolはBuffer上のemulationだけで実装した。malはexternal handleをhostへ知らせずにcopyするため、C hostはstorageが一意かを
-知れない。emulationも参照数を観測できないため、更新のたびにcopyする。意味はstorageを再利用する場合と同じである。
-同じ理由で、両試作の`freeze`と`thaw`もcopyする。productionではresponsibility planが一意な最終利用を証明した場合だけstorageを
-moveできるが、その情報を観測できない試作で共有やmoveを仮定しない。
+runtime kernel単独ではfrontend admission、LLVM lowering、`Store` effect、mal sourceからのcontainer実装、ImPool、Vector、Pool carrierのextern
+admissionを確かめない。次の実装順は[実装を再開する位置](runtime/implementation.md#実装を再開する位置)を正とする。
+
+## 現行mal source semantic reference
+
+`.scratch/pool-prototype/`はbackend overlayを組み立てず、各`.mal` fileの`require`だけでsource graphを解決する。用語は`Header`、lifetimeは
+Engram、element admissionは現行`Storable`に揃え、明示的なPool解放を持たない。IxPoolとImPoolは現行Bufferでemulateするためcost modelには
+ならないが、container algorithmとsnapshot semanticsを現行compilerでcheck、build、実行できる。
+
+Vectorはmal内のstructural snapshot候補だけを試し、`Address`、raw-memory admission / observation、extern signatureを持たない。C runtime
+extensionの試作はPoolやVectorを公開せず、採択済みのBufferとSymbolをdirect carrierとして使う。`run.nu`はABI 0x000a00のfile headerを
+`malc emit header`で生成してからC実装をbuildし、全programをvalgrindで実行する。
+
+## 廃止したC-host試作から残す証拠
+
+2026-09-30から10-03の旧C host backendは現行prototypeに残さない。以下では、現行Buffer emulationでも再現する証拠と、Poolの核とcontainer
+algorithmを選んだhistorical evidenceを区別して記録する。旧C host固有のAddress copy境界、host-mappable element制限、明示freeは
+D098で廃止され、実装要件ではない。
+
+旧二実装は周辺operationとstack、binary heap、Map、Deque、SlotMap、木を一つのsourceで共有して動かした。containerはIxPoolの核と周辺に
+しか依存せず、Buffer emulationではImPoolの常時copy semanticsも検査した。この結果は[検証の段階](runtime/implementation.md#検証の段階)の
+step 6から8に対するhistorical evidenceであり、現行kernelのtest結果とは分ける。
+
+ImPoolはBuffer上のemulationだけで実装する。emulationは参照数を観測できないため、更新のたびにcopyする。意味はstorageを
+再利用する場合と同じである。`freeze`と`thaw`もcopyする。productionではresponsibility planが一意な最終利用を証明した場合だけstorageを
+moveできるが、その情報を観測できないsemantic referenceで共有やmoveを仮定しない。
 
 核はpoolのconstructor `F`をkeyに持つoperation familyとして書き、IxPoolとImPoolで一つの名前を共有した。更新はどれもpoolを
 返し、IxPoolは同じidentityへのhandleを、ImPoolはsuccessor snapshotを返す。周辺は`F`の上に一度だけ書け、IxPool上のcontainerとImPool上の
-Vectorが同じ周辺を使った。呼び出しは`meta<IxPool>(map)`のようにconstructorを明示し、これはopaqueのどの層として見るかの
+Vectorが同じ周辺を使った。呼び出しは`header<IxPool>(map)`のようにconstructorを明示し、これはopaqueのどの層として見るかの
 指定も兼ねる。更新がpoolを返すため、更新で終わる`Unit`のblockには末尾の`()`が要った。この形を書く過程で、kind多相な型parameterを
 扱うcompilerの不具合を四つ見つけて直し、本体が求めるkindをspecializationで検査する規則を
 [D093](../../history/decisions/active/D093.md)として決めた。
@@ -63,7 +87,7 @@ representationを使うnested Vectorとhandle elementのstructural snapshotはD0
 
 ## slot遷移とcontainer
 
-- 要素型ごとの実装はstorageの作成、`peek`、`swap`、`meta`、`swapMeta`だけで足り、周辺は全て核の上の通常のgeneric関数として
+- 要素型ごとの実装はstorageの作成、`peek`、`swap`、`header`、`swapHeader`だけで足り、周辺は全て核の上の通常のgeneric関数として
   二つの試作で同じsourceに書けた。
 - 核はLiveとVacantのpreconditionを持たない。C host試作でVacantとLiveのどちらのslotで`swap`しても、trapせずに古い値の側を返した。
 - `takeAt`により、tombstoneのないMap削除、同じidentityでのrehash、Dequeのring展開、heapの穴を動かすsift、木とSlotMapの
@@ -107,21 +131,13 @@ lifecycle処理が増える。[区分](api/pool.md#区分)が`peek`を計算量�
 D096はfrontend admissionを開き、alias、上書き、成長、重なるcopy、解放を通すpositive testを追加した。試作でもnested Vectorと
 Buffer handle elementが同じruntime-owned pathで動く。
 
-external opaque carrierはlifecycle上はTrivialだが、canonical representationを持たない。
-[D097](../../history/decisions/active/D097.md)でBuffer storageを
-`ElementStorage = Canonical(layout) | Runtime(layout, Lifecycle)`へ分け、`Runtime(_, Trivial)`としてadmitした。試作のtransition
-probeもpositive storage probeへ置き換えた。詳細は
+external opaque carrierはlifecycle上はTrivialである。D097でBufferへのstorageを採択し、D098でBuffer elementを含む全値を
+specialization後の一つのruntime carrier layoutへ統一した。現行Pool harnessはtrivial bitsとOwned childを同じaggregate carrierへ
+置くことで、この分解を直接検査する。詳細は
 [compilerとruntimeの実装](runtime/implementation.md#現行bufferから分離する実装境界)を正とする。
 
-## Vectorとhostとの交換
-
-Buffer上のemulationで、hostとの交換をVectorのadmissionとobservationとして書き、host storageと`Symbol`についてpredefinedな
-Bufferと比べた。Bufferの`from`はVector admission後の`thaw`、`into`は`freeze`したBufの範囲を切り出したVector observation、`*`は
-`freeze`したBufの`symbol`として書いた。結果は一致し、Vectorと`Symbol`は作った後のBufへの書き込みを観測しなかった。
-
-generic codeはmemory intrinsicへ届かないため、Vectorのadmissionとobservationの中のcopyは要素型ごとのimplementationを持つoperation familyに
-なった。runtimeのprimitiveとして要素型ごとに実装するという位置づけと一致する。malはAddressをoffsetできないため、emulationの`into`は
-offsetより前の範囲を読み戻して書き直しており、本物のprimitiveには要らない追加のpreconditionを持つ。
+旧Vector admission / observation試作はAddressとcanonical copyを前提としていたため、D098後の根拠には使わない。現在のVector案は
+mal内のstructural snapshotとしてだけ評価し、C連携は既存BufferまたはSymbol carrierを直接扱うextern operationへ任せる。
 
 ## ropeとflatな`Symbol`
 

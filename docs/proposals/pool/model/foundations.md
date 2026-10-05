@@ -1,6 +1,6 @@
 # Poolの位置付けと根本モデル
 
-Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
+Status: Exploratory support document; rebased on mal v0.7
 
 この文書は、Poolがmal全体のどのauthorityを担い、なぜsystem全体のminimalityを改善するかを定める。
 Poolの状態とoperationの形式的な核は[意味論](semantics.md)、responsibilityの移動は
@@ -85,15 +85,12 @@ authorityが移るわけではない。
 | backing storageを確保、移動、解放する | trusted runtime mechanism |
 | target上のlayoutとtyped lifecycle glueを作る | LLVM backend |
 | allocation failureを処理する | 既存Engram allocationと同じlanguage trap |
-| Poolをhost resourceとして保持または解放する | 認めない。Poolは`HostMappable`でない |
+| PoolをExtern resourceとして保持または解放する | 認めない。Poolはmal-owned Engramである |
 
-この分類では、Pool constructionは`malloc`を呼ぶexternal operationではない。closure environmentや現行Bufferのstorageと同じく、
-観測不能なEngram representationをruntimeが用意する。host固有のallocator選択、recoverable failure、shared external identityが
-必要になった場合だけ、別のExtern contractを導入する。
-
-`Address`との違いもauthorityから決まる。`Address`はExtern-owned byte regionへのcapabilityであり、extent、permission、
-initialization、lifetimeをhost contractから借りる。Poolはextent、Slot state、lifetimeをmalが構成して保つ。どちらもoffsetまたは
-coordinateで場所を選ぶが、同じmemory abstractionではない。
+この分類では、Pool constructionはextern operationではない。closure environmentや現行Bufferのstorageと同じく、観測不能な
+Engram representationをruntimeが用意する。extern CがPool carrierを扱えるよう将来拡張しても、それはD098と同じruntime
+extensionとしてmal-owned identityを操作するのであり、PoolをExtern-owned resourceへ変えない。host固有のallocator選択、
+recoverable failure、external resource identityはPoolの意味へ現れない。
 
 ## authority、responsibility、representation
 
@@ -131,7 +128,7 @@ IxPool: update(x)      の後、observe(y)は更新後のstateを返す
 ImPool: x2 := update(x)の後、observe(y)は更新前、observe(x2)は更新後のstateを返す
 ```
 
-IxPool handleの複製は同じidentityを共有する。ImPoolの更新はsuccessor snapshotを返し、更新前のMeta、capacity、slot carrierは
+IxPool handleの複製は同じidentityを共有する。ImPoolの更新はsuccessor snapshotを返し、更新前のHeader、capacity、slot carrierは
 変わらない。これは二つのstorage algebraではなく、一つのPool state algebraに対する二つの観測則である。
 
 IxPool handleまたはImPool snapshotへのresponsibilityを誰が持つかは`Share`、`Consume`、`Drop`で定まり、place内の値へのresponsibilityは
@@ -185,7 +182,7 @@ stableなderefをPoolへ持ち込まず、Poolの最小核はindexed place、occ
 ## minimality
 
 [minimality](../../../design/minimality.md)が小さくする対象はprimitive数だけではなく、language surface、static/dynamic semantics、
-runtime、backend、host contract、暗黙のcost、利用者が調べるAPIの合計である。Poolは次の理由でこの合計を減らす。
+runtime、backend、extern contract、暗黙のcost、利用者が調べるAPIの合計である。Poolは次の理由でこの合計を減らす。
 
 - shared mutable identityを新設せず、現行Bufferが既に持つEngram authorityを一般化する。
 - vacancyを新しいuninitialized value categoryにせず、既存のsum `Slot<V> = [Unit, V]`で表す。
@@ -194,7 +191,7 @@ runtime、backend、host contract、暗黙のcost、利用者が調べるAPIの�
 - ImPoolへ推移的な`Stable` judgmentを要求せず、handleを含むslot carrierの構造だけをsnapshotとして保存する。
 - allocator、pointer、layout、reference countをsourceへ公開しない。
 - container固有のrelationとinvariantをPoolへ固定しない。
-- hostとの交換をcarrier valueのadmissionとobservationへ閉じ、mal-owned mutable identityを境界へ出さない。
+- 初回採択ではextern surfaceを増やさず、C連携を現行BufferとSymbolのdirect runtime carrierへ閉じる。
 - Buffer、Map、Deque、heap、木のstorage lifecycleを一つのtyped mechanismから導く。
 
 Poolの核が小さいかは、operationを削れるかだけでなく、削った結果をどこへ移すかで判断する。例えばslot readはexchange二回でも
@@ -262,8 +259,8 @@ Poolを採択するには、operationが動くことだけでなく次を満た�
 2. IxPoolとImPoolが同じstateとoperation lawを共有し、違いをhandleとsnapshotの観測則だけで説明できる。
 3. handleを含むStorable valueのread、exchange、終了が既存responsibility規則から導ける。
 4. Pool identityをC/LLVM allocation identityへ依存させず、growth後のpointer再取得をlowering contractにできる。
-5. Poolをpublic C ABIへ出さず、hostとの交換をdense sequenceのadmissionとobservationへ閉じられる。Vectorを正規形にする場合も、
-   現行Bufferのcompatibility operationとは別に判断できる。
+5. 初回採択ではPoolをextern signatureへ出さず、C連携を現行`Buffer`と`Symbol`のruntime carrierへ閉じられる。将来Poolを
+   admissionする場合もD098のdirect carrier contractを拡張する独立判断にできる。
 6. containerのinvariantをPoolへ取り込まず、opaque型の宣言元へ置ける。
 7. Buffer上のemulationより増えるoccupancy costと、減るShare、Drop、番兵costを測定できる。
 8. source authority、compiler responsibility、runtime representationのどの層も、下位層の一意性やlayoutを上位層の意味として

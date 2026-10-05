@@ -1,6 +1,6 @@
 # compilerとruntimeの実装
 
-Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
+Status: Exploratory support document; rebased on mal v0.7
 
 この文書は、[runtime contract](contract.md#runtime-representation)をcompilerとruntimeがどう分担して実装するかと、検証の段階を
 管理する。Poolのsource semantics、C runtime object、LLVM allocation objectを分ける規則は
@@ -15,8 +15,8 @@ source functionをaffineにするのではなく、type checking後のuse graph�
 planだけが各edgeを`Borrow`、`Share`、`Consume`、`Drop`として扱う。したがってRustの`Box`に似たexclusive ownerが生成物に現れても、
 それはsource typeやPool authorityの追加ではない。
 
-- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`swap`、`slot`、`initAt`、`putAt`のvalue、`pool`、`swapMeta`、
-  `setMeta`のMeta、writable successorのinputとstorageを移し得る`freeze`と`thaw`のinputが該当する。
+- `Store`は、operandのresponsibilityをprimitiveが保持することを表す。`swap`、`slot`、`initAt`、`putAt`のvalue、`pool`、`swapHeader`、
+  `setHeader`のHeader、writable successorのinputとstorageを移し得る`freeze`と`thaw`のinputが該当する。
 - use planは`Store`を`Share`または`Consume`へlowerする。`Store`はsource operandを必ず消費する意味ではなく、calleeまたはresultが
   carrierを保持する可能性を示す。[D083](../../../history/decisions/active/D083.md)の保持解析は、`Store`へ渡る
   parameterをreturnやcaptureと同じく保持として扱い、Bufferの`put`のようなmal wrapperをowned native entryにする。
@@ -39,45 +39,25 @@ callback生成が既にある。IxPoolはこのloweringの新しい利用者に�
 
 現行BufferをPool導入の起点として読むと、変更は一枚岩ではない。既にあるmechanismと、現在の分類では表せない部分を分ける。
 
-| 現行箇所 | 既にあるもの | 導入前に必要な整理 |
+| 現行箇所 | 既にあるもの | Pool導入で加えるもの |
 |---|---|---|
 | frontend `types/properties` | place lifecycleとしての`Storable`、nested Bufferとexternal opaque carrierのadmission、requirementの再帰 | Pool handleを同じ再帰へ加える。functionとempty sumは拒否を保つ |
 | execution ownership | product、sum、Symbol、Buffer、functionを再帰する`Lifecycle = Trivial | Owned`分類と、Buffer `new` / `put`の`Store` | Pool handleを同じ分類へ加え、Pool operationのuseとdropを計画する |
 | LLVM value lifetime | Buffer handleを含むproductとsumの再帰的retain/release | nested Bufferのelement callbackから同じ処理を再利用する。Pool handle追加時も別の型再帰を作らない |
-| LLVM Buffer storage | `Canonical(layout)`と`Runtime(layout, Lifecycle)`。external opaqueはTrivial、nested BufferはOwnedで動作する | Pool loweringから同じrepresentation/lifecycle分解を使う |
-| C Buffer runtime | plain storageと、element retain/release callbackを持つstorage。nested Bufferは既存managed pathを使う | Trivialなruntime-value elementにはcallbackを課さない |
-| Buffer host operation | canonical layoutだけを扱う`from`と`into` | `Representable`制限を保ち、Storable拡張から独立させる |
+| LLVM Buffer storage | specialization後の一つのruntime carrier layoutと、独立した`Lifecycle`。external opaqueはTrivial、nested BufferはOwned | Headerとslotへ同じlayout planとlifecycle glueを使う |
+| C Buffer runtime | storage descriptor、plain/managed element operation、growth後のdata再取得 | internal Pool kernelへ同じcallback型とrelocation規則を適用する |
+| C runtime extension ABI | generated CとLLVMが同じcarrierを使い、managed valueをborrow/move/share/dropする | 初回採択ではPoolをexternへ出さない。後続admission時だけ同じcontractを拡張する |
 
-C runtimeの`_managed`はcallbackを受け取るprivate ABI variantの名前であり、languageの`Storable`またはcompilerの
-`Runtime`全体を分類する語ではない。nested Bufferは`Owned` lifecycleなのでこのvariantを使うが、external opaqueの
-`Runtime(_, Trivial)`はruntime-value representationを使ってもcallbackを必要としない。このABI名をsource-level judgmentへ
-逆輸入しない。
-
-特にstorage分類は、canonical representationとlifecycleを一つの二択へ押し込まない。導入時の概念形は次である。
+現行の分類は次の一つで足りる。
 
 ```text
-ElementStorage(T) = Canonical(layout)
-                  | Runtime(layout, Lifecycle(T))
-
-Lifecycle(T) = Trivial
-             | Owned(share glue, drop glue)
+RuntimeCarrier(T) = target layout after specialization
+Lifecycle(T) = Trivial | Owned(share glue, drop glue)
 ```
 
-`Buffer<Buffer<T>>`は`Runtime(_, Owned)`となり、[D096](../../../history/decisions/active/D096.md)でfrontend admissionと
-positive runtime testまで採択した。external opaque carrierは`Runtime(_, Trivial)`となり、
-[D097](../../../history/decisions/active/D097.md)でfrontend、LLVM lowering、C runtimeを通すpositive testとともに採択した。
-
-この分解を先に現行Bufferへ適用すると、Pool固有のoccupancy、Meta、`Store`を導入する前に、`Storable`とlifecycle planの境界を
-検証できる。`Canonical`を`Runtime(_, Trivial)`へ統合する必要はない。前者はhost bulk copyと既存の最適化を所有し、後者は
-canonical memoryへ出せないruntime carrierを保持する。
-
-型再帰的なmanaged判定はrepresentationと独立した`Lifecycle`として名前を与え、execution ownershipとBuffer storageが同じ分類を
-消費するようにした。残る導入では、このBufferで確かめた`Lifecycle`と`ElementStorage`をIxPoolとImPoolのMetaおよびslotへ使う。
-Pool用に第三の型分類や別のglue再帰を作らない。
-
-D096では既存の`RuntimeOwned` mechanismだけでnested Bufferを通せたため、利用者が一つしかない段階で抽象的な`Lifecycle` data typeを
-先行追加しなかった。[D097](../../../history/decisions/active/D097.md)でrepresentationとlifecycleを直交させ、その直後に二つのconsumerが
-生じた時点で共通分類を抽出した。これによりPool固有のstate machineはlifecycle分類から独立して導入できる。
+`Buffer<Buffer<T>>`はOwned、external opaque carrierはTrivialとしてD096、D097で採択され、D098では両者を同じruntime carrier storageと
+direct C ABIへ統合した。Poolはこの現在の境界をそのまま消費する。Pool用の第三の型分類、canonical layout、別のglue再帰を作らない。
+internal C kernelの`_managed`相当はcallbackの有無を表す実装区分にすぎず、source-level judgmentへ逆輸入しない。
 現行実装のallocation、動的instruction、LLVMのalias証明の限界は
 [Buffer生成物とownership cost](../../../history/performance/buffer.md)で測定した。そこで最初に観測した小容量Bufferの二重allocationと、
 同一slotへの書き戻しが消えないことは、nested identityの意味論的なcostではない。前者はstable object内のsmall-buffer storage、
@@ -96,7 +76,7 @@ Pool operationはsource primitive、LLVM instruction、C runtime functionを一�
 
 | 層 | 入力 | 所有する判断 | 出力 |
 |---|---|---|---|
-| type checking | concreteな`Meta`と`V` | 型形成、`Storable`、operation signature | checked Pool operation |
+| type checking | concreteな`Header`と`V` | 型形成、`Storable`、operation signature | checked Pool operation |
 | execution ownership | typed operandとcontrol | `Borrow`、`Share`、`Consume`、`Drop`、`Store` | responsibility plan |
 | LLVM source layout | concrete typeとtarget data layout | payloadのsize、alignment、stride | typed layout |
 | LLVM Pool lowering | operationとresponsibility plan | typed load/store、glue、runtime call、pointer再取得 | LLVM IR |
@@ -174,7 +154,7 @@ lifetimeであり、managed valueのvariant、responsibility、destructor bounda
 
 後段が表現から意味を逆推論しないよう、次のfactは所有stageから順方向に渡す。
 
-- type checkerからconcreteなPool constructor、Meta型、element型、周辺operationのprecondition。
+- type checkerからconcreteなPool constructor、Header型、element型、周辺operationのprecondition。
 - executionから各operandのresponsibility effectとresultのowner destination。
 - source layoutからpayload layoutとzero-sizedかどうか。
 - Pool loweringからruntime call後に再取得すべきcached view。
@@ -183,15 +163,18 @@ occupancy bitmapのbit、null pointer、physical capacity、reference countをse
 
 ### Ordinary externとの境界
 
-現在のexternal opaque valueをmalのopaque型で包むだけではIxPoolにならない。external handleはcopyしてもreferentのlifetimeを
-延長せず、mal側のdropもresourceを解放しないため、wrapperはuse-after-free、多重close、最後のaliasとstorage解放の対応を保証
-できない。IxPoolの実装をextern-likeなruntime libraryへ置く場合も、IxPool handleはmal-controlledなEngram leafとして登録し、
-compilerまたはtrusted extensionが次を供給する。
+external opaque valueをfile-local opaque型で包むだけではIxPoolにならない。external carrierはcopyしてもreferentのlifetimeを延長せず、
+mal側のdropもresourceを解放しないためである。IxPoolはbuilt-inのmal-controlled Engramとして実装し、compilerと内部runtime kernelが
+次を供給する。
 
 - operandとresultの`Borrow`、`Share`、`Consume`、`Drop` effect
-- concreteな`Meta`と`V`のruntime layout、およびmaterializeした`share`と`drop` glue
-- 最後のIxPool responsibilityでMetaと全Live slotをdropするhandle lifecycle
-- 非`HostMappable`なruntime carrierとlifecycle glueを渡せるprivate ABI
+- concreteな`Header`と`V`のruntime layout、およびmaterializeした`share`と`drop` glue
+- 最後のIxPool responsibilityでHeaderと全Live slotをdropするhandle lifecycle
+- specialization後のruntime carrierとlifecycle glueを渡す内部runtime call
+
+D098のextern CはTCBとしてmanaged carrierを扱えるが、新しいmanaged source typeをCだけで登録するextension pointではない。初回採択では
+Pool kernelを`mal.h`へ公開せず、Poolをextern signatureへもadmitしない。後続でadmitする場合はgenerated header、borrow/move、share/drop、
+thread confinementをC ABIへ一緒に追加する。
 
 ### Managed Engramとの依存関係
 
@@ -200,20 +183,19 @@ compilerまたはtrusted extensionが次を供給する。
 | 部分 | managed Engramへの依存 |
 |---|---|
 | file-local opaque identityとrepresentation view | frontendに閉じ、unmanaged representationだけならD055/D080に依存しない |
-| IxPoolのMetaとslot | [D080](../../../history/decisions/active/D080.md)の`initialize`、`replace`、`vacate`と同じcarrier invariantをruntime storageへ適用する |
+| IxPoolのHeaderとslot | [D080](../../../history/decisions/active/D080.md)の`initialize`、`replace`、`vacate`と同じcarrier invariantをruntime storageへ適用する |
 | operand effect `Store` | trusted metadataをuse planとD083のparameter保持解析へ接続する |
 | writable successorのstorage再利用 | `Store`をowned native entryへ伝播し、runtimeのrepresentation uniqueness検査に依存する |
-| managed Metaまたは`Symbol` element | D055の`Share`、`Consume`、`Drop`と、型別glueをruntime callbackへmaterializeする境界に依存する |
+| managed Headerまたは`Symbol` element | D055の`Share`、`Consume`、`Drop`と、型別glueをruntime callbackへmaterializeする境界に依存する |
 | Bufferのmal実装 | IxPoolがmanaged elementを正しく扱えれば、Buffer固有のretain/release loweringには依存しない |
-| plugin-defined Engram leaf | representation、lifecycle、artifact dependencyを登録する安定したtrusted extension contractが要る |
+| extern Cとの交換 | 初回採択ではPoolをadmitせず、現行BufferとSymbolのruntime carrierを使う |
 
-IxPoolをbuilt-in Engramとして先に実装し、`Storable(Meta)`と`Storable(V)`だけを受理することは、一般plugin ABIより前に検証できる。
+IxPoolをbuilt-in Engramとして実装し、`Storable(Header)`と`Storable(V)`だけを受理する。
 ただしunmanaged scalarだけのIxPoolでは重複削減を確認できないため、`Symbol`を含むelementを扱う段階までに、型別`share`と`drop`を
 通常値、IxPool callback、closure environment destructorから共有できる必要がある。
 
-境界が安定した後、IxPool自体または新しいEngram leafをcompilerと同じversionへ静的に結合する
-trusted crateへ移せるかを評価する。leafの登録には、layout、valid valueの構築、runtime representation、`share`、
-`drop`、relocation、保持するchild Engram、runtime source選択と、operationごとの`Borrow`または`Store`と上の分解の宣言が要る。
+新しいruntime-managed native objectを追加する一般化はPool採択に含めない。その要求はidentity、valid carrier、share/drop、保持する
+child Engram、operation effectを一緒に定める別proposalが所有する。
 
 ## 占有tagの費用
 
@@ -240,26 +222,26 @@ growth、終了時の走査を含めて再測定する。その際はMap、Deque
 2. [D096](../../../history/decisions/active/D096.md)の`Buffer<Buffer<T>>`と
    [D097](../../../history/decisions/active/D097.md)のexternal opaque carrierを、通常値とBuffer element callbackが共有する
    `Lifecycle(T) = Trivial | Owned(share, drop)`で検証する。
-3. backend内部にIxPoolの核と周辺operationを置き、unmanaged Metaとelementで実行する。
-   初期occupancyは測定済みのbitmapとし、zero-sizedなMetaとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
+3. backend内部にIxPoolの核と周辺operationを置き、unmanaged Headerとelementで実行する。
+   初期occupancyは測定済みのbitmapとし、zero-sizedなHeaderとelement、capacity 0でもslot遷移とdrop回数が一致し、capacity overflowはtrapする。
 4. `Symbol`、nested Buffer、nested Pool handleとmanaged aggregateで、分解を直接実行するtest用runtimeとshare/drop回数と順序を比べる。relocation、同じvalueの
    書き戻し、同じBufferで範囲が重なる`copy`でDrop済みのreferentを読まず、IxPool終了時のlive allocationは0になる。
 5. Bufferで検証済みの`Store`をPool primitiveへ付与する。`Store`へ渡るparameterを持つmal wrapperがowned native entryになり、
    last-use argumentを`Consume`する。
 6. IxPool上のBufferを現在のBufferとalias、range、overlap、trap semanticsで比べ、範囲と占有tagを検査するtest用runtimeで公開
-   preconditionを満たすprogramがIxPool preconditionへ違反しないことを確かめる。canonical host copyはpaddingや非選択sum payloadへ
-   依存せずround-tripする。これはas-ifで実装するBufferが参照実装と一致することの検査を兼ねる。
+   preconditionを満たすprogramがIxPool preconditionへ違反しないことを確かめる。extern Cから現行Bufferを操作するtestも同じ結果と
+   lifecycle終状態になることを確認する。
 7. ImPool上のVectorで、shared時のcopyとlast-use時のstorage再利用を別々に測る。handle elementを持つsnapshotでは外側の置換が
    独立し、内側referentの変更が共有観測されることも検査する。
 8. 木やgeneration付きkeyのcontainerをcoordinateで実装し、coordinateの再利用と古いkeyの拒否を検査する。
-9. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換、Vectorのpublic採択、既存host operationの互換性、
-   trusted crate境界を別々に判断する。
+9. semanticsと生成物のcostが妥当な場合だけ、predefined Bufferの置換、Vectorのpublic採択、Pool/Vectorのextern admissionを
+   別々に判断する。
 
 compilerを変えない二つの試作が、step 6から8の一部を先取りした。結果は[試作で確かめたこと](../prototypes.md)に置く。
 
 ## 実装を再開する位置
 
-step 1と2に必要だったopaque identity、nested Buffer、external opaque element、`ElementStorage`の分離は現行実装とactive decisionへ
+step 1と2に必要だったopaque identity、nested Buffer、external opaque element、runtime carrierと`Lifecycle`の分離は現行実装とactive decisionへ
 反映済みである。step 3と4のruntime側についても、非公開C kernelがbitmap occupancy、stable identity、owner末尾のHeader、growth、
 trivial/managed payloadのreadとexchange、終了時drop、overflow trapを実行し、直接harnessで検証している。growthはlogical payloadを
 一括relocationし、occupancyだけをLive authorityとして保つ。
@@ -277,5 +259,5 @@ trivial/managed payloadのreadとexchange、終了時drop、overflow trapを実�
 5. IxPool上のmal製Bufferを現行Bufferと比較する。semantic parityのC/Rust referenceに加えてhand-lowered lower boundを別枠で測り、
    occupancy、allocation policy、generic erasureのcostを混ぜない。
 
-この順序より前に非公開kernelを汎用allocator、closure arena、public plugin ABIへ拡張しない。既存kernelはsource contractが採択される
+この順序より前に非公開kernelを汎用allocator、closure arena、新しいmanaged typeのextension ABIへ拡張しない。既存kernelはsource contractが採択される
 まで実装可能性とlifecycleのprobeであり、IxPoolが既に言語機能として実装済みであることを意味しない。

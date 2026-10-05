@@ -104,6 +104,22 @@ pointerまたは内部stateをcall後に保持しない。
 
 ## Lifecycleとstorage
 
+公開helperはcarrier、storage contract、owned local、responsibility operationという別の層を表す。
+
+| 語彙 | 表すもの | 評価時のlifecycle effect |
+|---|---|---|
+| `mal_type(T)` | named closed Mal型のC runtime carrier型 | なし |
+| `mal_storage(T)` | carrierのsize、alignment、storage用Share / Drop callback | なし |
+| `mal_owned(T)` | responsibilityを一つ所有し、scope終了時にDropするC local | initializerからresponsibilityを受け取る |
+| `mal_share` | sourceを残したまま独立したresponsibilityを作るoperation | Share |
+| `mal_move` | owned lvalueからresponsibilityを取り出し、sourceをvacantにするoperation | Move |
+| `mal_drop` | owned lvalueのresponsibilityを終了し、sourceをvacantにするoperation | Drop |
+
+`mal_storage(T)`はstorageのallocation、carrierの格納、Share、Move、Dropを実行しない。値やresponsibilityを含まないstaticな説明であり、
+type-erasedなBuffer objectが後のoperationでcarrierを扱うために保持する。具体的なoperationがeffectを選び、copyはdescriptorの`share`、
+place終了は`drop`を呼び、格納とrelocationのMoveはcallbackを呼ばずcarrierを移す。typedな`mal_owned(T)` localではC compilerがcleanupを
+静的に選べるため、local自身がstorage descriptorを保持するわけではない。
+
 `mal_share(call, value)`は新しいresponsibility、`mal_move(value)`はowned lvalueから取り出したresponsibilityを返して元をvacantにし、
 `mal_drop(value)`はowned lvalueをdropしてvacantにする。productはmanaged field、sumはactive payloadだけへgenerated glueが再帰し、trivial
 fieldにはoperationを行わない。`mal_move`と`mal_drop`はlvalueだけを受け、一度だけ評価する。Cがparameterをcall後も保持する場合はbody中に

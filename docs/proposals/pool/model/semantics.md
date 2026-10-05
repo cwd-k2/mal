@@ -1,6 +1,6 @@
 # Poolの意味論
 
-Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
+Status: Exploratory support document; rebased on mal v0.7
 
 この文書は、Poolのstate、place、source carrierの観測則、operation lawを定める。言語全体での位置と採択理由は
 [位置付けと根本モデル](foundations.md)、source APIの区分は[Pool primitive](../api/pool.md)、responsibilityの効果は
@@ -46,7 +46,7 @@ exchange(p, incoming) = pをincomingへ置き換え、以前の値を返す
 exchangeをresponsibilityの移動へlowerする規則は[runtime contract](../runtime/contract.md#responsibility)が所有する。意味論と実装効果を
 分けても、HeaderとSlotが同じplace lawを持つことは変わらない。
 
-source APIが`meta`と`peek`、`swapMeta`と`swap`に分かれるのは、Headerが`H`、Slotが`Slot<V>`を持ち、malがplaceの型をresultへ
+source APIが`header`と`peek`、`swapHeader`と`swap`に分かれるのは、Headerが`H`、Slotが`Slot<V>`を持ち、malがplaceの型をresultへ
 依存させる型を持たないためである。別のlifecycle規則があるからではない。
 
 ## source carrierと観測
@@ -66,7 +66,7 @@ IxPoolのstate transitionはidentityを保存する。source APIがsuccessor IxP
 
 ### ImPool
 
-ImPool valueはPool stateのstructural snapshotを表す。更新はsuccessor snapshotを返し、inputが表すMeta、capacity、slot carrierを
+ImPool valueはPool stateのstructural snapshotを表す。更新はsuccessor snapshotを返し、inputが表すHeader、capacity、slot carrierを
 変えない。
 
 ```text
@@ -122,8 +122,8 @@ grow       : (State<H, V>, USize) -> State<H, V>
 capacity   : State<H, V> -> USize
 peek       : (State<H, V>, USize) -> Slot<V>
 swap       : (State<H, V>, USize, Slot<V>) -> (State<H, V>, Slot<V>)
-meta       : State<H, V> -> H
-swapMeta   : (State<H, V>, H) -> (State<H, V>, H)
+header     : State<H, V> -> H
+swapHeader   : (State<H, V>, H) -> (State<H, V>, H)
 ```
 
 IxPool APIはtransition後のstateを同じidentityへcommitするため、更新が`Unit`または旧値だけを返せる。ImPool APIはinput snapshotを
@@ -134,10 +134,10 @@ IxPool APIはtransition後のstateを同じidentityへcommitするため、更�
 
 ```text
 capacity(pool(h)) = 0
-meta(pool(h)) = h
+header(pool(h)) = h
 
 capacity(grow(P, k)) = capacity(P) + k
-meta(grow(P, k)) = meta(P)
+header(grow(P, k)) = header(P)
 peek(grow(P, k), i) = peek(P, i)                  when i < capacity(P)
 peek(grow(P, k), i) = Vacant                     when capacity(P) <= i
 
@@ -146,9 +146,9 @@ peek(P1, i) = incoming
 old = peek(P, i)
 peek(P1, j) = peek(P, j)                         when i != j
 
-(P1, old) = swapMeta(P, incoming)
-meta(P1) = incoming
-old = meta(P)
+(P1, old) = swapHeader(P, incoming)
+header(P1) = incoming
+old = header(P)
 capacity(P1) = capacity(P)
 peek(P1, i) = peek(P, i)
 ```
@@ -166,7 +166,7 @@ IxPoolではtransitionをcommitする前のstateを`P`、commit後に同じident
 | construction | `pool` | — | — |
 | coordinate空間 | `grow`、`capacity` | — | — |
 | Slot place | `swap` | `peek` | `slot` |
-| Header place | `meta`、`swapMeta` | — | `setMeta` |
+| Header place | `header`、`swapHeader` | — | `setHeader` |
 
 ### Slot place
 
@@ -189,11 +189,11 @@ slot(P, i, value) = first(swap(P, i, value))
 
 ### Header place
 
-任意の`H`について一時的に置ける値はないため、`meta`を`swapMeta`だけから導けない。`swapMeta`も旧Headerを値として取り出す唯一の
+任意の`H`について一時的に置ける値はないため、`header`を`swapHeader`だけから導けない。`swapHeader`も旧Headerを値として取り出す唯一の
 operationである。したがって両方が意味論の核になる。writeは旧Headerを捨てて導く。
 
 ```text
-setMeta(P, value) = first(swapMeta(P, value))
+setHeader(P, value) = first(swapHeader(P, value))
 ```
 
 ### coordinate空間
@@ -240,7 +240,7 @@ Pool stateは次を規定しない。
 
 - Header、occupancy、payloadが同じallocationにあるか。
 - occupancyがbyte tag、bitmap、container invariantからの導出のどれか。
-- payloadがcanonical memory layoutかruntime value layoutか。
+- payloadのruntime carrier layout、padding、inactive sum payloadがどう表現されるか。
 - physical capacityがlogical capacityより大きいか。
 - growthが`realloc`、allocate-and-move、chunk追加のどれか。
 - ImPoolがflat owner、view、または別の共有表現を使うか。

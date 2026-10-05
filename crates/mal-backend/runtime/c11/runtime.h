@@ -273,25 +273,25 @@ void mal_runtime_buffer_into(
 void *mal_runtime_buffer_into_symbol(MalContext *context, void *buffer);
 void *mal_runtime_symbol_into_buffer(MalContext *context, void *owner, const uint8_t *data, size_t length);
 
-/* Internal Pool kernel. A Pool is a stable shared object with metadata, a logical coordinate capacity, an occupancy
- * bitmap, and fixed-stride payload storage. make adopts one metadata carrier. The managed form stores nullable callback
- * pairs for metadata and elements, shares results through managed reads, and drops stored carriers when the Pool dies.
+/* Internal Pool kernel. A Pool is a stable shared object with a Header carrier, a logical coordinate capacity, an occupancy
+ * bitmap, and fixed-stride payload storage. make adopts one Header carrier. The managed form stores nullable callback
+ * pairs for the Header and elements, shares results through managed reads, and drops stored carriers when the Pool dies.
  * grow preserves existing coordinates and makes the added coordinates vacant without lifecycle traffic. swap moves the
  * old carrier to old and installs next when next_live is nonzero; next and old must not overlap. Coordinate range is an
  * unchecked precondition. */
 void *mal_runtime_pool_make(
     MalContext *context,
-    const void *metadata,
-    size_t metadata_size,
+    const void *header,
+    size_t header_size,
     size_t stride
 );
 void *mal_runtime_pool_make_managed(
     MalContext *context,
-    const void *metadata,
-    size_t metadata_size,
+    const void *header,
+    size_t header_size,
     size_t stride,
-    MalRuntimeRetain metadata_retain,
-    MalRuntimeRelease metadata_release,
+    MalRuntimeRetain header_retain,
+    MalRuntimeRelease header_release,
     MalRuntimeRetain element_retain,
     MalRuntimeRelease element_release
 );
@@ -311,8 +311,8 @@ uint8_t mal_runtime_pool_swap(
     const void *next,
     void *old
 );
-void mal_runtime_pool_meta(const void *pool, void *result);
-void mal_runtime_pool_meta_managed(MalContext *context, const void *pool, void *result);
-void mal_runtime_pool_swap_meta(void *pool, const void *next, void *old);
+void mal_runtime_pool_header(const void *pool, void *result);
+void mal_runtime_pool_header_managed(MalContext *context, const void *pool, void *result);
+void mal_runtime_pool_swap_header(void *pool, const void *next, void *old);
 
 #endif

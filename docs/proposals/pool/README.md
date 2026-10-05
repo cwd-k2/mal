@@ -1,11 +1,6 @@
 # Poolとopaque型によるcontainer基盤
 
-Status: Exploratory; extern integration sections require a v0.7 rebase
-
-> [!IMPORTANT]
-> Poolのidentity、place、container semanticsの検討は継続するが、このdirectoryに残る`Address`、`Representable`、
-> `HostMappable`、canonical host copyを前提としたhost integration案は[D098](../../history/decisions/active/D098.md)で廃止された。
-> 次のPool試作はruntime carrierを直接扱う`extern`と`mal.h`のmanaged Buffer callback上で行い、旧境界を実装要件に使わない。
+Status: Exploratory; rebased on mal v0.7
 
 この文書は、現在の`Buffer<T>`が一つの組み込み型として持つEngram storageのauthorityとsequence policyを分け、少数のtrustedな
 primitiveの上でcontainerをmal sourceとして定義する案の入口である。Poolの言語全体での位置とminimalityは
@@ -43,10 +38,10 @@ allocation、relocationはtrusted implementationに残し、Liveなcoordinateの
   - [位置付けと根本モデル](model/foundations.md)：authority、minimality、C/LLVM・Rust・Haskellとの比較、採択条件
   - [Poolの意味論](model/semantics.md)：Pool state、place、source carrierの観測、operation law、最小核の導出
   - [responsibilityの図](model/responsibility.md)：slotの状態遷移、responsibilityの動き、費用が違うoperation、ImPoolの更新
-  - [identity](model/identity.md)：handle保存、structural snapshot、`Storable`、stability、host判定の境界
+  - [identity](model/identity.md)：handle保存、structural snapshot、`Storable`、lifecycle、extern admissionの境界
 - `api/`：primitive
   - [Pool primitive](api/pool.md)：区分、IxPoolの核と周辺、ImPool、`freeze`と`thaw`、測定後の候補
-  - [BufferとVector](api/buffer-vector.md)：語彙の分担、BufferとVectorの対、Buffer、Vectorとhostとの交換
+  - [BufferとVector](api/buffer-vector.md)：語彙の分担、BufferとVectorの対、extern runtime carrierとの境界
 - `runtime/`：trusted layerの契約と実装
   - [runtime contract](runtime/contract.md)：authority boundary、semantic identityとallocation object、representation、responsibility、precondition
   - [compilerとruntimeの実装](runtime/implementation.md)：compiler、LLVM、C runtimeの分担、検証の段階
@@ -55,14 +50,14 @@ allocation、relocationはtrusted implementationに残し、Liveなcoordinateの
   - [Buffer実装](containers/buffer.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
   - [列のcontainer](containers/sequences.md)：stack、Deque、binary heap、Vector
   - [keyで引くcontainer](containers/keyed.md)：open addressing Map、SlotMap、木
-- [試作で確かめたこと](prototypes.md)：C host試作とBuffer上のemulationの結果
+- [試作で確かめたこと](prototypes.md)：旧試作から残る知見、現行kernelで確認済みの範囲、再検証項目
 
 ## 推奨する最小採択単位
 
 最初のlanguage changeは`IxPool<Header, V>`だけに切る。共有identity、indexed place、occupancy、containerと同じidentityに属する
 Headerが、現行Bufferから分離する必要のある最小の意味である。`pool`、`grow`、`capacity`、`peek`、`swap`、`header`、
-`swapHeader`を核とし、Live/Vacantを仮定するoperationはmalで書く周辺に置く。現在の文書とprototypeで`Meta`と書いている型parameterと
-operation名は、採択時にはこの`Header`語彙へ揃える。
+`swapHeader`を核とし、Live/Vacantを仮定するoperationはmalで書く周辺に置く。本proposalでは型parameterとoperation名をこの
+`Header`語彙へ統一する。
 
 Headerを別identityへ分ける案は採らない。malにはproductの一fieldだけを更新するoperationがなく、Bufferのcount、Dequeの両端、
 free-list headなどをslot storageとは別のshared identityに置くと、containerごとに二つのidentityのlifetimeと同期を規定することになる。
@@ -74,9 +69,9 @@ free-list headなどをslot storageとは別のshared identityに置くと、con
   writable successorという独立したcost contractをIxPool導入の条件にしない。
 - `moveRange`、snapshotのrange operation、live slot iterator。核のloopで意味を検証し、実際のIxPool loweringで定数倍または
   計算量が問題になるものだけを追加する。
-- allocator parameter、arena、plugin crateによるruntime差し替え。C runtimeはbacking mechanismであり、source authorityではない。
-- 現行Bufferのhost operation削除。IxPool上のBufferが現行semanticsとcost gateを満たしてから、Vectorを正規host valueにする変更を
-  別に判断する。
+- allocator parameter、arena、runtime extensionによるkernel差し替え。C runtimeはbacking mechanismであり、source authorityではない。
+- IxPool、ImPool、Vectorのextern signature admission。初回採択ではPool carrierをgenerated C headerや`mal.h`へ公開せず、現行の
+  `Buffer`と`Symbol`をC連携の境界に使う。
 
 この切り方でもImPoolを破棄するわけではない。IxPool kernelでStorable handle、managed payload、growth、終了時走査、occupancy表現を
 検証した後、同じstate algebraへstructural snapshotを加える第二段階とする。Rust寄りのaffine responsibilityはcompiler内部の
@@ -99,12 +94,14 @@ IxPoolだけのためには追加しない。未検査preconditionを直接使�
   handle nestingには不要なので、名称だけを先に追加しない。
 - 第二段階でImPoolをpublicにするか。採る場合はuniqueness検査、Ix/Im共通source、`freeze`/`thaw`のcopy gateを一緒に決める。
 - [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- Vectorの公開API、現行Bufferのhost operationとの互換性、`Symbol`との型関係は
+- Vectorの公開API、extern admission、`Symbol`との型関係は
   [BufferとVectorの採択前に残る判断](api/buffer-vector.md#採択前に残る判断)を正とする。
 - live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
 - IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。同じkernelのdirect Cとsafe Rustの
   測定ではbitmapを初期表現に選んだが、managed payload、growth、終了時走査と実際のcontainerを含む再測定が要る。
 - opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
 - IxPool callbackを既存Buffer callback emitterから一般化するか、共通`Lifecycle`を消費する別のemitterとして置くか。
-- plugin crateのversion、reproducible build、artifact cache、runtime source選択のcontractはPool採択条件にしない。trusted extensionを
-  外部配布する要求が生じたときのplugin設計が所有する。
+- IxPool、ImPool、Vectorをextern signatureへ認めるか。認める場合はD098と同じruntime carrier、borrow/move、型別share/dropを使い、
+  `Address`やcanonical host representationを再導入しない。
+- runtime extensionの配布、version、artifact cache、runtime source選択はPool採択条件にしない。必要になった時点でD098のexact-match
+  build modelを拡張する別proposalが所有する。

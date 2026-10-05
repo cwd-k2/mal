@@ -39,13 +39,13 @@ Drop    x●   →  (なし)     responsibilityを一つ終了する
 これはsource semanticsから導く実行上の台帳であり、丸一つがreference countの1とは限らない。reference countを使う表現ならShareと
 Dropがcountを増減し、最後のDropが解放を起こし得る。別の回収表現でも上のresponsibility lawは変わらない。
 
-placeに対する操作は読み出しと入れ替えの二つの規則で動き、Metaとslotで同じである。書き込みは入れ替えの結果を捨てたもの
+placeに対する操作は読み出しと入れ替えの二つの規則で動き、Headerとslotで同じである。書き込みは入れ替えの結果を捨てたもの
 である。
 
 ```text
-peek(i)、meta             読む       placeの値をShareして返す
-swap(i, s)、swapMeta      入れ替え   sをplaceへMoveし、古い値を結果へMoveする
-slot(i, s)、setMeta       書く       入れ替えた古い値をDropする
+peek(i)、header           読む       placeの値をShareして返す
+swap(i, s)、swapHeader    入れ替え   sをplaceへMoveし、古い値を結果へMoveする
+slot(i, s)、setHeader     書く       入れ替えた古い値をDropする
 ```
 
 周辺のoperationは、この規則を特定のslotの値に当てはめたものである。
@@ -111,7 +111,7 @@ snapshot carrier `p`はstorage `S`へのresponsibilityを持つ。更新は
 ```
 
 `a`や`c`がhandle carrierなら、Shareは同じreferentへのresponsibilityを一つ増やす。referent自体はcopyしないため、`S`と`S'`から
-得たhandleは内側identityの変更を共有観測する。writable successorが分離するのは外側のMeta、occupancy、slot carrierである。
+得たhandleは内側identityの変更を共有観測する。writable successorが分離するのは外側のHeader、occupancy、slot carrierである。
 
 入れ子のImPoolは、外側から内側を`swap`で取り出せば外側のplaceが持っていたresponsibilityをMoveできる。これは外側のplaceが作る
 referenceを残さないが、同じ内側のsnapshotへの別referenceがないことまでは保証しない。runtimeが区別可能なreferenceなしと

@@ -17,18 +17,18 @@ Bufferと同じく`[0, count)`をLiveに保つが、popは値を取り出してc
 opaque Stack<T> :: IxPool<USize, T>;
 
 push<T> :: (Stack<T>, T) -> Unit := (stack, value) -> {
-    count := meta(stack);
+    count := header(stack);
     ensureCapacity(stack, count + 1usize);
     initAt(stack, count, value);
-    setMeta(stack, count + 1usize);
+    setHeader(stack, count + 1usize);
 };
 
 pop<T> :: Stack<T> -> [Unit, T] := (stack) -> [empty, found] => {
-    count := meta(stack);
+    count := header(stack);
     when (count == 0usize) empty();
     top := count - 1usize;
     value := takeAt(stack, top);
-    setMeta(stack, top);
+    setHeader(stack, top);
     found(value);
 };
 ```
@@ -37,7 +37,7 @@ pop<T> :: Stack<T> -> [Unit, T] := (stack) -> [empty, found] => {
 
 ## Deque
 
-Metaを`(head, count)`とし、`head`から`count`個のcoordinateをcapacityで折り返してLiveに保つring bufferである。
+Headerを`(head, count)`とし、`head`から`count`個のcoordinateをcapacityで折り返してLiveに保つring bufferである。
 
 ```mal
 opaque Deque<T> :: IxPool<(USize, USize), T>;
@@ -54,7 +54,7 @@ _unwrap<T> :: (Deque<T>, USize, USize, USize) -> Unit :=
     };
 
 _ensureRoom<T> :: Deque<T> -> Unit := (deque) -> {
-    (head, count) := meta(deque);
+    (head, count) := header(deque);
     current := capacity(deque);
     when (count == current) {
         grow(deque, if (current == 0usize) then 4usize else current);
@@ -64,17 +64,17 @@ _ensureRoom<T> :: Deque<T> -> Unit := (deque) -> {
 
 pushFront<T> :: (Deque<T>, T) -> Unit := (deque, value) -> {
     _ensureRoom(deque);
-    (head, count) := meta(deque);
+    (head, count) := header(deque);
     front := _slot(deque, head, capacity(deque) - 1usize);
     initAt(deque, front, value);
-    setMeta(deque, (front, count + 1usize));
+    setHeader(deque, (front, count + 1usize));
 };
 
 popBack<T> :: Deque<T> -> [Unit, T] := (deque) -> [empty, found] => {
-    (head, count) := meta(deque);
+    (head, count) := header(deque);
     when (count == 0usize) empty();
     value := takeAt(deque, _slot(deque, head, count - 1usize));
-    setMeta(deque, (head, count - 1usize));
+    setHeader(deque, (head, count - 1usize));
     found(value);
 };
 ```
@@ -106,11 +106,11 @@ _siftUp<T> :: (Heap<T>, USize, T) -> Unit := (heap, hole, value) -> [return] => 
 };
 
 heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
-    count := meta(heap);
+    count := header(heap);
     when (count == 0usize) empty();
     top := takeAt(heap, 0usize);
     last := count - 1usize;
-    setMeta(heap, last);
+    setHeader(heap, last);
     when (last > 0usize) _siftDown(heap, 0usize, takeAt(heap, last), last);
     found(top);
 };
@@ -121,10 +121,11 @@ heapPop<T> :: Heap<T> -> [Unit, T] := (heap) -> [empty, found] => {
 
 ## Vector
 
-ImPoolの上で、更新のたびに新しい値を返す平らな列である。Metaは長さで、`[0, length)`だけがLiveである。Bufferが組み立てる
+ImPoolの上で、更新のたびに新しい値を返す平らな列である。Headerは長さで、`[0, length)`だけがLiveである。Bufferが組み立てる
 ための可変な列であるのに対し、Vectorは確定したcarrier列であり、Bufferから`freeze`で作れる。byte列ではこの対が
 `Buffer<UInt8>`と`Symbol`のsnapshot変換に現れる。Clojure、ScalaのVectorのように木で構造を共有せず、共有中の更新はcopyする。
-hostとの交換と`Symbol`の構築は、組み込みlibraryとしてのVectorが[trusted operation](../api/buffer-vector.md#vector)として持つ。
+`Symbol`の構築を専用operationにするかは[BufferとVector](../api/buffer-vector.md#採択前に残る判断)へ残す。extern Cとの交換は
+Vector採択の理由にせず、現行BufferまたはSymbol carrierを使う。
 
 ```mal
 opaque Vector<T> :: ImPool<USize, T>;
@@ -133,12 +134,12 @@ vectorSet<T> :: (Vector<T>, USize, T) -> Vector<T> := (vector, index, value) ->
     putAt(vector, index, value);
 
 vectorAppend<T> :: (Vector<T>, T) -> Vector<T> := (vector, value) -> {
-    length := meta(vector);
+    length := header(vector);
     current := capacity(vector);
     grown := if (length < current)
         then vector
         else grow(vector, if (current == 0usize) then 1usize else current);
-    setMeta(initAt(grown, length, value), length + 1usize);
+    setHeader(initAt(grown, length, value), length + 1usize);
 };
 
 // Moves the outer place's responsibility out before `update` rewrites the element.
@@ -153,9 +154,9 @@ _copyFrom<T> :: (Vector<T>, Vector<T>, USize, USize, USize) -> Vector<T> :=
         return(_copyFrom(source, initAt(target, index, getAt(source, offset + index)), offset, index + 1usize, length));
     };
 
-// Precondition: `offset + length <= meta(vector)`.
+// Precondition: `offset + length <= header(vector)`.
 slice<T> :: (Vector<T>, USize, USize) -> Vector<T> := (vector, offset, length) ->
-    _copyFrom(vector, setMeta(grow(pool(0usize), length), length), offset, 0usize, length);
+    _copyFrom(vector, setHeader(grow(pool(0usize), length), length), offset, 0usize, length);
 ```
 
 ImPoolの更新はreference countや物理一意性をsourceへ返さず、次の二つを同じ意味として選ぶ。

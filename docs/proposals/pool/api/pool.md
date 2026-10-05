@@ -1,11 +1,11 @@
 # Pool primitive
 
-Status: Exploratory support document; [v0.7 rebase notice](../README.md) applies
+Status: Exploratory support document; rebased on mal v0.7
 
 この文書は、共通のPool state algebraをIxPoolとImPoolのsource APIへ写し、意味と計算量を定める核と、定数倍の費用のために持つ
 周辺へ分ける。Poolの位置は[根本モデル](../model/foundations.md)、核の導出は[意味論](../model/semantics.md#最小核の導出)、
 responsibilityの効果とpreconditionの責任は[runtime contract](../runtime/contract.md)、BufferとVectorは
-[語彙の分担](buffer-vector.md#語彙の分担)を正とする。`Meta`を含む名前は仮であり、意味論では同じplaceをHeaderと呼ぶ。
+[語彙の分担](buffer-vector.md#語彙の分担)を正とする。
 
 ## 区分
 
@@ -13,10 +13,10 @@ responsibilityの効果とpreconditionの責任は[runtime contract](../runtime/
 
 | 区分 | 判断の基準 | 例 |
 |---|---|---|
-| 意味論の核 | malの他の操作では表せない | `swap`、`meta`、`swapMeta`、`grow`、Vectorのhost admission |
+| 意味論の核 | malの他の操作では表せない | `swap`、`header`、`swapHeader`、`grow` |
 | 計算量の核 | 意味は他の操作で書けるが、書くと計算量が変わる | `peek`、`freeze`、`thaw` |
 | 定数倍の周辺 | 意味は他の操作で書け、差は`Share`、`Drop`、tagの分岐、call数 | `getAt`、`takeAt`、`initAt` |
-| 派生 | 費用も含めて他の操作と同じ | `slot`、`setMeta`、`moveAt` |
+| 派生 | 費用も含めて他の操作と同じ | `slot`、`setHeader`、`moveAt` |
 
 意味論の核と計算量の核をあわせて核、定数倍の周辺と派生をあわせて周辺と呼ぶ。定数倍の周辺は測定によって足し引きでき、
 核は足し引きするとprogramの意味か計算量が変わる。
@@ -26,19 +26,19 @@ responsibilityの効果とpreconditionの責任は[runtime contract](../runtime/
 ### 核
 
 ```mal
-IxPool<Meta, V>
+IxPool<Header, V>
 Slot<V> :: [Unit, V];
 
-pool<Meta, V> :: Meta -> IxPool<Meta, V>;
-grow<Meta, V> :: (IxPool<Meta, V>, USize) -> Unit;
-capacity<Meta, V> :: IxPool<Meta, V> -> USize;
-peek<Meta, V> :: (IxPool<Meta, V>, USize) -> Slot<V>;
-swap<Meta, V> :: (IxPool<Meta, V>, USize, Slot<V>) -> Slot<V>;
-meta<Meta, V> :: IxPool<Meta, V> -> Meta;
-swapMeta<Meta, V> :: (IxPool<Meta, V>, Meta) -> Meta;
+pool<Header, V> :: Header -> IxPool<Header, V>;
+grow<Header, V> :: (IxPool<Header, V>, USize) -> Unit;
+capacity<Header, V> :: IxPool<Header, V> -> USize;
+peek<Header, V> :: (IxPool<Header, V>, USize) -> Slot<V>;
+swap<Header, V> :: (IxPool<Header, V>, USize, Slot<V>) -> Slot<V>;
+header<Header, V> :: IxPool<Header, V> -> Header;
+swapHeader<Header, V> :: (IxPool<Header, V>, Header) -> Header;
 ```
 
-IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。`m`は`Meta`の値、`n`はcoordinate空間の大きさ、`slots`は`[0, n)`の
+IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。`m`は`Header`の値、`n`はcoordinate空間の大きさ、`slots`は`[0, n)`の
 各coordinateに`Slot<V>`の値を割り当てる。`Slot<V>`の第一項をVacant、第二項をLiveと呼ぶ。
 
 | primitive | 区分 | 意味 | precondition |
@@ -48,23 +48,23 @@ IxPoolは`(m, n, slots)`を一つの共有identityとして持つ。`m`は`Meta`
 | `capacity(pool)` | 意味論の核 | `n`を返す | なし |
 | `peek(pool, i)` | 計算量の核 | `slots[i]`を返す | `i < n` |
 | `swap(pool, i, s)` | 意味論の核 | `slots[i] := s`とし、古い`slots[i]`を返す | `i < n` |
-| `meta(pool)` | 意味論の核 | `m`を返す | なし |
-| `swapMeta(pool, m')` | 意味論の核 | `m := m'`とし、古い`m`を返す | なし |
+| `header(pool)` | 意味論の核 | `m`を返す | なし |
+| `swapHeader(pool, m')` | 意味論の核 | `m := m'`とし、古い`m`を返す | なし |
 
-IxPoolの形成は[拡張後の`Storable`](../model/identity.md#storableの原理)について`Storable(Meta)`と`Storable(V)`を要求する。
-IxPool handleを別bindingへ渡しても同じidentityを指し、Meta、`n`、slotへの変更を
-すべてのhandleが観測する。`n`はPool自身の構造であり、containerが選ぶ値を置くMetaとは別に持つ。MetaとslotはどちらもIxPool
-identityの中のplaceであり、Metaは常に`Meta`の値を、slotは常に`Slot<V>`の値を持つ。
+IxPoolの形成は[拡張後の`Storable`](../model/identity.md#storableの原理)について`Storable(Header)`と`Storable(V)`を要求する。
+IxPool handleを別bindingへ渡しても同じidentityを指し、Header、`n`、slotへの変更を
+すべてのhandleが観測する。`n`はPool自身の構造であり、containerが選ぶ値を置くHeaderとは別に持つ。HeaderとslotはどちらもIxPool
+identityの中のplaceであり、Headerは常に`Header`の値を、slotは常に`Slot<V>`の値を持つ。
 slotだけがVacantを取り得るのは、`grow`が値を渡さずにplaceを作るためである（[Poolの意味論](../model/semantics.md#pool-state)）。
 
 各placeの核は、読み出しと交換の二つである。意味の上では、slotは`swap`だけで閉じ、`peek`も`swap`で書ける。`peek`を計算量の核に
 置くのは、読み出しを書き込みにしないためである。書き込みにすると、共有中のImPoolや`freeze`したstorageを読むたびにO(n)の
-copyが起きる。Metaには交換の間に置いておける値がないため、`meta`は`swapMeta`から導けない
+copyが起きる。Headerには交換の間に置いておける値がないため、`header`は`swapHeader`から導けない
 （[最小核の導出](../model/semantics.md#最小核の導出)）。
 
 coordinate空間は順序を持ち途中に抜けがない。この線形性により`[offset, offset + length)`という区間、つまりrunが意味を持つ。
-runの意味はstorageの物理配置に依存しないが、実装は`Representable`な要素をcanonical layoutで連続に置くことを選べ、その場合
-Bufferのrunの操作はbulk copyになる。coordinate空間が線形でも、Liveなslotの集合には穴があり得る。
+runの意味はstorageの物理配置に依存しない。実装はruntime carrierを連続に置き、Bufferのrunを一括処理してよいが、paddingや
+inactive sum payloadをsource valueまたは外部formatとして観測させない。coordinate空間が線形でも、Liveなslotの集合には穴があり得る。
 
 ### 周辺
 
@@ -75,22 +75,22 @@ Bufferのrunの操作はbulk copyになる。coordinate空間が線形でも、L
 vacant<V> :: Unit -> Slot<V> := () -> [empty, full] => { empty(); };
 live<V> :: V -> Slot<V> := (value) -> [empty, full] => { full(value); };
 
-slot<Meta, V> :: (IxPool<Meta, V>, USize, Slot<V>) -> Unit;
-setMeta<Meta, V> :: (IxPool<Meta, V>, Meta) -> Unit;
-isLive<Meta, V> :: (IxPool<Meta, V>, USize) -> Bool;
-getAt<Meta, V> :: (IxPool<Meta, V>, USize) -> V;
-initAt<Meta, V> :: (IxPool<Meta, V>, USize, V) -> Unit;
-takeAt<Meta, V> :: (IxPool<Meta, V>, USize) -> V;
-putAt<Meta, V> :: (IxPool<Meta, V>, USize, V) -> Unit;
-dropAt<Meta, V> :: (IxPool<Meta, V>, USize) -> Unit;
-moveAt<Meta, V> :: (IxPool<Meta, V>, USize, USize) -> Unit;
+slot<Header, V> :: (IxPool<Header, V>, USize, Slot<V>) -> Unit;
+setHeader<Header, V> :: (IxPool<Header, V>, Header) -> Unit;
+isLive<Header, V> :: (IxPool<Header, V>, USize) -> Bool;
+getAt<Header, V> :: (IxPool<Header, V>, USize) -> V;
+initAt<Header, V> :: (IxPool<Header, V>, USize, V) -> Unit;
+takeAt<Header, V> :: (IxPool<Header, V>, USize) -> V;
+putAt<Header, V> :: (IxPool<Header, V>, USize, V) -> Unit;
+dropAt<Header, V> :: (IxPool<Header, V>, USize) -> Unit;
+moveAt<Header, V> :: (IxPool<Header, V>, USize, USize) -> Unit;
 ```
 
 | operation | 区分 | 核による意味 | 追加のprecondition | primitiveにする理由 |
 |---|---|---|---|---|
 | `vacant`、`live` | 派生 | `Slot<V>`の各項を作る | なし | — |
 | `slot(pool, i, s)` | 派生 | `swap(pool, i, s)`の結果を捨てる | なし | — |
-| `setMeta(pool, m)` | 派生 | `swapMeta(pool, m)`の結果を捨てる | なし | — |
+| `setHeader(pool, m)` | 派生 | `swapHeader(pool, m)`の結果を捨てる | なし | — |
 | `isLive(pool, i)` | 定数倍の周辺 | `peek(pool, i)`がLiveか | なし | payloadを`Share`しない |
 | `getAt(pool, i)` | 定数倍の周辺 | `peek(pool, i)`のLiveの値 | Live | tagの分岐を省く |
 | `initAt(pool, i, v)` | 定数倍の周辺 | `slot(pool, i, live(v))` | Vacant | 古い値の`Drop`の判定を省く |
@@ -111,27 +111,27 @@ preconditionを持たない。
 
 ## ImPool
 
-`ImPool<Meta, V>`はPool stateのstructural snapshot valueであり、更新するたびにsuccessor snapshotを返す。状態はIxPoolと同じ
+`ImPool<Header, V>`はPool stateのstructural snapshot valueであり、更新するたびにsuccessor snapshotを返す。状態はIxPoolと同じ
 `(m, n, slots)`で、核と周辺はIxPoolと同じstate transition、名前、preconditionを持つ。IxPoolもsource valueだがshared identityへの
 handleである。IxPoolの更新はreferentのstateを変更するためsource resultとしてsuccessorを必要とせず、ImPoolはinput snapshotを
 変えないためsuccessorをresultにする。
 
-ImPoolも`Storable(Meta)`と`Storable(V)`を要求し、MetaとslotへIxPoolやBufferのhandleを保存できる。successorは旧snapshotの
+ImPoolも`Storable(Header)`と`Storable(V)`を要求し、HeaderとslotへIxPoolやBufferのhandleを保存できる。successorは旧snapshotの
 carrierを置換しないが、保存したhandleのreferentをcloneまたはfreezeしない。外側のPool構造と内側のidentityは別のstateである。
 
-次の表は、IxPoolとImPoolのsignatureを対で並べる。`IxPool`、`ImPool`はそれぞれ`IxPool<Meta, V>`、`ImPool<Meta, V>`を略す。
+次の表は、IxPoolとImPoolのsignatureを対で並べる。`IxPool`、`ImPool`はそれぞれ`IxPool<Header, V>`、`ImPool<Header, V>`を略す。
 
 | operation | IxPool | ImPool |
 |---|---|---|
-| `pool` | `Meta -> IxPool` | `Meta -> ImPool` |
+| `pool` | `Header -> IxPool` | `Header -> ImPool` |
 | `grow` | `(IxPool, USize) -> Unit` | `(ImPool, USize) -> ImPool` |
 | `capacity` | `IxPool -> USize` | `ImPool -> USize` |
 | `peek` | `(IxPool, USize) -> Slot<V>` | `(ImPool, USize) -> Slot<V>` |
 | `swap` | `(IxPool, USize, Slot<V>) -> Slot<V>` | `(ImPool, USize, Slot<V>) -> (ImPool, Slot<V>)` |
-| `meta` | `IxPool -> Meta` | `ImPool -> Meta` |
-| `swapMeta` | `(IxPool, Meta) -> Meta` | `(ImPool, Meta) -> (ImPool, Meta)` |
+| `header` | `IxPool -> Header` | `ImPool -> Header` |
+| `swapHeader` | `(IxPool, Header) -> Header` | `(ImPool, Header) -> (ImPool, Header)` |
 | `slot` | `(IxPool, USize, Slot<V>) -> Unit` | `(ImPool, USize, Slot<V>) -> ImPool` |
-| `setMeta` | `(IxPool, Meta) -> Unit` | `(ImPool, Meta) -> ImPool` |
+| `setHeader` | `(IxPool, Header) -> Unit` | `(ImPool, Header) -> ImPool` |
 | `isLive` | `(IxPool, USize) -> Bool` | `(ImPool, USize) -> Bool` |
 | `getAt` | `(IxPool, USize) -> V` | `(ImPool, USize) -> V` |
 | `initAt` | `(IxPool, USize, V) -> Unit` | `(ImPool, USize, V) -> ImPool` |
@@ -141,7 +141,7 @@ carrierを置換しないが、保存したhandleのreferentをcloneまたはfre
 | `moveAt` | `(IxPool, USize, USize) -> Unit` | `(ImPool, USize, USize) -> ImPool` |
 
 二つの型のoperationを同じ名前で書くには、constructorをkeyに持つ[operation family](../../../spec/operation-families.md)が要る。
-familyは一つのsignatureを持つため、表の形のままでは一つにまとまらない。[試作](../prototypes.md#二つの試作)は、IxPoolの更新も
+familyは一つのsignatureを持つため、表の形のままでは一つにまとまらない。[旧試作](../prototypes.md#旧試作から残す意味論上の証拠)は、IxPoolの更新も
 同じidentityへのhandleを返す形に揃えて一つのfamilyにし、新しいidentityを作る`pool`だけはconstructorごとに分けた。
 
 これはstate algebraではなくsource APIとresponsibility costの選択である。successor返却へ揃えるとcontainerをconstructorについて
@@ -150,8 +150,8 @@ familyは一つのsignatureを持つため、表の形のままでは一つに�
 Ix/Imのcontainer sourceを分ける。どちらを採るかは生成物のresponsibilityとcall costを測って決める
 （[README](../README.md#後続段階で決める事項)）。
 
-ImPoolのMetaは、意味の上では`(Meta, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
-IxPoolと違ってMetaをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。
+ImPoolのHeaderは、意味の上では`(Header, ImPool<Unit, V>)`というproductと同じである。値はproductごと更新できるため、
+IxPoolと違ってHeaderをPoolに置く必要はなく、ここではIxPoolとの対応のために持つ。
 
 各更新はinputを`Store`で受け取り、内部で[writable successor](../runtime/contract.md#writable-successor)を作ってから変更して返す。
 `Store`はsource valueを消費済みにするannotationではなく、resultがinputのcarrierを保持し得ることをcompilerへ伝えるeffectである。
@@ -159,9 +159,9 @@ sourceでは同じvalueをcall後にも使える。その場合は`Share`、last
 
 更新前のsnapshotへの今後の構造観測と区別できなければstorageを再利用でき、区別できるreferenceがあればcopyする。inputを
 `Consume`できることは必要なpermissionであり、runtime representationに区別可能なreferenceがないことと合わせれば再利用の十分条件になる。この判断をsource
-operationで表せないため、核の更新`grow`、`swap`、`swapMeta`は意味論の核である。
+operationで表せないため、核の更新`grow`、`swap`、`swapHeader`は意味論の核である。
 
-更新前のsnapshotのMeta、capacity、slot carrierをsourceから変更する手段がないため、physical storageを共有してもsuccessorによる
+更新前のsnapshotのHeader、capacity、slot carrierをsourceから変更する手段がないため、physical storageを共有してもsuccessorによる
 外側の構造変更を旧snapshotから観測しない。slot carrierがhandleなら、そのreferentの変更は通常どおり観測する。
 
 更新を内部identityへの`Unit` mutationと別のsuccessor取得に分けると、旧snapshotを変えないための独立性がcontainer実装の
@@ -189,13 +189,13 @@ SwiftのArrayも同じ費用の約束を持つ（[関連事例](../../../researc
 ## freezeとthaw
 
 ```mal
-freeze<Meta, V> :: IxPool<Meta, V> -> ImPool<Meta, V>;
-thaw<Meta, V> :: ImPool<Meta, V> -> IxPool<Meta, V>;
+freeze<Header, V> :: IxPool<Header, V> -> ImPool<Header, V>;
+thaw<Header, V> :: ImPool<Header, V> -> IxPool<Header, V>;
 ```
 
-- `freeze(pool)`は、呼び出し時点のMeta、`n`、slot carrierを持つImPool snapshotを返す。元のIxPool handleは同じidentityを指したまま
+- `freeze(pool)`は、呼び出し時点のHeader、`n`、slot carrierを持つImPool snapshotを返す。元のIxPool handleは同じidentityを指したまま
   使い続けられ、以後の外側のPool構造の変更は返したsnapshotから観測されない。
-- `thaw(value)`は、同じMeta、`n`、slot carrierを持つ新しいidentityへのIxPool handleを返す。返したIxPoolのMeta、capacity、slotへの
+- `thaw(value)`は、同じHeader、`n`、slot carrierを持つ新しいidentityへのIxPool handleを返す。返したIxPoolのHeader、capacity、slotへの
   変更は、元のsnapshotからも、同じsnapshotからthawした別のIxPoolからも観測されない。
 
 どちらも保存したhandle carrierのreferentを複製しない。例えばslotにIxPool handleがあれば、変換前後の外側Poolは同じ内側identityへ

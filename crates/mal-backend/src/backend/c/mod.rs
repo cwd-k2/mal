@@ -102,6 +102,8 @@ mod tests {
             "#define mal_bits(value) (value).bits",
             "#define mal_buffer(call, element_type, capacity)",
             "#define mal_push(call, buffer, element)",
+            "Evaluating this performs no lifecycle operation.",
+            "owns one responsibility and drops it on lexical scope exit",
         ] {
             assert!(header.contains(spelling), "missing `{spelling}`");
         }

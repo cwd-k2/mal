@@ -13,6 +13,6 @@ Program-specific behavior, such as frame layout, resume targets, and owner trans
 | `buffer_range.c` | `fill` and `copy` |
 | `buffer_host.c` | Byte-range Buffer conversion used by lowering and process-argument Buffer construction |
 | `buffer_symbol.c` | byte `*` at the operand's last use |
-| `pool.c`, `pool_internal.h` | internal Pool object, metadata, occupancy bitmap, payload relocation, and core exchanges; not selected by a source construct yet |
+| `pool.c`, `pool_internal.h` | internal Pool object, Header carrier, occupancy bitmap, payload relocation, and core exchanges; not selected by a source construct or exposed through `mal.h` yet |
 | `symbol.c` | `Symbol` operations |
 | `runtime.h` | declarations shared by the runtime sources |

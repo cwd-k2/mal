@@ -8,9 +8,9 @@ Status: Exploratory support document
 
 ## containerの比較
 
-各containerは、Metaに何を置くか、Liveなcoordinateの集合をどんな形に保つか、coordinateに何の意味を与えるかで決まる。
+各containerは、Headerに何を置くか、Liveなcoordinateの集合をどんな形に保つか、coordinateに何の意味を与えるかで決まる。
 
-| container | Meta | Liveなcoordinateの集合 | coordinateの意味 | 公開precondition |
+| container | Header | Liveなcoordinateの集合 | coordinateの意味 | 公開precondition |
 |---|---|---|---|---|
 | Buffer | count | `[0, count)` | 列の位置 | `index < #buffer` |
 | stack | count | `[0, count)` | 列の位置 | なし。空のpopはmissingを返す |
@@ -53,7 +53,7 @@ Status: Exploratory support document
 
 要素がhandleかsnapshotかはIxPoolとBufferの選択軸ではない。拡張後の`Storable`ではどちらもBuffer、IxPool、ImPoolを要素にできる。
 handleを保存すれば同じreferentへのauthorityを共有し、snapshotを保存すれば外側のplaceにはsnapshot carrierが置かれる。Poolが
-Bufferより基本的なのはhandleを保存できるからではなく、Vacant、exchange、Metaをdense sequence policyから分離するからである。
+Bufferより基本的なのはhandleを保存できるからではなく、Vacant、exchange、Headerをdense sequence policyから分離するからである。
 
 したがって、要素を末尾へ追加していくだけの列、[indexed-graph](../../../../examples/indexed-graph/graph.mal)のように一度作って読むだけの
 表、snapshotを取って比べる用途ではBufferで足り、その方が単純である。途中を空ける、値を取り出す、要素を動かす、空きを値なしで
@@ -61,30 +61,30 @@ Bufferより基本的なのはhandleを保存できるからではなく、Vacan
 
 ## 書く側から見た比較
 
-[列のcontainer](sequences.md)と[keyで引くcontainer](keyed.md)の例をC host上で書いた経験では、削除、取り出し、移動、可変のmetadataを持つcontainerはBufferより
-書きやすかった。最も効いたのはMetaである。malには可変のbindingがないため、Buffer上のDequeや木は`head`、`count`、`root`の置き場として
-別の`Buffer<USize>`を用意するか、要素の一つへ埋め込む必要がある。IxPoolでは`(head, count) := meta(deque)`のようにstorageと
+[列のcontainer](sequences.md)と[keyで引くcontainer](keyed.md)の例を旧C harness上で書いた経験では、削除、取り出し、移動、可変のHeaderを持つcontainerはBufferより
+書きやすかった。最も効いたのはHeaderである。malには可変のbindingがないため、Buffer上のDequeや木は`head`、`count`、`root`の置き場として
+別の`Buffer<USize>`を用意するか、要素の一つへ埋め込む必要がある。IxPoolでは`(head, count) := header(deque)`のようにstorageと
 同じidentityから読める。番兵値を置かず要素型をそのままslotに置けることと、`takeAt`、`initAt`、`moveAt`でアルゴリズムどおりに
 値を動かせることも、code量と読みやすさの両方に効いた。
 
-負担は、占有状態とMetaを自分で正しく保つことに集約された。
+負担は、占有状態とHeaderを自分で正しく保つことに集約された。
 
-- `grow`してから`initAt`し、`initAt`の後にMetaを更新する、という対を毎回書く。Bufferの`new`はこれを一つの操作で行う。
+- `grow`してから`initAt`し、`initAt`の後にHeaderを更新する、という対を毎回書く。Bufferの`new`はこれを一つの操作で行う。
 - 要素の列挙がないため、木の検査には中順の再帰を書き、Mapの全要素には`peek`でcapacity全体を走査する。
 - SlotMapのgenerationや木のfree listのように、Vacantなslotに関する情報の置き場を最初に設計する。
 
 この負担は、よく使う対を`ensureCapacity`のような補助関数へまとめること、占有状態を検査するruntimeでcontainerをtestすること、
 [primitive `trap`](../../primitive-trap.md)でcontainer操作単位のtrap messageを出すことで軽くできる。試作で要素型ごとのIxPool実装や
-IxPoolの明示的な解放が必要だったのはC hostを経由したためであり、IxPoolの性質ではない。
+旧試作でIxPoolの明示的な解放が必要だったのはmanaged EngramでないC objectとして作ったためであり、IxPoolの性質ではない。
 
 ## runの語彙
 
-`fill`と`copy`というmutable runの語彙はBufferだけが持つ。hostとの交換はdense sequenceの操作であり、Vectorを正規形とする案と
-現行Bufferのcompatibility operationを分ける（[語彙の分担](../api/buffer-vector.md#語彙の分担)）。
+`fill`と`copy`というmutable runの語彙はBufferだけが持つ。extern Cは現行Buffer carrierを直接扱うため、Poolに交換用のrunを
+追加しない（[語彙の分担](../api/buffer-vector.md#語彙の分担)）。
 他のcontainerがrunを必要とする場面は少なく、必要な場合もslot操作かBufferの経由で足りる。
 
 - stackは`[0, count)`がLiveなので、まとめたpushやpopもslot操作のloopで書ける。
-- Dequeの論理的な列は最大二つの区間に分かれる。hostとの交換用にはVectorへ確定し、成長時に折り返した部分を動かす操作は値を写す
+- Dequeの論理的な列は最大二つの区間に分かれる。Cへ渡す必要があればBufferへmaterializeし、成長時に折り返した部分を動かす操作は値を写す
   `copy`ではなく、`takeAt`と`initAt`で移す。
 - binary heapは`[0, count)`がLiveだが、coordinateの順は要素の順序ではない。範囲を使うのは配列からの一括構築くらいである。
 - Map、SlotMap、木のLiveな集合は区間にならない。rehashや複製は内部でslot遷移を使う。
@@ -93,7 +93,7 @@ IxPoolの明示的な解放が必要だったのはC hostを経由したため�
 
 ## Vacantが`Unit`だけを持つこと
 
-Vacantなslotは`Unit`しか持たない。IxPoolの上にmalで書くSlotMapと木は、次の空きcoordinateをVacantなslotへ書けないため、free listをMetaに
+Vacantなslotは`Unit`しか持たない。IxPoolの上にmalで書くSlotMapと木は、次の空きcoordinateをVacantなslotへ書けないため、free listをHeaderに
 置くか、`IxPool<USize, USize>`のような別のIxPoolへ積む。これはIxPoolが未初期化carrierを公開しない代わりに生じる制約であり、
 空きslotに情報を置く必要があるcontainerは、要素を`[USize, T]`のような直和にして、Liveなslotの第一項で空きと次の空きcoordinateを表す。
 
@@ -106,7 +106,7 @@ Liveなslotを列挙する操作もIxPoolにはない。Map、SlotMap、木の�
 
 - `0`から`capacity - 1`までの線形なcoordinate空間
 - coordinateごとの`Slot<V>`の値と、それを読み書きする`peek`、`slot`、`swap`
-- 同じidentityに置く共有mutableなMeta
+- 同じidentityに置く共有mutableなHeader
 - 明示的な`grow`によるcapacityの拡張と、coordinateを保つrelocation
 - 要素型ごとの型付きstorageと、lifetimeとresponsibilityの正しさ
 
@@ -117,5 +117,5 @@ containerごとに異なり、IxPoolが決めないものは次である。
 - growth policy、free list、順序、hash、要素の列挙
 - 公開preconditionと、それをIxPoolのpreconditionへ写すinvariant
 
-したがってIxPoolは、共有Metaを伴う型付きplaceの線形空間であり、どのplaceを使うかを持ち主が決めるもの、と言える。Bufferは
+したがってIxPoolは、共有Headerを伴う型付きplaceの線形空間であり、どのplaceを使うかを持ち主が決めるもの、と言える。Bufferは
 この空間の使い方の一つにすぎず、IxPoolの意味はBufferに依存しない。

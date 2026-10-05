@@ -9,6 +9,7 @@
 
 #define MAL_C_ABI_VERSION 0x000a00u
 
+/** Expands a named closed Mal type to its C runtime carrier type. This carries no responsibility or runtime type metadata. */
 #define mal_type(name) MAL_DETAIL_NAMED_TYPE(name)
 #define MAL_DETAIL_NAMED_TYPE(name) MAL_DETAIL_NAMED_TYPE_EXPAND(name)
 #define MAL_DETAIL_NAMED_TYPE_EXPAND(name) mal_##name##_t
@@ -175,23 +176,28 @@ static inline void mal_detail_cleanup_Buffer(mal_Buffer_t *value) {
 }
 #define MAL_DETAIL_CLEANUP_Symbol mal_detail_cleanup_Symbol
 #define MAL_DETAIL_CLEANUP_Buffer mal_detail_cleanup_Buffer
+/** Describes a carrier's size, alignment, and storage Share/Drop callbacks. Evaluating this performs no lifecycle operation. */
 #define mal_storage(type) mal_detail_storage((type *)0, sizeof(type), _Alignof(type))
+/** Returns a new owned responsibility while leaving the source responsibility live. */
 #define mal_share(call, value) __extension__ ({ \
     __auto_type mal_detail_shared = (value); \
     mal_detail_retain((call), &mal_detail_shared); \
     mal_detail_shared; \
 })
+/** Moves one responsibility out of an owned lvalue and leaves that lvalue vacant. */
 #define mal_move(value) __extension__ ({ \
     __auto_type *mal_detail_source = &(value); \
     __auto_type mal_detail_moved = *mal_detail_source; \
     memset(mal_detail_source, 0, sizeof(*mal_detail_source)); \
     mal_detail_moved; \
 })
+/** Drops one responsibility held by an owned lvalue and leaves that lvalue vacant. */
 #define mal_drop(value) ((void)__extension__ ({ \
     __auto_type *mal_detail_dropped = &(value); \
     mal_detail_release(mal_detail_dropped); \
     memset(mal_detail_dropped, 0, sizeof(*mal_detail_dropped)); \
 }))
+/** Declares a named managed local that owns one responsibility and drops it on lexical scope exit. */
 #define mal_owned(name) mal_type(name) __attribute__((cleanup(MAL_DETAIL_CLEANUP(name))))
 #define MAL_DETAIL_CLEANUP(name) MAL_DETAIL_CLEANUP_EXPAND(name)
 #define MAL_DETAIL_CLEANUP_EXPAND(name) MAL_DETAIL_CLEANUP_##name
