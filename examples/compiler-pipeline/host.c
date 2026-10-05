@@ -69,8 +69,8 @@ MAL_DEFINE_readSource(call, path) {
         return (mal_type(ReadResult)){ .tag = 1, .payload.variant_1 = error };
     }
     mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), length);
-    for (size_t index = 0; index < length; ++index) {
-        mal_push(call, result, data[index]);
+    if (length > 0) {
+        mal_append(call, result, data, length);
     }
     free(data);
     return (mal_type(ReadResult)){ .tag = 0, .payload.variant_0 = mal_move(result) };

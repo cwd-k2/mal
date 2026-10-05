@@ -48,8 +48,8 @@ MAL_DEFINE_readFile(call, file) {
         return (mal_type(ReadResult)){ .tag = 1, .payload.variant_1 = io_error() };
     }
     mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), length);
-    for (size_t index = 0; index < length; ++index) {
-        mal_push(call, result, bytes[index]);
+    if (length > 0) {
+        mal_append(call, result, bytes, length);
     }
     return (mal_type(ReadResult)){ .tag = 0, .payload.variant_0 = mal_move(result) };
 }

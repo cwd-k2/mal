@@ -33,8 +33,8 @@ MAL_DEFINE_readStdin(call) {
         }
     }
     mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), length);
-    for (size_t index = 0; index < length; ++index) {
-        mal_push(call, result, data[index]);
+    if (length > 0) {
+        mal_append(call, result, data, length);
     }
     free(data);
     return mal_move(result);

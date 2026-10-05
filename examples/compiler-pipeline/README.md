@@ -11,9 +11,9 @@ instead of repeatedly copying the complete generated module. Nested loops use st
 straight-line source uses a tail edge.
 
 `host.mal` owns the runtime extension surface. The C extension borrows the path as a `Symbol`, reads the
-file directly into a mal-owned `Buffer<UInt8>`, and moves that buffer into mal. Generated LLVM is
-returned to C as a borrowed `Symbol` and written without a transfer area. File and output failures
-remain typed sums without exposing platform syscall shapes.
+file into extension-owned staging storage, then appends it once to a mal-owned `Buffer<UInt8>` and
+moves that buffer into mal. Generated LLVM is returned to C as a borrowed `Symbol` and written without
+a transfer area. File and output failures remain typed sums without exposing platform syscall shapes.
 
 > [!NOTE]
 > The host may inspect and construct runtime carriers directly. Correct Buffer ownership and the
