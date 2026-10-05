@@ -32,7 +32,7 @@ MAL_DEFINE_readStdin(call) {
             break;
         }
     }
-    mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), length);
+    mal_type(Buffer) result = mal_buffer(call, mal_storage(mal_type(UInt8)), length);
     if (length > 0) {
         mal_append(call, result, data, length);
     }

@@ -45,7 +45,7 @@ impl Directive {
                 output
             }
             Self::NamedTypeDefine => {
-                "/** Expands a named closed Mal type to its C runtime carrier type. This carries no responsibility or runtime type metadata. */\n\
+                "/** Carrier type form: expands a named closed Mal type to its C runtime carrier type. This carries no responsibility or runtime type metadata. */\n\
 #define mal_type(name) MAL_DETAIL_NAMED_TYPE(name)\n\
 #define MAL_DETAIL_NAMED_TYPE(name) MAL_DETAIL_NAMED_TYPE_EXPAND(name)\n\
 #define MAL_DETAIL_NAMED_TYPE_EXPAND(name) mal_##name##_t\n"
@@ -55,22 +55,22 @@ impl Directive {
                 "#define {name}(...) __typeof__(*{selector}((void (*)(__VA_ARGS__))0))\n"
             ),
             Self::HostLifecycleDefines => {
-                "/** Describes a carrier's size, alignment, and storage Share/Drop callbacks. Evaluating this performs no lifecycle operation. */\n\
+                "/** Storage query operator: describes a carrier's size, alignment, and storage Share/Drop callbacks. Like sizeof and _Alignof, it obtains information from a type; evaluating it performs no lifecycle operation. */\n\
 #define mal_storage(type) mal_detail_storage((type *)0, sizeof(type), _Alignof(type))\n\
 #define mal_share(call, value) __extension__ ({ \\\n    __auto_type mal_detail_shared = (value); \\\n    mal_detail_retain((call), &mal_detail_shared); \\\n    mal_detail_shared; \\\n})\n\
 #define mal_move(value) __extension__ ({ \\\n    __auto_type *mal_detail_source = &(value); \\\n    __auto_type mal_detail_moved = *mal_detail_source; \\\n    memset(mal_detail_source, 0, sizeof(*mal_detail_source)); \\\n    mal_detail_moved; \\\n})\n\
 #define mal_drop(value) ((void)__extension__ ({ \\\n    __auto_type *mal_detail_dropped = &(value); \\\n    mal_detail_release(mal_detail_dropped); \\\n    memset(mal_detail_dropped, 0, sizeof(*mal_detail_dropped)); \\\n}))\n"
                     .replace(
                         "#define mal_share",
-                        "/** Returns a new owned responsibility while leaving the source responsibility live. */\n#define mal_share",
+                        "/** Lifecycle operator: returns a new owned responsibility while leaving the source responsibility live. */\n#define mal_share",
                     )
                     .replace(
                         "#define mal_move",
-                        "/** Moves one responsibility out of an owned lvalue and leaves that lvalue vacant. */\n#define mal_move",
+                        "/** Lifecycle operator: moves one responsibility out of an owned lvalue and leaves that lvalue vacant. */\n#define mal_move",
                     )
                     .replace(
                         "#define mal_drop",
-                        "/** Drops one responsibility held by an owned lvalue and leaves that lvalue vacant. */\n#define mal_drop",
+                        "/** Lifecycle operator: drops one responsibility held by an owned lvalue and leaves that lvalue vacant. */\n#define mal_drop",
                     )
             }
             Self::AggregateLifecycleTemplates => {
@@ -83,7 +83,7 @@ impl Directive {
                     .into()
             }
             Self::OwnedTypeDefine => {
-                "/** Declares a named managed local that owns one responsibility and drops it on lexical scope exit. */\n\
+                "/** Owned-local type form: declares a named managed local that owns one responsibility and drops it on lexical scope exit. */\n\
 #define mal_owned(name) mal_type(name) __attribute__((cleanup(MAL_DETAIL_CLEANUP(name))))\n\
 #define MAL_DETAIL_CLEANUP(name) MAL_DETAIL_CLEANUP_EXPAND(name)\n\
 #define MAL_DETAIL_CLEANUP_EXPAND(name) MAL_DETAIL_CLEANUP_##name\n"

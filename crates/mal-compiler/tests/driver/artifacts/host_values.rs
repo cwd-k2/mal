@@ -20,11 +20,11 @@ fn constructs_a_managed_element_buffer_in_the_c_runtime_extension() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_words(call) {\n\
-             mal_owned(Buffer) values = mal_buffer(call, mal_type(Symbol), 2);\n\
+             mal_owned(Buffer) values = mal_buffer(call, mal_storage(mal_type(Symbol)), 2);\n\
              mal_push(call, values, mal_symbol(call, \"discard\", 7));\n\
              mal_replace(call, values, 0, mal_symbol(call, \"mal\", 3));\n\
              mal_fill(call, values, 1, 1, mal_symbol(call, \"runtime\", 7));\n\
-             mal_owned(Buffer) copied = mal_buffer(call, mal_type(Symbol), 2);\n\
+             mal_owned(Buffer) copied = mal_buffer(call, mal_storage(mal_type(Symbol)), 2);\n\
              mal_copy(call, copied, 0, values, 0, 2);\n\
              mal_append(call, copied, mal_data(values), 2);\n\
              mal_truncate(copied, 2);\n\
@@ -71,11 +71,11 @@ fn constructs_nested_buffers_with_the_erased_host_carrier() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_nested(call) {\n\
-             mal_owned(Buffer) inner = mal_buffer(call, mal_type(UInt8), 2);\n\
+             mal_owned(Buffer) inner = mal_buffer(call, mal_storage(mal_type(UInt8)), 2);\n\
              mal_type(UInt8) *tail = mal_extend(call, inner, 2);\n\
              tail[0] = UINT8_C(40);\n\
              tail[1] = UINT8_C(2);\n\
-             mal_type(Buffer) outer = mal_buffer(call, mal_type(Buffer), 1);\n\
+             mal_type(Buffer) outer = mal_buffer(call, mal_storage(mal_type(Buffer)), 1);\n\
              mal_push(call, outer, mal_move(inner));\n\
              return mal_move(outer);\n\
          }\n",
@@ -110,7 +110,7 @@ fn overwrites_truncated_host_buffer_storage_with_zero_values() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_bytes(call) {\n\
-             mal_owned(Buffer) bytes = mal_buffer(call, mal_type(UInt8), 8);\n\
+             mal_owned(Buffer) bytes = mal_buffer(call, mal_storage(mal_type(UInt8)), 8);\n\
              mal_push(call, bytes, UINT8_C(7));\n\
              mal_truncate(bytes, 0);\n\
              mal_push(call, bytes, UINT8_C(0));\n\
@@ -153,13 +153,13 @@ fn constructs_buffers_of_aligned_sums_with_the_public_c_carrier() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_choices(call) {\n\
-             mal_owned(Buffer) bytes = mal_buffer(call, mal_type(UInt8), 1);\n\
+             mal_owned(Buffer) bytes = mal_buffer(call, mal_storage(mal_type(UInt8)), 1);\n\
              mal_push(call, bytes, UINT8_C(42));\n\
              mal_owned(Choice) choice = {\n\
                  .tag = 0,\n\
                  .payload.variant_0 = mal_move(bytes),\n\
              };\n\
-             mal_owned(Buffer) values = mal_buffer(call, mal_type(Choice), 1);\n\
+             mal_owned(Buffer) values = mal_buffer(call, mal_storage(mal_type(Choice)), 1);\n\
              mal_push(call, values, mal_move(choice));\n\
              return mal_move(values);\n\
          }\n",
@@ -201,12 +201,12 @@ fn lexically_owns_a_named_managed_aggregate_in_c() {
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_packet(call) {\n\
              mal_owned(Packet) discarded = {\n\
-                 .field_0 = mal_buffer(call, mal_type(Symbol), 0),\n\
+                 .field_0 = mal_buffer(call, mal_storage(mal_type(Symbol)), 0),\n\
                  .field_1 = mal_symbol(call, \"discarded\", 9),\n\
              };\n\
              (void)discarded;\n\
              mal_owned(Packet) packet = {\n\
-                 .field_0 = mal_buffer(call, mal_type(Symbol), 1),\n\
+                 .field_0 = mal_buffer(call, mal_storage(mal_type(Symbol)), 1),\n\
                  .field_1 = mal_symbol(call, \"runtime\", 7),\n\
              };\n\
              mal_push(call, packet.field_0, mal_symbol(call, \"mal\", 3));\n\

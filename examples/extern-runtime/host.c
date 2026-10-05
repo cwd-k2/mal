@@ -1,7 +1,7 @@
 #include "program.mal.h"
 
 MAL_DEFINE_sampleStorage(call) {
-    mal_type(Samples) samples = mal_buffer(call, mal_type(Sample), 2);
+    mal_type(Samples) samples = mal_buffer(call, mal_storage(mal_type(Sample)), 2);
     const mal_product(mal_type(Int64), mal_type(UInt8)) first = {
         .field_0 = 7,
         .field_1 = 9,

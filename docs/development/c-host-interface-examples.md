@@ -32,7 +32,7 @@ extern readBytes :: Unit -> Buffer<UInt8>;
 
 ```c
 MAL_DEFINE_readBytes(call) {
-    mal_owned(Buffer) result = mal_buffer(call, mal_type(UInt8), 4096);
+    mal_owned(Buffer) result = mal_buffer(call, mal_storage(mal_type(UInt8)), 4096);
     for (;;) {
         const int byte = fgetc(stdin);
         if (byte == EOF) {
@@ -121,7 +121,8 @@ productはfieldをsource順に持ち、sumは0-basedの`tag`と`payload.variant_
 compound literalで直接構成する。managed payloadを入れる場合は、そのfieldへowned responsibilityを直接構成するか`mal_move`する。
 
 `Text :: Buffer<UInt8>`のようなclosed aliasには`mal_type(Text)`も生成される。一方、transparent generic aliasは展開され、すべての
-`Buffer<A>`は同じ`mal_type(Buffer)` carrierを使う。element型は`mal_buffer(call, Element, capacity)`へ渡すstorage contractに残る。
+`Buffer<A>`は同じ`mal_type(Buffer)` carrierを使う。element型は
+`mal_buffer(call, mal_storage(mal_type(Element)), capacity)`へ明示的に渡すstorage contractに残る。
 
 ## `mal_call_t`の範囲
 

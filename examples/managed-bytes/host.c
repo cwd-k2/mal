@@ -12,7 +12,7 @@ static const uint8_t expected[] = {
 };
 
 MAL_DEFINE_receive(call) {
-    mal_type(Buffer) result = mal_buffer(call, mal_type(UInt8), sizeof(received));
+    mal_type(Buffer) result = mal_buffer(call, mal_storage(mal_type(UInt8)), sizeof(received));
     mal_append(call, result, received, sizeof(received));
     return mal_move(result);
 }

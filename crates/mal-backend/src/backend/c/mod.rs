@@ -100,9 +100,10 @@ mod tests {
             "#define mal_owned(name)",
             "#define mal_from_bits(type, raw_bits) (type){ .bits = (uintptr_t)(raw_bits) }",
             "#define mal_bits(value) (value).bits",
-            "#define mal_buffer(call, element_type, capacity)",
+            "#define mal_buffer(call, storage, capacity) mal_detail_buffer(call, storage, capacity)",
             "#define mal_push(call, buffer, element)",
-            "Evaluating this performs no lifecycle operation.",
+            "Like sizeof and _Alignof, it obtains information from a type",
+            "evaluating it performs no lifecycle operation.",
             "owns one responsibility and drops it on lexical scope exit",
         ] {
             assert!(header.contains(spelling), "missing `{spelling}`");

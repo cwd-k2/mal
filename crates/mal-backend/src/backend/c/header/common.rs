@@ -489,7 +489,7 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
     output.push(Directive::owned_type_define());
     output.extend(c_items! {
         define!(mal_symbol(call, source, length) = mal_detail_symbol(call, source, length));
-        define!(mal_buffer(call, element_type, capacity) = mal_detail_buffer(call, mal_storage(element_type), capacity));
+        define!(mal_buffer(call, storage, capacity) = mal_detail_buffer(call, storage, capacity));
         define!(mal_data(buffer) = mal_detail_buffer_data(buffer));
         define!(mal_count(buffer) = mal_detail_buffer_count(buffer));
     });
