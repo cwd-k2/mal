@@ -26,6 +26,28 @@ trivial carrierはC assignmentでcopyでき、Rustの`Copy`やC++のtrivial copy
 C++ exceptionやunwind modeのRust panicと異なり、`mal_trap`はstackをunwindしない。`mal_owned`のcleanupへtrap時のreleaseを依存させず、
 trap前に必要なDropは明示する。
 
+## `mal_owned`を使うとき
+
+`mal_owned(Name)`はresponsibilityを作るoperationではなく、owned localのnormalなscope終了とearly returnに`mal_drop`相当のcleanupを
+付けるoptionalな宣言形である。`mal_buffer`、`mal_symbol`、`mal_share`などから得たowned resultをlocalへ保持する場合に使う。
+
+| localが保持する値 | 宣言 | 終了時の扱い |
+|---|---|---|
+| owned resultを複数のnormal pathで扱う | `mal_owned(Name)` | Moveされずにscopeを出た値を自動でDropする |
+| owned resultを全pathで明示的にMoveまたはDropする | `mal_type(Name)` | C bodyが全pathの後始末を保証する |
+| borrowed parameterまたはborrowed alias | `mal_type(Name)` | Dropしない |
+| trivial carrier | `mal_type(Name)` | responsibilityを持たず、通常のC valueとして扱う |
+
+`mal_owned` localをresult、aggregate field、Buffer elementなどへ渡すときは`mal_move(local)`を使う。Moveはlocalをvacantにするため、その後の
+scope cleanupは何もしない。構築したowned rvalueをlocalへ置かず直接returnする場合は`return mal_buffer(...);`のようにそのまま渡せる。
+
+borrowed valueへ`mal_owned`を付けてはならない。cleanupが、C bodyの所有していないresponsibilityをDropするためである。borrowをbody終了後も
+保持するときは、まず`mal_share(value)`でowned responsibilityを作り、そのresultを`mal_owned` localまたは明示的に管理するstorageへ置く。
+
+`mal_owned`を使わないこと自体は誤りではない。repository内の一本道のexampleには`mal_type(Buffer)` localを最後に`mal_move`するものもある。
+ただしnormalなreturn pathを追加するたびにMoveまたはDropの確認が必要になるため、複数のexitを持つbodyでは`mal_owned`を基本形とする。
+`mal_trap`はstackをunwindしないので、trap前に観測可能な解放処理が必要なら`mal_drop`を明示する。
+
 ## Symbolをborrowして観測する
 
 ```mal
