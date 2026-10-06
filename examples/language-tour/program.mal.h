@@ -1,6 +1,5 @@
 #ifndef MAL_BUILD_UMBRELLA
 #include <mal.h>
-#include "box.mal.h"
 
 _Static_assert(MAL_C_ABI_VERSION == 0x000a00u, "generated header requires mal C ABI 0x000a00");
 _Static_assert(sizeof((size_t)0) == 8, "size_t does not match the mal target index width");

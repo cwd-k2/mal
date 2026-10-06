@@ -174,6 +174,35 @@ fn emit_header_owns_one_file_and_includes_required_file_headers() {
 }
 
 #[test]
+fn emit_header_omits_requirements_outside_the_c_interface() {
+    let directory = NativeFixture::new("driver-minimal-file-header");
+    let root = directory.write(
+        "program.mal",
+        "require \"./unused.mal\";\n\
+         require \"./types.mal\";\n\
+         extern consume :: Imported -> Unit;",
+    );
+    directory.write(
+        "unused.mal",
+        "Unused :: UInt64;\nextern unusedOperation :: Unused -> Unit;",
+    );
+    directory.write(
+        "types.mal",
+        "Imported :: UInt32;\nextern constructImported :: Unit -> Imported;",
+    );
+
+    let output = directory.malc([OsStr::new("emit"), OsStr::new("header"), root.as_os_str()]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let header = String::from_utf8(output.stdout).unwrap();
+    assert!(header.contains("#include \"types.mal.h\""));
+    assert!(!header.contains("#include \"unused.mal.h\""));
+}
+
+#[test]
 fn emit_host_prints_compilable_external_operation_stubs() {
     let directory = NativeFixture::new("driver-host");
     let source = directory.join("program.mal");

@@ -9,7 +9,8 @@ storage descriptor、公開primitiveは[C host value API](c-host-api.md)、sourc
 ## Build model
 
 toolchainはprogram非依存の`mal.h`を提供する。`malc emit header file.mal`はrequire graphを検査し、指定source fileが所有する
-C interfaceをfile headerとして生成する。file headerは`mal.h`と、直接requireした`.mal` fileに対応するfile headerをincludeする。
+C interfaceをfile headerとして生成する。file headerは`mal.h`と、そのC interfaceが参照するaliasまたはexternal typeを所有する、
+直接requireした`.mal` fileのfile headerをincludeする。C interfaceから参照しないsource-level requirementはincludeしない。
 C implementationは自身を所有するfile headerをincludeし、生成artifactと同じtarget ABI、C11 compiler、compile optionでbuildする。
 
 `build`では必要なfile interfaceを持つ内部umbrella header、LLVM module、C shim、runtime、requireされたC sourceを構成する。今回生成した

@@ -91,4 +91,12 @@ impl HostTypes {
     ) -> bool {
         self.external_aliases.contains(&alias.name)
     }
+
+    pub(in crate::backend::c) fn references_declaration(&self, name: &str) -> bool {
+        self.external_aliases.contains(name)
+            || self
+                .types
+                .iter()
+                .any(|ty| matches!(ty, Type::External { name: external, .. } if external == name))
+    }
 }

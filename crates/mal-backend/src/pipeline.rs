@@ -17,11 +17,11 @@ pub fn emit_header(graph: &SourceGraph, target: Target<'_>) -> Result<String, Ge
         GenerateError::Backend(BackendError::InvalidTargetDataLayout),
     )?;
     let interface = lower_graph_interface(graph).map_err(GenerateError::Diagnostic)?;
-    let interface = interface.for_file(graph.root());
-    let dependencies =
-        header_dependencies(graph, graph.root()).map_err(GenerateError::Diagnostic)?;
+    let file_interface = interface.for_file(graph.root());
+    let dependencies = header_dependencies(graph, graph.root(), &file_interface, &interface)
+        .map_err(GenerateError::Diagnostic)?;
     Ok(crate::backend::c::emit_file_header(
-        &interface,
+        &file_interface,
         &dependencies,
         layout,
     ))
@@ -34,7 +34,12 @@ pub fn emit_host(graph: &SourceGraph, header_name: &str) -> Result<String, Diagn
     crate::backend::c::emit_host(&interface.for_file(graph.root()), header_name)
 }
 
-fn header_dependencies(graph: &SourceGraph, file: FileId) -> Result<Vec<String>, Diagnostic> {
+fn header_dependencies(
+    graph: &SourceGraph,
+    file: FileId,
+    interface: &crate::core::ast::ProgramInterface,
+    graph_interface: &crate::core::ast::ProgramInterface,
+) -> Result<Vec<String>, Diagnostic> {
     let source = graph
         .source(file)
         .expect("source graph requirements belong to an existing file");
@@ -42,6 +47,12 @@ fn header_dependencies(graph: &SourceGraph, file: FileId) -> Result<Vec<String>,
     graph
         .requirements(file)
         .iter()
+        .filter(|requirement| {
+            crate::backend::c::interface_depends_on(
+                interface,
+                &graph_interface.for_file(requirement.target),
+            )
+        })
         .map(|requirement| {
             let target = graph
                 .source(requirement.target)

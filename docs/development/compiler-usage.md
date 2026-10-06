@@ -63,8 +63,9 @@ language serverのdiagnosticも同じ範囲を報告する。成功時には生�
 ### `emit header`と`emit host`
 
 `emit header`はhost implementation用のfile headerを出す。require graph全体を型検査するが、指定したsource fileが所有するalias、external
-type、external operationだけを生成する。直接requireした`.mal` fileのheaderは、require pathの末尾を`.mal.h`にしたquoted includeで
-参照する。実行可能な`main` bindingは要求しない。host sourceの隣へ`emit header source.mal -o source.mal.h`のように保存する。
+type、external operationだけを生成する。そのC interfaceが参照するaliasまたはexternal typeを所有する、直接requireした`.mal` fileの
+headerは、require pathの末尾を`.mal.h`にしたquoted includeで参照する。C interfaceから参照しないrequirementはincludeしない。
+実行可能な`main` bindingは要求しない。host sourceの隣へ`emit header source.mal -o source.mal.h`のように保存する。
 file headerはtoolchainが提供する`mal.h`をincludeし、要求するC ABI versionを検査する。runtime carrierのlayoutとtarget assertionは、
 `build`と同じくpinned Clangから取得したtarget data layoutで決める。
 

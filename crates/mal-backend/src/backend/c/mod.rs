@@ -30,6 +30,22 @@ pub(crate) fn emit_file_header(
     header::emit(std::slice::from_ref(interface), target, dependencies, false)
 }
 
+pub(crate) fn interface_depends_on(
+    interface: &ProgramInterface,
+    dependency: &ProgramInterface,
+) -> bool {
+    let mut types = TypeRegistry::default();
+    let host = HostTypes::collect(interface, &mut types);
+    dependency
+        .type_aliases
+        .iter()
+        .any(|alias| host.references_declaration(&alias.name))
+        || dependency
+            .external_types
+            .iter()
+            .any(|external| host.references_declaration(&external.name))
+}
+
 pub(crate) fn emit_header_for_target(
     interface: &ProgramInterface,
     files: &[mal_syntax::source::FileId],

@@ -57,8 +57,8 @@ program非依存templateがC recordへ展開する。managed leafを含む型だ
 reserved implementation detailであり、host adapterが直接参照するinterfaceではない。
 
 file headerの`MAL_GENERATED_INTERFACE_...` guardはfile pathではなくinterface本体の内容から決まり、同じinterfaceを複数のheaderから
-includeしても宣言を重複させない。直接requireしたfile headerのincludeはこのguardより外側に置く。同じinterfaceまたは空のinterfaceを
-持つfile同士でも、それぞれのdependency closureを処理するためである。`MAL_BUILD_UMBRELLA` guardはさらに外側で、buildがpreincludeした
+includeしても宣言を重複させない。C interfaceが参照するaliasまたはexternal typeを所有するfile headerのincludeは、このguardより外側に置く。
+同じinterfaceを持つfile同士でも、それぞれのC interface dependency closureを処理するためである。`MAL_BUILD_UMBRELLA` guardはさらに外側で、buildがpreincludeした
 今回のumbrellaを、host sourceの隣に残ったfile headerが置き換えないようにする。
 
 ## Cとの境界
