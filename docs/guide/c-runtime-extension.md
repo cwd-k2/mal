@@ -17,13 +17,13 @@ Status: Current v0.7 guide
 | `mal_move` | move construction、`std::move` | 通常のmove | sourceをzeroのvacant carrierにし、C compilerは再利用を拒否しない |
 | `mal_drop` | destructor、`reset` | `drop`、`Drop` | 明示Dropはsourceをvacantにし、C compilerは二重Dropを拒否しない |
 | `mal_owned(T)` | RAII local | owned binding | wrapper型ではなく、C cleanup attributeを付けるoptionalな宣言形 |
-| `mal_storage(T)` | type-erased containerのlayoutとoperation table | `Layout`とclone/drop function table | type identity、reflection、dynamic dispatchを持たない |
+| `mal_storageof(T)` | type-erased containerのlayoutとoperation table | `Layout`とclone/drop function table | type identity、reflection、dynamic dispatchを持たない |
 
 trivial carrierはC assignmentでcopyでき、Rustの`Copy`やC++のtrivial copyに近い。managed carrierのbitsだけをcopyしてもresponsibilityは
 増えず、Borrowとして元のlifetime内でしか使えない。独立して保持する場合は`mal_share`する。C++の一般的なmoved-from objectはvalidだが
 値が未指定であるのに対し、`mal_move`後のMal carrierはvacantであり、再び値として使わない。
 
-C++ exceptionやunwind modeのRust panicと異なり、`mal_call_trap`はstackをunwindしない。`mal_owned`のcleanupへtrap時のreleaseを依存させず、
+C++ exceptionやunwind modeのRust panicと異なり、`mal_trap`はstackをunwindしない。`mal_owned`のcleanupへtrap時のreleaseを依存させず、
 trap前に必要なDropは明示する。
 
 ## Symbolをborrowして観測する
@@ -35,14 +35,14 @@ extern writeBytes :: Symbol -> Unit;
 ```c
 MAL_DEFINE_writeBytes(call, bytes) {
     if (fwrite(bytes.data, 1, bytes.length, stdout) != bytes.length) {
-        mal_call_trap(call, "write failed");
+        mal_trap(call, "write failed");
     }
     return mal_unit;
 }
 ```
 
 `bytes`はbody終了まで有効なborrowであり、`owner`をdropしない。call後にも保持する場合はbody中に
-`mal_share(call, bytes)`し、保存したresponsibilityを後で`mal_drop`する。`data`だけを保存してもlifetimeは延びない。
+`mal_share(bytes)`し、保存したresponsibilityを後で`mal_drop`する。`data`だけを保存してもlifetimeは延びない。
 
 ## Bufferを構成してmoveする
 
@@ -52,13 +52,13 @@ extern readBytes :: Unit -> Buffer<UInt8>;
 
 ```c
 MAL_DEFINE_readBytes(call) {
-    mal_owned(Buffer) result = mal_buffer(call, mal_storage(mal_type(UInt8)), 4096);
+    mal_owned(Buffer) result = mal_buffer(call, mal_storageof(mal_type(UInt8)), 4096);
     for (;;) {
         const int byte = fgetc(stdin);
         if (byte == EOF) {
             if (ferror(stdin)) {
                 mal_drop(result);
-                mal_call_trap(call, "read failed");
+                mal_trap(call, "read failed");
             }
             return mal_move(result);
         }
@@ -81,10 +81,10 @@ extern adjust :: Samples -> Unit;
 
 ```c
 MAL_DEFINE_adjust(call, samples) {
-    if (mal_count(samples) == 0) {
+    if (mal_count(call, samples) == 0) {
         return mal_unit;
     }
-    mal_type(Sample) *values = mal_data(samples);
+    mal_type(Sample) *values = mal_data(call, samples);
     values[0].field_0 += 1;
     values[0].field_1 += 1;
     return mal_unit;
@@ -105,11 +105,11 @@ extern close :: File -> Unit;
 
 ```c
 MAL_DEFINE_openReadOnly(call, path) {
-    char *terminated = mal_runtime_allocate(call, path.length + 1);
+    char *terminated = mal_allocate(call, path.length + 1);
     memcpy(terminated, path.data, path.length);
     terminated[path.length] = '\0';
     FILE *file = fopen(terminated, "rb");
-    mal_runtime_deallocate(terminated);
+    mal_deallocate(call, terminated);
     if (file == NULL) {
         return (mal_type(OpenResult)){
             .tag = 1,
@@ -123,9 +123,9 @@ MAL_DEFINE_openReadOnly(call, path) {
 }
 
 MAL_DEFINE_close(call, file) {
-    FILE *handle = (FILE *)(void *)mal_bits(file);
+    FILE *handle = (FILE *)(void *)mal_to_bits(file);
     if (fclose(handle) != 0) {
-        mal_call_trap(call, "close failed");
+        mal_trap(call, "close failed");
     }
     return mal_unit;
 }
@@ -142,13 +142,13 @@ compound literalで直接構成する。managed payloadを入れる場合は、�
 
 `Text :: Buffer<UInt8>`のようなclosed aliasには`mal_type(Text)`も生成される。一方、transparent generic aliasは展開され、すべての
 `Buffer<A>`は同じ`mal_type(Buffer)` carrierを使う。element型は
-`mal_buffer(call, mal_storage(mal_type(Element)), capacity)`へ明示的に渡すstorage contractに残る。
+`mal_buffer(call, mal_storageof(mal_type(Element)), capacity)`へ明示的に渡すstorage contractに残る。
 
 ## `mal_call_t`の範囲
 
-`mal_call_t`は同期body中のruntime allocation、share、trapに使う。Cからmal closureを呼ぶexecution control、program continuation、
-async completion tokenではない。pointerと内部stateをbody終了後に保持しない。runtime contextとmanaged carrierはthread-confinedであり、
-worker threadを使う場合もbody return前にjoinし、managed resultは元のthreadで構成する。
+`mal_call_t`は同期body中のCall APIに使う。Share、Move、Dropなどのlifecycle operatorはcontext-freeである。Cからmal closureを呼ぶ
+execution control、program continuation、async completion tokenではない。pointerと内部stateをbody終了後に保持しない。runtime contextと
+managed carrierはthread-confinedであり、worker threadを使う場合もbody return前にjoinし、managed resultは元のthreadで構成する。
 
 repository内の実行可能例は[`managed-bytes`](../../examples/managed-bytes/)、
 [`extern-runtime`](../../examples/extern-runtime/)、[`resource-errors`](../../examples/resource-errors/)に置く。

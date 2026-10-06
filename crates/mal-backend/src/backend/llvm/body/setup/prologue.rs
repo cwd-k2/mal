@@ -139,7 +139,7 @@ impl FunctionEmitter<'_> {
                 tail: false,
                 result_type: ptr,
                 callee: direct("mal_runtime_owner_retain"),
-                arguments: [(ptr, "%mal_context"), (ptr, "%mal_environment")],
+                arguments: [(ptr, "%mal_environment")],
             };
         };
         emit_instruction! {

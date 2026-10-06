@@ -7,7 +7,7 @@
 #include <string.h>
 
 static FILE *file_handle(mal_type(File) file) {
-    return (FILE *)mal_bits(file);
+    return (FILE *)mal_to_bits(file);
 }
 
 static uint32_t io_error(void) {
@@ -21,7 +21,7 @@ MAL_DEFINE_openReadOnly(call, path) {
     }
     char *terminated = malloc(path.length + 1);
     if (terminated == NULL) {
-        mal_call_trap(call, "file path allocation failed");
+        mal_trap(call, "file path allocation failed");
     }
     if (path.length > 0) {
         memcpy(terminated, path.data, path.length);
@@ -47,7 +47,7 @@ MAL_DEFINE_readFile(call, file) {
     if (ferror(file_handle(file))) {
         return (mal_type(ReadResult)){ .tag = 1, .payload.variant_1 = io_error() };
     }
-    mal_type(Buffer) result = mal_buffer(call, mal_storage(mal_type(UInt8)), length);
+    mal_type(Buffer) result = mal_buffer(call, mal_storageof(mal_type(UInt8)), length);
     if (length > 0) {
         mal_append(call, result, bytes, length);
     }
@@ -64,14 +64,14 @@ MAL_DEFINE_closeFile(call, file) {
 
 MAL_DEFINE_writeBytes(call, value) {
     if (fwrite(value.data, 1, value.length, stdout) != value.length) {
-        mal_call_trap(call, "cannot write stdout");
+        mal_trap(call, "cannot write stdout");
     }
     return mal_unit;
 }
 
 MAL_DEFINE_writeError(call, error) {
     if (fprintf(stderr, "file error: %" PRIu32 "\n", error) < 0) {
-        mal_call_trap(call, "cannot write stderr");
+        mal_trap(call, "cannot write stderr");
     }
     return mal_unit;
 }

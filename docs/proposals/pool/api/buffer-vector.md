@@ -73,7 +73,7 @@ program固有externで表せる。
 | `*buffer` | 現在のbyte列から独立したSymbol snapshot |
 | `*symbol` | byte列で初期化した新しいmutable identity |
 
-C runtime extensionはBuffer carrierを既に直接扱える。`mal_storage(T)`とBuffer operationはspecialization後のruntime layoutと
+C runtime extensionはBuffer carrierを既に直接扱える。`mal_storageof(T)`とBuffer operationはspecialization後のruntime layoutと
 `Lifecycle(T)`を使い、nested Bufferやexternal opaque elementも処理する。IxPool上の実装へ置換する場合、このextern-visible behaviorと
 generated C/LLVM layout agreementもcompatibility gateになる。
 

@@ -20,7 +20,7 @@ typedef struct {
 } MalContext;
 
 /* Program-specific lifecycle glue for one runtime carrier stored in place. */
-typedef void (*MalRuntimeRetain)(MalContext *context, void *carrier);
+typedef void (*MalRuntimeRetain)(void *carrier);
 typedef void (*MalRuntimeRelease)(void *carrier);
 #endif
 
@@ -34,8 +34,8 @@ typedef struct {
 /* Prints "mal trap: <message>" to stderr and aborts. */
 _Noreturn void mal_trap(MalContext *context, const char *message);
 /* malloc that traps on failure. A size of zero allocates nothing and returns NULL. */
-void *mal_runtime_allocate(MalContext *context, size_t size);
-void mal_runtime_deallocate(void *allocation);
+void *mal_allocate(MalContext *context, size_t size);
+void mal_deallocate(MalContext *context, void *allocation);
 /* Allocates a reference-counted managed owner of `size` bytes with one reference. `destroy` releases what the owner holds
  * and runs when the last reference is released, before the storage is freed. Closure environments, Buffers, and Pools use
  * this mechanism. NULL and low-bit-tagged closure environments have no storage: retain and release ignore them and
@@ -45,7 +45,7 @@ void *mal_runtime_owner_allocate(
     size_t size,
     void (*destroy)(void *)
 );
-void *mal_runtime_owner_retain(MalContext *context, void *owner);
+void *mal_runtime_owner_retain(void *owner);
 void mal_runtime_owner_release(void *owner);
 uint8_t mal_runtime_owner_is_unique(const void *owner);
 /* The control arena is grown by reserve_frame and freed here. */
@@ -68,7 +68,7 @@ uint8_t mal_native_stack_is_deep(MalContext *context, void *stack_address);
 const uint8_t *mal_runtime_bytes_data(const void *owner);
 /* Copies `length` bytes of host memory into a new owner with one reference. */
 void *mal_runtime_bytes_read(MalContext *context, const void *source, size_t length);
-void *mal_runtime_bytes_retain(MalContext *context, const void *owner);
+void *mal_runtime_bytes_retain(const void *owner);
 void mal_runtime_bytes_release(const void *owner);
 /* Symbol operations. The index must be below the length; that precondition is not checked. */
 uint8_t mal_runtime_symbol_at(const void *data, size_t index);
@@ -191,7 +191,7 @@ void *mal_runtime_buffer_extend(
     void *buffer,
     size_t count
 );
-void mal_runtime_buffer_truncate(void *buffer, size_t count);
+void mal_runtime_buffer_truncate(MalContext *context, void *buffer, size_t count);
 void mal_runtime_buffer_reserve_elements(
     MalContext *context,
     void *buffer,

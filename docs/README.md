@@ -58,7 +58,7 @@
 | result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/active/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
 | C runtime extensionを書く | [C runtime extension guide](guide/c-runtime-extension.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
-| C host APIの分類と`call`引数を検討する | [C host API surfaceの分類とcall統一案](proposals/c-host-api-surface.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
+| C host APIの分類と`call`引数の採択理由を調べる | [D099](history/decisions/active/D099.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
 | 仕様とtestを対応させる | [conformance matrix](development/conformance.md) | [`spec/`](spec/) |
 | 設計理由を調べる | [設計決定履歴](history/decisions/) | [最小性](design/minimality.md)、[authority](design/authority.md) |
 | 性能を評価する | [性能調査toolと作業領域](development/performance-investigation.md) | [generated program最適化policy](development/generated-program-optimization.md)、[性能測定履歴](history/performance/)、[test方針](development/testing.md) |

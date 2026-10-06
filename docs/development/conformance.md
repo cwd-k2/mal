@@ -46,7 +46,7 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [C runtime extension ABI](../spec/c-host-abi.md) | ABI `0x000a00`、共通`mal.h`、file header、target assertion、direct extern signatureとreturn | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
+| [C runtime extension ABI](../spec/c-host-abi.md) | ABI `0x000b00`、共通`mal.h`、file header、target assertion、direct extern signatureとreturn | generated header、LLVM module、C shim、runtimeを同じClang targetでcompile/link/execute |
 | [C host value API](../spec/c-host-api.md) | `mal_type`、`mal_product`、`mal_sum`、Borrow / Share / Move / Drop、storage descriptor、Symbol / Buffer primitive | managed aggregateとnested BufferをCで構成、変更し、malとの往復後にlifecycle終状態を検査する |
 | [Engram/Extern](../spec/engrams.md) | borrowed parameter、再帰的なshare/move/drop、external opaque resource、invalid host representation | hostがmanaged elementを含むBufferを生成・変更し、malとの往復後にborrowで観測する |
 

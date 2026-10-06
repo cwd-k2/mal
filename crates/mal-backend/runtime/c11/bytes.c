@@ -101,12 +101,12 @@ MalBytes *mal_bytes_flat_concatenate(
     return &result->header;
 }
 
-MalBytes *mal_bytes_retain(MalContext *context, MalBytes *owner) {
+MalBytes *mal_bytes_retain(MalBytes *owner) {
     if (owner == NULL || owner->references == UINT64_MAX) {
         return owner;
     }
     if (owner->references == UINT64_MAX - 1) {
-        mal_trap(context, "byte owner reference count overflow");
+        abort();
     }
     ++owner->references;
     return owner;
@@ -264,8 +264,8 @@ void *mal_runtime_bytes_read(MalContext *context, const void *source, size_t len
     return mal_bytes_flat_copy(context, source, length, "byte allocation failed");
 }
 
-void *mal_runtime_bytes_retain(MalContext *context, const void *owner) {
-    return mal_bytes_retain(context, (MalBytes *)owner);
+void *mal_runtime_bytes_retain(const void *owner) {
+    return mal_bytes_retain((MalBytes *)owner);
 }
 
 void mal_runtime_bytes_release(const void *owner) {
@@ -282,4 +282,3 @@ void mal_runtime_bytes_write(
         memcpy(destination, mal_bytes_data(owner) + offset, length);
     }
 }
-

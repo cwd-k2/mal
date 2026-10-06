@@ -12,8 +12,7 @@ fn buffer_rejects_incomplete_lifecycle_callbacks() {
         "buffer_check.c",
         r#"#include "runtime.h"
 
-static void retain_value(MalContext *context, void *carrier) {
-    (void)context;
+static void retain_value(void *carrier) {
     (void)carrier;
 }
 

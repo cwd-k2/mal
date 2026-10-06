@@ -72,7 +72,7 @@ live placeのraw overwrite、invalid ownerなどcontract違反後の結果は保
 ## External opaque type
 
 external opaque typeはone-machine-wordのcopyable carrierである。malのcopy、binding、discard、Buffer storageはcarrier bitsだけを扱い、
-resourceのallocate、retain、release、close、freeを暗黙に実行しない。Cは`mal_from_bits(mal_type(T), bits)`と`mal_bits(value)`で`uintptr_t`へlosslessに
+resourceのallocate、retain、release、close、freeを暗黙に実行しない。Cは`mal_from_bits(mal_type(T), bits)`と`mal_to_bits(value)`で`uintptr_t`へlosslessに
 変換できる。zeroを含むvalid bit pattern、resource identity、permission、lifetime、failureはoperation固有contractが定める。
 
 file、socket、mapping、device allocationなどcall後にも存在するhost resourceはnominalなexternal opaque typeで表せる。raw pointerを
@@ -90,7 +90,7 @@ source typeとして追加する場合は、その型のidentityとshare/dropを
 - hostがshareして保持するmanaged valueと、そのdrop point
 - temporary external resourceとmanaged responsibilityのcleanup
 
-`mal_call_trap`はrecover不能なfailureでprocessを終了する。現在のruntimeはtrapから回復しないため一般的なstack unwindingとrollbackを
+`mal_trap`はrecover不能なfailureでprocessを終了する。現在のruntimeはtrapから回復しないため一般的なstack unwindingとrollbackを
 提供しない。hostはtrapし得るhelperより前に取得したtemporary external resourceを残さない構成にするか、operation固有のcleanupを
 行う。contract違反を境界で検査することは要求しない。
 

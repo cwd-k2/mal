@@ -263,7 +263,12 @@ void *mal_runtime_buffer_extend(
     return buffer->stride == 0 ? buffer->data : buffer->data + old_count * buffer->stride;
 }
 
-void mal_runtime_buffer_truncate(void *opaque_buffer, size_t count) {
+void mal_runtime_buffer_truncate(
+    MalContext *context,
+    void *opaque_buffer,
+    size_t count
+) {
+    (void)context;
     MalBuffer *buffer = opaque_buffer;
     if (count >= buffer->count) {
         return;

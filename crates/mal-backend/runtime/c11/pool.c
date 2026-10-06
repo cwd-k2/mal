@@ -199,7 +199,7 @@ void mal_runtime_pool_grow(
         mal_trap(context, "pool allocation size overflow");
     }
     size_t allocation_size = payload_offset + payload_size;
-    unsigned char *next_backing = mal_runtime_allocate(context, allocation_size);
+    unsigned char *next_backing = mal_allocate(context, allocation_size);
     memset(next_backing, 0, allocation_size);
     unsigned char *next_payload = next_backing + payload_offset;
 
@@ -243,10 +243,11 @@ uint8_t mal_runtime_pool_peek_managed(
     size_t index,
     void *result
 ) {
+    (void)context;
     const MalManagedPool *managed = opaque_pool;
     uint8_t live = mal_runtime_pool_peek(opaque_pool, index, result);
     if (live != 0 && managed->element_retain != NULL) {
-        managed->element_retain(context, result);
+        managed->element_retain(result);
     }
     return live;
 }
@@ -285,10 +286,11 @@ void mal_runtime_pool_header_managed(
     const void *opaque_pool,
     void *result
 ) {
+    (void)context;
     const MalManagedPool *managed = opaque_pool;
     mal_runtime_pool_header(opaque_pool, result);
     if (managed->header_retain != NULL) {
-        managed->header_retain(context, result);
+        managed->header_retain(result);
     }
 }
 

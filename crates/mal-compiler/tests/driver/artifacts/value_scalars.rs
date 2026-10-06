@@ -135,7 +135,7 @@ fn preserves_short_circuit_effect_order_through_llvm() {
         "host.c",
         "#include \"program.mal.h\"\n\
          MAL_DEFINE_forbidden(call) {\n\
-             mal_call_trap(call, \"short-circuit operand was evaluated\");\n\
+             mal_trap(call, \"short-circuit operand was evaluated\");\n\
          }\n",
     );
 

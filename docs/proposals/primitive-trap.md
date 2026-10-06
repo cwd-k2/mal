@@ -19,7 +19,7 @@ mal sourceだけでは、programが到達してはならない状態を表明で
 program固有のhost C sourceを用意しなければ使えない。
 
 `[]`を返すexternの正常完了は表現できない。C host ABIは`[]`のterminal return helperを公開せず、bodyが従える規則は
-`mal_call_trap`で終了するか、戻らないことだけである。公開されないcarrier型でtagを偽造してreturnするのはcontract違反である。
+`mal_trap`で終了するか、戻らないことだけである。公開されないcarrier型でtagを偽造してreturnするのはcontract違反である。
 現在の実装は、`[]`に有効なtagは存在しないため、この値を境界のtag検査でtrapさせる。未定義動作にはならない。
 
 ## 提案するcontract
@@ -45,7 +45,7 @@ bindingであり、通常のfunction valueとして参照、shadow、引数渡�
 
 ## Baseline実行形
 
-`Symbol`のbyte列を`mal_call_trap`と同じ終了経路へ渡すnoreturnのruntime helperを一つ加え、LLVM backendはそのcallの直後を
+`Symbol`のbyte列を`mal_trap`と同じ終了経路へ渡すnoreturnのruntime helperを一つ加え、LLVM backendはそのcallの直後を
 `unreachable`にする。message Symbolのownerは終了までに解放する必要がない。
 
 ## 導入順

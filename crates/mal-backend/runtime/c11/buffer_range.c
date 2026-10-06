@@ -56,7 +56,7 @@ void mal_runtime_buffer_fill_managed(
             managed->release(element);
         }
         memcpy(element, value, stride);
-        managed->retain(context, element);
+        managed->retain(element);
     }
 }
 
@@ -169,10 +169,7 @@ void mal_runtime_buffer_copy_managed(
         return;
     }
     for (size_t index = 0; index < count; ++index) {
-        destination->retain(
-            context,
-            (void *)(source->data + (source_offset + index) * stride)
-        );
+        destination->retain((void *)(source->data + (source_offset + index) * stride));
     }
     for (size_t index = destination_offset;
          index < destination_offset + count && index < old_count;
@@ -241,7 +238,7 @@ void mal_runtime_buffer_fill_move(
         return;
     }
     for (size_t copy = 1; copy < count; ++copy) {
-        buffer->retain(context, (void *)value);
+        buffer->retain((void *)value);
     }
     size_t old_count;
     if (!mal_buffer_fill_extend(
@@ -332,7 +329,7 @@ void mal_runtime_buffer_append_values(
     for (size_t index = 0; index < count; ++index) {
         const unsigned char *element = source + index * buffer->stride;
         if (buffer->retain != NULL) {
-            buffer->retain(context, (void *)element);
+            buffer->retain((void *)element);
         }
         memmove(
             buffer->data + (old_count + index) * buffer->stride,

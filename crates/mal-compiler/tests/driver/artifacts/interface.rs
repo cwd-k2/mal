@@ -40,7 +40,7 @@ fn emit_header_writes_a_standalone_host_interface() {
     assert!(!header.contains("mal__Internal_t"));
     assert!(!header.contains("mal_Managed_t"));
     assert!(header.contains("#include <mal.h>"));
-    assert!(header.contains("MAL_C_ABI_VERSION == 0x000a00u"));
+    assert!(header.contains("MAL_C_ABI_VERSION == 0x000b00u"));
     assert!(header.contains("#define MAL_HAS_EXTERN_increment 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN_consume 1"));
     assert!(header.contains("#define MAL_HAS_EXTERN__privateConsume 1"));

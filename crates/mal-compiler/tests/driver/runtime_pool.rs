@@ -41,10 +41,10 @@ static void *make_child(MalContext *context) {
     return mal_runtime_owner_allocate(context, 1, destroy_child);
 }
 
-static void retain_child(MalContext *context, void *carrier) {
+static void retain_child(void *carrier) {
     void *child = ((RuntimeCarrier *)carrier)->child;
     ++retained;
-    mal_runtime_owner_retain(context, child);
+    mal_runtime_owner_retain(child);
 }
 
 static void release_child(void *carrier) {
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     }
     Header header = {3, 5, 7};
     void *pool = mal_runtime_pool_make(&context, &header, sizeof header, sizeof(uint64_t));
-    void *alias = mal_runtime_owner_retain(&context, pool);
+    void *alias = mal_runtime_owner_retain(pool);
     if (mal_runtime_pool_capacity(pool) != 0) return 1;
 
     Header observed = {0};

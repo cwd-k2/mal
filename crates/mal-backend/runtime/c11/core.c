@@ -13,7 +13,7 @@ _Static_assert(
     "managed owner payload alignment is insufficient"
 );
 
-void *mal_runtime_allocate(MalContext *context, size_t size) {
+void *mal_allocate(MalContext *context, size_t size) {
     if (size == 0) {
         return NULL;
     }
@@ -24,7 +24,8 @@ void *mal_runtime_allocate(MalContext *context, size_t size) {
     return allocation;
 }
 
-void mal_runtime_deallocate(void *allocation) {
+void mal_deallocate(MalContext *context, void *allocation) {
+    (void)context;
     free(allocation);
 }
 
@@ -39,7 +40,7 @@ void *mal_runtime_owner_allocate(
     if (size > SIZE_MAX - sizeof(MalOwnerHeader)) {
         mal_trap(context, "managed owner size overflow");
     }
-    MalOwnerHeader *header = mal_runtime_allocate(
+    MalOwnerHeader *header = mal_allocate(
         context,
         sizeof(MalOwnerHeader) + size
     );
@@ -49,18 +50,17 @@ void *mal_runtime_owner_allocate(
 }
 
 __attribute__((always_inline))
-void *mal_runtime_owner_retain(MalContext *context, void *owner) {
+void *mal_runtime_owner_retain(void *owner) {
     if (owner == NULL || ((uintptr_t)owner & 1) != 0) {
         return owner;
     }
     MalOwnerHeader *header = (MalOwnerHeader *)owner - 1;
     /* A live owner is referenced at least once, and every reference occupies an addressable slot, so the
      * count cannot reach SIZE_MAX. Stating both facts lets the optimizer cancel a retain against a later release
-     * instead of keeping the trap and the zero test of the release. */
+     * and remove the zero test of the release. */
     __builtin_assume(header->references >= 1);
     __builtin_assume(header->references < SIZE_MAX);
     ++header->references;
-    (void)context;
     return owner;
 }
 

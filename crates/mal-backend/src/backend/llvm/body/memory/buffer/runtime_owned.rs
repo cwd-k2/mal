@@ -65,7 +65,6 @@ impl FunctionEmitter<'_> {
         let signature = if retain {
             llvm_signature! {
                 #[linkage(internal)] fn { format!("mal_buffer_retain_{number}") }(
-                    "%mal_context": ptr,
                     "%mal_element": ptr,
                 ) -> void
             }

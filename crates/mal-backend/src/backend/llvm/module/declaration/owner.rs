@@ -12,7 +12,7 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
     module.declare(declaration(
         llvm_type!(ptr),
         "mal_runtime_owner_retain",
-        [llvm_type!(ptr), llvm_type!(ptr)],
+        [llvm_type!(ptr)],
     ));
     module.declare(declaration(
         llvm_type!(void),

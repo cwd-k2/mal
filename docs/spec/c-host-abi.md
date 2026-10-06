@@ -1,6 +1,6 @@
 # C runtime extension ABI
 
-Status: Accepted ABI 0x000a00 for mal v0.7
+Status: Accepted ABI 0x000b00 for mal v0.7
 
 この文書はmal v0.7の`malc`が生成するC runtime extensionのbuild、header、call boundaryを定める。C carrier、responsibility、
 storage descriptor、公開primitiveは[C host value API](c-host-api.md)、source-level semanticsは[`extern`](extern.md)、実装方法は
@@ -20,10 +20,10 @@ object、archive、include path、macroは`malc`の明示的なbuild optionか�
 `mal.h`とgenerated headerは次を検査し、異なるversionを組み合わせない。
 
 ```c
-#define MAL_C_ABI_VERSION 0x000a00u
+#define MAL_C_ABI_VERSION 0x000b00u
 ```
 
-`0x000a00`はC ABI自体のversionであり、source languageのversionではない。ABIはcompiler/runtimeとのexact matchだけを保証する。
+`0x000b00`はC ABI自体のversionであり、source languageのversionではない。ABIはcompiler/runtimeとのexact matchだけを保証する。
 version間のsource compatibilityとbinary compatibilityは保証せず、compiler更新後はgenerated headerとC sourceを同じartifactとして
 recompileする。runtime `dlopen`、extension discovery、unload protocolは持たない。
 
@@ -62,7 +62,7 @@ extern appendNewline :: Buffer<UInt8> -> Buffer<UInt8>;
 ```c
 MAL_DEFINE_appendNewline(call, buffer) {
     mal_push(call, buffer, UINT8_C('\n'));
-    return mal_share(call, buffer);
+    return mal_share(buffer);
 }
 ```
 
@@ -74,13 +74,13 @@ by-valueの一carrierとして渡す。managed parameterはcallerがbody完了�
 bodyはCの`return`で一度完了する。その場で構成したowned rvalueとtrivial valueは直接returnできる。Unitは`mal_unit`をreturnする。
 空直和は正常にreturnできる値を持たない。
 
-`mal_call_t`は`MalContext`のpublic aliasであり、extern ABIの先頭parameterとして直接渡す同期runtime capabilityである。runtime allocation、
-Share、trapに利用できるが、program固有continuation、現在のcontrol state、Cからmal closureをapplicationするauthorityを持たない。
+`mal_call_t`は`MalContext`のpublic aliasであり、extern ABIの先頭parameterとして直接渡す同期runtime capabilityである。Call APIに利用するが、
+context-freeなlifecycle operator、program固有continuation、現在のcontrol state、Cからmal closureをapplicationするauthorityを持たない。
 pointerまたは内部stateをcall後に保持しない。
 
 ## Failure、effect、concurrency
 
-allocation failure、target sizeで表現できないlayoutやlength、hostが明示したrecover不能failureはtrapする。`mal_call_trap`はprocessを
+allocation failure、target sizeで表現できないlayoutやlength、hostが明示したrecover不能failureはtrapする。`mal_trap`はprocessを
 終了し、一般的なstack unwindingとrollbackを行わない。invalid carrierを境界で検査してtrapへ変換する保証はない。
 
 C bodyは引数から到達するmanaged identity、以前Shareして保持したidentity、外部stateを自由に観測、変更できる。LLVM moduleは
@@ -90,4 +90,5 @@ runtime contextとmanaged valueはthread-confinedである。同じcall capabili
 ならない。worker threadへexternal bytesを渡す場合もbody return前にjoinし、managed resultは元のthreadで構成する。
 
 `mal_`と`MAL_` prefixはgenerated headerとruntime用に予約する。uppercaseはmacro、lowercaseは型、function、constantに使う。
-採択理由は[D098](../history/decisions/active/D098.md)に記録する。
+runtime extension境界の採択理由は[D098](../history/decisions/active/D098.md)、public surfaceの分類は
+[D099](../history/decisions/active/D099.md)に記録する。

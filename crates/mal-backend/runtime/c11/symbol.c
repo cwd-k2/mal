@@ -23,6 +23,7 @@ void mal_runtime_symbol_slice(
     size_t offset,
     size_t length
 ) {
+    (void)context;
     if (length == 0) {
         mal_symbol_set(result, NULL, NULL, 0);
         return;
@@ -33,7 +34,7 @@ void mal_runtime_symbol_slice(
     }
     mal_symbol_set(
         result,
-        mal_bytes_retain(context, (MalBytes *)owner),
+        mal_bytes_retain((MalBytes *)owner),
         slice_data,
         length
     );
@@ -72,7 +73,7 @@ void mal_runtime_symbol_concatenate(
     if (left_length == 0) {
         mal_symbol_set(
             result,
-            mal_bytes_retain(context, (MalBytes *)right_owner),
+            mal_bytes_retain((MalBytes *)right_owner),
             right_data,
             right_length
         );
@@ -81,7 +82,7 @@ void mal_runtime_symbol_concatenate(
     if (right_length == 0) {
         mal_symbol_set(
             result,
-            mal_bytes_retain(context, (MalBytes *)left_owner),
+            mal_bytes_retain((MalBytes *)left_owner),
             left_data,
             left_length
         );
@@ -111,7 +112,7 @@ void mal_runtime_symbol_concatenate_consuming_left(
         mal_bytes_release(left_owner);
         mal_symbol_set(
             result,
-            mal_bytes_retain(context, (MalBytes *)right_owner),
+            mal_bytes_retain((MalBytes *)right_owner),
             right_data,
             right_length
         );
@@ -151,7 +152,7 @@ void mal_runtime_symbol_concatenate_consuming_right(
         mal_bytes_release(right_owner);
         mal_symbol_set(
             result,
-            mal_bytes_retain(context, (MalBytes *)left_owner),
+            mal_bytes_retain((MalBytes *)left_owner),
             left_data,
             left_length
         );

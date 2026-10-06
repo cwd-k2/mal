@@ -13,7 +13,7 @@ mod prefix;
 
 use self::prefix::emit_prefix;
 
-const C_ABI_VERSION_LITERAL: &str = "0x000a00u";
+const C_ABI_VERSION_LITERAL: &str = "0x000b00u";
 
 pub(super) fn emit_common() -> String {
     common::emit()
@@ -128,7 +128,7 @@ pub(super) fn emit_host(
         ));
         let body = c_block! {
             ..{ unused_parameters }
-            mal_call_trap(call, { message });
+            mal_trap(call, { message });
         };
         output.push(FunctionDefinition::from_macro(
             host_macro_invocation(&signature),

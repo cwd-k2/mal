@@ -29,7 +29,7 @@ impl FunctionEmitter<'_> {
                         tail: false,
                         result_type: ptr,
                         callee: direct("mal_runtime_bytes_retain"),
-                        arguments: [(ptr, "%mal_context"), (ptr, { owner })],
+                        arguments: [(ptr, { owner })],
                     };
                 };
                 Some(value.into())
@@ -50,7 +50,7 @@ impl FunctionEmitter<'_> {
                         tail: false,
                         result_type: ptr,
                         callee: direct("mal_runtime_owner_retain"),
-                        arguments: [(ptr, "%mal_context"), (ptr, { environment })],
+                        arguments: [(ptr, { environment })],
                     };
                 };
                 Some(value.into())
@@ -62,7 +62,7 @@ impl FunctionEmitter<'_> {
                         tail: false,
                         result_type: ptr,
                         callee: direct("mal_runtime_owner_retain"),
-                        arguments: [(ptr, "%mal_context"), (ptr, { value })],
+                        arguments: [(ptr, { value })],
                     };
                 };
                 Some(value.into())

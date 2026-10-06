@@ -71,7 +71,7 @@ file headerはtoolchainが提供する`mal.h`をincludeし、要求するC ABI v
 
 `emit host`は指定fileの各external operationを`MAL_DEFINE_<name>`で定義したC stubを出す。stubは既定でsource file名に`.h`を加えた
 file headerをincludeし、未実装のoperationを
-`mal_call_trap`させるため、そのまま保存して実装の開始点にできる。別名のheaderを生成した場合は、`--header name`でstubのquoted include名を
+`mal_trap`させるため、そのまま保存して実装の開始点にできる。別名のheaderを生成した場合は、`--header name`でstubのquoted include名を
 合わせる。`emit header`と同様に`main` bindingは要求しない。
 
 ### `build`

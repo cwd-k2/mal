@@ -19,7 +19,7 @@ pub(super) fn add(module: &mut Module<'_>, types: &body::types::Types) {
         module,
         llvm_type!(ptr),
         "mal_runtime_bytes_retain",
-        [llvm_type!(ptr), llvm_type!(ptr)],
+        [llvm_type!(ptr)],
     );
     add_declaration(
         module,

@@ -137,7 +137,7 @@ swapのresultは通常のowned resultであり、使われなくなった時点�
 | IxPoolの終了 | Headerと全Live slotのDrop | なし | 1とLive slot数 |
 
 Bufferの`fill`と`copy`は[参照実装](../containers/buffer.md#range-operation)のloopがこれらのoperationを呼ぶため、回数はその分解から
-決まり、runtimeが一括処理で実装しても同じ回数にする。C runtime extensionからBufferを操作する場合も`mal_storage(T)`が同じ
+決まり、runtimeが一括処理で実装しても同じ回数にする。C runtime extensionからBufferを操作する場合も`mal_storageof(T)`が同じ
 ShareとDropを供給する。`symbol`は`UInt8`だけを扱うためelement lifecycle glueを必要としない。
 
 ### writable successor

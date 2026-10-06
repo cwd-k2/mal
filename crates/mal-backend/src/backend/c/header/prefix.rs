@@ -21,7 +21,7 @@ pub(super) fn emit_prefix(
     let abi_version = crate::backend::c::syntax::Expr::number(C_ABI_VERSION_LITERAL);
     let (symbol_size, symbol_offsets) = crate::backend::llvm::symbol_carrier_layout(target);
     output.extend(c_items! {
-        assert!(MAL_C_ABI_VERSION == { abi_version }, "generated header requires mal C ABI 0x000a00");
+        assert!(MAL_C_ABI_VERSION == { abi_version }, "generated header requires mal C ABI 0x000b00");
         assert!(sizeof(0 as size_t) == { target.index_size }, "size_t does not match the mal target index width");
         assert!(sizeof(0 as *mut void) == { target.pointer_size }, "C pointer size does not match the mal target");
         assert!(sizeof(*(0 as *mut mal_Symbol_t)) == { symbol_size }, "Symbol carrier size does not match the mal target");

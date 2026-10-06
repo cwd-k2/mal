@@ -29,8 +29,8 @@ void *mal_runtime_buffer_from(
 }
 
 // A Symbol element starts with its owner, which is all the callbacks below need.
-static void mal_symbol_element_retain(MalContext *context, void *element) {
-    mal_bytes_retain(context, *(MalBytes **)element);
+static void mal_symbol_element_retain(void *element) {
+    mal_bytes_retain(*(MalBytes **)element);
 }
 
 static void mal_symbol_element_release(void *element) {

@@ -35,7 +35,7 @@ Engram、element admissionは現行`Storable`に揃え、明示的なPool解放�
 ならないが、container algorithmとsnapshot semanticsを現行compilerでcheck、build、実行できる。
 
 Vectorはmal内のstructural snapshot候補だけを試し、`Address`、raw-memory admission / observation、extern signatureを持たない。C runtime
-extensionの試作はPoolやVectorを公開せず、採択済みのBufferとSymbolをdirect carrierとして使う。`run.nu`はABI 0x000a00のfile headerを
+extensionの試作はPoolやVectorを公開せず、採択済みのBufferとSymbolをdirect carrierとして使う。`run.nu`はABI 0x000b00のfile headerを
 `malc emit header`で生成してからC実装をbuildし、全programをvalgrindで実行する。
 
 ## 廃止したC-host試作から残す証拠

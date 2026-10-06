@@ -72,7 +72,7 @@ MalBytes *mal_bytes_flat_concatenate(
     size_t right_length,
     const char *allocation_failure
 );
-MalBytes *mal_bytes_retain(MalContext *context, MalBytes *owner);
+MalBytes *mal_bytes_retain(MalBytes *owner);
 void mal_bytes_release(MalBytes *owner);
 const unsigned char *mal_bytes_data(const MalBytes *owner);
 size_t mal_bytes_offset(const MalBytes *owner, const unsigned char *data);

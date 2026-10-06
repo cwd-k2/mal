@@ -1,10 +1,34 @@
 # C host value API
 
-Status: Accepted ABI 0x000a00 for mal v0.7
+Status: Accepted ABI 0x000b00 for mal v0.7
 
 この文書はC runtime extensionが扱うcarrier、type form、responsibility、storage descriptor、公開primitiveを定める。buildとexternal
 operationのcall boundaryは[C runtime extension ABI](c-host-abi.md)、source-level managed valueは[Engram](engrams.md)と
 [`Buffer`](memory.md)を正とする。
+
+## Public surfaceの分類
+
+public surfaceは、記述上の役割とruntime contextの有無で次の四種類へ分ける。
+
+| 種類 | 名前または形式 | `call` |
+|---|---|---|
+| 型マクロ | `mal_type`、`mal_product`、`mal_sum`、`mal_owned` | 取らない |
+| 定数 | `mal_false`、`mal_true`、`mal_unit` | 取らない |
+| 演算子 | `mal_storageof`、`mal_share`、`mal_move`、`mal_drop`、`mal_from_bits`、`mal_to_bits` | 取らない |
+| Call API | runtime capability、Symbol構築、Buffer operation | 有効な`call`を常に先頭に取る |
+
+Call APIでは、現在の実装がallocationやtrapを行うかによらず、runtimeまたはruntime-managed valueを扱うoperationへ同じ規則を
+適用する。各系統と所属するoperationは次のとおりである。
+
+| 系統 | operation |
+|---|---|
+| Runtime capability | `mal_allocate`、`mal_deallocate`、`mal_trap` |
+| Symbol construction | `mal_symbol`、`mal_snapshot` |
+| Buffer construction | `mal_buffer` |
+| Buffer observation | `mal_data`、`mal_count` |
+| Buffer element mutation | `mal_push`、`mal_replace`、`mal_fill` |
+| Buffer range transfer | `mal_copy`、`mal_append` |
+| Buffer extent | `mal_extend`、`mal_truncate`、`mal_reserve` |
 
 ## Runtime carrier
 
@@ -36,7 +60,16 @@ type formはCの型を書く位置で使い、評価時のlifecycle effectやrun
 | `mal_sum(T0, ...)` | ordered variantを持つanonymous sum | generated headerが公開したreachable structural sum |
 | `mal_owned(Name)` | `mal_type(Name)`にlexical cleanupを付けたlocal declaration | cleanupが生成されたnamed managed type |
 
-`mal_product`と`mal_sum`のargumentにはC carrier型を渡す。
+型マクロと`mal_storageof`へ渡すpublic carrier type form `T`は次で構成する。
+
+```text
+T ::= mal_type(Name)
+    | mal_product(T, ...)
+    | mal_sum(T, ...)
+```
+
+`mal_owned(Name)`はcleanupが生成されたnamed managed typeだけを受け、anonymous structural typeや任意のC型を受けるtype
+constructorではない。
 
 ```c
 mal_product(mal_type(Int64), mal_type(UInt8)) sample = {
@@ -56,7 +89,7 @@ responsibilityを直接構成するかMoveする。
 
 `mal_owned(Name)`はwrapper型ではない。builtin managed leafはcommon headerのcleanupを使い、generated headerはmanaged aggregateごとの
 cleanupとnamed aliasからそれへのmappingを生成する。scope終了、early return、明示Drop、Moveを同じvacant規則で扱うが、
-`mal_call_trap`はstack unwindingしない。external opaque resourceやtrivial typeへ`mal_owned`を提供しない。
+`mal_trap`はstack unwindingしない。external opaque resourceやtrivial typeへ`mal_owned`を提供しない。
 
 `mal_false`と`mal_true`だけがvalidなBool carrierである。Cがinvalid Bool、sum tag、inactive payload、owner、Symbol viewを構成した後の挙動は
 保証しない。
@@ -68,18 +101,18 @@ external opaque typeはpublicな`.bits` fieldを持つone-machine-word carrier�
 | primitive | result / effect |
 |---|---|
 | `mal_from_bits(mal_type(T), bits)` | `uintptr_t`からopaque carrierを構成する |
-| `mal_bits(value)` | opaque carrierを`uintptr_t`へ戻す |
+| `mal_to_bits(value)` | opaque carrierを`uintptr_t`へ戻す |
 
 変換はlosslessであり、generated headerは型別変換functionを生成しない。resourceのallocate、clone、close、free、valid bit patternは
 operation固有contractが定める。carrier bitsのcopyはresource lifecycleを実行しない。
 
 ## Storage query operator
 
-`mal_storage(T)`はC carrier型`T`から`mal_storage_descriptor_t`値を返す。descriptorはsize、alignment、storage用Share / Drop callbackを持つが、
+`mal_storageof(T)`はC carrier型`T`から`mal_storage_descriptor_t`値を返す。descriptorはsize、alignment、storage用Share / Drop callbackを持つが、
 registry、型名、dynamic type equality、値、responsibilityを持たない。
 
 ```c
-mal_storage_descriptor_t storage = mal_storage(mal_type(Symbol));
+mal_storage_descriptor_t storage = mal_storageof(mal_type(Symbol));
 ```
 
 これはCのoperatorではないが、利用上は`sizeof(T)`や`_Alignof(T)`に近いtype queryである。評価してもallocation、carrierの格納、Share、
@@ -96,7 +129,7 @@ carrier copyは、新しいresponsibilityを作らない通常のCの値とし�
 | mode | C上の形 | sourceの状態 | resultのresponsibility |
 |---|---|---|---|
 | Borrow | 通常のparameter渡し、観測、carrier copy | liveのまま | 作らない |
-| Share | `mal_share(call, value)` | liveのまま | 新しい一つを作る |
+| Share | `mal_share(value)` | liveのまま | 新しい一つを作る |
 | Move | `mal_move(value)` | vacantになる | sourceの一つを移す |
 | Drop | `mal_drop(value)` | vacantになる | 返さず一つを終了する |
 
@@ -111,15 +144,19 @@ call後に保存する場合やmanaged resultとして返す場合は、borrow�
 `mal_move`と`mal_drop`はowned lvalueだけを受け、一度だけ評価する。productではmanaged field、sumではactive payloadだけへgenerated glueが
 再帰する。Cが保持したresponsibilityは同じthread上で後に`mal_drop`する。
 
+`mal_share`はallocationせず、有効なresponsibilityに対して失敗しない。Share callbackもcontext-freeであり、representation固有の
+reference count overflowはpublicなcall capabilityを必要とするfailureではなく、context-freeなinternal fatal failureとして扱う。
+
 ## Runtime capability primitives
 
 | primitive | result / effect |
 |---|---|
-| `mal_runtime_allocate(call, size)` | runtimeと同じallocatorからraw storageを確保する |
-| `mal_runtime_deallocate(allocation)` | `mal_runtime_allocate`のstorageを解放する |
-| `mal_call_trap(call, message)` | 回復不能failureとしてprocessを終了し、returnしない |
+| `mal_allocate(call, size)` | runtimeと同じallocatorからraw storageを確保する |
+| `mal_deallocate(call, allocation)` | `mal_allocate`のstorageを解放する |
+| `mal_trap(call, message)` | 回復不能failureとしてprocessを終了し、returnしない |
 
-allocationはmanaged valueやresponsibilityを構成せず、raw storageの用途と内容はhostが管理する。`mal_call_trap`はstackをunwindしない。
+allocationはmanaged valueやresponsibilityを構成せず、raw storageの用途と内容はhostが管理する。確保と解放はいずれもactiveなcall
+activation内で行う。`mal_trap`はstackをunwindしない。
 
 ## Symbol primitive functions
 
@@ -129,7 +166,7 @@ allocationはmanaged valueやresponsibilityを構成せず、raw storageの用�
 | `mal_snapshot(call, buffer)` | `Buffer<UInt8>`とそのactive elementをborrow | 後のBuffer mutationから独立したowned Symbolを返す |
 
 どちらもsourceのlifetimeを延長せず、返したSymbolがcopy先のbytesを所有する。`mal_snapshot`の`buffer`は
-`mal_storage(mal_type(UInt8))`で構築されていなければならない。
+`mal_storageof(mal_type(UInt8))`で構築されていなければならない。
 
 ## Buffer primitive functions
 
@@ -139,15 +176,15 @@ Buffer primitiveは生成時に明示されたstorage descriptorをobjectへ保�
 | primitive | element responsibility | result / effect |
 |---|---|---|
 | `mal_buffer(call, storage, capacity)` | `storage`を値として保持 | count 0、指定capacityのowned Bufferを返す |
-| `mal_data(buffer)` | なし | element storageへの`void *`をborrowする |
-| `mal_count(buffer)` | なし | 現在のelement countを返す |
+| `mal_data(call, buffer)` | なし | element storageへの`void *`をborrowする |
+| `mal_count(call, buffer)` | なし | 現在のelement countを返す |
 | `mal_push(call, buffer, element)` | owned `element`を末尾へMove | 追加したindexを返し、countを1増やす |
 | `mal_replace(call, buffer, index, element)` | 既存要素をDropし、owned `element`をMove | countを変えず指定indexを置換する |
 | `mal_fill(call, buffer, offset, count, element)` | owned `element`をconsumeし、必要なら追加分をShare。既存要素はDrop | rangeを同じ値で埋め、必要ならcountを伸ばす |
 | `mal_copy(call, destination, destination_offset, source, source_offset, count)` | source rangeをborrowし、managed要素をShare。置換要素はDrop | Buffer間でrangeをcopyし、必要ならdestinationを伸ばす |
 | `mal_append(call, buffer, source, count)` | pointer rangeをborrowし、managed要素をShare | rangeを末尾へ追加する |
 | `mal_extend(call, buffer, count)` | trivial elementだけを許可 | countを増やし、未初期化の新しい末尾への`void *`を返す |
-| `mal_truncate(buffer, count)` | 取り除くmanaged要素をDrop | countを縮め、現在値以上なら何もしない |
+| `mal_truncate(call, buffer, count)` | 取り除くmanaged要素をDrop | countを縮め、現在値以上なら何もしない |
 | `mal_reserve(call, buffer, capacity)` | なし | element capacityを確保し、countは変えない |
 
 `mal_copy`の二つのBufferは同じstorage descriptorを持たなければならない。`mal_append`のsource pointerはdestinationのdescriptorと一致する
