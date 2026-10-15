@@ -262,3 +262,42 @@ fn lowers_direct_result_blocks_to_local_joins_without_a_lambda() {
         ExpressionKind::Reference(_)
     ));
 }
+
+#[test]
+fn forwards_outer_transfers_across_nested_result_blocks() {
+    let program = lower_ok(
+        "choose :: Bool -> Int32 := (condition) -> [outer] => {
+           value :: Int32 := [inner] => {
+             when (condition) { outer(1i32) };
+             inner(2i32)
+           };
+           outer(value)
+         };
+         main :: Unit -> Int32 := () -> choose(false);",
+    );
+    let lambda = top_lambda_definition(&program, "choose");
+    let ExpressionKind::Case { arms, .. } = &lambda.body.kind else {
+        panic!("expected the conditional inside the inner result block");
+    };
+    let ExpressionKind::Goto {
+        target: outer_target,
+        ..
+    } = arms[1].value.kind
+    else {
+        panic!("expected the true path to transfer to the outer result block");
+    };
+    let ExpressionKind::Goto {
+        target: remaining_target,
+        ..
+    } = arms[0].value.kind
+    else {
+        panic!("expected the false path to continue inside the inner result block");
+    };
+
+    assert_eq!(outer_target, JoinId(0));
+    assert_ne!(remaining_target, outer_target);
+    assert!(matches!(
+        lambda.joins[1].body.kind,
+        ExpressionKind::Let { .. }
+    ));
+}

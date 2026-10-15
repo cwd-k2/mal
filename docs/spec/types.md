@@ -89,7 +89,8 @@ b :: Int32 -> Choice := (value) -> [first, second] => second(value);
 [direct result block](control.md#direct-result-block)のresult binderで行う。
 
 空直和`[]`は値を持たず、一項直和`[A]`は存在しない。二項以上の直和は各項の値を持つ。
-`[]`のeliminationとcompletion規則は[result boundaryとcompletion](control.md#empty)に定める。
+`[]`のeliminationは[result boundary、`when`、`Empty`](control.md#empty)、completionとの合成は
+[completionとlexical edgeの合成](control-composition.md)に定める。
 
 n-ary sum と nested sum は異なる型である。
 

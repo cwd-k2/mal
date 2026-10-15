@@ -59,7 +59,7 @@ blockは0個以上のbody itemと最後のresult expressionからなり、最後
 result expressionのないblockとreturn statementはない。
 
 lambda bodyは通常の値で完了するほか、すべてのpathが`Abrupt`でもよい。完全な規則は
-[result boundaryとcompletion](control.md#completion-judgment)に定める。lambdaのresult edgeへ名前を付ける専用構文はなく、
+[completionとlexical edgeの合成](control-composition.md)に定める。lambdaのresult edgeへ名前を付ける専用構文はなく、
 early resultや直和の構築にはbody全体をdirect result blockにできる。
 
 ```mal

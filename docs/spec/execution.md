@@ -21,14 +21,15 @@ product構築がすべての要素を正格に評価するのに対し、このs
 これはproductとsumの型上の対応を保ちつつ、strict call-by-valueでbranchの作用を実行しないための操作的な非対称である。
 
 result binder applicationを含む式でも同じ順序を使う。`Abrupt`より前に完了した評価は保持し、同じpathで後にある評価は行わない。
-完全なcompletion規則は[result boundaryとcompletion](control.md#completion-judgment)に定める。
+完全なcompletion規則は[completionとlexical edgeの合成](control-composition.md)に定める。
 
 ## applicationとinvocation
 
 `f(a)`と`a[f]`はsource上の同じapplication expressionである。applicationを評価すると、argument valueとfunction valueを
 前節の順序で一度ずつ評価し、そのfunctionの新しいinvocationを始める。同じfunction valueは複数回applicationでき、各applicationは
 別のinvocationになる。invocationは正常resultを高々一度返し、そのresultでapplicationの後続を進める。result transfer、empty
-elimination、trapにより正常resultを返さないpathは[result boundaryとcompletion](control.md)と本書の[trap](#trap)に従う。
+elimination、trapにより正常resultを返さないpathは[completionとlexical edgeの合成](control-composition.md)、
+[result boundary、`when`、`Empty`](control.md)、本書の[trap](#trap)に従う。
 
 実行中のinvocationの後続であるdynamic continuationはsource-level valueではなく、構成、capture、clone、明示的resumeの対象にならない。
 通常のfunction value、result binder、dynamic continuation、backendのresume targetの設計上の区別は

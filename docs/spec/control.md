@@ -1,9 +1,10 @@
-# result boundaryとcompletion
+# result boundary、`when`、`Empty`
 
 Status: Accepted v0.7
 
-この文書はlexical result boundary、式のcompletion、`when`、空直和`[]`の規則を定める。
-通常のlambda、application、sum eliminationの規則は[式とbinding](expressions.md)を正とする。
+この文書はlexical result boundary、`when`、空直和`[]`の個別規則を定める。sequence、branch、boundaryを跨ぐcompletionの規則は
+[completionとlexical edgeの合成](control-composition.md)、通常のlambda、application、sum eliminationの規則は
+[式とbinding](expressions.md)を正とする。
 
 ## direct result block
 
@@ -40,33 +41,10 @@ result binderを適用するとargumentを評価した後、blockのresult edge�
 bodyはすべてのreachable pathで自身または外側のresult binder application、またはempty eliminationにより
 `Abrupt`でなければならず、block自身のresult binderを少なくとも一つのreachable pathで適用しなければならない。同じlambda
 invocationに属する外側のresult binderは内側のresult blockを越えて外側blockを完了し、内側blockのresult edgeには合流しない。
+この接続規則は[lexical result boundary](control-composition.md#lexical-result-boundary)に定める。
 
 この構文はfunction valueを作らない。`[k]`だけならUnitを`k`へ渡すapplicationである。binderを持たない
 `[] => body`は認めない。
-
-## completion judgment
-
-checkerは式の通常完了をsource typeとは別に`Value(T)`または`Abrupt`へ分類する。`Abrupt`は型でもsubtypeでもなく、期待型や
-仮のvalue typeを持たない。
-
-```text
-join(Value(T), Value(T)) = Value(T)
-join(Value(T), Abrupt)   = Value(T)
-join(Abrupt, Value(T))   = Value(T)
-join(Abrupt, Abrupt)     = Abrupt
-```
-
-異なる二つの`Value`型は通常どおりtype errorになる。result binder applicationとempty eliminationは`Abrupt`である。
-期待result型を`B`とするlambda bodyは`Value(B)`または`Abrupt`でよい。後者のinvocationは正常にはreturnしない。
-early resultを使うlambdaではbody全体をdirect result blockにし、そのblockが作った`Value(B)`でlambdaを正常完了する。
-
-binding initializerは`Value(T)`でなければならない。block途中の式が`Abrupt`なら、それより後のsource itemはunreachable codeとして
-compile-time errorになる。product要素、operator operand、argument、callee、continuationなどstrictに値を要求する位置で
-`Abrupt`になれば囲む式も`Abrupt`になり、評価順で先にある式の作用は保持し、後にあるsubexpressionはunreachableとして拒否する。
-短絡演算とsum eliminationでは選択されないbranchをunreachableとはしない。
-
-sum eliminationのcontinuationがbranchのとき（[直和の除去](expressions.md#直和の除去)）、各branchのcompletionを`if`と同じ`join`で
-畳み込む。少なくとも一つが`Value(T)`なら全体は`Value(T)`、すべてが`Abrupt`なら全体が`Abrupt`である。
 
 ## when
 
@@ -83,6 +61,7 @@ classify :: Int32 -> Symbol :=
 `when (condition) body`は`if (condition) then body else ()`と同じである。bodyは一つのexpressionであり、複数のbody itemが
 必要ならblock expressionを置く。conditionは一度だけ評価し、bodyのcompletionは
 `Value(Unit)`または`Abrupt`でなければならない。`when`全体は`Value(Unit)`になり、false pathだけが後続へfall throughする。
+branchとの合成は[Branch](control-composition.md#branch)に定める。
 
 ## Empty
 
@@ -98,14 +77,3 @@ zero-continuation eliminationであり、`Abrupt`になる。bare `[]`は式で�
 never :: Unit -> [] :=
     () -> never()[];
 ```
-
-## 評価とlowering
-
-result binder applicationはargumentを通常の順序で一度評価した後、宣言したblockのresult edgeへ接続する。sum binderはsum injectionを
-行って同じresult edgeへ接続する。lambda bodyの`Value` pathはlambda resultへ接続する。`when`はBool branch、empty eliminationは
-zero-arm sum eliminationへ変換する。core loweringは
-`Abrupt` pathでは後続を捨て、`Value` pathにだけlexicalな後続を接続する。この変換は既に完了した`extern`作用を省略・重複・並べ替えない。
-
-result binderとcompletion judgmentはcore境界で消去する。複数の`Value` pathが同じlexical continuationへ進む場合、core、ANF、
-closure IRは後続を複製せず非first-classなjoin identityへのtransferとして保持し、control loweringがinput付きstateへのjumpへ変換する。
-`Abrupt` pathは対応するresult boundaryへ進むか、empty eliminationにより正常完了しない。

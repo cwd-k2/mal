@@ -22,19 +22,20 @@
 10. [`Buffer`](spec/memory.md)
 11. [式と binding](spec/expressions.md)
 12. [literalとoperator](spec/operators.md)
-13. [result boundaryとcompletion](spec/control.md)
-14. [実行意味論](spec/execution.md)
-15. [`extern` 境界](spec/extern.md)
-16. [C runtime extension ABI](spec/c-host-abi.md)
-17. [C host value API](spec/c-host-api.md)
-18. [プログラム構造](spec/programs.md)
-19. [字句・文法](spec/grammar.md)
+13. [result boundary、`when`、`Empty`](spec/control.md)
+14. [completionとlexical edgeの合成](spec/control-composition.md)
+15. [実行意味論](spec/execution.md)
+16. [`extern` 境界](spec/extern.md)
+17. [C runtime extension ABI](spec/c-host-abi.md)
+18. [C host value API](spec/c-host-api.md)
+19. [プログラム構造](spec/programs.md)
+20. [字句・文法](spec/grammar.md)
 
 ## 目的別の入口
 
 | 目的 | 最初に読む文書 | 次に参照するauthority |
 |---|---|---|
-| 値、application、continuationの設計軸を理解する | [値、解釈、control](design/value-interpretation-and-control.md) | [実行意味論](spec/execution.md)、[result boundaryとcompletion](spec/control.md) |
+| 値、application、continuationの設計軸を理解する | [値、解釈、control](design/value-interpretation-and-control.md) | [実行意味論](spec/execution.md)、[completionとlexical edgeの合成](spec/control-composition.md) |
 | `malc`を使う | [`malc`利用contract](development/compiler-usage.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
 | formatterを使う | [formatting policy](development/formatting.md) | [grammar](spec/grammar.md) |
 | editorを設定する | [editor tooling](development/editor-tooling.md) | [test方針](development/testing.md) |
@@ -55,7 +56,7 @@
 | Pool上へopaque containerを構成する案を検討する | [Poolとopaque型によるcontainer基盤](proposals/pool/README.md) | [位置付けと根本モデル](proposals/pool/model/foundations.md)、[identityと型判定](proposals/pool/model/identity.md)、[意味論](proposals/pool/model/semantics.md)、[primitive](proposals/pool/api/pool.md)、[runtime contract](proposals/pool/runtime/contract.md)、[container](proposals/pool/containers/overview.md)、[外部事例](research/pool-storage-prior-art.md)、[試作](proposals/pool/prototypes.md) |
 | lambda literalのredex扱いを単一continuationとcallee位置へ広げる案を検討する | [その場でapplicationされるlambda literalの拡張](proposals/immediate-lambda-redex.md) | [lambdaの中断とredex](design/value-interpretation-and-control.md#lambdaの中断とredex)、[直和の除去](spec/expressions.md#直和の除去)、[D072](history/decisions/active/D072.md) |
 | 型変数を字面で型名と区別する案を検討する | [型変数を字面で型名と区別する案](proposals/type-variable-spelling.md) | [operation family](spec/operation-families.md)、[D094](history/decisions/active/D094.md) |
-| result boundaryを使う | [result boundaryとcompletion](spec/control.md) | [式とbinding](spec/expressions.md)、[採択理由](history/decisions/active/D051.md) |
+| result boundaryを使う | [result boundary、`when`、`Empty`](spec/control.md) | [completionとlexical edgeの合成](spec/control-composition.md)、[採択理由](history/decisions/active/D051.md) |
 | parametric polymorphismを使う | [parametric polymorphism](spec/generics.md) | [型](spec/types.md)、[external memory](spec/memory.md) |
 | C runtime extensionを書く | [C runtime extension guide](guide/c-runtime-extension.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
 | C host APIの分類と`call`引数の採択理由を調べる | [D099](history/decisions/active/D099.md) | [C runtime extension ABI](spec/c-host-abi.md)、[C host value API](spec/c-host-api.md) |
