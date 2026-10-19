@@ -54,13 +54,18 @@ source-level loanを意味しない。これらを将来導入する場合は同
 ownership planはtypedな`StateId`、binding site、`UseId`、`EdgeId`を使い、backendはplanを再推論しない。このidentityは
 別のordinalと取り違えられない型を保つ。新しいsynthetic useやdrop pointを追加するときも裸のtupleや共用integerへ戻さない。
 
-LLVM loweringの`EmittedValue.owned`は、planの結果を物理操作へ運ぶ一時的な証拠である。これはauthorityやlenderを表さず、値全体の
-booleanだけを持つため、新しいconsumerが直接書き換えるほどplanとの二重authorityになりやすい。次のいずれかが起きた場合は、
-borrowed carrierとowned handoffを別型にし、share、consume、dropを型付き変換に限定する。
+LLVM loweringの`EmittedValue`は、source type、LLVM representation、`ValueResponsibility = None | Borrowed | Owned`を分けて持つ。
+`None`はunmanaged type、`Borrowed`はplaceが保持するresponsibilityの観測、`Owned`はhandoffまたはreleaseが必要なcarrierを表す。
+slot初期化とparameter handoffはtypeと状態の不一致を拒否し、shareだけが`Borrowed`を`Owned`へ変える。この状態はauthorityやlenderを
+表さず、それらの決定は引き続きexecution ownership planに属する。
+
+現在のproduct carrierはleafごとの状態を保持せず、managed leafが一つでも`Owned`ならaggregate全体を`Owned`として一括handoffする。
+この規約を外してleafごとのhandoffを通常値として保持する必要が生じた場合は、`ValueResponsibility`を構造化し、share、consume、dropを
+その構造に対する型付き変換に限定する。次のいずれかが起きた場合も同じ境界を再評価する。
 
 - 同じhelperをLLVM通常値、runtime callback、別backendから利用する。
 - 一つのaggregateについてleafごとに異なるhandoffを通常の値として保持する。
-- `owned`の設定または検査漏れによるdefectが発生する。
+- responsibility状態の設定または検査漏れによるdefectが発生する。
 
 ### 保存則の検証
 

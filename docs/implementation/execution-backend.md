@@ -70,7 +70,7 @@ fieldごとの変換やcarrier validationは行わず、SymbolとBufferを含む
 LLVM moduleとgenerated C shim、C runtimeの内部bridgeは、`void` result、opaque pointer、input pointer、result out-pointerを
 基本とする。fixed-width scalarをsignatureで直接渡す場合や共有record layoutが必要な場合は、一つのbackend ABI planからC
 declarationとLLVM type、parameter attributeを生成し、双方でsignature、field、size、alignmentを再定義しない。bridge symbolは
-public headerへ出さない。
+public headerへ出さない。このprivate planは`backend/bridge_abi`が所有し、public C ABIを所有する`backend/c`とは分ける。
 
 driverの`--optimization production`はgenerated module、runtime C、C shim、利用者がrequireしたC sourceを同じLTO unitとして
 compile、linkする。`--optimization baseline`はLTOを使わない。LTOは

@@ -11,6 +11,10 @@ Status: Current v0.7 implementation policy
 `Unit`、`ByteSize`、`USize`、external opaque valueはownerを持たない。この分類は
 `execution::ownership`が一箇所で提供する。
 
+現在admitするruntime carrierはすべてbitwise relocation可能である。slot、frame、Buffer growth、C by-value carrier間のmoveは
+carrierのbyteを移すだけで`Share`または`Drop`を起こさず、移動元のresponsibilityを移動先へ渡す。将来この条件を満たさない型を
+導入する場合は、share/dropの要否を表す`Lifecycle`へ暗黙に含めず、relocation capabilityを別にadmitする。
+
 LLVM内の`Symbol`はowner pointer、active data address、byte countからなるviewであり、`Buffer<A>`はmanaged runtime objectへの
 pointerである。`Symbol`と`Buffer<UInt8>`の変換は独立したsemantic valueを作る。operandを他に持つものがなければbyte ownerを移し、それ以外は
 snapshot copyである。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
@@ -107,7 +111,8 @@ conventionよりpersistent lenderの証明を優先し、lambda-liftでclosure e
 
 calleeがmanaged parameterを保持する（returnする、captureする、保持するcalleeへ渡す）場合、native callのcallerは引数をownedで渡す。callerが以後その値を使わないなら`Consume`し、使うなら`Share`する。`ownership/convention`は、同じcall siteのtargetになり得るfunctionを、closure flowを通じて一つのgroupにまとめ、groupのいずれかが保持するならgroup全体でownedにする。保持しないmemberは入口で値を手放す。region内のfunction、process entry、regionの機構が実行するcallのtargetはborrowed conventionを使い、それらを含むgroupも同じである。callee operandとして動くclosureが、消費する引数の貸し手である場合は`Share`にする。採択理由とborrowed native ABIからのrefinementは[D083](../history/decisions/active/D083.md)に記録する。
 
-LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。
+LLVM backendはentryの由来、call target、parameterのlivenessを再推論しない。lowering中のcarrierはsource type、LLVM
+representation、`None`、`Borrowed`、`Owned`のresponsibility状態を別々に持ち、slot初期化とparameter handoffでtypeとの整合を検査する。
 
 ## closure environment
 
