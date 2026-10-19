@@ -1,6 +1,6 @@
 # C runtime extension ABI
 
-Status: Accepted ABI 0x000b00 for mal v0.7
+Status: Accepted ABI 0x000c00 for mal v0.7
 
 この文書はmal v0.7の`malc`が生成するC runtime extensionのbuild、header、call boundaryを定める。C carrier、responsibility、
 storage descriptor、公開primitiveは[C host value API](c-host-api.md)、source-level semanticsは[`extern`](extern.md)、実装方法は
@@ -20,10 +20,10 @@ object、archive、include path、macroは`malc`の明示的なbuild optionか�
 `mal.h`とgenerated headerは次を検査し、異なるversionを組み合わせない。
 
 ```c
-#define MAL_C_ABI_VERSION 0x000b00u
+#define MAL_C_ABI_VERSION 0x000c00u
 ```
 
-`0x000b00`はC ABI自体のversionであり、source languageのversionではない。ABIはcompiler/runtimeとのexact matchだけを保証する。
+`0x000c00`はC ABI自体のversionであり、source languageのversionではない。ABIはcompiler/runtimeとのexact matchだけを保証する。
 version間のsource compatibilityとbinary compatibilityは保証せず、compiler更新後はgenerated headerとC sourceを同じartifactとして
 recompileする。runtime `dlopen`、extension discovery、unload protocolは持たない。
 
@@ -34,7 +34,7 @@ recompileする。runtime `dlopen`、extension discovery、unload protocolは持
 
 `mal.h`はtarget-independentな名前と、そのartifactで使うtarget C ABIに従う公開surfaceを宣言する。
 
-- builtin carrier、`MalContext`、`mal_call_t`
+- builtin carrier、opaqueな`mal_call_t`
 - named、product、sumの[type form](c-host-api.md#type-form)
 - [storage queryとlifecycle operator](c-host-api.md#storage-query-operator)
 - allocation、trap、[SymbolとBufferのprimitive](c-host-api.md#symbol-primitive-functions)
@@ -74,9 +74,10 @@ by-valueの一carrierとして渡す。managed parameterはcallerがbody完了�
 bodyはCの`return`で一度完了する。その場で構成したowned rvalueとtrivial valueは直接returnできる。Unitは`mal_unit`をreturnする。
 空直和は正常にreturnできる値を持たない。
 
-`mal_call_t`は`MalContext`のpublic aliasであり、extern ABIの先頭parameterとして直接渡す同期runtime capabilityである。Call APIに利用するが、
-context-freeなlifecycle operator、program固有continuation、現在のcontrol state、Cからmal closureをapplicationするauthorityを持たない。
-pointerまたは内部stateをcall後に保持しない。
+`mal_call_t`はincompleteな`struct MalContext`を指すためのopaqueな名前であり、extern ABIの先頭parameterとして直接渡す同期runtime
+capabilityである。hostはそのsize、alignment、field layoutを利用せず、値を構築またはcopyしない。Call APIに利用するが、context-freeな
+lifecycle operator、program固有continuation、現在のcontrol state、Cからmal closureをapplicationするauthorityを持たない。pointerまたは
+内部stateをcall後に保持しない。具体的なcontext layoutと構築はgenerated shimとruntimeが共有するprivate headerだけが所有する。
 
 ## Failure、effect、concurrency
 
@@ -91,4 +92,4 @@ runtime contextとmanaged valueはthread-confinedである。同じcall capabili
 
 `mal_`と`MAL_` prefixはgenerated headerとruntime用に予約する。uppercaseはmacro、lowercaseは型、function、constantに使う。
 runtime extension境界の採択理由は[D098](../history/decisions/active/D098.md)、public surfaceの分類は
-[D099](../history/decisions/active/D099.md)に記録する。
+[D099](../history/decisions/active/D099.md)、opaque call capabilityへの分離は[D100](../history/decisions/active/D100.md)に記録する。

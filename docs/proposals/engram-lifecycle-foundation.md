@@ -90,10 +90,10 @@ ABIは一つの層としてまとめず、少なくとも次を分ける。
 | generated C / LLVM bridge | context、argument storage、result storageの内部call | hostが直接呼ぶsurface |
 | runtime mechanism ABI | allocation、owner、Buffer、control storageの生成物内接続 | source valueやextern resourceの意味 |
 
-現在の`mal.h`は`MalContext`のfield layoutと`mal_runtime_owner_retain/release`を、generated helperを成立させるために宣言している。
-これはhost向けcontractよりruntime mechanismを広く露出し、control storageやowner mechanismの変更をpublic ABI revisionへ結び付ける。
-ABIを次に変更する具体的理由が生じたときは、`mal_call_t`をopaqueなcapabilityにし、generated shimだけが必要とするcontext構築と
-runtime owner primitiveをprivate headerまたはinternal declarationへ移す案を先に評価する。
+ABI 0x000c00では`mal_call_t`をopaqueなcapabilityとし、具体的な`MalContext` layoutとgeneric owner primitiveをgenerated shimとruntimeが
+共有するprivate headerへ移した。`mal.h`に残すlifecycle entry pointはSymbolまたはBufferのaddressable carrierを受け、host helperが
+representation固有のownerを直接操作しない。これによりcontrol storageとowner mechanismはpublic carrierやextern signatureを変えずに
+変更できる。
 
 一方、`mal_storage_descriptor_t`はtype-erased Buffer storageが実際に必要とするsize、alignment、share、dropだけを保持している。
 dynamic type identity、allocation policy、access permissionを将来用に追加しない。bitwise relocationを満たさない型を扱う要求が出た場合は、

@@ -1,6 +1,6 @@
 # C host value API
 
-Status: Accepted ABI 0x000b00 for mal v0.7
+Status: Accepted ABI 0x000c00 for mal v0.7
 
 この文書はC runtime extensionが扱うcarrier、type form、responsibility、storage descriptor、公開primitiveを定める。buildとexternal
 operationのcall boundaryは[C runtime extension ABI](c-host-abi.md)、source-level managed valueは[Engram](engrams.md)と

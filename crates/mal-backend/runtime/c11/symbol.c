@@ -11,6 +11,27 @@ static void mal_symbol_set(
     *result = (MalBytesView){owner, data, length};
 }
 
+void mal_runtime_symbol_from(
+    MalContext *context,
+    void *opaque_result,
+    const void *source,
+    size_t length
+) {
+    MalBytesView *result = opaque_result;
+    MalBytes *owner = mal_runtime_bytes_read(context, source, length);
+    mal_symbol_set(result, owner, mal_bytes_data(owner), length);
+}
+
+void mal_runtime_symbol_retain(void *carrier) {
+    MalBytesView *symbol = carrier;
+    mal_bytes_retain(symbol->owner);
+}
+
+void mal_runtime_symbol_release(void *carrier) {
+    MalBytesView *symbol = carrier;
+    mal_bytes_release(symbol->owner);
+}
+
 uint8_t mal_runtime_symbol_at(const void *data, size_t index) {
     return ((const unsigned char *)data)[index];
 }

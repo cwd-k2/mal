@@ -77,6 +77,16 @@ void mal_runtime_owner_release(void *owner) {
     }
 }
 
+void mal_runtime_buffer_retain(void *carrier) {
+    void *buffer = *(void **)carrier;
+    mal_runtime_owner_retain(buffer);
+}
+
+void mal_runtime_buffer_release(void *carrier) {
+    void *buffer = *(void **)carrier;
+    mal_runtime_owner_release(buffer);
+}
+
 __attribute__((always_inline))
 uint8_t mal_runtime_owner_is_unique(const void *owner) {
     if (owner == NULL || ((uintptr_t)owner & 1) != 0) {

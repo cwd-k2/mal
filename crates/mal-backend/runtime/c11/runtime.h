@@ -7,18 +7,17 @@
 /* Internal ABI between generated LLVM code and the runtime. A context belongs to one thread. Every function that
  * allocates traps on failure and on size overflow instead of returning an error. */
 
-#ifndef MAL_H
-/* Standalone runtime users do not include the public host header. Keep this definition synchronized with `mal.h`. */
 typedef struct {
     unsigned char *storage;
     size_t capacity;
 } MalControlArena;
 
-typedef struct {
+typedef struct MalContext {
     MalControlArena control;
     uintptr_t native_stack_limit;
 } MalContext;
 
+#ifndef MAL_H
 /* Program-specific lifecycle glue for one runtime carrier stored in place. */
 typedef void (*MalRuntimeRetain)(void *carrier);
 typedef void (*MalRuntimeRelease)(void *carrier);
@@ -48,6 +47,17 @@ void *mal_runtime_owner_allocate(
 void *mal_runtime_owner_retain(void *owner);
 void mal_runtime_owner_release(void *owner);
 uint8_t mal_runtime_owner_is_unique(const void *owner);
+/* Public-host lifecycle entry points take an addressable carrier, not a generic owner. */
+void mal_runtime_symbol_from(
+    MalContext *context,
+    void *result,
+    const void *source,
+    size_t length
+);
+void mal_runtime_symbol_retain(void *carrier);
+void mal_runtime_symbol_release(void *carrier);
+void mal_runtime_buffer_retain(void *carrier);
+void mal_runtime_buffer_release(void *carrier);
 /* The control arena is grown by reserve_frame and freed here. */
 void mal_control_destroy(MalContext *context);
 /* Makes room for `frame_size` bytes above `current_bytes` and returns the storage base. Growth can move the storage, so

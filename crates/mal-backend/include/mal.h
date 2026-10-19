@@ -7,7 +7,7 @@
 #include <float.h>
 #include <string.h>
 
-#define MAL_C_ABI_VERSION 0x000b00u
+#define MAL_C_ABI_VERSION 0x000c00u
 
 /** Carrier type form: expands a named closed Mal type to its C runtime carrier type. This carries no responsibility or runtime type metadata. */
 #define mal_type(name) MAL_DETAIL_NAMED_TYPE(name)
@@ -26,8 +26,6 @@
 
 /* Runtime API */
 
-typedef struct { uint8_t *storage; size_t capacity; } MalControlArena;
-typedef struct { MalControlArena control; uintptr_t native_stack_limit; } MalContext;
 typedef struct { uint8_t unused; } MalType_Unit;
 typedef uint8_t MalType_Bool;
 typedef int8_t MalType_Int8;
@@ -66,7 +64,7 @@ typedef MalType_ByteSize mal_ByteSize_t;
 typedef MalType_USize mal_USize_t;
 typedef void (*mal_detail_sum_key_bool_t)(mal_Unit_t, mal_Unit_t);
 __attribute__((overloadable)) mal_Bool_t *mal_detail_sum_type(mal_detail_sum_key_bool_t);
-typedef MalContext mal_call_t;
+typedef struct MalContext mal_call_t;
 typedef void (*MalRuntimeRetain)(void *);
 typedef void (*MalRuntimeRelease)(void *);
 typedef struct { size_t size; size_t alignment; MalRuntimeRetain share; MalRuntimeRelease drop; } mal_storage_descriptor_t;
@@ -75,33 +73,32 @@ typedef struct { size_t size; size_t alignment; MalRuntimeRetain share; MalRunti
 #define mal_true (mal_Bool_t)UINT8_C(1)
 #define mal_unit (mal_Unit_t){ .unused = UINT8_C(0) }
 
-_Noreturn void mal_trap(MalContext *context, const char *message);
-void *mal_allocate(MalContext *context, size_t size);
-void mal_deallocate(MalContext *context, void *allocation);
-void *mal_runtime_owner_retain(void *owner);
-void mal_runtime_owner_release(void *owner);
-uint8_t mal_runtime_owner_is_unique(const void *owner);
-const uint8_t *mal_runtime_bytes_data(const void *owner);
-void *mal_runtime_bytes_read(MalContext *context, const void *source, size_t length);
-void *mal_runtime_bytes_retain(const void *owner);
-void mal_runtime_bytes_release(const void *owner);
-void *mal_runtime_buffer_make(MalContext *context, size_t stride, size_t capacity);
-void *mal_runtime_buffer_make_managed(MalContext *context, size_t stride, size_t capacity, MalRuntimeRetain retain, MalRuntimeRelease release);
+_Noreturn void mal_trap(mal_call_t *context, const char *message);
+void *mal_allocate(mal_call_t *context, size_t size);
+void mal_deallocate(mal_call_t *context, void *allocation);
+void mal_runtime_symbol_from(mal_call_t *context, void *result, const void *source, size_t length);
+void mal_runtime_symbol_retain(void *carrier);
+void mal_runtime_symbol_release(void *carrier);
+void mal_runtime_buffer_retain(void *carrier);
+void mal_runtime_buffer_release(void *carrier);
+void *mal_runtime_buffer_make(mal_call_t *context, size_t stride, size_t capacity);
+void *mal_runtime_buffer_make_managed(mal_call_t *context, size_t stride, size_t capacity, MalRuntimeRetain retain, MalRuntimeRelease release);
 void *const *mal_runtime_buffer_data_slot(const void *buffer);
 size_t mal_runtime_buffer_count(const void *buffer);
-size_t mal_runtime_buffer_new(MalContext *context, void *buffer, const void *value, size_t stride);
-size_t mal_runtime_buffer_new_managed_move(MalContext *context, void *buffer, const void *value, size_t stride);
-size_t mal_runtime_buffer_new_move(MalContext *context, void *buffer, const void *value);
-void mal_runtime_buffer_replace_move(MalContext *context, void *buffer, size_t index, const void *value);
-void mal_runtime_buffer_fill_move(MalContext *context, void *buffer, size_t offset, size_t count, const void *value);
-void mal_runtime_buffer_copy_values(MalContext *context, void *destination, size_t destination_offset, const void *source, size_t source_offset, size_t count);
-void mal_runtime_buffer_append_values(MalContext *context, void *buffer, const void *source, size_t count);
-void *mal_runtime_buffer_extend(MalContext *context, void *buffer, size_t count);
-void mal_runtime_buffer_truncate(MalContext *context, void *buffer, size_t count);
-void mal_runtime_buffer_reserve_elements(MalContext *context, void *buffer, size_t capacity);
+size_t mal_runtime_buffer_new(mal_call_t *context, void *buffer, const void *value, size_t stride);
+size_t mal_runtime_buffer_new_managed_move(mal_call_t *context, void *buffer, const void *value, size_t stride);
+size_t mal_runtime_buffer_new_move(mal_call_t *context, void *buffer, const void *value);
+void mal_runtime_buffer_replace_move(mal_call_t *context, void *buffer, size_t index, const void *value);
+void mal_runtime_buffer_fill_move(mal_call_t *context, void *buffer, size_t offset, size_t count, const void *value);
+void mal_runtime_buffer_copy_values(mal_call_t *context, void *destination, size_t destination_offset, const void *source, size_t source_offset, size_t count);
+void mal_runtime_buffer_append_values(mal_call_t *context, void *buffer, const void *source, size_t count);
+void *mal_runtime_buffer_extend(mal_call_t *context, void *buffer, size_t count);
+void mal_runtime_buffer_truncate(mal_call_t *context, void *buffer, size_t count);
+void mal_runtime_buffer_reserve_elements(mal_call_t *context, void *buffer, size_t capacity);
 static inline mal_Symbol_t mal_detail_symbol(mal_call_t *call, const void *source, size_t length) {
-    void *owner = mal_runtime_bytes_read(call, source, length);
-    return (mal_Symbol_t){ .owner = owner, .data = mal_runtime_bytes_data(owner), .length = length };
+    mal_Symbol_t result;
+    mal_runtime_symbol_from(call, &result, source, length);
+    return result;
 }
 static inline mal_Buffer_t mal_detail_buffer_make(mal_call_t *call, size_t stride, size_t capacity) {
     return mal_runtime_buffer_make(call, stride, capacity);
@@ -120,28 +117,28 @@ static inline __attribute__((overloadable)) void mal_detail_retain(void *value M
 static inline __attribute__((overloadable)) void mal_detail_release(void *value MAL_DETAIL_MAYBE_UNUSED) {
 }
 static inline __attribute__((overloadable)) void mal_detail_retain(mal_Symbol_t *value) {
-    mal_runtime_bytes_retain(value->owner);
+    mal_runtime_symbol_retain(value);
 }
 static inline __attribute__((overloadable)) void mal_detail_release(mal_Symbol_t *value) {
-    mal_runtime_bytes_release(value->owner);
+    mal_runtime_symbol_release(value);
 }
 static inline __attribute__((overloadable)) void mal_detail_retain(mal_Buffer_t *value) {
-    mal_runtime_owner_retain(*value);
+    mal_runtime_buffer_retain(value);
 }
 static inline __attribute__((overloadable)) void mal_detail_release(mal_Buffer_t *value) {
-    mal_runtime_owner_release(*value);
+    mal_runtime_buffer_release(value);
 }
 static inline void mal_detail_symbol_storage_share(void *carrier) {
-    mal_detail_retain((mal_Symbol_t *)carrier);
+    mal_runtime_symbol_retain(carrier);
 }
 static inline void mal_detail_symbol_storage_drop(void *carrier) {
-    mal_detail_release((mal_Symbol_t *)carrier);
+    mal_runtime_symbol_release(carrier);
 }
 static inline void mal_detail_buffer_storage_share(void *carrier) {
-    mal_detail_retain((mal_Buffer_t *)carrier);
+    mal_runtime_buffer_retain(carrier);
 }
 static inline void mal_detail_buffer_storage_drop(void *carrier) {
-    mal_detail_release((mal_Buffer_t *)carrier);
+    mal_runtime_buffer_release(carrier);
 }
 static inline __attribute__((overloadable)) mal_storage_descriptor_t mal_detail_storage(void *type MAL_DETAIL_MAYBE_UNUSED, size_t size, size_t alignment) {
     return (mal_storage_descriptor_t){ .size = size, .alignment = alignment, .share = NULL, .drop = NULL };

@@ -50,14 +50,6 @@ pub(super) fn emit() -> String {
     output.extend(c_items! { comment!("Runtime API"); });
     output.blank_line();
     output.extend(c_items! {
-        type MalControlArena = struct {
-            storage: *mut uint8_t,
-            capacity: size_t,
-        };
-        type MalContext = struct {
-            control: MalControlArena,
-            native_stack_limit: uintptr_t,
-        };
         type MalType_Unit = struct {
             unused: uint8_t,
         };
@@ -154,7 +146,10 @@ pub(super) fn emit() -> String {
         )
         .with_specifiers([FunctionSpecifier::Overloadable]),
     );
-    output.extend(c_items! { type mal_call_t = MalContext; });
+    output.push(Declaration::type_alias(
+        TypeName::structure("MalContext"),
+        "mal_call_t",
+    ));
     output.push(Declaration::function_pointer_type_alias(
         TypeName::named("void"),
         "MalRuntimeRetain",
@@ -182,35 +177,34 @@ pub(super) fn emit() -> String {
     output.blank_line();
     output.extend(c_items! {
         #[noreturn] fn mal_trap(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             message: *const char,
         ) -> void;
         fn mal_allocate(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             size: size_t,
         ) -> *mut void;
         fn mal_deallocate(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             allocation: *mut void,
         ) -> void;
-        fn mal_runtime_owner_retain(owner: *mut void) -> *mut void;
-        fn mal_runtime_owner_release(owner: *mut void) -> void;
-        fn mal_runtime_owner_is_unique(owner: *const void) -> uint8_t;
-        fn mal_runtime_bytes_data(owner: *const void) -> *const uint8_t;
-        fn mal_runtime_bytes_read(
-            context: *mut MalContext,
+        fn mal_runtime_symbol_from(
+            context: *mut mal_call_t,
+            result: *mut void,
             source: *const void,
             length: size_t,
-        ) -> *mut void;
-        fn mal_runtime_bytes_retain(owner: *const void) -> *mut void;
-        fn mal_runtime_bytes_release(owner: *const void) -> void;
+        ) -> void;
+        fn mal_runtime_symbol_retain(carrier: *mut void) -> void;
+        fn mal_runtime_symbol_release(carrier: *mut void) -> void;
+        fn mal_runtime_buffer_retain(carrier: *mut void) -> void;
+        fn mal_runtime_buffer_release(carrier: *mut void) -> void;
         fn mal_runtime_buffer_make(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             stride: size_t,
             capacity: size_t,
         ) -> *mut void;
         fn mal_runtime_buffer_make_managed(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             stride: size_t,
             capacity: size_t,
             retain: MalRuntimeRetain,
@@ -219,37 +213,37 @@ pub(super) fn emit() -> String {
         fn mal_runtime_buffer_data_slot(buffer: *const void) -> *const *mut void;
         fn mal_runtime_buffer_count(buffer: *const void) -> size_t;
         fn mal_runtime_buffer_new(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             value: *const void,
             stride: size_t,
         ) -> size_t;
         fn mal_runtime_buffer_new_managed_move(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             value: *const void,
             stride: size_t,
         ) -> size_t;
         fn mal_runtime_buffer_new_move(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             value: *const void,
         ) -> size_t;
         fn mal_runtime_buffer_replace_move(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             index: size_t,
             value: *const void,
         ) -> void;
         fn mal_runtime_buffer_fill_move(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             offset: size_t,
             count: size_t,
             value: *const void,
         ) -> void;
         fn mal_runtime_buffer_copy_values(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             destination: *mut void,
             destination_offset: size_t,
             source: *const void,
@@ -257,23 +251,23 @@ pub(super) fn emit() -> String {
             count: size_t,
         ) -> void;
         fn mal_runtime_buffer_append_values(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             source: *const void,
             count: size_t,
         ) -> void;
         fn mal_runtime_buffer_extend(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             count: size_t,
         ) -> *mut void;
         fn mal_runtime_buffer_truncate(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             count: size_t,
         ) -> void;
         fn mal_runtime_buffer_reserve_elements(
-            context: *mut MalContext,
+            context: *mut mal_call_t,
             buffer: *mut void,
             capacity: size_t,
         ) -> void;
@@ -282,16 +276,14 @@ pub(super) fn emit() -> String {
             source: *const void,
             length: size_t,
         ) -> mal_Symbol_t {
-            let owner: *mut void = mal_runtime_bytes_read(
+            let result: mal_Symbol_t;
+            mal_runtime_symbol_from(
                 call,
+                &result,
                 source,
                 length,
             );
-            return mal_Symbol_t {
-                owner: owner,
-                data: mal_runtime_bytes_data(owner),
-                length: length,
-            };
+            return result;
         }
         #[static] #[inline] fn mal_detail_buffer_make(
             call: *mut mal_call_t,
@@ -354,42 +346,42 @@ fn append_host_lifecycle(output: &mut TranslationUnit) {
         #[static] #[inline] #[overloadable] fn mal_detail_retain(
             value: *mut mal_Symbol_t,
         ) -> void {
-            mal_runtime_bytes_retain((*value).owner);
+            mal_runtime_symbol_retain(value);
         }
         #[static] #[inline] #[overloadable] fn mal_detail_release(
             value: *mut mal_Symbol_t,
         ) -> void {
-            mal_runtime_bytes_release((*value).owner);
+            mal_runtime_symbol_release(value);
         }
         #[static] #[inline] #[overloadable] fn mal_detail_retain(
             value: *mut mal_Buffer_t,
         ) -> void {
-            mal_runtime_owner_retain(*value);
+            mal_runtime_buffer_retain(value);
         }
         #[static] #[inline] #[overloadable] fn mal_detail_release(
             value: *mut mal_Buffer_t,
         ) -> void {
-            mal_runtime_owner_release(*value);
+            mal_runtime_buffer_release(value);
         }
         #[static] #[inline] fn mal_detail_symbol_storage_share(
             carrier: *mut void,
         ) -> void {
-            mal_detail_retain(carrier as *mut mal_Symbol_t);
+            mal_runtime_symbol_retain(carrier);
         }
         #[static] #[inline] fn mal_detail_symbol_storage_drop(
             carrier: *mut void,
         ) -> void {
-            mal_detail_release(carrier as *mut mal_Symbol_t);
+            mal_runtime_symbol_release(carrier);
         }
         #[static] #[inline] fn mal_detail_buffer_storage_share(
             carrier: *mut void,
         ) -> void {
-            mal_detail_retain(carrier as *mut mal_Buffer_t);
+            mal_runtime_buffer_retain(carrier);
         }
         #[static] #[inline] fn mal_detail_buffer_storage_drop(
             carrier: *mut void,
         ) -> void {
-            mal_detail_release(carrier as *mut mal_Buffer_t);
+            mal_runtime_buffer_release(carrier);
         }
         #[static] #[inline] #[overloadable] fn mal_detail_storage(
             #[maybe_unused] type: *mut void,

@@ -13,7 +13,7 @@ mod prefix;
 
 use self::prefix::emit_prefix;
 
-const C_ABI_VERSION_LITERAL: &str = "0x000b00u";
+const C_ABI_VERSION_LITERAL: &str = "0x000c00u";
 
 pub(super) fn emit_common() -> String {
     common::emit()
