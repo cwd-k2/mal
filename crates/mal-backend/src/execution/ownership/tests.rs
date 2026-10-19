@@ -48,6 +48,18 @@ fn validates_the_exact_binding_drop_facts() {
         .next()
         .expect("dead managed value fact");
     execution.ownership.drops_after_binding.remove(&point);
+    assert!(!validation::preserves_responsibilities(
+        &execution.ownership,
+        &Inputs::new(
+            &execution.control,
+            &execution.applications,
+            &optimizations,
+            &execution.parameters,
+            &execution.control_calls,
+            &execution.control_regions,
+            RecursionPlans::new(&execution.control_frames, &execution.native_recursion),
+        ),
+    ));
     assert!(!execution.ownership.is_valid(Inputs::new(
         &execution.control,
         &execution.applications,
@@ -57,6 +69,35 @@ fn validates_the_exact_binding_drop_facts() {
         &execution.control_regions,
         RecursionPlans::new(&execution.control_frames, &execution.native_recursion),
     )));
+}
+
+#[test]
+fn keeps_program_lifetime_managed_bindings_out_of_local_drops() {
+    let source = SourceFile::new(
+        FileId::new(107),
+        "execution-ownership-top-level.mal",
+        "increment :: Int32 -> Int32 := (value) -> { value + 1i32; };\nmain :: Unit -> Int32 := () -> { pair := (increment, 0i32); 0i32; };"
+            .into(),
+    );
+    let checked =
+        mal_frontend::analysis::check(&source).expect("check top-level ownership fixture");
+    let core = crate::core::lower(
+        &mal_frontend::check::specialize(checked).expect("specialize top-level ownership fixture"),
+    );
+    let anf = crate::anf::lower(&core);
+    let closure = crate::closure::convert(&anf);
+    let execution = crate::execution::lower(closure, super::super::OptimizationSet::production());
+    let locals = super::liveness::local_bindings(&execution.control);
+
+    assert!(
+        execution
+            .ownership
+            .drops_after_binding
+            .values()
+            .chain(execution.ownership.drops_on_edge.values())
+            .flatten()
+            .all(|id| locals.contains(id))
+    );
 }
 
 #[test]

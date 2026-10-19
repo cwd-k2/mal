@@ -1,20 +1,22 @@
-//! Local responsibility conservation checks independent from ownership-plan reconstruction.
+//! Responsibility conservation checks independent from ownership-plan reconstruction.
 
 use std::collections::HashSet;
 
 use crate::anf::ast::ValueId;
 use crate::closure::ast::Pattern;
+use crate::control::ast::{StateId, Terminator};
 
 use super::identity::{BindingSite, UseId, UseLocation};
+use super::liveness::local_bindings;
 use super::operand::{OperationEffect, binding_operands, terminator_argument, terminator_operands};
 use super::{Inputs, ParameterEffect, PatternDestination, Plan, UseEffect, fused_arguments};
 
-/// Checks local conservation rules without deriving the expected plan again.
+/// Checks conservation rules without deriving the expected plan again.
 ///
 /// Exact validation still compares the plan with a reconstruction from its authority. These checks
 /// cover invariants that should remain true if the planner's derivation changes: destinations agree
 /// with pattern lifecycle, every managed operand has one effect, observations do not take ownership,
-/// and one local responsibility is not both consumed and dropped at the same point.
+/// and every live owner is consumed, dropped, or preserved exactly once along each control path.
 pub(super) fn preserves_responsibilities(plan: &Plan, inputs: &Inputs<'_>) -> bool {
     let effective = fused_arguments(inputs.control, inputs.calls);
     let control = &*effective;
@@ -23,6 +25,181 @@ pub(super) fn preserves_responsibilities(plan: &Plan, inputs: &Inputs<'_>) -> bo
         && terminator_uses_are_total(plan, control)
         && drops_are_valid(plan)
         && parameters_are_valid(plan, control)
+        && responsibilities_end_once_per_path(plan, inputs, control)
+}
+
+fn responsibilities_end_once_per_path(
+    plan: &Plan,
+    inputs: &Inputs<'_>,
+    control: &crate::control::ast::Program,
+) -> bool {
+    let locals = local_bindings(control);
+    for (state_index, state) in control.states.iter().enumerate() {
+        let site = StateId(state_index);
+        let Some(mut active) = plan.live_owners.get(state_index).cloned() else {
+            return false;
+        };
+        if let Some(destination) = plan.input_destinations.get(&site)
+            && !initialize_destination(destination, &mut active)
+        {
+            return false;
+        }
+
+        for (binding_index, binding) in state.bindings.iter().enumerate() {
+            for (operand, atom, _) in binding_operands(&binding.operation) {
+                if super::is_managed(&atom.ty)
+                    && !apply_use(
+                        &mut active,
+                        &locals,
+                        &plan.borrowed_bindings,
+                        atom.binding(),
+                        plan.uses.get(&UseId {
+                            state: site,
+                            location: UseLocation::Binding {
+                                binding: binding_index,
+                                operand,
+                            },
+                        }),
+                    )
+                {
+                    return false;
+                }
+            }
+            let Some(destination) = plan
+                .binding_destinations
+                .get(&BindingSite::new(site, binding_index))
+            else {
+                return false;
+            };
+            if !initialize_destination(destination, &mut active) {
+                return false;
+            }
+            if !apply_drops(
+                &mut active,
+                plan.drops_after_binding
+                    .get(&BindingSite::new(site, binding_index))
+                    .map_or(&[], Vec::as_slice),
+            ) {
+                return false;
+            }
+        }
+
+        if let Some(frame) = inputs.frames.frame(site) {
+            for (field_index, field) in frame.fields.iter().enumerate() {
+                if super::is_managed(&field.ty)
+                    && !plan.borrowed_bindings.contains(&field.id)
+                    && !apply_use(
+                        &mut active,
+                        &locals,
+                        &plan.borrowed_bindings,
+                        Some(field.id),
+                        plan.uses.get(&UseId {
+                            state: site,
+                            location: UseLocation::FrameField(field_index),
+                        }),
+                    )
+                {
+                    return false;
+                }
+            }
+        }
+        for (operand, atom, _) in
+            terminator_operands(&state.terminator, terminator_argument(&state.terminator))
+        {
+            if super::is_managed(&atom.ty)
+                && !apply_use(
+                    &mut active,
+                    &locals,
+                    &plan.borrowed_bindings,
+                    atom.binding(),
+                    plan.uses.get(&UseId {
+                        state: site,
+                        location: UseLocation::Terminator(operand),
+                    }),
+                )
+            {
+                return false;
+            }
+        }
+
+        for (path, successor) in
+            super::drop_plan::control_paths(site, &state.terminator, inputs.calls, inputs.frames)
+        {
+            let mut remaining = active.clone();
+            if let (super::ControlPath::CaseArm(arm), Terminator::Case { scrutinee, .. }) =
+                (path, &state.terminator)
+                && let Some(effect) = plan.uses.get(&UseId {
+                    state: site,
+                    location: UseLocation::CasePayload(arm),
+                })
+                && !apply_use(
+                    &mut remaining,
+                    &locals,
+                    &plan.borrowed_bindings,
+                    scrutinee.binding(),
+                    Some(effect),
+                )
+            {
+                return false;
+            }
+            if !apply_drops(
+                &mut remaining,
+                plan.drops_on_edge
+                    .get(&super::EdgeId { state: site, path })
+                    .map_or(&[], Vec::as_slice),
+            ) {
+                return false;
+            }
+            if !remaining.iter().all(|id| {
+                successor.is_some_and(|target| {
+                    plan.live_owners
+                        .get(target.0)
+                        .is_some_and(|live| live.contains(id))
+                })
+            }) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn apply_use(
+    active: &mut HashSet<ValueId>,
+    locals: &HashSet<ValueId>,
+    borrowed: &HashSet<ValueId>,
+    source: Option<ValueId>,
+    effect: Option<&UseEffect>,
+) -> bool {
+    let Some(effect) = effect else {
+        return false;
+    };
+    let Some(source) = source.filter(|source| locals.contains(source)) else {
+        return true;
+    };
+    if borrowed.contains(&source) {
+        return *effect != UseEffect::Consume;
+    }
+    match effect {
+        UseEffect::Borrow | UseEffect::Share => active.contains(&source),
+        UseEffect::Consume => active.remove(&source),
+    }
+}
+
+fn initialize_destination(destination: &PatternDestination, active: &mut HashSet<ValueId>) -> bool {
+    match destination {
+        PatternDestination::Initialize(id) => active.insert(*id),
+        PatternDestination::Product(elements) => elements
+            .iter()
+            .all(|element| initialize_destination(element, active)),
+        PatternDestination::Unmanaged
+        | PatternDestination::Borrow(_)
+        | PatternDestination::Discard => true,
+    }
+}
+
+fn apply_drops(active: &mut HashSet<ValueId>, drops: &[ValueId]) -> bool {
+    drops.iter().all(|id| active.remove(id))
 }
 
 fn destinations_are_valid(plan: &Plan, control: &crate::control::ast::Program) -> bool {

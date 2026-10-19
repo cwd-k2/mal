@@ -86,7 +86,7 @@ pub(super) fn collect_edge_drops(
     result
 }
 
-fn control_paths(
+pub(super) fn control_paths(
     site: StateId,
     terminator: &Terminator,
     calls: &ControlCallPlan,

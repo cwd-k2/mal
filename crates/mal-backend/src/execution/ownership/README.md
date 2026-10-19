@@ -10,7 +10,7 @@ earlier ones complete. The plan's exact validator rebuilds it from the same auth
 | `identity` | typed binding, use, control-edge, and operand identities the plan is written in |
 | `lifecycle` | the representation-independent `Trivial` or `Owned` lifecycle of each type |
 | `operand` | the operands of each operation and terminator, and whether each may pass ownership into the result |
-| `liveness` | which managed bindings are live at each point |
+| `liveness` | which managed bindings and lending owners are live at each point |
 | `authority` | the managed values whose lifetime authorizes each borrowed binding |
 | `authority_lenders` | the owning binding behind each chain of borrowed aliases |
 | `borrow` | the bindings that borrow instead of owning |
@@ -19,5 +19,5 @@ earlier ones complete. The plan's exact validator rebuilds it from the same auth
 | `destination` | where a pattern puts the values it binds |
 | `use_plan` | the borrow, share, or consume effect of every managed use |
 | `drop_plan` | the drops on each control edge |
-| `validation` | local responsibility conservation independent from exact plan reconstruction |
+| `validation` | per-operation and per-control-path responsibility conservation independent from exact plan reconstruction |
 | `query` | the facts the backend reads from a finished plan |

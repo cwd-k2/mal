@@ -69,6 +69,7 @@ pub(crate) struct Plan {
     uses: HashMap<UseId, UseEffect>,
     parameters: HashMap<(FunctionId, ParameterEntry), ParameterEffect>,
     borrowed_bindings: HashSet<ValueId>,
+    live_owners: Vec<HashSet<ValueId>>,
     owned_functions: HashSet<FunctionId>,
     owned_sites: HashSet<StateId>,
 }
@@ -181,8 +182,17 @@ impl Plan {
             native_recursion,
             &environment_aliases,
         );
-        let live_in = borrows.live_in(control);
         let borrowed_bindings = borrows.bindings();
+        let live_in = borrows.live_in(control);
+        let live_owners = live_in
+            .iter()
+            .map(|live| {
+                live.iter()
+                    .filter(|id| !borrowed_bindings.contains(id))
+                    .copied()
+                    .collect()
+            })
+            .collect();
         let mut input_destinations = HashMap::new();
         for (index, state) in control.states.iter().enumerate() {
             let mut live = borrows.terminator_live(&state.terminator, &live_in);
@@ -233,7 +243,7 @@ impl Plan {
                 let drops = used
                     .into_iter()
                     .chain(lenders)
-                    .filter(|id| !live.contains(id))
+                    .filter(|id| binding_order.contains_key(id) && !live.contains(id))
                     .collect::<Vec<_>>();
                 if !drops.is_empty() {
                     drops_after_binding.insert(site, drops);
@@ -280,6 +290,7 @@ impl Plan {
             uses,
             parameters,
             borrowed_bindings,
+            live_owners,
             owned_functions: parameter_borrows.owned.functions,
             owned_sites: parameter_borrows.owned.sites,
         }
