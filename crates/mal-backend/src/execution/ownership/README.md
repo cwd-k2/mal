@@ -19,4 +19,5 @@ earlier ones complete. The plan's exact validator rebuilds it from the same auth
 | `destination` | where a pattern puts the values it binds |
 | `use_plan` | the borrow, share, or consume effect of every managed use |
 | `drop_plan` | the drops on each control edge |
+| `validation` | local responsibility conservation independent from exact plan reconstruction |
 | `query` | the facts the backend reads from a finished plan |

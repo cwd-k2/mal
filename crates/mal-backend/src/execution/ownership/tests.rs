@@ -451,7 +451,8 @@ fn borrows_a_final_observation_before_dropping_its_source() {
     );
     let anf = crate::anf::lower(&core);
     let closure = crate::closure::convert(&anf);
-    let execution = crate::execution::lower(closure, super::super::OptimizationSet::production());
+    let mut execution =
+        crate::execution::lower(closure, super::super::OptimizationSet::production());
     let control = &execution.control;
     let plan = &execution.ownership;
 
@@ -480,6 +481,29 @@ fn borrows_a_final_observation_before_dropping_its_source() {
         Some(UseEffect::Borrow)
     );
     assert!(!plan.drops_after_binding(site, binding).is_empty());
+
+    execution.ownership.uses.insert(
+        UseId {
+            state: site,
+            location: UseLocation::Binding {
+                binding,
+                operand: BindingOperand::SymbolOperand(0),
+            },
+        },
+        UseEffect::Consume,
+    );
+    assert!(!validation::preserves_responsibilities(
+        &execution.ownership,
+        &Inputs::new(
+            &execution.control,
+            &execution.applications,
+            &execution.optimizations,
+            &execution.parameters,
+            &execution.control_calls,
+            &execution.control_regions,
+            RecursionPlans::new(&execution.control_frames, &execution.native_recursion),
+        ),
+    ));
 }
 
 #[test]

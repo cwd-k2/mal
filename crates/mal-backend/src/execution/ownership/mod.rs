@@ -24,6 +24,7 @@ mod operand;
 mod parameter;
 mod query;
 mod use_plan;
+mod validation;
 
 #[cfg(test)]
 mod construction_tests;
@@ -285,6 +286,6 @@ impl Plan {
     }
 
     pub(crate) fn is_valid(&self, inputs: Inputs<'_>) -> bool {
-        *self == Self::new(inputs)
+        validation::preserves_responsibilities(self, &inputs) && *self == Self::new(inputs)
     }
 }

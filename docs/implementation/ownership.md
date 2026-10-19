@@ -143,6 +143,10 @@ process shimは`argv + 1`の各C stringを独立した`Symbol`へcopyし、そ�
 
 ## 検証
 
+debug buildとfocused testでは、authorityから期待planを再構成するexact validatorに加え、pattern destinationとlifecycle、managed
+operand useのtotality、観測operandの`Borrow`、`Consume`と同一点`Drop`の排他、dropの一意性、parameter handoffを独立した局所保存則として
+検査する。局所validatorはplanning algorithmを複製せず、allocationを含むlineage全体の証明を行ったとはみなさない。
+
 - managed slot、aggregate、sum、closure capture、frame、extern bridgeの各境界でretain/releaseの対応を実行testで確認する。
 - nested aggregateの分解と再構成で同じauthorityが保たれ、中間carrierがownerを複製しないことを確認する。
 - deep self recursionとfirst-class cycleでowner数がdepthに比例して残らないことを確認する。
