@@ -37,7 +37,7 @@ impl FunctionEmitter<'_> {
                         "null",
                         "null",
                         "0",
-                        ValueResponsibility::Owned,
+                        ValueResponsibility::Borrowed,
                     );
                 }
                 let name = format!(
@@ -65,7 +65,7 @@ impl FunctionEmitter<'_> {
                     &format!("@{name}"),
                     &data,
                     &bytes.len().to_string(),
-                    ValueResponsibility::Owned,
+                    ValueResponsibility::Borrowed,
                 )
             }
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {

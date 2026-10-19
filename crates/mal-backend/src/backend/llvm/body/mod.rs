@@ -308,14 +308,14 @@ impl ValueResponsibility {
         }
     }
 
-    fn combine(self, other: Self) -> Self {
+    fn combine(self, other: Self) -> Option<Self> {
         match (self, other) {
-            (Self::None, responsibility) | (responsibility, Self::None) => responsibility,
-            (Self::Borrowed, Self::Borrowed) => Self::Borrowed,
-            (Self::Owned, Self::Owned) => Self::Owned,
-            // Aggregate carriers currently hand off managed leaves as one unit. Preserve that
-            // contract when construction combines borrowed and independently owned leaves.
-            (Self::Borrowed, Self::Owned) | (Self::Owned, Self::Borrowed) => Self::Owned,
+            (Self::None, responsibility) | (responsibility, Self::None) => Some(responsibility),
+            (Self::Borrowed, Self::Borrowed) => Some(Self::Borrowed),
+            (Self::Owned, Self::Owned) => Some(Self::Owned),
+            // The aggregate ABI hands all managed leaves off as one unit. Treating a mixed carrier
+            // as owned would silently claim responsibility for its borrowed leaves.
+            (Self::Borrowed, Self::Owned) | (Self::Owned, Self::Borrowed) => None,
         }
     }
 }
@@ -353,4 +353,19 @@ pub(super) fn main_function(execution: &crate::execution::Program) -> Option<(Fu
         }
     };
     Some((entry.function, parameter))
+}
+
+#[cfg(test)]
+mod responsibility_tests {
+    use super::ValueResponsibility::{Borrowed, None as NoResponsibility, Owned};
+
+    #[test]
+    fn aggregate_responsibility_is_uniform_across_managed_leaves() {
+        assert_eq!(NoResponsibility.combine(Borrowed), Some(Borrowed));
+        assert_eq!(Owned.combine(NoResponsibility), Some(Owned));
+        assert_eq!(Borrowed.combine(Borrowed), Some(Borrowed));
+        assert_eq!(Owned.combine(Owned), Some(Owned));
+        assert_eq!(Borrowed.combine(Owned), None);
+        assert_eq!(Owned.combine(Borrowed), None);
+    }
 }

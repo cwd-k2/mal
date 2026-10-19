@@ -36,7 +36,7 @@ impl FunctionEmitter<'_> {
             if element.value.ty != *expected {
                 return None;
             }
-            responsibility = responsibility.combine(element.value.responsibility);
+            responsibility = responsibility.combine(element.value.responsibility)?;
             consumed_slots.extend(element.consumed_slots);
             let element_type = self.types.value(expected)?;
             let register = self.register();
