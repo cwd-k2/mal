@@ -1,5 +1,21 @@
 use crate::control::ast::StateId;
 
+/// One binding operation in the finalized control program.
+///
+/// Ownership facts use this identity instead of an unlabelled `(StateId, usize)` pair so a
+/// binding position cannot be confused with another ordinal attached to the same state.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub(super) struct BindingSite {
+    pub(super) state: StateId,
+    pub(super) binding: usize,
+}
+
+impl BindingSite {
+    pub(super) const fn new(state: StateId, binding: usize) -> Self {
+        Self { state, binding }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct EdgeId {
     pub(crate) state: StateId,

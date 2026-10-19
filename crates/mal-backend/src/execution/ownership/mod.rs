@@ -40,6 +40,7 @@ use borrow::BorrowPlan;
 pub(crate) use destination::PatternDestination;
 use destination::plan_borrowed_pattern;
 use drop_plan::collect_edge_drops;
+use identity::BindingSite;
 pub(crate) use identity::{
     BindingOperand, ControlPath, EdgeId, TerminatorOperand, UseEffect, UseId, UseLocation,
 };
@@ -61,8 +62,8 @@ fn binding_order(control: &crate::control::ast::Program) -> HashMap<ValueId, usi
 #[derive(Debug, Eq, PartialEq)]
 pub(crate) struct Plan {
     input_destinations: HashMap<StateId, PatternDestination>,
-    binding_destinations: HashMap<(StateId, usize), PatternDestination>,
-    drops_after_binding: HashMap<(StateId, usize), Vec<ValueId>>,
+    binding_destinations: HashMap<BindingSite, PatternDestination>,
+    drops_after_binding: HashMap<BindingSite, Vec<ValueId>>,
     drops_on_edge: HashMap<EdgeId, Vec<ValueId>>,
     uses: HashMap<UseId, UseEffect>,
     parameters: HashMap<(FunctionId, ParameterEntry), ParameterEffect>,
@@ -202,11 +203,13 @@ impl Plan {
         let mut binding_destinations = HashMap::new();
         let mut drops_after_binding = HashMap::new();
         for (state_index, state) in control.states.iter().enumerate() {
+            let state_id = StateId(state_index);
             let mut live = borrows.terminator_live(&state.terminator, &live_in);
             for (binding_index, binding) in state.bindings.iter().enumerate().rev() {
+                let site = BindingSite::new(state_id, binding_index);
                 let destination =
                     plan_borrowed_pattern(&binding.pattern, &live, &borrowed_bindings);
-                binding_destinations.insert((StateId(state_index), binding_index), destination);
+                binding_destinations.insert(site, destination);
                 let mut used = Vec::new();
                 binding.operation.for_each_atom(|atom| {
                     if let Some(id) = managed_binding_id(atom)
@@ -232,7 +235,7 @@ impl Plan {
                     .filter(|id| !live.contains(id))
                     .collect::<Vec<_>>();
                 if !drops.is_empty() {
-                    drops_after_binding.insert((StateId(state_index), binding_index), drops);
+                    drops_after_binding.insert(site, drops);
                 }
                 remove_pattern_bindings(&binding.pattern, &mut live);
                 binding

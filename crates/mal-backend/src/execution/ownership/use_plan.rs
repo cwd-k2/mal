@@ -9,7 +9,7 @@ use super::super::{
 };
 use super::borrow::BorrowPlan;
 use super::destination::PatternDestination;
-use super::identity::{TerminatorOperand, UseEffect, UseId, UseLocation};
+use super::identity::{BindingSite, TerminatorOperand, UseEffect, UseId, UseLocation};
 use super::lifecycle::is_managed;
 use super::liveness::insert_pattern_bindings;
 use super::operand::{OperationEffect, binding_operands, terminator_argument, terminator_operands};
@@ -31,8 +31,8 @@ pub(super) struct UseInputs<'a> {
     pub(super) frames: &'a ControlFramePlan,
     pub(super) live_in: &'a [HashSet<ValueId>],
     pub(super) input_destinations: &'a HashMap<StateId, PatternDestination>,
-    pub(super) binding_destinations: &'a HashMap<(StateId, usize), PatternDestination>,
-    pub(super) drop_candidates: &'a HashMap<(StateId, usize), Vec<ValueId>>,
+    pub(super) binding_destinations: &'a HashMap<BindingSite, PatternDestination>,
+    pub(super) drop_candidates: &'a HashMap<BindingSite, Vec<ValueId>>,
     pub(super) borrowed_bindings: &'a HashSet<ValueId>,
     pub(super) parameter_borrows: &'a ParameterBorrows,
     pub(super) borrows: &'a BorrowPlan,
@@ -94,10 +94,11 @@ fn collect_binding_effects(
     binding: &crate::control::ast::Binding,
     uses: &mut HashMap<UseId, UseEffect>,
 ) {
+    let binding_site = BindingSite::new(site, binding_index);
     let operands = binding_operands(&binding.operation);
     let result_has_owner_successor = inputs
         .binding_destinations
-        .get(&(site, binding_index))
+        .get(&binding_site)
         .is_some_and(PatternDestination::has_owner_successor);
     let operation_requires_owner_successors = !matches!(
         binding.operation,
@@ -105,7 +106,7 @@ fn collect_binding_effects(
     ) || result_has_owner_successor;
     let dead = inputs
         .drop_candidates
-        .get(&(site, binding_index))
+        .get(&binding_site)
         .map_or(&[][..], Vec::as_slice);
     for (operand_index, (operand, atom, operation_effect)) in operands.iter().enumerate() {
         if !is_managed(&atom.ty) {
@@ -336,7 +337,7 @@ fn collect_case_payload_effects(
 pub(super) fn exclude_consumed_sources(
     control: &crate::control::ast::Program,
     uses: &HashMap<UseId, UseEffect>,
-    drops: &mut HashMap<(StateId, usize), Vec<ValueId>>,
+    drops: &mut HashMap<BindingSite, Vec<ValueId>>,
 ) {
     for (state_index, state) in control.states.iter().enumerate() {
         let site = StateId(state_index);
@@ -355,7 +356,7 @@ pub(super) fn exclude_consumed_sources(
                     .flatten()
                 })
                 .collect::<HashSet<_>>();
-            if let Some(binding_drops) = drops.get_mut(&(site, binding_index)) {
+            if let Some(binding_drops) = drops.get_mut(&BindingSite::new(site, binding_index)) {
                 binding_drops.retain(|id| !consumed.contains(id));
             }
         }

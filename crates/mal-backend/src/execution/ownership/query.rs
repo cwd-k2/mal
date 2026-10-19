@@ -5,7 +5,7 @@ use super::*;
 impl Plan {
     pub(crate) fn drops_after_binding(&self, state: StateId, binding: usize) -> &[ValueId] {
         self.drops_after_binding
-            .get(&(state, binding))
+            .get(&BindingSite::new(state, binding))
             .map_or(&[], Vec::as_slice)
     }
 
@@ -18,7 +18,8 @@ impl Plan {
         state: StateId,
         binding: usize,
     ) -> Option<&PatternDestination> {
-        self.binding_destinations.get(&(state, binding))
+        self.binding_destinations
+            .get(&BindingSite::new(state, binding))
     }
 
     pub(crate) fn drops_on_edge(&self, state: StateId, path: ControlPath) -> &[ValueId] {

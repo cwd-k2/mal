@@ -15,6 +15,85 @@ responsibilityをbackendやruntimeが別々に再解釈することになる。
 拡張が必要になった場合も、`execution/ownership`をpolicy authorityとして保ち、backendはそのdecisionを物理表現へ変換する。
 source languageへmanual `retain`、`release`、`drop`、未初期化valueを追加しない。
 
+## 整理に使う概念境界
+
+backend全体を一つのstore machineへ置き換えず、現在のstage境界を保ったまま次を区別する。
+
+| 概念 | malでの意味 | authority |
+|---|---|---|
+| semantic value | `ValueId`で追跡するMalの値 | control program |
+| carrier | 値をLLVM、C、runtime境界で運ぶ表現 | target layout lowering |
+| place | slot、Buffer element、capture field、frame fieldなどcarrierを保持する位置 | 各storage owner |
+| Engram identity | Buffer objectやclosure environmentなど共有観測される対象 | source semanticsとtrusted constructor |
+| allocation | owner、payload、control storageを収容する回収単位 | runtime mechanism |
+| responsibility | managed valueを生存させ、最後に終了する義務 | `execution/ownership` |
+| authority | borrowが有効な期間を包含するresponsibility | ownership lender解析 |
+| external referent | opaque carrierの外側にあるresource | extern contract |
+
+同じpointer representationを使っていても、carrier、Engram identity、allocation、external referentを同一視しない。時間は独立した
+event logではなく、確定済みcontrol programのbinding site、use site、control edge、parameter entryで表す。将来、source-level
+referenceや非同期completionを導入してこのcontrol順序だけでは権限期間を表せなくなった場合に限り、pathやloanの独立identityを追加する。
+
+`Borrow`は現在、独立したresponsibilityを作らずlenderの生存中にcarrierを使うことを意味する。排他的access、参照値の構築、
+source-level loanを意味しない。これらを将来導入する場合は同じ語へ暗黙に追加せず、access permissionをresponsibilityから分離する。
+
+## 現在の拡張圧力
+
+### lifecycleとrelocation
+
+現在の`Lifecycle = Trivial | Owned`は、shareとdropが必要かを十分に表す。一方、slot、Buffer growth、frame、C by-value carrierは、
+すべてのadmit済みcarrierがbitwiseにrelocateできることを暗黙の前提にしている。新しいEngram leafがcarrier内部address、pin、
+非同期native accessを持つ場合、`Owned`だけではadmissionを決められない。
+
+必要になった時点で、少なくとも`share/drop`の有無と`bitwise relocatable`を別のpropertyとして扱う。現在の型がすべて同じ値を持つ間は、
+値を返すだけのregistryや汎用descriptorを先行して追加しない。`Storable`、frame field、extern by-value carrierはそれぞれの境界で
+このpropertyを要求する。
+
+### planとloweringの証拠
+
+ownership planはtypedな`StateId`、binding site、`UseId`、`EdgeId`を使い、backendはplanを再推論しない。このidentityは
+別のordinalと取り違えられない型を保つ。新しいsynthetic useやdrop pointを追加するときも裸のtupleや共用integerへ戻さない。
+
+LLVM loweringの`EmittedValue.owned`は、planの結果を物理操作へ運ぶ一時的な証拠である。これはauthorityやlenderを表さず、値全体の
+booleanだけを持つため、新しいconsumerが直接書き換えるほどplanとの二重authorityになりやすい。次のいずれかが起きた場合は、
+borrowed carrierとowned handoffを別型にし、share、consume、dropを型付き変換に限定する。
+
+- 同じhelperをLLVM通常値、runtime callback、別backendから利用する。
+- 一つのaggregateについてleafごとに異なるhandoffを通常の値として保持する。
+- `owned`の設定または検査漏れによるdefectが発生する。
+
+### 保存則の検証
+
+現在のexact validatorはauthorityからplanを再構成して集合の欠落と余分を検査する。これに加えて独立した遷移validatorを導入する場合は、
+同じplanning algorithmを複製せず、次の保存則を検査する。
+
+- 一つのlineageは`Fresh`または`Share`で始まり、pathごとに一度だけowned handoffまたは`Drop`で終わる。
+- `Borrow`はresponsibilityを増減させず、そのuseを包含するlenderを持つ。
+- `Consume`したsourceを同じpathで再利用または`Drop`しない。
+- `Initialize`はvacant place、`Replace`はlive placeだけを対象にする。
+- allocationは保持する全payloadのresponsibilityを終了した後にだけ解放する。
+
+具体的実行traceはdiagnosticやtestの説明には使えるが、一つのtraceを全pathのvalidationの代わりにしない。
+
+## ABIの分離
+
+ABIは一つの層としてまとめず、少なくとも次を分ける。
+
+| 境界 | 安定させるもの | 公開しないもの |
+|---|---|---|
+| public C extension ABI | carrier、extern signature、host lifecycle、Call API | LLVM calling convention、frame、owner実装 |
+| generated C / LLVM bridge | context、argument storage、result storageの内部call | hostが直接呼ぶsurface |
+| runtime mechanism ABI | allocation、owner、Buffer、control storageの生成物内接続 | source valueやextern resourceの意味 |
+
+現在の`mal.h`は`MalContext`のfield layoutと`mal_runtime_owner_retain/release`を、generated helperを成立させるために宣言している。
+これはhost向けcontractよりruntime mechanismを広く露出し、control storageやowner mechanismの変更をpublic ABI revisionへ結び付ける。
+ABIを次に変更する具体的理由が生じたときは、`mal_call_t`をopaqueなcapabilityにし、generated shimだけが必要とするcontext構築と
+runtime owner primitiveをprivate headerまたはinternal declarationへ移す案を先に評価する。
+
+一方、`mal_storage_descriptor_t`はtype-erased Buffer storageが実際に必要とするsize、alignment、share、dropだけを保持している。
+dynamic type identity、allocation policy、access permissionを将来用に追加しない。bitwise relocationを満たさない型を扱う要求が出た場合は、
+既存descriptorへ無条件にmove callbackを足すのではなく、その型をBufferとby-value ABIへadmitするかから再検討する。
+
 ## 採択候補
 
 具体的な重複が複数の利用者に現れた場合、concrete type `T`に対する次のbackend-local operationを共有境界として評価する。
