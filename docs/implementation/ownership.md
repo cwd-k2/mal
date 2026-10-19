@@ -18,7 +18,8 @@ carrierのbyteを移すだけで`Share`または`Drop`を起こさず、移動�
 LLVM内の`Symbol`はowner pointer、active data address、byte countからなるviewであり、`Buffer<A>`はmanaged runtime objectへの
 pointerである。`Symbol`と`Buffer<UInt8>`の変換は独立したsemantic valueを作る。operandを他に持つものがなければbyte ownerを移し、それ以外は
 snapshot copyである。closureはcode pointerとnullable environment pointerの組である。productは各field、sumはactive payloadだけについて同じ規則を
-再帰的に適用する。literalのstatic byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
+再帰的に適用する。literalのstatic byte ownerはprogram lifetimeのauthorityをborrowし、独立したhandoffが必要な箇所だけ`Share`で`Owned`にする。
+static byte ownerとnull environmentに対するretain/releaseは安全なno-opである。
 完成したbyte ownerのdataはownerのlifetime中不変である。view構築時にdataを確定し、index、slice、比較はowner representationを再解釈しない。
 storage再利用を判断するSymbol concatだけがownerに対するdataのoffsetを導出する。
 

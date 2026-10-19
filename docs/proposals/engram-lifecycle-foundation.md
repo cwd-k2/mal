@@ -59,18 +59,15 @@ LLVM loweringの`EmittedValue`は、source type、LLVM representation、`ValueRe
 slot初期化とparameter handoffはtypeと状態の不一致を拒否し、shareだけが`Borrowed`を`Owned`へ変える。この状態はauthorityやlenderを
 表さず、それらの決定は引き続きexecution ownership planに属する。
 
-現在のproduct carrierはleafごとの状態を保持せず、managed leafが一つでも`Owned`ならaggregate全体を`Owned`として一括handoffする。
-この規約を外してleafごとのhandoffを通常値として保持する必要が生じた場合は、`ValueResponsibility`を構造化し、share、consume、dropを
-その構造に対する型付き変換に限定する。次のいずれかが起きた場合も同じ境界を再評価する。
-
-- 同じhelperをLLVM通常値、runtime callback、別backendから利用する。
-- 一つのaggregateについてleafごとに異なるhandoffを通常の値として保持する。
-- responsibility状態の設定または検査漏れによるdefectが発生する。
+現在のproduct carrierはleafごとの状態を保持せず、managed leafがすべて`Borrowed`またはすべて`Owned`の場合だけaggregateを構成する。
+異なる状態を混在させる構成は、aggregate全体を`Owned`としてborrowed leafのresponsibilityまで暗黙に得たことにせず拒否する。
+leafごとに異なるhandoffを通常値として保持する実需が生じた場合は、`ValueResponsibility`を構造化し、share、consume、dropを
+その構造に対する型付き変換に限定する。
 
 ### 保存則の検証
 
-現在のexact validatorはauthorityからplanを再構成して集合の欠落と余分を検査する。これに加えて独立した遷移validatorを導入する場合は、
-同じplanning algorithmを複製せず、次の保存則を検査する。
+exact validatorはauthorityからplanを再構成して集合の欠落と余分を検査する。独立した保存則validatorは、各stateのlive ownerから
+binding、frame、terminator、case payload、control edgeのeffectをpathごとに適用し、同じplanning algorithmを複製せず次を検査する。
 
 - 一つのlineageは`Fresh`または`Share`で始まり、pathごとに一度だけowned handoffまたは`Drop`で終わる。
 - `Borrow`はresponsibilityを増減させず、そのuseを包含するlenderを持つ。
@@ -98,6 +95,24 @@ representation固有のownerを直接操作しない。これによりcontrol st
 一方、`mal_storage_descriptor_t`はtype-erased Buffer storageが実際に必要とするsize、alignment、share、dropだけを保持している。
 dynamic type identity、allocation policy、access permissionを将来用に追加しない。bitwise relocationを満たさない型を扱う要求が出た場合は、
 既存descriptorへ無条件にmove callbackを足すのではなく、その型をBufferとby-value ABIへadmitするかから再検討する。
+
+## 再整理を再開する条件
+
+現在の三値のresponsibility、bitwise relocation、静的runtime組み込み、opaqueなCall APIは、現在admitする型と実行方式には十分である。
+次の観測可能な要求が現れた箇所から境界を再検討し、将来用のfield、callback、stageは先行して追加しない。
+
+- carrier内部address、pin、または非同期native accessによってbitwise relocationできない型をadmitする場合は、relocation capabilityと
+  Buffer、frame、extern by-value carrierのadmissionを分離する。
+- 一つの通常aggregateでmanaged leafごとに異なるresponsibilityを境界越しに保つ必要がある場合は、`ValueResponsibility`とlifecycle変換を
+  leaf構造にする。
+- source reference、排他的access、shared access、または非同期completionがcontrol program上のlender生存期間だけでは表せない場合は、
+  responsibilityとは独立したpermission、loan、path identityを導入する。
+- 同じ型再帰のshare、drop、initialize、replace、vacateが独立した二つ以上のemitterまたはglue形式で必要になった場合は、typed lifecycle
+  loweringを共有境界として抽出する。
+- Engram実装をcompiler外から選択する要求が生じ、後述するcrate分離の条件とversion、cache、reproducible buildのcontractを満たせる場合に、
+  静的extension manifestを検討する。
+- public carrier、extern signature、またはCall APIを変える必要がある場合だけC ABIを改訂する。private context layout、owner mechanism、
+  runtime内部接続だけの変更はpublic ABI改訂の理由にしない。
 
 ## 採択候補
 
