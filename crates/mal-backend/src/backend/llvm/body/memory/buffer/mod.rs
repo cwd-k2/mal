@@ -99,7 +99,7 @@ impl FunctionEmitter<'_> {
                 if buffer.ty != buffer_type || value.ty != *element || *result_type != Type::USize {
                     return None;
                 }
-                if storage.lifecycle() == Lifecycle::Owned && !value.owned {
+                if storage.lifecycle() == Lifecycle::Owned && !value.responsibility.is_owned() {
                     return None;
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
@@ -125,7 +125,7 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: Type::USize,
                     representation: index,
-                    owned: false,
+                    responsibility: super::super::ValueResponsibility::None,
                 })
             }
             BufferOperation::Get => {
@@ -262,7 +262,7 @@ pub(super) fn emitted_buffer(representation: String, ty: Type) -> EmittedValue {
     EmittedValue {
         ty,
         representation,
-        owned: true,
+        responsibility: super::super::ValueResponsibility::Owned,
     }
 }
 
@@ -270,6 +270,6 @@ pub(in crate::backend::llvm::body) fn emitted_unit() -> EmittedValue {
     EmittedValue {
         ty: Type::Unit,
         representation: "0".into(),
-        owned: false,
+        responsibility: super::super::ValueResponsibility::None,
     }
 }

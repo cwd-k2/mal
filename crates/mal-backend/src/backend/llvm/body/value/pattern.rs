@@ -2,7 +2,7 @@ use crate::backend::llvm::syntax::emit_instruction;
 use crate::closure::ast::Pattern;
 use mal_frontend::check::ast::Type;
 
-use super::super::{EmittedValue, FunctionEmitter};
+use super::super::{EmittedValue, FunctionEmitter, ValueResponsibility};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn store_self_tail_pattern(
@@ -43,7 +43,7 @@ impl FunctionEmitter<'_> {
                         &EmittedValue {
                             ty: element_type.clone(),
                             representation: register,
-                            owned: false,
+                            responsibility: ValueResponsibility::borrowed(element_type),
                         },
                     )?;
                 }
@@ -97,7 +97,7 @@ impl FunctionEmitter<'_> {
                 if value.ty != *ty {
                     return None;
                 }
-                if value.owned {
+                if value.responsibility.is_owned() {
                     self.release_value(ty, &value.representation)?;
                 }
                 Some(())
@@ -124,7 +124,7 @@ impl FunctionEmitter<'_> {
         }
         match destination {
             PatternDestination::Discard if crate::execution::ownership::is_managed(ty) => {
-                if value.owned {
+                if value.responsibility.is_owned() {
                     self.release_value(ty, &value.representation)?;
                 }
             }
@@ -187,7 +187,7 @@ impl FunctionEmitter<'_> {
                 Some(&EmittedValue {
                     ty: element_type.clone(),
                     representation: register,
-                    owned: value.owned && crate::execution::ownership::is_managed(element_type),
+                    responsibility: value.responsibility.project(element_type),
                 }),
                 destination,
             )?;

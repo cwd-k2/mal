@@ -5,7 +5,7 @@ use crate::backend::llvm::syntax::{
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use mal_frontend::check::ast::{SymbolPrimitive, Type};
 
-use super::{EmittedValue, FunctionEmitter, memory::ByteViewFields};
+use super::{EmittedValue, FunctionEmitter, ValueResponsibility, memory::ByteViewFields};
 
 pub(super) const STATIC_OWNER_DATA_OFFSET: usize = 24;
 const STATIC_OWNER_ALIGNMENT: usize = 8;
@@ -40,7 +40,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::USize,
             representation: length,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 
@@ -64,7 +64,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::UInt8,
             representation: result,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 
@@ -144,7 +144,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::Symbol,
             representation: result,
-            owned: true,
+            responsibility: ValueResponsibility::Owned,
         })
     }
 
@@ -211,7 +211,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::Symbol,
             representation: result,
-            owned: true,
+            responsibility: ValueResponsibility::Owned,
         })
     }
 
@@ -270,7 +270,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::Sum(vec![Type::Unit, Type::Unit].into()),
             representation: register,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 }

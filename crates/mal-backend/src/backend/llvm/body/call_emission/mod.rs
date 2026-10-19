@@ -64,10 +64,11 @@ impl FunctionEmitter<'_> {
         if self.optimizations.localizes_control_storage(target.id) {
             self.refresh_control_storage();
         }
+        let responsibility = ValueResponsibility::owned(&result_type);
         Some(EmittedValue {
             ty: result_type,
             representation: register,
-            owned: crate::execution::ownership::is_managed(&lowered.body.result.ty),
+            responsibility,
         })
     }
 
@@ -150,7 +151,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: (**result).clone(),
             representation: register,
-            owned: crate::execution::ownership::is_managed(result),
+            responsibility: ValueResponsibility::owned(result),
         })
     }
 

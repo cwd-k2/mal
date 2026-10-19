@@ -23,23 +23,25 @@ impl FunctionEmitter<'_> {
                     | crate::execution::ownership::ParameterEntry::OwnedHandoff,
                     Some(crate::execution::ownership::ParameterEffect::BorrowInto(binding)),
                     _,
-                ) if !value.owned => return self.store_parameter_binding(binding, value),
+                ) if !value.responsibility.is_owned() => {
+                    return self.store_parameter_binding(binding, value);
+                }
                 (
                     crate::execution::ownership::ParameterEntry::BorrowedAbi,
                     Some(crate::execution::ownership::ParameterEffect::ShareInto(binding)),
                     _,
-                ) if !value.owned => {
+                ) if !value.responsibility.is_owned() => {
                     let mut value = value.clone();
                     self.retain_if_borrowed(&mut value)?;
                     return self.store_parameter_binding(binding, &value);
                 }
                 (crate::execution::ownership::ParameterEntry::BorrowedAbi, None, _)
-                    if !value.owned =>
+                    if !value.responsibility.is_owned() =>
                 {
                     return Some(());
                 }
                 (crate::execution::ownership::ParameterEntry::OwnedHandoff, None, _)
-                    if !value.owned =>
+                    if !value.responsibility.is_owned() =>
                 {
                     return Some(());
                 }
@@ -48,13 +50,15 @@ impl FunctionEmitter<'_> {
                     | crate::execution::ownership::ParameterEntry::OwnedAbi,
                     Some(crate::execution::ownership::ParameterEffect::ConsumeInto(binding)),
                     _,
-                ) if value.owned => return self.store_parameter_binding(binding, value),
+                ) if value.responsibility.is_owned() => {
+                    return self.store_parameter_binding(binding, value);
+                }
                 (
                     crate::execution::ownership::ParameterEntry::OwnedHandoff
                     | crate::execution::ownership::ParameterEntry::OwnedAbi,
                     Some(crate::execution::ownership::ParameterEffect::Drop),
                     _,
-                ) if value.owned => {
+                ) if value.responsibility.is_owned() => {
                     return self.release_value(&value.ty, &value.representation);
                 }
                 _ => return None,

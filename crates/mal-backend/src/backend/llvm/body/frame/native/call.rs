@@ -87,7 +87,7 @@ impl FunctionEmitter<'_> {
             self.release_value(&value.ty, &value.representation)?;
         }
         let result = EmittedValue {
-            owned: crate::execution::ownership::is_managed(&result_type),
+            responsibility: super::super::super::ValueResponsibility::owned(&result_type),
             ty: result_type,
             representation: register,
         };

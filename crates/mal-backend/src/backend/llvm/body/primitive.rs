@@ -9,7 +9,7 @@ use crate::execution::ownership::BindingOperand;
 use mal_frontend::check::ast::Type;
 
 use super::scalar::{arithmetic_instruction, scalar_type};
-use super::{EmittedValue, FunctionEmitter};
+use super::{EmittedValue, FunctionEmitter, ValueResponsibility};
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_primitive_unary(
@@ -60,7 +60,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: operand.ty,
             representation: register,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 
@@ -103,7 +103,7 @@ impl FunctionEmitter<'_> {
             return Some(EmittedValue {
                 ty: result_type?.clone(),
                 representation: register,
-                owned: false,
+                responsibility: ValueResponsibility::None,
             });
         }
         let scalar = scalar_type(&left.ty, self.types.index_size())?;
@@ -121,7 +121,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type.cloned().unwrap_or(left.ty),
             representation: register,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 
@@ -141,7 +141,7 @@ impl FunctionEmitter<'_> {
             return Some(EmittedValue {
                 ty: result_type,
                 representation: operand.representation,
-                owned: false,
+                responsibility: ValueResponsibility::None,
             });
         }
         let instruction = if source.floating && target.floating {
@@ -181,7 +181,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type,
             representation: register,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 }

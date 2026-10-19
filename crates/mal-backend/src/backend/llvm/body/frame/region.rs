@@ -189,7 +189,7 @@ impl FunctionEmitter<'_> {
             {
                 self.refresh_control_storage();
             }
-            if argument.owned {
+            if argument.responsibility.is_owned() {
                 self.release_value(&argument.ty, &argument.representation)?;
             }
             self.emit_continuation_return(
@@ -197,7 +197,7 @@ impl FunctionEmitter<'_> {
                 &EmittedValue {
                     ty: result.clone(),
                     representation: returned,
-                    owned: crate::execution::ownership::is_managed(result),
+                    responsibility: super::super::ValueResponsibility::owned(result),
                 },
             )?;
         } else {

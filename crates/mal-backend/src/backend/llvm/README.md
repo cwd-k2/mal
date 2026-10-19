@@ -15,6 +15,7 @@ responsibility boundary is documented in `docs/implementation/execution-backend.
 | `host_bridge` | direct typed load/store between the internal pointer bridge and the same-layout public C carrier |
 | `shim` | the C11 entry point that calls the root bridge with the process arguments |
 | `body/types` | the LLVM representation of mal value types |
+| `body` | the emitted carrier and its `None`, `Borrowed`, or `Owned` responsibility state |
 | `body/admission` | rejection of a program the target cannot represent, before any function is emitted |
 | `body/admission/layout` | host memory layouts and runtime storage the target must represent |
 | `body/admission/operation` | the storage and layouts each operation needs |
@@ -68,3 +69,9 @@ Rust code. The shared notation and complete boundary are documented in
 typed call structure and adds the matching declaration group. The C shim reports its own runtime requirement, and runtime-source
 selection uses the union of both artifacts. The renderer currently writes the logical module to the single `program.ll` artifact;
 physical partitioning into several `.ll` inputs is a delivery choice and does not change feature selection or body lowering.
+
+`EmittedValue` keeps the source type, LLVM representation, and transported responsibility separate. `None` is reserved
+for types without managed lifecycle, `Borrowed` observes responsibility held by a place, and `Owned` must be handed off or
+released. Product construction follows the current aggregate ABI: if any managed leaf is owned, the aggregate carrier is
+treated as owned and projections hand off its managed leaves together. A future element-granular aggregate ABI must replace
+that rule explicitly rather than extending the carrier with more booleans.

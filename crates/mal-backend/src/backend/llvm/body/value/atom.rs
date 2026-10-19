@@ -3,7 +3,7 @@ use crate::closure::ast::{Atom, AtomKind, Reference};
 use mal_frontend::check::ast::Type;
 
 use super::super::scalar::{integer_literal, scalar_type};
-use super::super::{EmittedValue, FunctionEmitter};
+use super::super::{EmittedValue, FunctionEmitter, ValueResponsibility};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn atom(&mut self, atom: &Atom) -> Option<EmittedValue> {
@@ -14,7 +14,7 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: integer_literal(ty, *value, self.types.index_size())?,
-                    owned: false,
+                    responsibility: ValueResponsibility::borrowed(ty),
                 })
             }
             (Type::Float32, AtomKind::Float(bits)) => Some(EmittedValue {
@@ -23,16 +23,22 @@ impl FunctionEmitter<'_> {
                     "0x{:016X}",
                     (f32::from_bits(*bits as u32) as f64).to_bits()
                 ),
-                owned: false,
+                responsibility: ValueResponsibility::None,
             }),
             (Type::Float64, AtomKind::Float(bits)) => Some(EmittedValue {
                 ty: Type::Float64,
                 representation: format!("0x{bits:016X}"),
-                owned: false,
+                responsibility: ValueResponsibility::None,
             }),
             (Type::Symbol, AtomKind::Symbol(bytes)) => {
                 if bytes.is_empty() {
-                    return self.make_byte_view(&Type::Symbol, "null", "null", "0", true);
+                    return self.make_byte_view(
+                        &Type::Symbol,
+                        "null",
+                        "null",
+                        "0",
+                        ValueResponsibility::Owned,
+                    );
                 }
                 let name = format!(
                     "mal_symbol_literal_{}_{}",
@@ -59,7 +65,7 @@ impl FunctionEmitter<'_> {
                     &format!("@{name}"),
                     &data,
                     &bytes.len().to_string(),
-                    true,
+                    ValueResponsibility::Owned,
                 )
             }
             (Type::Function { .. }, AtomKind::Reference(Reference::SelfClosure(function))) => {
@@ -86,7 +92,7 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: atom.ty.clone(),
                     representation: closure,
-                    owned: false,
+                    responsibility: ValueResponsibility::borrowed(&atom.ty),
                 })
             }
             (ty, AtomKind::Reference(Reference::Capture(index))) => {
@@ -105,7 +111,7 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: value,
-                    owned: false,
+                    responsibility: ValueResponsibility::borrowed(ty),
                 })
             }
             (ty, AtomKind::Reference(Reference::Binding(id))) if !self.slots.contains_key(id) => {
@@ -124,13 +130,13 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: ty.clone(),
                     representation: register,
-                    owned: false,
+                    responsibility: ValueResponsibility::borrowed(ty),
                 })
             }
             (Type::Unit, AtomKind::Unit) => Some(EmittedValue {
                 ty: Type::Unit,
                 representation: "0".into(),
-                owned: false,
+                responsibility: ValueResponsibility::None,
             }),
             _ => None,
         }
@@ -170,7 +176,7 @@ impl FunctionEmitter<'_> {
             return Some(EmittedValue {
                 ty: constant.ty.clone(),
                 representation: value,
-                owned: false,
+                responsibility: ValueResponsibility::borrowed(&constant.ty),
             });
         }
         if let Some(elements) = constant.product() {
@@ -199,10 +205,11 @@ impl FunctionEmitter<'_> {
                 };
                 aggregate = register;
             }
+            let responsibility = ValueResponsibility::borrowed(&constant.ty);
             return Some(EmittedValue {
                 ty: constant.ty,
                 representation: aggregate,
-                owned: false,
+                responsibility,
             });
         }
         let (index, value) = constant.sum()?;

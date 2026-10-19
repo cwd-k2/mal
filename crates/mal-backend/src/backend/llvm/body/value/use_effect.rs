@@ -4,7 +4,7 @@ use crate::backend::llvm::syntax::emit_terminator;
 use crate::closure::ast::{Atom, AtomKind, Reference};
 use crate::execution::ownership::UseEffect;
 
-use super::super::{EmittedValue, FunctionEmitter, PreparedValue};
+use super::super::{EmittedValue, FunctionEmitter, PreparedValue, ValueResponsibility};
 
 impl FunctionEmitter<'_> {
     pub(in crate::backend::llvm::body) fn require_binding_borrow(
@@ -43,7 +43,7 @@ impl FunctionEmitter<'_> {
         let mut value = EmittedValue {
             ty: slot.ty.clone(),
             representation: register,
-            owned: false,
+            responsibility: ValueResponsibility::borrowed(&slot.ty),
         };
         let consumed_slots = match effect {
             UseEffect::Borrow => Vec::new(),
@@ -52,7 +52,7 @@ impl FunctionEmitter<'_> {
                 Vec::new()
             }
             UseEffect::Consume => {
-                value.owned = true;
+                value.responsibility = ValueResponsibility::owned(&value.ty);
                 vec![slot]
             }
         };
@@ -85,7 +85,7 @@ impl FunctionEmitter<'_> {
                 if slot.ty != atom.ty || !crate::execution::ownership::is_managed(&slot.ty) {
                     return None;
                 }
-                value.owned = true;
+                value.responsibility = ValueResponsibility::owned(&value.ty);
                 consumed_slots.push(slot);
             }
         }
@@ -145,7 +145,7 @@ impl FunctionEmitter<'_> {
             };
         };
         self.block(format!("mal_capture_ready_{label}"));
-        value.owned = true;
+        value.responsibility = ValueResponsibility::owned(&value.ty);
         Some(PreparedValue {
             value,
             consumed_slots: Vec::new(),
@@ -181,7 +181,7 @@ impl FunctionEmitter<'_> {
         let value = self.atom(atom)?;
         self.vacate_slot(&slot)?;
         Some(EmittedValue {
-            owned: true,
+            responsibility: ValueResponsibility::owned(&value.ty),
             ..value
         })
     }

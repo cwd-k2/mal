@@ -167,7 +167,12 @@ impl FunctionEmitter<'_> {
                 } else {
                     "%mal_parameter".into()
                 },
-                owned: entry == crate::execution::ownership::ParameterEntry::OwnedAbi,
+                responsibility: match entry {
+                    crate::execution::ownership::ParameterEntry::OwnedAbi => {
+                        super::super::ValueResponsibility::owned(&self.function.parameter.ty)
+                    }
+                    _ => super::super::ValueResponsibility::borrowed(&self.function.parameter.ty),
+                },
             };
             self.emit_parameter_handoff(self.function.id, &parameter, entry)?;
         }

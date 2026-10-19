@@ -52,7 +52,13 @@ impl FunctionEmitter<'_> {
                         arguments: [(ptr, { owner.clone() })],
                     };
                 };
-                self.make_byte_view(&Type::Symbol, &owner, &data, &count, true)
+                self.make_byte_view(
+                    &Type::Symbol,
+                    &owner,
+                    &data,
+                    &count,
+                    super::super::ValueResponsibility::Owned,
+                )
             }
             MemoryPrimitive::SymbolToBuffer if *result_type == byte_buffer => {
                 let symbol = self.take_binding(operand, &Type::Symbol)?;
@@ -75,7 +81,7 @@ impl FunctionEmitter<'_> {
                 Some(EmittedValue {
                     ty: byte_buffer,
                     representation: buffer,
-                    owned: true,
+                    responsibility: super::super::ValueResponsibility::Owned,
                 })
             }
             _ => None,

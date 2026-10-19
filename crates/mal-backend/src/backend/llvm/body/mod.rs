@@ -254,7 +254,59 @@ pub(super) struct Slot {
 struct EmittedValue {
     ty: Type,
     representation: String,
-    owned: bool,
+    responsibility: ValueResponsibility,
+}
+
+/// The responsibility transported by an SSA carrier, independently of its representation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ValueResponsibility {
+    /// The type has no runtime-managed responsibility.
+    None,
+    /// The carrier observes a responsibility held by some place.
+    Borrowed,
+    /// The carrier transports a responsibility that must be handed off or released.
+    Owned,
+}
+
+impl ValueResponsibility {
+    fn borrowed(ty: &Type) -> Self {
+        if crate::execution::ownership::is_managed(ty) {
+            Self::Borrowed
+        } else {
+            Self::None
+        }
+    }
+
+    fn owned(ty: &Type) -> Self {
+        if crate::execution::ownership::is_managed(ty) {
+            Self::Owned
+        } else {
+            Self::None
+        }
+    }
+
+    const fn is_owned(self) -> bool {
+        matches!(self, Self::Owned)
+    }
+
+    fn project(self, ty: &Type) -> Self {
+        if !crate::execution::ownership::is_managed(ty) {
+            Self::None
+        } else {
+            self
+        }
+    }
+
+    fn combine(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::None, responsibility) | (responsibility, Self::None) => responsibility,
+            (Self::Borrowed, Self::Borrowed) => Self::Borrowed,
+            (Self::Owned, Self::Owned) => Self::Owned,
+            // Aggregate carriers currently hand off managed leaves as one unit. Preserve that
+            // contract when construction combines borrowed and independently owned leaves.
+            (Self::Borrowed, Self::Owned) | (Self::Owned, Self::Borrowed) => Self::Owned,
+        }
+    }
 }
 
 struct PreparedValue {

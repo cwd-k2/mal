@@ -92,7 +92,10 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: element.clone(),
             representation: loaded,
-            owned: lifecycle == Lifecycle::Owned,
+            responsibility: match lifecycle {
+                Lifecycle::Trivial => super::super::super::ValueResponsibility::None,
+                Lifecycle::Owned => super::super::super::ValueResponsibility::Owned,
+            },
         })
     }
 

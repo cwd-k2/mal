@@ -1,7 +1,7 @@
 use crate::backend::llvm::syntax::emit_instruction;
 use mal_frontend::check::ast::Type;
 
-use super::super::{EmittedValue, FunctionEmitter};
+use super::super::{EmittedValue, FunctionEmitter, ValueResponsibility};
 
 pub(in crate::backend::llvm::body) struct ByteViewFields {
     pub(in crate::backend::llvm::body) owner: String,
@@ -31,7 +31,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: Type::USize,
             representation: count,
-            owned: false,
+            responsibility: ValueResponsibility::None,
         })
     }
 
@@ -78,7 +78,13 @@ impl FunctionEmitter<'_> {
                 arguments: [(ptr, { owner.clone() })],
             };
         };
-        self.make_byte_view(&Type::Symbol, &owner, &copied_data, &count, true)
+        self.make_byte_view(
+            &Type::Symbol,
+            &owner,
+            &copied_data,
+            &count,
+            ValueResponsibility::Owned,
+        )
     }
 
     pub(in crate::backend::llvm::body) fn emit_symbol_to_buffer(
@@ -109,7 +115,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: buffer,
-            owned: true,
+            responsibility: ValueResponsibility::Owned,
         })
     }
 
@@ -141,7 +147,7 @@ impl FunctionEmitter<'_> {
         owner: &str,
         data: &str,
         count: &str,
-        owned: bool,
+        responsibility: ValueResponsibility,
     ) -> Option<EmittedValue> {
         if *ty != Type::Symbol {
             return None;
@@ -177,7 +183,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: ty.clone(),
             representation: result,
-            owned,
+            responsibility,
         })
     }
 }

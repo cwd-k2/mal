@@ -62,7 +62,7 @@ impl FunctionEmitter<'_> {
                 &super::super::EmittedValue {
                     ty: field.ty.clone(),
                     representation: value,
-                    owned: crate::execution::ownership::is_managed(&field.ty),
+                    responsibility: super::super::ValueResponsibility::owned(&field.ty),
                 },
             )?;
         }
@@ -107,7 +107,7 @@ impl FunctionEmitter<'_> {
             Some(&EmittedValue {
                 ty: result.ty.clone(),
                 representation: result.representation.clone(),
-                owned: true,
+                responsibility: super::super::ValueResponsibility::owned(&result.ty),
             }),
         )?;
         emit_terminator! {

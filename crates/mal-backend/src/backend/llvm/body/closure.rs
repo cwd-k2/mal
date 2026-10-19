@@ -109,7 +109,7 @@ impl FunctionEmitter<'_> {
         Some(EmittedValue {
             ty: result_type,
             representation: closure,
-            owned: true,
+            responsibility: super::ValueResponsibility::Owned,
         })
     }
 }

@@ -3,7 +3,7 @@ use crate::closure::ast::Atom;
 use mal_frontend::check::ast::Type;
 use mal_frontend::resolve::ast::ExternalOperationId;
 
-use super::{EmittedValue, FunctionEmitter};
+use super::{EmittedValue, FunctionEmitter, ValueResponsibility};
 
 impl FunctionEmitter<'_> {
     pub(super) fn emit_external_call(
@@ -54,7 +54,7 @@ impl FunctionEmitter<'_> {
             };
         };
         Some(EmittedValue {
-            owned: crate::execution::ownership::is_managed(&result_type),
+            responsibility: ValueResponsibility::owned(&result_type),
             ty: result_type,
             representation: register,
         })

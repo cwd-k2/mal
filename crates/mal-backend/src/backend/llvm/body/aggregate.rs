@@ -6,7 +6,7 @@ use crate::control::ast::{CaseArm, StateId};
 use mal_frontend::check::ast::Type;
 
 use super::types::is_bool;
-use super::{EmittedValue, FunctionEmitter, PreparedValue};
+use super::{EmittedValue, FunctionEmitter, PreparedValue, ValueResponsibility};
 use crate::execution::ownership::UseEffect;
 
 impl FunctionEmitter<'_> {
@@ -25,6 +25,7 @@ impl FunctionEmitter<'_> {
         let aggregate_type = self.types.value(result_type)?;
         let mut aggregate = "poison".to_string();
         let mut consumed_slots = Vec::new();
+        let mut responsibility = ValueResponsibility::None;
         for (index, ((element, expected), effect)) in elements
             .iter()
             .zip(element_types.iter())
@@ -35,6 +36,7 @@ impl FunctionEmitter<'_> {
             if element.value.ty != *expected {
                 return None;
             }
+            responsibility = responsibility.combine(element.value.responsibility);
             consumed_slots.extend(element.consumed_slots);
             let element_type = self.types.value(expected)?;
             let register = self.register();
@@ -52,9 +54,7 @@ impl FunctionEmitter<'_> {
             value: EmittedValue {
                 ty: result_type.clone(),
                 representation: aggregate,
-                owned: element_types.iter().zip(effects).any(|(ty, effect)| {
-                    crate::execution::ownership::is_managed(ty) && *effect != UseEffect::Borrow
-                }),
+                responsibility,
             },
             consumed_slots,
         })
@@ -102,7 +102,7 @@ impl FunctionEmitter<'_> {
                     1 => "true".into(),
                     _ => return None,
                 },
-                owned: false,
+                responsibility: ValueResponsibility::None,
             });
         }
         if retain_borrowed {
@@ -158,11 +158,11 @@ impl FunctionEmitter<'_> {
                 metadata: [],
             };
         };
-        let owned = value.owned;
+        let responsibility = value.responsibility;
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: result,
-            owned,
+            responsibility,
         })
     }
 
@@ -225,7 +225,7 @@ impl FunctionEmitter<'_> {
                 EmittedValue {
                     ty: Type::Unit,
                     representation: "0".into(),
-                    owned: false,
+                    responsibility: ValueResponsibility::None,
                 }
             } else {
                 let payload =
@@ -233,7 +233,7 @@ impl FunctionEmitter<'_> {
                 EmittedValue {
                     ty: member.clone(),
                     representation: payload,
-                    owned: false,
+                    responsibility: ValueResponsibility::borrowed(member),
                 }
             };
             let payload = self.prepare_case_payload(site, arm_ordinal, scrutinee_atom, payload)?;
@@ -277,7 +277,7 @@ impl FunctionEmitter<'_> {
                 if slot.ty != scrutinee.ty {
                     return None;
                 }
-                payload.owned = true;
+                payload.responsibility = ValueResponsibility::owned(&payload.ty);
                 consumed_slots.push(slot);
             }
             Some(UseEffect::Borrow) => return None,

@@ -88,7 +88,7 @@ impl FunctionEmitter<'_> {
         alignment: usize,
         metadata: &[MetadataAttachment],
     ) -> Option<()> {
-        if !crate::execution::ownership::is_managed(&value.ty) || !value.owned {
+        if !value.responsibility.is_owned() {
             return None;
         }
         let value_type = self.types.value(&value.ty)?;
@@ -119,9 +119,9 @@ impl FunctionEmitter<'_> {
         &mut self,
         value: &mut EmittedValue,
     ) -> Option<()> {
-        if crate::execution::ownership::is_managed(&value.ty) && !value.owned {
+        if value.responsibility == super::super::ValueResponsibility::Borrowed {
             value.representation = self.retain_value(&value.ty, &value.representation)?;
-            value.owned = true;
+            value.responsibility = super::super::ValueResponsibility::Owned;
         }
         Some(())
     }
