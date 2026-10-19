@@ -3,14 +3,14 @@ use super::super::function_name;
 use super::super::syntax::{
     FunctionBuilder, FunctionDefinition, llvm_instruction, llvm_terminator, llvm_type,
 };
-use crate::backend::abi::Function as AbiFunction;
+use crate::backend::bridge_abi::BridgeFunction;
 
 pub(super) fn definition(
     body: &body::Output,
     types: &body::types::Types,
 ) -> Option<FunctionDefinition> {
     let mut function =
-        FunctionBuilder::new(AbiFunction::program_entry().llvm_definition_signature());
+        FunctionBuilder::new(BridgeFunction::program_entry().llvm_definition_signature());
     function.start_block("entry").then_some(())?;
     let control_top = if body.uses_control {
         function

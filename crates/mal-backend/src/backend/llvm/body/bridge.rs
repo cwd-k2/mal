@@ -29,7 +29,7 @@ impl FunctionEmitter<'_> {
                 metadata: [],
             };
         };
-        let bridge = crate::backend::abi::Function::external_bridge(id);
+        let bridge = crate::backend::bridge_abi::BridgeFunction::external_bridge(id);
         emit_instruction! {
             self;
             call {

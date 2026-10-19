@@ -6,7 +6,7 @@ mechanisms.
 
 | Module | Responsibility |
 |---|---|
-| `abi` | the internal bridge plan LLVM and generated C share |
+| `bridge_abi` | the private pointer bridge plan LLVM and generated C share |
 | `artifact` | generated artifacts and backend failures |
 | [`c`](c/README.md) | generated C: public headers, host stubs, and host-visible types |
 | [`llvm`](llvm/README.md) | the LLVM backend |

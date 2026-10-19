@@ -1,6 +1,6 @@
 //! Generated C bridge between public host carriers and internal pointer-based calls.
 
-use crate::backend::abi::Function as AbiFunction;
+use crate::backend::bridge_abi::BridgeFunction;
 use crate::backend::c::syntax::{
     Expr, FunctionDefinition, Statement, TranslationUnit, TypeName, c_block, c_expr, c_statement,
 };
@@ -15,7 +15,7 @@ pub(super) fn generate(
     external: &crate::core::ast::ExternalOperation,
     raw_types: &crate::backend::c::RawHostTypes,
 ) -> Bridge {
-    let bridge = AbiFunction::external_bridge(external.id);
+    let bridge = BridgeFunction::external_bridge(external.id);
     let llvm_declaration = bridge.llvm_declaration();
     let (mut statements, arguments) = match &external.parameter {
         Type::Unit => (vec![c_statement!(mal_argument as void;)], Vec::new()),

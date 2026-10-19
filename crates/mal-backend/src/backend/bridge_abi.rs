@@ -1,3 +1,5 @@
+//! Private pointer-bridge signatures shared by LLVM definitions and generated C.
+
 #[derive(Clone, Copy)]
 enum PointerAccess {
     ReadOnly,
@@ -9,12 +11,12 @@ struct PointerParameter {
     access: PointerAccess,
 }
 
-pub(crate) struct Function {
+pub(crate) struct BridgeFunction {
     name: String,
     parameters: [PointerParameter; 3],
 }
 
-impl Function {
+impl BridgeFunction {
     pub(crate) fn program_entry() -> Self {
         Self {
             name: "mal_program_entry".into(),

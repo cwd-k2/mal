@@ -1,7 +1,7 @@
 //! Target admission and coordinated generation of the LLVM module, C shim, header, and runtime set.
 
-use super::abi::Function as AbiFunction;
 use super::artifact::LlvmArtifacts;
+use super::bridge_abi::BridgeFunction;
 use super::c::syntax::{Declaration, Directive};
 use std::fmt;
 
@@ -93,7 +93,7 @@ pub(crate) fn generate_with_header_files(
     body::admit_target(program, layout).map_err(Error::Diagnostic)?;
     let body =
         body::generate(program, layout, optimizations).map_err(Error::InconsistentExecutionPlan)?;
-    let entry = AbiFunction::program_entry();
+    let entry = BridgeFunction::program_entry();
     let raw_types = crate::backend::c::RawHostTypes::new(&program.lowered.interface);
     let external_bridges = program
         .lowered
