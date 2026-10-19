@@ -33,7 +33,7 @@ impl ElementStorage {
     fn runtime(self, operation: &str) -> String {
         match self.lifecycle {
             Lifecycle::Trivial => format!("mal_runtime_buffer_{operation}"),
-            Lifecycle::Owned => format!("mal_runtime_buffer_{operation}_managed"),
+            Lifecycle::Managed => format!("mal_runtime_buffer_{operation}_managed"),
         }
     }
 }
@@ -58,7 +58,7 @@ impl FunctionEmitter<'_> {
                     return None;
                 }
                 let buffer = self.register();
-                if storage.lifecycle() == Lifecycle::Owned {
+                if storage.lifecycle() == Lifecycle::Managed {
                     let number = self.index.owned_buffer_elements.number(element)?;
                     emit_instruction! {
                         self;
@@ -99,14 +99,14 @@ impl FunctionEmitter<'_> {
                 if buffer.ty != buffer_type || value.ty != *element || *result_type != Type::USize {
                     return None;
                 }
-                if storage.lifecycle() == Lifecycle::Owned && !value.responsibility.is_owned() {
+                if storage.lifecycle() == Lifecycle::Managed && !value.responsibility.is_owned() {
                     return None;
                 }
                 let value_pointer = self.buffer_value_pointer(value, storage)?;
                 let index = self.register();
                 let function = match storage.lifecycle() {
                     Lifecycle::Trivial => "mal_runtime_buffer_new",
-                    Lifecycle::Owned => "mal_runtime_buffer_new_managed_move",
+                    Lifecycle::Managed => "mal_runtime_buffer_new_managed_move",
                 };
                 emit_instruction! {
                     self;

@@ -42,7 +42,7 @@ callback生成が既にある。IxPoolはこのloweringの新しい利用者に�
 | 現行箇所 | 既にあるもの | Pool導入で加えるもの |
 |---|---|---|
 | frontend `types/properties` | place lifecycleとしての`Storable`、nested Bufferとexternal opaque carrierのadmission、requirementの再帰 | Pool handleを同じ再帰へ加える。functionとempty sumは拒否を保つ |
-| execution ownership | product、sum、Symbol、Buffer、functionを再帰する`Lifecycle = Trivial | Owned`分類と、Buffer `new` / `put`の`Store` | Pool handleを同じ分類へ加え、Pool operationのuseとdropを計画する |
+| execution ownership | product、sum、Symbol、Buffer、functionを再帰する`Lifecycle = Trivial | Managed`分類と、Buffer `new` / `put`の`Store` | Pool handleを同じ分類へ加え、Pool operationのuseとdropを計画する |
 | LLVM value lifetime | Buffer handleを含むproductとsumの再帰的retain/release | nested Bufferのelement callbackから同じ処理を再利用する。Pool handle追加時も別の型再帰を作らない |
 | LLVM Buffer storage | specialization後の一つのruntime carrier layoutと、独立した`Lifecycle`。external opaqueはTrivial、nested BufferはOwned | Headerとslotへ同じlayout planとlifecycle glueを使う |
 | C Buffer runtime | storage descriptor、plain/managed element operation、growth後のdata再取得 | internal Pool kernelへ同じcallback型とrelocation規則を適用する |

@@ -1,16 +1,16 @@
 use mal_frontend::check::ast::Type;
 
-/// The place lifecycle required by a runtime value. `Owned` values need type-directed share and drop glue;
+/// The place lifecycle required by a runtime value. `Managed` types need type-directed share and drop glue;
 /// `Trivial` values can be copied and discarded as bits.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum Lifecycle {
     Trivial,
-    Owned,
+    Managed,
 }
 
 impl Lifecycle {
-    pub(crate) const fn is_owned(self) -> bool {
-        matches!(self, Self::Owned)
+    pub(crate) const fn is_managed(self) -> bool {
+        matches!(self, Self::Managed)
     }
 }
 
@@ -20,14 +20,14 @@ pub(crate) fn lifecycle(ty: &Type) -> Lifecycle {
         .data_subtypes()
         .any(|ty| matches!(ty, Type::Symbol | Type::Buffer(_) | Type::Function { .. }))
     {
-        Lifecycle::Owned
+        Lifecycle::Managed
     } else {
         Lifecycle::Trivial
     }
 }
 
 pub(crate) fn is_managed(ty: &Type) -> bool {
-    lifecycle(ty).is_owned()
+    lifecycle(ty).is_managed()
 }
 
 #[cfg(test)]
@@ -43,6 +43,6 @@ mod tests {
         assert_eq!(lifecycle(&unmanaged), Lifecycle::Trivial);
 
         let managed = Type::Product(vec![unmanaged, Type::Symbol].into());
-        assert_eq!(lifecycle(&managed), Lifecycle::Owned);
+        assert_eq!(lifecycle(&managed), Lifecycle::Managed);
     }
 }

@@ -129,7 +129,7 @@ genericsとruntime extension ABIも既存stageのadmission責務に従う。
 | specialization | checkerが確定したentry identityから到達するvalue bindingをsource順に選び、constructor termを含むgeneric instanceをcanonical keyで共有する。concrete operation goalを一意なexact/generic implementationへ解決し、type applicationを正規化してopaqueをrepresentationへ消去し、familyとrequirementを除いた単相checked programをcoreへ渡す |
 | core以降 | kind、type constructor、open type parameter、requirement、layout dictionaryを受け取らず、concrete typeとprimitiveだけを扱う |
 | backend runtime layout | specialization後のruntime carrier layoutを一つ作り、LLVM slot、Buffer element、C recordへ同じsize、alignment、offsetを供給する |
-| execution ownership | runtime valueをrepresentationと独立な`Lifecycle = Trivial | Owned`へ分類し、Owned valueのuseとdropを計画する。`Buffer` carrierはOwnedだが、external opaque carrierが指すreferentへownershipを拡張しない |
+| execution ownership | runtime valueをrepresentationと独立な`Lifecycle = Trivial | Managed`へ分類し、managed valueのuseとdropを計画する。`Buffer` carrierは`Managed`だが、external opaque carrierが指すreferentへownershipを拡張しない |
 | LLVM Buffer element | すべてruntime carrier representationを使い、TrivialまたはOwned lifecycleを独立に選ぶ。external opaque carrierは`Trivial`、`Symbol`またはnested Bufferを含むcarrierは`Owned`となり、後者だけretainとreleaseのcallbackを生成する。`get`のowned resultと、`new` / `put`へ`Share`または`Consume`されたelementのresponsibility transferを出力する。`Storable` admissionは再判定しない |
 | runtime | managed Buffer storage、要素callbackによるreferenceの取得と解放、Unitのcount-only表現、Symbol snapshot copyを実装する |
 | C interface | functionを含まないclosed extern typeをABI 0x000b00の単一runtime carrierへ写し、named carrierとstructural product/sumのtype spelling、managed parameter borrow、managed型だけのrecursive share/move/dropとstorage descriptor、wrapperを挟まないdirect extern definitionを生成する |

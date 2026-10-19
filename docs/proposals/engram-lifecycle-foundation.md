@@ -41,9 +41,9 @@ source-level loanを意味しない。これらを将来導入する場合は同
 
 ### lifecycleとrelocation
 
-現在の`Lifecycle = Trivial | Owned`は、shareとdropが必要かを十分に表す。一方、slot、Buffer growth、frame、C by-value carrierは、
+現在の`Lifecycle = Trivial | Managed`は、型にshareとdropが必要かを十分に表す。一方、slot、Buffer growth、frame、C by-value carrierは、
 すべてのadmit済みcarrierがbitwiseにrelocateできることを暗黙の前提にしている。新しいEngram leafがcarrier内部address、pin、
-非同期native accessを持つ場合、`Owned`だけではadmissionを決められない。
+非同期native accessを持つ場合、`Managed`だけではadmissionを決められない。
 
 必要になった時点で、少なくとも`share/drop`の有無と`bitwise relocatable`を別のpropertyとして扱う。現在の型がすべて同じ値を持つ間は、
 値を返すだけのregistryや汎用descriptorを先行して追加しない。`Storable`、frame field、extern by-value carrierはそれぞれの境界で

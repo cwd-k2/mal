@@ -86,7 +86,7 @@ impl FunctionEmitter<'_> {
                 metadata: { buffer_element_metadata() },
             };
         };
-        if lifecycle == Lifecycle::Owned {
+        if lifecycle == Lifecycle::Managed {
             self.retain_value(element, &loaded)?;
         }
         Some(EmittedValue {
@@ -94,7 +94,7 @@ impl FunctionEmitter<'_> {
             representation: loaded,
             responsibility: match lifecycle {
                 Lifecycle::Trivial => super::super::super::ValueResponsibility::None,
-                Lifecycle::Owned => super::super::super::ValueResponsibility::Owned,
+                Lifecycle::Managed => super::super::super::ValueResponsibility::Owned,
             },
         })
     }
@@ -108,7 +108,7 @@ impl FunctionEmitter<'_> {
         alignment: usize,
         lifecycle: Lifecycle,
     ) -> Option<()> {
-        if lifecycle == Lifecycle::Owned {
+        if lifecycle == Lifecycle::Managed {
             return self.move_into_managed_place(
                 pointer,
                 value,

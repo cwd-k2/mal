@@ -24,7 +24,7 @@ impl OwnedBufferElements {
                 element,
                 ..
             } = &binding.operation
-                && crate::execution::ownership::lifecycle(element).is_owned()
+                && crate::execution::ownership::lifecycle(element).is_managed()
                 && !elements.contains(element)
             {
                 elements.push(element.clone());
