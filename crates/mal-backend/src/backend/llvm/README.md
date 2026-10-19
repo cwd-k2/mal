@@ -72,6 +72,7 @@ physical partitioning into several `.ll` inputs is a delivery choice and does no
 
 `EmittedValue` keeps the source type, LLVM representation, and transported responsibility separate. `None` is reserved
 for types without managed lifecycle, `Borrowed` observes responsibility held by a place, and `Owned` must be handed off or
-released. Product construction follows the current aggregate ABI: if any managed leaf is owned, the aggregate carrier is
+released. Slot initialization and parameter handoff reject a carrier whose responsibility state disagrees with its source
+type. Product construction follows the current aggregate ABI: if any managed leaf is owned, the aggregate carrier is
 treated as owned and projections hand off its managed leaves together. A future element-granular aggregate ABI must replace
 that rule explicitly rather than extending the carrier with more booleans.

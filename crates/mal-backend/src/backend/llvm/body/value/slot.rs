@@ -30,7 +30,7 @@ impl FunctionEmitter<'_> {
         slot: &super::super::Slot,
         value: &EmittedValue,
     ) -> Option<()> {
-        if slot.ty != value.ty {
+        if slot.ty != value.ty || !value.has_valid_responsibility() {
             return None;
         }
         let value_type = self.types.value(&slot.ty)?;
@@ -119,9 +119,15 @@ impl FunctionEmitter<'_> {
         &mut self,
         value: &mut EmittedValue,
     ) -> Option<()> {
-        if value.responsibility == super::super::ValueResponsibility::Borrowed {
-            value.representation = self.retain_value(&value.ty, &value.representation)?;
-            value.responsibility = super::super::ValueResponsibility::Owned;
+        match value.responsibility {
+            super::super::ValueResponsibility::Borrowed => {
+                value.representation = self.retain_value(&value.ty, &value.representation)?;
+                value.responsibility = super::super::ValueResponsibility::Owned;
+            }
+            super::super::ValueResponsibility::Owned => {}
+            super::super::ValueResponsibility::None
+                if !crate::execution::ownership::is_managed(&value.ty) => {}
+            super::super::ValueResponsibility::None => return None,
         }
         Some(())
     }

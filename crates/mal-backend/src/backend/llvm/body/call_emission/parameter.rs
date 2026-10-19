@@ -11,7 +11,7 @@ impl FunctionEmitter<'_> {
         entry: crate::execution::ownership::ParameterEntry,
     ) -> Option<()> {
         let function = *self.index.control_functions.get(&target)?;
-        if function.parameter.ty != value.ty {
+        if function.parameter.ty != value.ty || !value.has_valid_responsibility() {
             return None;
         }
         let destination = self.execution.parameters.destination(target)?;

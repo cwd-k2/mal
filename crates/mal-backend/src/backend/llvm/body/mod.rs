@@ -257,6 +257,17 @@ struct EmittedValue {
     responsibility: ValueResponsibility,
 }
 
+impl EmittedValue {
+    fn has_valid_responsibility(&self) -> bool {
+        match self.responsibility {
+            ValueResponsibility::None => !crate::execution::ownership::is_managed(&self.ty),
+            ValueResponsibility::Borrowed | ValueResponsibility::Owned => {
+                crate::execution::ownership::is_managed(&self.ty)
+            }
+        }
+    }
+}
+
 /// The responsibility transported by an SSA carrier, independently of its representation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ValueResponsibility {

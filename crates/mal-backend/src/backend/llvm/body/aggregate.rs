@@ -158,7 +158,11 @@ impl FunctionEmitter<'_> {
                 metadata: [],
             };
         };
-        let responsibility = value.responsibility;
+        let responsibility = if value.responsibility.is_owned() {
+            ValueResponsibility::owned(result_type)
+        } else {
+            ValueResponsibility::borrowed(result_type)
+        };
         Some(EmittedValue {
             ty: result_type.clone(),
             representation: result,
