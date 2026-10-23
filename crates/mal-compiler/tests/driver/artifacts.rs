@@ -20,7 +20,7 @@ mod byte_transfer;
 mod calls;
 #[path = "artifacts/closure_ownership.rs"]
 mod closure_ownership;
-#[path = "artifacts/entry.rs"]
+#[path = "artifacts/entry/mod.rs"]
 mod entry;
 #[path = "artifacts/frames.rs"]
 mod frames;
