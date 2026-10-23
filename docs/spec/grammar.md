@@ -15,6 +15,10 @@ VALUE_IDENT ::= "_"? [a-z][A-Za-z0-9]*
 表せる。単独の`_`はwildcardである。空白はASCII space、tab、CR、LF、commentは`//`からline末尾までとする。
 keywordは`require`、`extern`、`opaque`、`if`、`when`、`then`、`else`である。Unicode identifier、block comment、trailing commaはない。
 
+reference compilerはexpression、pattern、type expressionの再帰的なsyntax nestingを各source fileのparse pathごとに64 levelまで
+受理する。これはgrammarが表す構造の意味ではなくparserのresource limitであり、超過は起点となったsyntaxの
+compile-time diagnosticにする。
+
 型identifierはdeclaration、annotation、generic parameter/argumentなどtype grammarが要求する位置だけに現れる。expressionから
 型を参照するtype-qualified primitiveとnumeric conversionはない。
 

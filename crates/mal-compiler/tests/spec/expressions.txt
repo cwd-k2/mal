@@ -6,7 +6,7 @@ main :: Unit -> Int32 := () -> { (a, b) := (1i32, 2i32); a + b; };
 main :: Unit -> Int32 := () -> { x := 1i32; y := { x := 2i32; x; }; y; };
 ### shadow_after_block | run:1
 main :: Unit -> Int32 := () -> { x := 1i32; _ := { x := 2i32; x; }; x; };
-### if_needs_parens | err:
+### if_needs_parens | err:syntax
 f :: Bool -> Int32 := (c) -> if c then 1 else 2;
 ### if_ok | run:7
 f :: Bool -> Int32 := (c) -> if (c) then 7 else 9;
@@ -14,9 +14,9 @@ main :: Unit -> Int32 := () -> f(true);
 ### else_if_chain | run:3
 f :: Int32 -> Int32 := (n) -> if (n == 0) then 1 else if (n == 1) then 2 else 3;
 main :: Unit -> Int32 := () -> f(5i32);
-### if_branch_type_mismatch | err:type
+### if_branch_type_mismatch | err:check:type
 f :: Bool -> Int32 := (c) -> if (c) then 1i32 else 2i64;
-### if_cond_not_bool | err:
+### if_cond_not_bool | err:check
 f :: Int32 -> Int32 := (c) -> if (c) then 1 else 2;
 ### when_fallthrough | run:5
 f :: Bool -> Int32 := (c) -> [r] => { when (c) r(3); r(5); };
@@ -24,11 +24,11 @@ main :: Unit -> Int32 := () -> f(false);
 ### when_taken | run:3
 f :: Bool -> Int32 := (c) -> [r] => { when (c) r(3); r(5); };
 main :: Unit -> Int32 := () -> f(true);
-### when_body_not_unit | err:
+### when_body_not_unit | err:check
 f :: Bool -> Int32 := (c) -> [r] => { when (c) 3; r(5); };
-### result_block_unused_binder | err:
+### result_block_unused_binder | err:check
 f :: Unit -> Int32 := () -> [r] => 3;
-### result_block_arity_mismatch | err:
+### result_block_arity_mismatch | err:check
 S :: [Int32, Int32];
 f :: Unit -> S := () -> [a] => a(1);
 ### result_block_sum_pick | run:1
@@ -41,30 +41,30 @@ S :: [Int32, Int32];
 pick :: S -> Int32 := (s) -> s[(x) -> x, (y) -> y + 100i32];
 f :: Unit -> S := () -> [a, b] => b(2);
 main :: Unit -> Int32 := () -> pick(f());
-### binder_as_value | err:
+### binder_as_value | err:check
 f :: Unit -> Int32 := () -> [r] => { g := r; r(1); };
-### binder_captured_by_lambda | err:
+### binder_captured_by_lambda | err:resolve
 f :: Unit -> Int32 := () -> [r] => { h := () -> r(1); r(2); };
-### empty_binder_group | err:
+### empty_binder_group | err:syntax
 f :: Unit -> Int32 := () -> [] => 1;
-### binder_dup_names | err:
+### binder_dup_names | err:resolve
 S :: [Int32, Int32];
 f :: Unit -> S := () -> [a, a] => a(1);
-### sum_elim_wrong_arity | err:
+### sum_elim_wrong_arity | err:check
 S :: [Int32, Int32];
 f :: S -> Int32 := (s) -> s[(x) -> x];
-### sum_elim_arm_type | err:
+### sum_elim_arm_type | err:check
 S :: [Int32, Int32];
 f :: S -> Int32 := (s) -> s[(x) -> x, (y) -> true];
 ### single_continuation_is_application | run:4
 f :: Int32 -> Int32 := (x) -> x + 1;
 main :: Unit -> Int32 := () -> 3i32[f];
-### zero_cont_on_nonempty | err:
+### zero_cont_on_nonempty | err:check
 f :: Int32 -> Int32 := (x) -> x[];
 ### ufcs_basic | run:5
 add :: (Int32, Int32) -> Int32 := (a, b) -> a + b;
 main :: Unit -> Int32 := () -> 2i32.add(3i32);
-### field_access_none | err:
+### field_access_none | err:syntax
 main :: Unit -> Int32 := () -> { p := (1i32, 2i32); p.x; };
 ### value_first_app | run:8
 dbl :: Int32 -> Int32 := (x) -> x + x;
@@ -74,17 +74,17 @@ f :: Unit -> Int32 := () -> 9;
 main :: Unit -> Int32 := () -> { f(); 1; };
 ### block_last_semicolon_optional | run:1
 main :: Unit -> Int32 := () -> { 1i32 };
-### block_no_result | err:
+### block_no_result | err:syntax
 main :: Unit -> Int32 := () -> { x := 1i32; };
-### bare_block_not_lambda | err:
+### bare_block_not_lambda | err:check
 f :: Unit -> Int32 := { 1i32 };
-### toplevel_app_rejected | err:
+### toplevel_app_rejected | err:check
 g :: Int32 -> Int32 := (x) -> x;
 v :: Int32 := g(1);
-### toplevel_ref_rejected | err:
+### toplevel_ref_rejected | err:check
 a :: Int32 := 1;
 b :: Int32 := a;
-### toplevel_block_rejected | err:
+### toplevel_block_rejected | err:check
 v :: Int32 := { 1i32 };
 ### toplevel_true_ok | ok
 v :: Bool := true;
@@ -92,24 +92,24 @@ v :: Bool := true;
 f :: Int32 -> Int32 := (x) -> x + 1;
 ### toplevel_product_ok | ok
 p :: (Int32, Int32) := (1, 2);
-### forward_ref | err:
+### forward_ref | err:resolve
 a :: Int32 -> Int32 := (x) -> b(x);
 b :: Int32 -> Int32 := (x) -> x;
 ### self_recursion_ok | run:6
 sum :: Int32 -> Int32 := (n) -> if (n == 0) then 0 else n + sum(n - 1);
 main :: Unit -> Int32 := () -> sum(3i32);
-### mutual_recursion | err:
+### mutual_recursion | err:resolve
 even :: Int32 -> Bool := (n) -> if (n == 0) then true else odd(n - 1);
 odd :: Int32 -> Bool := (n) -> if (n == 0) then false else even(n - 1);
-### recursion_needs_annotation | err:
+### recursion_needs_annotation | err:syntax
 f := (n: Int32) -> f(n);
-### recursion_paren_lambda | err:
+### recursion_paren_lambda | err:resolve
 f :: Int32 -> Int32 := ((n) -> f(n));
-### main_wrong_type | err:
+### main_wrong_type | err:check
 main :: Unit -> Int64 := () -> 0;
 ### main_args_ok | ok
 main :: Buffer<Symbol> -> Int32 := (a) -> 0;
-### main_args_rejects_byte_buffer | err:invalid entry point type
+### main_args_rejects_byte_buffer | err:check:invalid entry point type
 main :: Buffer<UInt8> -> Int32 := (a) -> 0;
 ### main_missing_ok_lib | ok
 f :: Int32 -> Int32 := (x) -> x;
@@ -118,18 +118,18 @@ mk :: Int32 -> (Int32 -> Int32) := (x) -> (y) -> x + y;
 main :: Unit -> Int32 := () -> mk(10i32)(5i32);
 ### closure_ret_curry_type | ok
 mk :: Int32 -> Int32 -> Int32 := (x) -> (y) -> x + y;
-### fn_equality_none | err:
+### fn_equality_none | err:check
 f :: Int32 -> Int32 := (x) -> x;
 main :: Unit -> Bool := () -> f == f;
-### product_equality_none | err:
+### product_equality_none | err:check
 main :: Unit -> Bool := () -> (1i32, 2i32) == (1i32, 2i32);
 ### bool_equality_ok | run:1
 main :: Unit -> Int32 := () -> if (true == true) then 1 else 0;
-### unreachable_after_abrupt | err:
+### unreachable_after_abrupt | err:check
 f :: Unit -> Int32 := () -> [r] => { r(1); 2; };
-### binding_init_abrupt | err:
+### binding_init_abrupt | err:check
 f :: Unit -> Int32 := () -> [r] => { x := r(1); r(2); };
-### abrupt_arg_makes_call_abrupt | err:
+### abrupt_arg_makes_call_abrupt | err:check
 g :: (Int32, Int32) -> Int32 := (a, b) -> a;
 h :: Unit -> Int32 := () -> 1;
 f :: Unit -> Int32 := () -> [r] => g(r(1), h());
@@ -137,7 +137,7 @@ f :: Unit -> Int32 := () -> [r] => g(r(1), h());
 f :: Bool -> Int32 := (c) -> [r] => { _ := c && r(1); r(2); };
 ### sum_elim_branch_abrupt_ok | ok
 f :: Bool -> Int32 := (c) -> [r] => (if (c) then r(1) else r(2));
-### all_paths_abrupt_needs_own_binder | err:
+### all_paths_abrupt_needs_own_binder | err:check
 f :: Unit -> Int32 := () -> [r] => { g := 1i32; f(); };
 ### never_lambda_ok | ok
 never :: Unit -> [] := () -> never()[];
@@ -145,13 +145,13 @@ never :: Unit -> [] := () -> never()[];
 f :: [] -> Int32 := (n) -> n[];
 ### empty_type_in_product_ok | ok
 P :: ([], Int32);
-### inner_block_must_use_own | err:
+### inner_block_must_use_own | err:check
 f :: Unit -> Int32 := () -> [outer] => { _ := ([inner] => outer(7)); outer(9); };
 ### if_both_branches_abrupt | ok
 f :: Bool -> Int32 := (c) -> [r] => if (c) then r(1) else r(2);
 ### when_abrupt_body | ok
 f :: Bool -> Int32 := (c) -> [r] => { when (c) r(1); r(2); };
-### lambda_body_abrupt_binder_type | err:
+### lambda_body_abrupt_binder_type | err:check
 f :: Unit -> Int32 := () -> [r] => r(true);
 ### binder_unit_forms | run:0
 f :: Unit -> Unit := () -> [r] => r();
@@ -172,7 +172,7 @@ main :: Unit -> Int32 := () -> f(true);
 ### inner_outer_escape_not_taken | run:103
 f :: Bool -> Int32 := (c) -> [outer] => { x :: Int32 := ([inner] => { when (c) outer(7); inner(3); }); outer(x + 100i32); };
 main :: Unit -> Int32 := () -> f(false);
-### inner_must_apply_own_binder | err:does not produce a result
+### inner_must_apply_own_binder | err:check:does not produce a result
 f :: Unit -> Int32 := () -> [outer] => { x :: Int32 := ([inner] => outer(7)); outer(x); };
 ### bool_is_sum | ok
 x :: [Unit, Unit] := true;
@@ -185,7 +185,7 @@ main :: Unit -> Int32 := () -> { a :: [Unit, Unit] := true; if (a == true) then 
 ### bool_direct_result_block | run:1
 mk :: Unit -> Bool := () -> [f, t] => t();
 main :: Unit -> Int32 := () -> if (mk()) then 1 else 0;
-### nested_vs_flat_sum_distinct | err:
+### nested_vs_flat_sum_distinct | err:check
 Flat :: [Int32, Int32, Int32];
 Nested :: [Int32, [Int32, Int32]];
 f :: Flat -> Nested := (x) -> x;
@@ -217,7 +217,7 @@ main :: Unit -> Int32 := () -> { f :: Int32 -> Int32 := (n) -> if (n == 0) then 
 main :: Unit -> Int32 := () -> { base := 1i32; count :: Int32 -> Int32 := (n) -> if (n == 0i32) then base else { step :: Int32 -> Int32 := (m) -> count(m); step(n - 1i32); }; count(5i32) - 1i32; };
 ### local_self_recursion_escapes_in_a_nested_closure | run:3
 main :: Unit -> Int32 := () -> { name := "abc"; count :: Int32 -> (Unit -> Int32) := (n) -> if (n == 0i32) then () -> (#name).i32 else { again :: Unit -> Int32 := () -> count(n - 1i32)(); again; }; count(4i32)(); };
-### local_self_recursion_needs_annotation | err:
+### local_self_recursion_needs_annotation | err:resolve
 main :: Unit -> Int32 := () -> { f := (n) -> f(n); 0; };
 ### alias_forward_reference | ok
 v :: Later := 1;
@@ -229,50 +229,50 @@ extern later :: Unit -> Int32;
 A :: B;
 B :: C;
 C :: Int32;
-### extern_in_block | err:
+### extern_in_block | err:syntax
 main :: Unit -> Int32 := () -> { extern x :: Int32; 0; };
-### type_alias_in_block | err:
+### type_alias_in_block | err:syntax
 main :: Unit -> Int32 := () -> { T :: Int32; 0; };
 ### toplevel_pattern_binding | ok
 (a, b) := (1i32, 2i32);
-### toplevel_pattern_dup | err:
+### toplevel_pattern_dup | err:resolve
 (a, a) := (1i32, 2i32);
 ### toplevel_underscore | ok
 _ := 1i32;
-### two_top_level_same_value | err:
+### two_top_level_same_value | err:resolve
 a :: Int32 := 1;
 a :: Int32 := 2;
-### type_and_extern_opaque_same_name | err:
+### type_and_extern_opaque_same_name | err:resolve
 extern Mem;
 Mem :: Int32;
 ### opaque_extern_copyable | ok
 extern Mem;
 f :: Mem -> (Mem, Mem) := (m) -> (m, m);
-### opaque_no_equality | err:
+### opaque_no_equality | err:check
 extern Mem;
 f :: (Mem, Mem) -> Bool := (a, b) -> a == b;
-### buffer_no_equality | err:
+### buffer_no_equality | err:check
 f :: (Buffer<Int32>, Buffer<Int32>) -> Bool := (a, b) -> a == b;
 ### buffer_len_prefix_only | ok
 f :: Buffer<Int32> -> USize := (b) -> #b;
-### length_of_int | err:
+### length_of_int | err:check
 f :: Int32 -> USize := (b) -> #b;
 ### symbol_conversion_types | ok
 f :: Symbol -> Buffer<UInt8> := (s) -> *s;
 g :: Buffer<UInt8> -> Symbol := (b) -> *b;
-### symbol_conversion_wrong_elem | err:
+### symbol_conversion_wrong_elem | err:check
 g :: Buffer<Int32> -> Symbol := (b) -> *b;
-### deref_int | err:
+### deref_int | err:check
 f :: Int32 -> Int32 := (b) -> *b;
-### make_needs_type_arg | err:
+### make_needs_type_arg | err:check
 f :: Unit -> Unit := () -> { b := make(1usize); (); };
-### buffer_get_index_type | err:
+### buffer_get_index_type | err:check
 f :: Buffer<Int32> -> Int32 := (b) -> b.get(0i32);
-### buffer_put_value_type | err:
+### buffer_put_value_type | err:check
 f :: Buffer<Int32> -> Unit := (b) -> b.put(0usize, true);
-### buffer_method_on_non_buffer | err:
+### buffer_method_on_non_buffer | err:check
 f :: Int32 -> Unit := (x) -> x.put(0usize, 1);
-### buffer_op_not_first_class | err:
+### buffer_op_not_first_class | err:check
 f :: Unit -> Unit := () -> { g := get; (); };
 ### buffer_op_shadow_ok | ok
 f :: Unit -> Int32 := () -> { get :: (Int32, Int32) -> Int32 := (a, b) -> a; get(1, 2); };

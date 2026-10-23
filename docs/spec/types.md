@@ -198,6 +198,17 @@ A -> B -> C
 
 関数型の値は lexical closure である。同じ関数型を持つ capture-free な関数と capture を持つ関数は、型として区別しない。closure の code や environment を観察する操作と、関数値の equality は存在しない。
 
+## 物理表現のresource limit
+
+reference compilerはclosed value typeの物理表現を64 nested aggregate levelかつ65,536 storage componentまで受理する。
+productのcomponent数はmemberの合計、sumはtagと最大memberの合計とし、scalar、`Unit`、`Symbol`、`Buffer`、external
+opaque carrierは1 componentとする。file-local opaque typeはhidden representation、transparent aliasは展開後の型で測る。
+functionのcomponent数はparameter、result、2の最大値とし、function層自体をaggregate depthに加えない。
+
+この上限は型同値性やtarget ABIのlayout上限ではなく、compiler内部の表現を有限に保つresource limitである。
+超過は起点となったtype expressionのcompile-time diagnosticにする。targetのobject-size範囲とdata layoutによる制約は
+artifact生成時に別途検査する。
+
 ## external opaque type
 
 ```mal

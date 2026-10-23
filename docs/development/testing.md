@@ -43,6 +43,7 @@ behaviorの領域ごとにchild moduleへ分ける。source fileと同様、行�
 format boundaryでは実際のconverterを使う。特にLLVM backendはIRらしい文字列を比較するだけで完了とせず、
 warningを有効にしたClangで生成物をcompileする。invalid inputのtestは、後段が失敗することではなく、
 そのinputを所有するstageが拒否することを確認する。
+複数stageを通すspecification caseは拒否したstageを固定し、diagnostic textは文言自体が利用者contractの場合だけ固定する。
 
 ## Commands
 
@@ -78,7 +79,7 @@ cd editors/tree-sitter-mal
 tree-sitter generate
 tree-sitter test
 let sources = (rg --files ../.. -g "*.mal" | lines)
-tree-sitter parse --quiet ...$sources
+tree-sitter parse --config-path tree-sitter-config.json --grammar-path . --quiet ...$sources
 ```
 
 `editors/vscode/`のfocused verificationは次で行う。完了時のrepository checkではdependency install、server同梱、

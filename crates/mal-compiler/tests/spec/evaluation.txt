@@ -161,9 +161,9 @@ main :: Unit -> Int32 := () -> {
     result := run(log);
     (#log).i32 + result - 4
 };
-### memory_operand_after_abrupt_receiver | err:unreachable expression after abrupt completion
+### memory_operand_after_abrupt_receiver | err:check:unreachable expression after abrupt completion
 run :: Unit -> Int32 := () -> [k] => put(k(1i32), 0usize, 3i32);
-### memory_operand_after_abrupt_index | err:unreachable expression after abrupt completion
+### memory_operand_after_abrupt_index | err:check:unreachable expression after abrupt completion
 run :: Buffer<Int32> -> Int32 := (target) -> [k] => put(target, k(1i32), 3i32);
 ### lifted_host_called_through_an_alias | run:16
 host :: (Int32 -> Int32, Int32) -> Int32 := (f, x) -> f(x) + f(x);

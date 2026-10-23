@@ -1,8 +1,9 @@
 //! Cases derived from the language specification.
 //!
 //! Each file under `tests/spec` holds cases written as `### name | expectation` followed by a program. An
-//! expectation is `ok` (the program checks), `err:<text>` (the checker rejects it with a message containing
-//! `text`), `run:<code>` (the built program exits with `code`), or `trap` (the built program aborts).
+//! expectation is `ok` (the program checks), `err:<stage>` or `err:<stage>:<text>` (the owning frontend stage
+//! rejects it, optionally with a message containing `text`), `run:<code>` (the built program exits with `code`),
+//! or `trap` (the built program aborts).
 
 use std::os::unix::process::ExitStatusExt;
 
@@ -14,9 +15,19 @@ use support::NativeFixture;
 
 enum Expectation {
     Accepted,
-    Rejected(String),
+    Rejected {
+        stage: RejectionStage,
+        message: Option<String>,
+    },
     Exit(i32),
     Trap,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RejectionStage {
+    Syntax,
+    Resolve,
+    Check,
 }
 
 struct Case {
@@ -45,8 +56,21 @@ fn expectation_of(text: &str) -> Expectation {
         Expectation::Accepted
     } else if text == "trap" {
         Expectation::Trap
-    } else if let Some(message) = text.strip_prefix("err:") {
-        Expectation::Rejected(message.to_owned())
+    } else if let Some(rejection) = text.strip_prefix("err:") {
+        let (stage, message) =
+            rejection
+                .split_once(':')
+                .map_or((rejection, None), |(stage, message)| {
+                    assert!(!message.is_empty(), "rejection message must not be empty");
+                    (stage, Some(message.to_owned()))
+                });
+        let stage = match stage {
+            "syntax" => RejectionStage::Syntax,
+            "resolve" => RejectionStage::Resolve,
+            "check" => RejectionStage::Check,
+            _ => panic!("unknown rejection stage `{stage}`"),
+        };
+        Expectation::Rejected { stage, message }
     } else if let Some(code) = text.strip_prefix("run:") {
         Expectation::Exit(code.parse().expect("exit code"))
     } else {
@@ -56,17 +80,41 @@ fn expectation_of(text: &str) -> Expectation {
 
 fn check(case: &Case) -> Result<(), String> {
     let source = SourceFile::new(FileId::new(0), "spec.mal", case.source.clone());
-    let checked = mal_frontend::analysis::check(&source);
+    let checked = mal_syntax::parser::parse(&source)
+        .map_err(|error| (RejectionStage::Syntax, error))
+        .and_then(|parsed| {
+            mal_frontend::resolve::resolve(&parsed)
+                .map_err(|error| (RejectionStage::Resolve, error))
+        })
+        .and_then(|resolved| {
+            mal_frontend::check::check(&resolved).map_err(|error| (RejectionStage::Check, error))
+        });
     match (&case.expectation, checked) {
         (Expectation::Accepted, Ok(_)) => Ok(()),
-        (Expectation::Accepted, Err(error)) => Err(format!("rejected: {}", error.message)),
-        (Expectation::Rejected(_), Ok(_)) => Err("accepted".to_owned()),
-        (Expectation::Rejected(text), Err(error)) if error.message.contains(text.as_str()) => {
+        (Expectation::Accepted, Err((stage, error))) => {
+            Err(format!("rejected by {stage:?}: {}", error.message))
+        }
+        (Expectation::Rejected { .. }, Ok(_)) => Err("accepted".to_owned()),
+        (
+            Expectation::Rejected {
+                stage: expected_stage,
+                message,
+            },
+            Err((actual_stage, error)),
+        ) if expected_stage == &actual_stage
+            && message
+                .as_ref()
+                .is_none_or(|message| error.message.contains(message)) =>
+        {
             Ok(())
         }
-        (Expectation::Rejected(_), Err(error)) => {
-            Err(format!("wrong rejection: {}", error.message))
-        }
+        (Expectation::Rejected { stage, message }, Err((actual_stage, error))) => Err(format!(
+            "expected {stage:?} rejection{}; got {actual_stage:?}: {}",
+            message
+                .as_ref()
+                .map_or(String::new(), |message| format!(" containing `{message}`")),
+            error.message
+        )),
         _ => unreachable!("execution cases are not only checked"),
     }
 }
@@ -113,7 +161,7 @@ fn execute(case: &Case, clang_arguments: &[&str], malc_arguments: &[&str]) -> Re
 
 fn run_case(case: &Case, clang_arguments: &[&str], malc_arguments: &[&str]) -> Result<(), String> {
     match case.expectation {
-        Expectation::Accepted | Expectation::Rejected(_) => check(case),
+        Expectation::Accepted | Expectation::Rejected { .. } => check(case),
         Expectation::Exit(_) | Expectation::Trap => execute(case, clang_arguments, malc_arguments),
     }
 }

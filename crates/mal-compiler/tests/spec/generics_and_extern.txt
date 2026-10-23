@@ -9,33 +9,33 @@ equal<A> :: (A, A) -> Bool;
 equal<Int32> :: (Int32, Int32) -> Bool := (left, right) -> left == right;
 same<A> :: (A, A) -> Bool := (left, right) -> equal(left, right);
 main :: Unit -> Int32 := () -> if (same(7i32, 7i32)) then 42 else 0;
-### exact_operation_duplicate | err:duplicate operation implementation
+### exact_operation_duplicate | err:check:duplicate operation implementation
 zero<A> :: A;
 zero<Int32> :: Int32 := 0;
 zero<Int32> :: Int32 := 1;
-### generic_ops_on_param | err:
+### generic_ops_on_param | err:check
 double<A> :: A -> A := (v) -> v + v;
 ### generic_first_class_ok | ok
 identity<A> :: A -> A := (v) -> v;
 main :: Unit -> Int32 := () -> { f := identity<Int32>; f(1); };
-### generic_value_without_targs | err:
+### generic_value_without_targs | err:check
 identity<A> :: A -> A := (v) -> v;
 main :: Unit -> Int32 := () -> { f := identity; 0; };
-### generic_extern | err:
+### generic_extern | err:syntax
 extern id<A> :: A -> A;
-### generic_polyrec | err:
+### generic_polyrec | err:check
 f<A> :: A -> Int32 := (v) -> f<(A, A)>((v, v));
 ### generic_same_recursion_ok | ok
 f<A> :: (A, Int32) -> Int32 := (v, n) -> if (n == 0) then 0 else f<A>(v, n - 1);
 ### generic_alias_ok | ok
 Pair<A> :: (A, A);
 p :: Pair<Int32> := (1, 2);
-### generic_alias_recursive | err:
+### generic_alias_recursive | err:check
 L<A> :: (A, L<A>);
-### generic_arity_mismatch | err:
+### generic_arity_mismatch | err:check
 Pair<A> :: (A, A);
 p :: Pair<Int32, Int32> := (1, 2);
-### generic_requirement_buffer_function | err:
+### generic_requirement_buffer_function | err:check
 f<A> :: A -> Buffer<A> := (v) -> make<A>(1usize);
 g :: Unit -> Unit := () -> { b := f<Int32 -> Int32>((x) -> x); () };
 ### generic_requirement_buffer_symbol_ok | ok
@@ -46,7 +46,7 @@ f<A> :: A -> Buffer<A> := (v) -> make<A>(1usize);
 g :: Buffer<Int32> -> Buffer<Buffer<Int32>> := (v) -> f<Buffer<Int32>>(v);
 ### generic_buffer_param_ok | ok
 first<A> :: Buffer<A> -> A := (b) -> b.get(0usize);
-### generic_dup_param | err:
+### generic_dup_param | err:resolve
 f<A, A> :: A -> A := (v) -> v;
 ### generic_uses_op_via_arg_ok | ok
 add<A> :: ((A, A) -> A, A, A) -> A := (op, a, b) -> op(a, b);
@@ -56,11 +56,11 @@ B :: Buffer<Symbol>;
 B :: Buffer<(Symbol, Int32, [Unit, Symbol])>;
 ### buffer_of_buffer_in_product | ok
 B :: Buffer<(Int32, Buffer<Int32>)>;
-### buffer_of_fn_in_sum | err:
+### buffer_of_fn_in_sum | err:check
 B :: Buffer<[Unit, Int32 -> Int32]>;
 ### buffer_of_buffer | ok
 B :: Buffer<Buffer<Int32>>;
-### buffer_of_fn | err:
+### buffer_of_fn | err:check
 B :: Buffer<Int32 -> Int32>;
 ### buffer_of_opaque | ok
 extern Mem;
@@ -72,13 +72,13 @@ B :: Buffer<(Mem, [Unit, Mem])>;
 extern Mem;
 makeOpaque<A> :: A -> Buffer<A> := (value) -> make<A>(1usize);
 useOpaque :: Mem -> Buffer<Mem> := (value) -> makeOpaque<Mem>(value);
-### buffer_of_empty_sum | err:
+### buffer_of_empty_sum | err:check
 B :: Buffer<[]>;
 ### buffer_of_unit_ok | ok
 B :: Buffer<Unit>;
 ### buffer_of_product_sum_ok | ok
 B :: Buffer<(Int32, [Unit, Symbol], USize)>;
-### buffer_two_args | err:
+### buffer_two_args | err:check
 B :: Buffer<Int32, Int32>;
 ### buffer_partial_constructor | ok
 B :: Buffer;
@@ -86,11 +86,11 @@ B :: Buffer;
 extern f :: Symbol -> Unit;
 ### extern_buffer_param | ok
 extern f :: Buffer<UInt8> -> Unit;
-### extern_fn_param | err:
+### extern_fn_param | err:check
 extern f :: (Int32 -> Int32) -> Unit;
-### extern_fn_in_sum | err:
+### extern_fn_in_sum | err:check
 extern f :: [Unit, Int32 -> Int32] -> Unit;
-### extern_fn_result | err:
+### extern_fn_result | err:check
 extern f :: Unit -> (Int32 -> Int32);
 ### extern_nested_symbol | ok
 extern f :: (Int32, Symbol) -> Unit;
@@ -112,14 +112,14 @@ extern b :: Bool -> Bool;
 ### extern_first_class | ok
 extern nothing :: Unit -> Int32;
 main :: Unit -> Int32 := () -> { g := nothing; 0; };
-### extern_dup | err:
+### extern_dup | err:resolve
 extern f :: Unit -> Unit;
 extern f :: Unit -> Unit;
-### precedence_relational_chain | err:
+### precedence_relational_chain | err:syntax
 x :: Bool := 1 < 2 < 3;
-### precedence_equality_chain | err:
+### precedence_equality_chain | err:syntax
 x :: Bool := 1 == 1 == 1;
-### precedence_bitand_equality | err:
+### precedence_bitand_equality | err:check
 x :: Int32 := 3 & 1 == 1;
 ### precedence_mul_add | run:7
 main :: Unit -> Int32 := () -> 1i32 + 2i32 * 3i32;
@@ -127,34 +127,34 @@ main :: Unit -> Int32 := () -> 1i32 + 2i32 * 3i32;
 main :: Unit -> Int32 := () -> 1i32 << 2i32 + 1i32;
 ### precedence_prefix_neg | run:1
 main :: Unit -> Int32 := () -> if (-2i32 + 3i32 == 1i32) then 1 else 0;
-### symbol_lt | err:
+### symbol_lt | err:check
 x :: Bool := "a" < "b";
-### symbol_times | err:
+### symbol_times | err:check
 x :: Symbol := "a" * "b";
-### usize_bytes_mix | err:
+### usize_bytes_mix | err:check
 x :: USize := 1usize + 1bytes;
 ### usize_ok | ok
 x :: USize := 1usize + 2usize;
-### usize_from_int_implicit | err:
+### usize_from_int_implicit | err:check
 x :: USize := 1i32;
-### conv_unknown_suffix | err:
+### conv_unknown_suffix | err:syntax
 x :: Int32 := 1i32.i128;
-### conv_type_callee | err:
+### conv_type_callee | err:syntax
 x :: Int32 := Int32(1i64);
-### bitnot_float | err:
+### bitnot_float | err:check
 x :: Float64 := ~1.0f64;
-### float_mod | err:
+### float_mod | err:check
 x :: Float64 := 5.0f64 % 2.0f64;
-### bool_arith | err:
+### bool_arith | err:check
 x :: Bool := true + true;
-### mixed_width_add | err:
+### mixed_width_add | err:check
 x :: Int32 := 1i32 + 1i64;
-### float_lit_overflow | err:
+### float_lit_overflow | err:check
 x :: Float32 := 1e39f32;
 ### extern_empty_result_diverges | ok
 extern fail :: Unit -> [];
 f :: Unit -> Int32 := () -> fail()[];
-### extern_empty_result_code_after_unreachable | err:
+### extern_empty_result_code_after_unreachable | err:check
 extern fail :: Unit -> [];
 f :: Unit -> Int32 := () -> [r] => { fail()[]; r(1); };
 ### nested_instances_of_one_generic_keep_their_own_ownership | run:0
@@ -190,9 +190,9 @@ main :: Unit -> Int32 := () -> {
     (left, right) := preserve<Pair>((20i32, 22i32));
     left + right;
 };
-### constructor_inference_is_rigid | err:generic type arguments cannot be inferred
+### constructor_inference_is_rigid | err:check:generic type arguments cannot be inferred
 Pair<A> :: (A, A);
 preserve<F, A> :: F<A> -> F<A> := (value) -> value;
 main :: Unit -> Pair<Int32> := () -> preserve((20i32, 22i32));
-### infinite_kind_is_rejected | err:infinite kind
+### infinite_kind_is_rejected | err:check:infinite kind
 Omega<F> :: F<F>;

@@ -10,9 +10,9 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 
 | Authority | Focused evidence | Cross-boundary evidence |
 |---|---|---|
-| [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、generic `<>`とcomparison/`>>`、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
+| [grammar](../spec/grammar.md) | 全precedence levelの隣接、prefix/postfix/binary共有token、generic `<>`とcomparison/`>>`、syntax nesting上限、formatter idempotence | parseからchecked programまでの代表的なgeneric memory source |
 | [numeric conversion](../spec/operators.md#primitive-operator) | 全closed suffix、rounding、modulo、float-to-integer precondition | conversionを含むLLVM artifactのcompile/execute |
-| [type constructor](../spec/type-constructors.md) | kind polymorphism、partial/oversaturated application、kind mismatchとoccurs check、alias expansion、phantom generic alias、recursive alias、正規化とkind parameterのresource上限、type position以外のTYPE_IDENT rejection | 利用者定義aliasのsource spellingとphantom argumentを保つeditor hover/navigation、generated diagnostic |
+| [type constructor](../spec/type-constructors.md) | kind polymorphism、partial/oversaturated application、kind mismatchとoccurs check、alias expansion、phantom generic alias、recursive alias、正規化・kind parameter・物理表現のresource上限、type position以外のTYPE_IDENT rejection | 利用者定義aliasのsource spellingとphantom argumentを保つeditor hover/navigation、generated diagnostic |
 | [program](../spec/programs.md) | generic top-level initializer、source order、entry signature、zero argument buffer | `Buffer<Symbol>` process entryを実際のargv（空argumentと非ASCII byteを含む）で実行 |
 
 ## Generics
@@ -53,8 +53,9 @@ test function名やmodule配置は実装が所有し、この文書では固定�
 ## Specification cases
 
 [`spec/`](../spec/)の言語規則のうち短いprogramで観測できるものは、`crates/mal-compiler/tests/spec/`のcaseで検査する。
-各caseは、受理、特定の診断による拒否、実行結果のexit code、trapのいずれかを期待する。runtime carrier ABIはgenerated headerを使う
-C adapterが実際に値を構成、観測して照合する。新しい言語規則にはcaseを一つ以上加える。
+各caseは、受理、`syntax`・`resolve`・`check`の所有stageによる拒否、実行結果のexit code、trapのいずれかを期待する。
+診断文言自体が利用者contractになるcaseだけは、所有stageに加えてmessageの安定した部分も検査する。runtime carrier
+ABIはgenerated headerを使うC adapterが実際に値を構成、観測して照合する。新しい言語規則にはcaseを一つ以上加える。
 
 ## Completion gate
 

@@ -48,41 +48,41 @@ f :: Res -> Res := (r) -> [ok, fail] => {
 double :: Int32 -> Int32 := (n) -> n + n;
 f :: [Int32, Unit] -> Int32 := (r) -> r[double, () -> 0i32];
 main :: Unit -> Int32 := () -> f([a, b] => a(4i32));
-### branch_nested_lambda_cannot_capture_binder | err:result binder cannot be captured
+### branch_nested_lambda_cannot_capture_binder | err:resolve:result binder cannot be captured
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => {
     _ := r[(n) -> () -> ok(n), () -> () -> fail()];
     fail()
 };
-### branch_bound_function_cannot_capture_binder | err:result binder cannot be captured
+### branch_bound_function_cannot_capture_binder | err:resolve:result binder cannot be captured
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => {
     h := (n) -> ok(n);
     v := r[h, () -> fail()];
     ok(v)
 };
-### branch_binder_is_not_a_value | err:result binder is not a value
+### branch_binder_is_not_a_value | err:check:result binder is not a value
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => {
     g := ok;
     fail()
 };
-### branch_parameter_is_local_to_its_branch | err:unknown
+### branch_parameter_is_local_to_its_branch | err:resolve:unknown
 f :: [Int32, Int32] -> Int32 := (r) -> r[(n) -> n, () -> n];
-### branch_value_types_must_agree | err:type
+### branch_value_types_must_agree | err:check:type
 f :: [Int32, Unit] -> Int32 := (r) -> r[(n) -> n, () -> true];
-### branch_binder_type_must_match_the_position | err:result binder does not accept this payload
+### branch_binder_type_must_match_the_position | err:check:result binder does not accept this payload
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => r[fail, ok];
-### branch_parameter_must_match_the_payload | err:lambda parameters do not match
+### branch_parameter_must_match_the_payload | err:check:lambda parameters do not match
 f :: [Int32, Unit] -> Int32 := (r) -> r[(n) -> n, (u) -> 0i32];
-### branch_all_abrupt_is_not_a_value | err:binding initializer must produce a value
+### branch_all_abrupt_is_not_a_value | err:check:binding initializer must produce a value
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => {
     v := r[ok, fail];
     v
 };
-### branch_code_after_all_abrupt_is_unreachable | err:unreachable
+### branch_code_after_all_abrupt_is_unreachable | err:check:unreachable
 Res :: [Int32, Unit];
 f :: Res -> Res := (r) -> [ok, fail] => {
     r[ok, fail];

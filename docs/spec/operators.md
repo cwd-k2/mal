@@ -79,12 +79,14 @@ float:    + - * /    == != < <= > >=
 integer:  ~ & | ^ << >>
 USize:    + - * / %  == != < <= > >=
 ByteSize: + -        == != < <= > >=
+quantity: ByteSize * USize, USize * ByteSize -> ByteSize
 Bool:     ! && || == !=
 Symbol:   Symbol + Symbol, Symbol / USize, Symbol % USize, == !=
 ```
 
 単項`-`は整数とfloatに使え、unsigned整数ではwrapする。`USize`と`ByteSize`はtarget幅のunsigned整数として整数と同じwrapと
-divisorのpreconditionに従い、単項演算、bit演算、shiftを持たない。
+divisorのpreconditionに従い、単項演算、bit演算、shiftを持たない。`ByteSize * USize`と`USize * ByteSize`は
+要素数と一要素のbyte数から合計byte数を作る演算で、resultは`ByteSize`となる。乗算はtarget幅でwrapする。
 
 数値比較は predefined `Bool` を返す。異なる数値型を暗黙変換しない。
 
