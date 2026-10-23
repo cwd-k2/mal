@@ -1,189 +1,85 @@
-# IxPool上のBuffer実装
+# pointerとIxPool上のdense sequence
 
-Status: Exploratory example; rebased on mal v0.7
+Status: Exploratory support document
 
-この文書は、[`Buffer`](../../../spec/memory.md)が定める`Buffer<A>`のsequence operationを、IxPoolの核と周辺operation、
-Vectorで実装した擬似codeを示す。extern Cは現行Buffer carrierを直接扱い、この参照実装は別のhost-copy境界を導入しない。
-Buffer置換とVector採択の判断は[BufferとVector](../api/buffer-vector.md#buffer)が別に管理する。IxPool primitiveの規則は
-[runtime contract](../runtime/contract.md)、Bufferの各operationの意味は[`Buffer`](../../../spec/memory.md)を正とする。
+現行`Buffer`の規範は[`memory`](../../../spec/memory.md)にある。この文書はpointerとIxPoolの表現力を
+検証するdense sequence sketchであり、predefined BufferやSymbol変換の変更を提案するものではない。
 
-以下は、このfileがpreludeとしてpredefinedな名前`make`、`new`、`get`、prefix `#`と`*`、receiver-first形を定義できると仮定する。
-
-## 使うprimitive
-
-[Pool primitive](../api/pool.md)のIxPoolの核と周辺operation、Vectorのprimitiveと、現行runtimeと同じoverflow trapをmalで起こすための
-`trap`だけを使う。
-
-## 表現とinvariant
+## representation
 
 ```mal
-opaque Buffer<A> :: IxPool<USize, A>;
+opaque Dense<A> :: (*USize, IxPool<A>);
 ```
 
-Headerはcountである。`[0, count)`がLive、`[count, capacity)`がVacantであり、`count <= capacity`を保つ。
-公開operationは利用者がBufferの[未検査precondition](../../../spec/memory.md#未検査precondition)を満たす限り、このinvariantから
-IxPool preconditionを導く。利用者が違反した場合はinvariantが壊れ得るが、結果を保証しない点は現行Bufferと同じである。
+invariantは次である。
 
-## 補助
+- `load(count) <= capacity(values)`
+- `[0, load(count))`はLive
+- `[load(count), capacity(values))`はVacant
+
+constructionはmetadata placeと要素poolを別に作る。
 
 ```mal
-_maxUSize :: USize := -1usize;
-
-_rangeEnd :: (USize, USize) -> USize := (offset, length) -> {
-    when (length > _maxUSize - offset) trap("Buffer range overflow")[];
-    offset + length;
+make<A> :: USize -> Dense<A> := requested -> {
+    count := place(0usize);
+    values := pool<A>();
+    grow(values, requested);
+    (count, values)
 };
-
-_ensureCapacity<A> :: (Buffer<A>, USize) -> Unit := (buffer, required) -> {
-    current := capacity<USize, A>(buffer);
-    when (required > current) {
-        doubled := if (current > _maxUSize / 2usize) then _maxUSize else current * 2usize;
-        target := if (doubled < required) then required else doubled;
-        grow<USize, A>(buffer, target - current);
-    };
-};
-
-_extendCount<A> :: (Buffer<A>, USize) -> Unit := (buffer, end) ->
-    when (end > header<USize, A>(buffer)) setHeader<USize, A>(buffer, end);
 ```
 
-`_rangeEnd`はcountとrange末尾を表現できない場合の現行trapを再現する。allocation byte数を表現できない場合とallocation failureは
-`grow`がtrapする。growth policyはこのfileが所有する。現行runtimeは必要byte数を16以上の2の累乗へ丸めるが、
-このfileはelement数で倍増し、byte単位の丸めは`capacity`から観測できない`grow`内部の選択として残す。
+## 単一要素のoperation
 
-## 要素operation
+以下はworking syntaxによる擬似codeである。
 
 ```mal
-make<A> :: USize -> Buffer<A> := (capacity) -> {
-    buffer :: Buffer<A> := pool<USize, A>(0usize);
-    grow<USize, A>(buffer, capacity);
-    buffer;
+length<A> :: Dense<A> -> USize := (count, _) -> load(count);
+
+append<A> :: (Dense<A>, A) -> Unit := ((count, values), value) -> {
+    i := load(count);
+    ensureCapacity(values, i + 1usize);
+    store(values.at(i), value);
+    store(count, i + 1usize);
 };
 
-length<A> :: Buffer<A> -> USize := (buffer) -> header<USize, A>(buffer);
-
-new<A> :: (Buffer<A>, A) -> USize := (buffer, value) -> {
-    count := header<USize, A>(buffer);
-    end := _rangeEnd(count, 1usize);
-    _ensureCapacity<A>(buffer, end);
-    initAt<USize, A>(buffer, count, value);
-    setHeader<USize, A>(buffer, end);
-    count;
+get<A> :: (Dense<A>, USize) -> A := ((count, values), i) -> {
+    // precondition: i < load(count)
+    load(values.at(i))
 };
 
-get<A> :: (Buffer<A>, USize) -> A := (buffer, index) -> getAt<USize, A>(buffer, index);
-
-put<A> :: (Buffer<A>, USize, A) -> Unit := (buffer, index, value) ->
-    putAt<USize, A>(buffer, index, value);
-```
-
-`get`と`put`はBufferの`index < #buffer`をinvariantでLive slotへ写すだけで、検査を追加しない。`new`の`count`はinvariantにより
-Vacantであり、`_ensureCapacity`の後はcapacity内にある。
-
-## Range operation
-
-`fill`と`copy`の意味は、slot操作のloopで定める。runtimeは同じ結果になる一括処理で実装してよい。公開preconditionはcountを単位とし、
-書いたrunの末尾までcountを延ばす。
-
-```mal
-_write<A> :: (Buffer<A>, USize, USize, A) -> Unit := (buffer, count, index, value) ->
-    if (index < count)
-    then putAt<USize, A>(buffer, index, value)
-    else initAt<USize, A>(buffer, index, value);
-
-_fillFrom<A> :: (Buffer<A>, USize, USize, USize, A) -> Unit :=
-    (buffer, count, index, end, value) -> [return] => {
-        when (index == end) return(());
-        _write<A>(buffer, count, index, value);
-        return(_fillFrom<A>(buffer, count, index + 1usize, end, value));
-    };
-
-fill<A> :: (Buffer<A>, USize, USize, A) -> Unit := (buffer, offset, length, value) -> {
-    end := _rangeEnd(offset, length);
-    _ensureCapacity<A>(buffer, end);
-    _fillFrom<A>(buffer, header<USize, A>(buffer), offset, end, value);
-    _extendCount<A>(buffer, end);
+put<A> :: (Dense<A>, USize, A) -> Unit := ((count, values), i, value) -> {
+    // precondition: i < load(count)
+    store(values.at(i), value)
 };
-
-_copyUp<A> :: (Buffer<A>, USize, USize, Buffer<A>, USize, USize, USize) -> Unit :=
-    (destination, count, destinationOffset, source, sourceOffset, index, length) -> [return] => {
-        when (index == length) return(());
-        value := getAt<USize, A>(source, sourceOffset + index);
-        _write<A>(destination, count, destinationOffset + index, value);
-        return(_copyUp<A>(destination, count, destinationOffset, source, sourceOffset, index + 1usize, length));
-    };
-
-_copyDown<A> :: (Buffer<A>, USize, USize, Buffer<A>, USize, USize) -> Unit :=
-    (destination, count, destinationOffset, source, sourceOffset, remaining) -> [return] => {
-        when (remaining == 0usize) return(());
-        index := remaining - 1usize;
-        value := getAt<USize, A>(source, sourceOffset + index);
-        _write<A>(destination, count, destinationOffset + index, value);
-        return(_copyDown<A>(destination, count, destinationOffset, source, sourceOffset, index));
-    };
-
-copy<A> :: (Buffer<A>, USize, Buffer<A>, USize, USize) -> Unit :=
-    (destination, destinationOffset, source, sourceOffset, length) -> {
-        end := _rangeEnd(destinationOffset, length);
-        _ensureCapacity<A>(destination, end);
-        count := header<USize, A>(destination);
-        if (destinationOffset <= sourceOffset)
-        then _copyUp<A>(destination, count, destinationOffset, source, sourceOffset, 0usize, length)
-        else _copyDown<A>(destination, count, destinationOffset, source, sourceOffset, length);
-        _extendCount<A>(destination, end);
-    };
 ```
 
-公開preconditionの`offset <= #buffer`により、destination rangeはLiveな部分とそれに続くVacantな部分からなり、穴を作らない。
-`copy`の`sourceOffset + length <= #source`はsource rangeが全てLiveであることを与える。`_ensureCapacity`がsourceと同じIxPoolを
-relocateしてもcoordinateは変わらない。countの更新はloopの後に行い、その間に利用者のcodeは走らない。
+`append`は要素をLiveにしてからcountを増やす。`put`は同じplaceの置換なので、incoming valueを保持してから
+旧値をDropする。loadは値をShareする。
 
-malはsourceとdestinationが同じidentityかを知れないため、`copy`はoffsetの大小だけでloopの向きを選ぶ。destinationが前にあれば
-昇順、後ろにあれば降順に写すと、同じBufferで範囲が重なっても、まだ読んでいないsourceの要素を先に上書きしない。別のBufferなら
-どちらの向きでも結果は同じである。どちらのoperationもslotごとに値を一回`Share`し、置き換えたLiveな値を一回`Drop`する。
+このDense APIは`values.at(i)`を公開しない。内部pointerを返すと利用者が`take`して`[0, count)`へ穴を作れ、
+dense invariantを迂回できるためである。pointerを返す別APIを設計するなら、そのauthorityと有効期間を独立に定める。
 
-## Symbolとの変換
+末尾を削るoperationを持つなら、countを減らして公開範囲から外した後に`take`する順序を選べる。
+Drop glueやcallbackの再入規則を変える場合は、このcommit順もspec化する。
 
-`Symbol`との変換は、BufferとVectorを同じpreludeのfileで定義すると仮定し、`freeze`したIxPoolをそのままVectorとして扱って書く。
-型、意味、preconditionは現行の[Symbol conversion](../../../spec/memory.md#symbol-conversion)のままである。extern Cとの交換は別のcopy
-primitiveを経由せず、CがBufferまたはSymbolのruntime carrierを直接扱う。
+## range operation
 
-```mal
-_toSymbol :: Buffer<UInt8> -> Symbol := (buffer) -> symbol(freeze<USize, UInt8>(buffer));
-```
+`fill`は必要な末尾までcapacityを確保し、既存Live範囲と末尾のVacant範囲へstoreした後、countを
+一度だけ更新する。単一operandを複数placeへ保存するため、各要素用のresponsibilityをShareする。
 
-`*buffer`はbyte列の`freeze`に当たる`_toSymbol`であり、`*symbol`はbyte列の`thaw`に当たり、`symbol # index`を`new`で積むloopで
-書ける。as-ifで実装するBufferとVectorは、`freeze`と`thaw`のstorageの移動で、組み立ててから変換する用途を現行と同じ費用に実装できる。
+`copy(source, sourceOffset, destination, destinationOffset, length)`は、同じidentityで範囲が重なる場合に
+memmoveと同じ方向を選ぶ。
 
-## 現行Bufferとの差分
+- destinationが後ろなら末尾から先頭へ進む。
+- それ以外は先頭から末尾へ進む。
+- sourceをloadし、destinationへstoreする。
+- destinationのLive範囲が伸びるなら、全要素を確立してからcountを更新する。
 
-- elementの型形成は[D096](../../../history/decisions/active/D096.md)でplace lifecycleとしての`Storable`へ揃い、
-  `Buffer<Buffer<T>>`を認めた。Pool採択時には`Buffer<IxPool<M, V>>`と`Buffer<ImPool<M, V>>`を同じ規則へ加える。external opaque
-  carrierも[D097](../../../history/decisions/active/D097.md)で認め、D098後は全elementをspecialization後のruntime carrierで保存する。
-  handle elementの`get`、`fill`、`copy`は同じidentityへのauthorityを
-  保存するshallowなcarrier operationであり、functionはclosure cycleのため引き続き除外する。
-- extern Cは現行Bufferのcarrierと`mal.h` operationを直接使う。IxPool上へ置換してもこのbehaviorとlifecycle終状態を保つ。
-- growth policy、count、invariantはruntimeからこのfileへ移る。runtimeはIxPoolとVectorのprimitiveを持つ。
-- 現行runtimeは小容量の初期Buffer storageをobjectへinline化し、それ以外をSymbolと同じ形のbyte ownerで持つが、`*`の意味は
-  物理表現によらず独立したsnapshotである。inline storageはcopyし、flat ownerはlast useと一意性を確認できたときだけ移す。
-  `IxPool<Header, UInt8>`もbyte runtime carrierの密な列を持てるため、last useとruntime上の一意性を証明できる場合だけownerを移す。同時にliveな
-  Buffer aliasとSymbolまたはVectorの間でwritable storageを共有することは要求しない。
-- `*`と、`main`へ渡す`Buffer<Symbol>`を構築するC runtimeの`mal_runtime_buffer_from_arguments`は、このfileの
-  representation選択とHeader=countの意味へ依存する。representationを変えるときはruntimeも合わせて変える。
-- predefined名、prefix `#`と`*`、receiver-first形をpreludeのmal定義へ結ぶ規則が新たに必要になる。
+この参照形は各要素でShare/Dropを行う。runtimeの一括primitiveは同じ最終responsibilityとoverlapの観測を
+保つ限り、trivial carrierのmemmoveや型別loopへ特殊化してよい。
 
-公開operationと未検査preconditionを保つため、既存の`Buffer`を使う
-[`examples/`](../../../../examples)のsourceは変わらない。変わるのは各operationの実装場所とcostである。
+## 費用
 
-| operation | 現行Buffer | IxPool上の実装 |
-|---|---|---|
-| `get`、`put` | 範囲を検査しない | 範囲も占有状態も検査しない |
-| `new` | runtimeがgrowthを決める | Buffer fileが`grow`とgrowth policyを呼ぶ |
-| `fill`、`copy` | runtimeのloopとretain callback | IxPool callのloop、またはruntimeの一括処理とshare callback |
-| `*` | runtimeのbulk copy | Vectorとの`freeze`と`thaw`を経由する。Bufferがlast useで区別可能なaliasがなければstorageを移す |
-| extern C operation | `mal.h`がBuffer carrierを直接操作 | 置換後も同じruntime carrierとstorage contractを提供する |
-| managed elementの`put` | Borrowしてruntimeがretain | 一時値とlast useは`Consume` |
-| 破棄 | `[0, count)`をrelease | 占有tagを走査してLive slotをDrop |
-
-`indexed-graph`のDijkstraが`fill`で初期化する距離表のように、unmanagedな要素の`fill`はIxPool callのloopにすると要素数だけcallが
-増える。現行runtimeのloopと同等にするには、runtime carrier layoutと型別lifecycle glueを使う一括処理が要る。
+素朴な表現はmetadata pointer、IxPool owner、要素accessごとのpointer carrier、occupancy bitmapを持つ。
+現行dense Bufferはcountとstorageを一allocationへまとめ、occupancyを省ける。この差を測るための参照実装であり、
+APIが同じだから物理表現も統一すべきだとは結論しない。

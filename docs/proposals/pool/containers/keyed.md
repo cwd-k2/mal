@@ -1,126 +1,67 @@
-# keyで引くcontainer
+# keyed container
 
-Status: Exploratory example
+Status: Exploratory support document
 
-この文書は、[IxPool上のcontainer](overview.md)のうち、Liveなcoordinateの集合が区間にならないopen addressing Map、
-SlotMap、木を、試作で動かしたcodeから要点を抜き出して示す。primitiveの名前と区分は[Pool primitive](../api/pool.md)、試作は
-[試作で確かめたこと](../prototypes.md)を正とする。例は未採択の擬似codeである。
+## HashMap
 
-各例は共通の補助として、capacityが`required`未満なら4以上の倍増で`grow`する`ensureCapacity(pool, required)`を使う。これはprimitiveではなく、
-growth policyを各containerで繰り返さないための関数である。
-
-## open addressing Map
-
-linear probingのMapである。Headerは要素数で、どのprobe列も途中にVacantを含まない。削除はtombstoneを置かず、後続のentryを穴へ
-詰めてこのinvariantを保つ。
+最小のopen-addressing表現は、要素数を指すpointerとbucketのIxPoolである。
 
 ```mal
-equal<K> :: (K, K) -> Bool;
-hash<K> :: K -> UInt64;
-opaque HashMap<K, V> :: IxPool<USize, (K, V)>;
-
-_find<K, V> :: (HashMap<K, V>, K, USize, USize) -> [Unit, USize] :=
-    (map, key, index, remaining) -> [missing, found] => {
-        when (remaining == 0usize) missing();
-        (storedKey, _) := peek(map, index)[() -> missing(), (entry) -> entry];
-        when (equal(storedKey, key)) found(index);
-        _find(map, key, _next(map, index), remaining - 1usize)[missing, found];
-    };
-
-// Moves each following entry back into the gap unless its home lies cyclically in (gap, index].
-_closeGap<K, V> :: (HashMap<K, V>, USize, USize) -> Unit := (map, gap, index) -> [return] => {
-    entry := swap(map, index, vacant())[() -> return(()), (entry) -> entry];
-    (key, _) := entry;
-    home := _home(map, key);
-    stays := if (gap < index) then home > gap && home <= index else home > gap || home <= index;
-    when (stays) {
-        initAt(map, index, entry);
-        return(_closeGap(map, gap, _next(map, index)));
-    };
-    initAt(map, gap, entry);
-    return(_closeGap(map, index, _next(map, index)));
-};
-
-mapRemove<K, V> :: (HashMap<K, V>, K) -> [Unit, V] := (map, key) -> [missing, found] => {
-    index := _locate(map, key)[missing, (index) -> index];
-    (_, value) := takeAt(map, index);
-    setHeader(map, header(map) - 1usize);
-    _closeGap(map, index, _next(map, index));
-    found(value);
-};
+opaque Map<K, V> :: (*USize, IxPool<(K, V)>);
 ```
 
-`_home`はhashをcapacityで割ったcoordinate、`_next`は一つ先のcoordinateを返す。`hash`と`equal`はoperation familyの
-requirementであり、IxPoolはhash、equality、load factor、probe順序を知らない。
+Vacant bucketは`isLive(buckets.at(i)) == false`で表す。payloadへ`[Unit, (K, V)]`やsentinel keyを
+入れない。lookupはprobe順にpointerを調べ、Liveならloadしたentryのkeyを比較する。insertはVacant
+placeへstoreし、既存keyなら同じplaceへstoreして旧entryをDropする。removeは`take`でentryを返すか
+Dropし、clusterが切れないよう後続entryをMoveして詰める。
 
-Mapの公開operationは利用者にpreconditionを課さないため、IxPoolのpreconditionはすべて実装が満たす。capacity 0では`_locate`が
-剰余を計算せずmissingを返し、以後のprobe coordinateは剰余で範囲内になる。`_find`と`_closeGap`は核の`peek`と`swap`の
-結果を除去してVacantを判定し、Live/Vacantのpreconditionを持つ周辺operationは、`mapRemove`の`takeAt`を`_locate`が見つけた
-coordinateにだけ、`initAt`を直前に`swap`でVacantにしたcoordinateにだけ呼ぶ。
+```text
+bucket := buckets.at(probe);
+if isLive(bucket) {
+    entry := load(bucket);
+    ... compare entry.key ...
+} else {
+    store(bucket, (key, value));
+}
+```
 
-handle nestingだけでは、表現に寄与する再帰型とfunction storageがないため、keyからそれを保持する同じMapへのowner back-edgeは
-作れない。ただしmutable referentの内容をhashまたはequalityへ使うkeyは、格納後の変更でprobe invariantを壊す。
-`Storable(K)`はこれを防がないため、Map keyのrequirementはhashとequalityの時間的安定性を別に定める。caller-supplied closureを
-将来受け取るoperationは、同じMapをcaptureした再入を別途考慮する。
+flat representationのrehashでは、一時IxPoolへ旧entryを`take`/storeで退避し、元のpoolを`grow`してから新しい
+probe位置へ戻せる。共有descriptor representationなら、新しいpoolへ配置した後でdescriptorのhandleを交換できる。
+どちらも値carrierはMoveでき、K/VのShareは不要である。途中の穴とprobe invariantをuser-supplied hash/equalityへ
+公開してはならない。
 
-insertはload factorが3/4を超える前にrehashする。別のIxPoolへ移し替えると既存のaliasが追随しないため、entryを`takeAt`で一時的な
-IxPoolへ移し、元のIxPoolを`grow`してから新しいprobe位置へ`initAt`で戻す。移動はすべて`Consume`で、keyとvalueの`Share`も`Drop`も
-起きない。一時的なallocationと二回の移動が代表的なMapで高価なら、同じidentityのstorageを交換するprimitiveを検討する。
+`Storable(K)`はhashの時間的安定性を保証しない。keyから共有mutable identityへ到達できる場合、格納後の
+変更でhash/equalityが変わり得る。Map APIはimmutableなhash projectionを要求するか、利用者のpreconditionと
+して別に定める。これはpointerやIxPoolの形成条件へ混ぜない。
 
 ## SlotMap
 
-generationで古い`SlotKey<T>`を検出するmapを、IxPoolの上に書いた形である。要素の値、coordinateごとの
-generation、空いたcoordinateのstackを別々のIxPoolに置く。Vacantなslotは`Unit`しか持たないため、
-generationとfree listを要素用のIxPoolへ置けない。
+generation付きkeyは、values、generations、free coordinatesを別のIxPoolへ分けて表せる。
 
 ```mal
-opaque SlotKey<T> :: (USize, UInt64); // coordinate、発行時のgeneration
-
-// values: Headerは要素数。generations: 発行した全coordinateでLive、Headerは発行数。free: 空いたcoordinateのstack。
-opaque SlotMap<T> :: (IxPool<USize, T>, IxPool<USize, UInt64>, IxPool<USize, UInt64>);
-
-_current<T> :: (SlotMap<T>, SlotKey<T>) -> Bool := ((_, generations, _), (index, generation)) ->
-    index < header(generations) && getAt(generations, index) == generation;
-
-slotMapRemove<T> :: (SlotMap<T>, SlotKey<T>) -> [Unit, T] := (pool, id) -> [missing, found] => {
-    when (!_current(pool, id)) missing();
-    (values, generations, free) := pool;
-    (index, generation) := id;
-    value := takeAt(values, index);
-    setHeader(values, header(values) - 1usize);
-    putAt(generations, index, generation + 1u64);
-    vacated := header(free);
-    ensureCapacity(free, vacated + 1usize);
-    initAt(free, vacated, index.u64);
-    setHeader(free, vacated + 1usize);
-    found(value);
-};
+opaque SlotKey<A> :: (USize, UInt64);
+opaque SlotMap<A> :: (
+    *USize,             // live count
+    IxPool<A>,          // entry places
+    IxPool<UInt64>,     // issued coordinateのgeneration
+    *USize,
+    IxPool<USize>       // free coordinate stack
+);
 ```
 
-挿入は`free`の先頭からcoordinateを再利用し、なければ新しいcoordinateを発行する。`SlotKey<T>`の照合は利用者が古い`SlotKey<T>`を持ち
-続けるため検査してmissingを返し、IxPoolのpreconditionへは流さない。このsketchは`SlotKey<T>`にSlotMapのidentityを含めないため、別の
-SlotMapの`SlotKey<T>`を区別しない。区別が要るなら、SlotMapごとの番号をHeaderに持って`SlotKey<T>`へ含める。
+removeはkeyのgenerationを検査し、value pointerから`take`し、generationを増やしてfree stackへcoordinateを
+積む。insertはfree stackから再利用するか新coordinateをgrowする。古いkeyの拒否はpublic resultであり、
+IxPoolの未検査preconditionへ流さない。
 
-## 木
+このsketchの`SlotKey`は別SlotMapの同じindex/generationを区別しない。必要ならcontainer identity tokenを
+keyへ含めるが、pointer equalityをそのためだけに公開しない。
 
-節点`(key, value, left, right)`をslotに置き、子をcoordinateで指す二分探索木である。`nodes`のHeaderは`(root, size)`で、空いた
-coordinateは`free`のstackで再利用する。
+## treeとgraph
 
-```mal
-_Node :: (UInt64, UInt64, UInt64, UInt64);
-opaque Tree :: (IxPool<(USize, USize), _Node>, IxPool<USize, UInt64>);
+nodeを`IxPool<Node>`へ置き、子linkを`USize` coordinateで表せる。rootとsizeは
+`*(USize, USize)`、free coordinateは別のstackに置く。node削除はpointerから`take`してfree stackへ
+coordinateを戻し、再挿入で同じcoordinateを使える。
 
-_release :: (Tree, UInt64) -> Unit := ((nodes, free), link) -> {
-    takeAt(nodes, link.usize);
-    (root, size) := header(nodes);
-    setHeader(nodes, (root, size - 1usize));
-    vacated := header(free);
-    ensureCapacity(free, vacated + 1usize);
-    initAt(free, vacated, link);
-    setHeader(free, vacated + 1usize);
-};
-```
-
-削除は、子が一つ以下の節点をその子で置き換えて`_release`し、子が二つの節点には右部分木の最小の節点を移して、その節点を
-`_release`する。親の子linkを書き換えるときは`putAt`で節点全体を置き換える。削除したkeyを入れ直すと、空いたcoordinateを
-再利用するためcapacityは増えない。
+coordinateはaddressではなく一つのpool identity内だけで意味を持つ。別poolへnodeを移す場合はlinkを
+書き換える必要があり、数値が同じでも同じplaceとはみなさない。generationなしでcoordinateを外部へ公開すると
+再利用後の別nodeを指すため、stable external keyにはSlotMapと同じgenerationを加える。

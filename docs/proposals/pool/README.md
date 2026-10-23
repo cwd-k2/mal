@@ -1,107 +1,137 @@
-# Poolとopaque型によるcontainer基盤
+# pointerとIxPoolによるcontainer基盤
 
 Status: Exploratory; rebased on mal v0.7
 
-この文書は、現在の`Buffer<T>`が一つの組み込み型として持つEngram storageのauthorityとsequence policyを分け、少数のtrustedな
-primitiveの上でcontainerをmal sourceとして定義する案の入口である。Poolの言語全体での位置とminimalityは
-[位置付けと根本モデル](model/foundations.md)、状態とoperationの核は[意味論](model/semantics.md)を正とする。現行仕様は
-[`Buffer`](../../spec/memory.md)、managed responsibilityは[D055](../../history/decisions/active/D055.md)と
-[D083](../../history/decisions/active/D083.md)を正とする。
+このproposalは、address arithmeticを持たない共有locationをpointer型`*A`としてstorage semanticsの基礎に置き、
+`IxPool<A>`をindexから`*A`へ到達するmanaged identityとして定める。現在の`Buffer<A>`が一つの組み込み型として
+持つ可変identity、占有状態、growth、dense sequence policyを分け、Map、Deque、heap、木などのcontainerを
+mal sourceで記述できるようにする。
 
-## 目的
+現行仕様は[`Buffer`](../../spec/memory.md)、managed responsibilityは
+[D055](../../history/decisions/active/D055.md)と[D083](../../history/decisions/active/D083.md)を正とする。
+このdirectoryは未採択の設計案であり、現在の言語仕様ではない。
 
-現在の`Buffer<T>`は、mal-owned storage、共有mutable identity、denseな`[0, count)`、append、index access、growth、range operationを
-一つの組み込み型として持つ。Map、Deque、heap、木を書くには、Bufferの全slotが値を持ちcountが増えるだけという前提へ、空きを表す
-番兵値やtombstoneでcontainerの方針を押し込むことになる（[container](containers/overview.md#bufferの前提を外すと変わること)）。
+## 中心モデル
 
-本案は、既存Bufferがすでに持つmal-ownedな共有identityを、有限個のtyped placeを持つPool stateとして一般化する。layout、物理的な
-allocation、relocationはtrusted implementationに残し、Liveなcoordinateの形、growth policy、free list、順序、hashはcontainerが
-選ぶ。responsibilityはHeaderとslotというplaceのreadとexchangeから導く。
+```text
+*A
+  Aを置く、addressを持たない一つの共有locationへのpointer
+  pointee stateはVacantまたはLive(A)
 
-## 全体像
+IxPool<A>
+  grow可能な有限coordinate空間を持つshared identity
+  pool.at(index)で、そのidentityに属する*Aへ到達する
 
-- Poolのauthority、responsibility、representationと既存Bufferから分離する理由は
-  [位置付けと根本モデル](model/foundations.md)が所有する。
-- `PoolState<Header, V>`、IxPool handle、ImPool snapshot、placeとoperationのlawは[意味論](model/semantics.md)が所有する。
-- source APIと`Storable`の境界は[Pool primitive](api/pool.md)と[identity](model/identity.md)、物理表現とlifecycleは
-  [runtime contract](runtime/contract.md)が所有する。
-- Buffer、Vector、Map、Deque、heap、木へ課すrelationとinvariantは[container](containers/overview.md)以下が所有する。
+opaque container
+  *HeaderとIxPool<Element>へrelationとinvariantを加える
+```
 
-本書はこれらの入口と採択単位だけを所有し、詳細なruleを再掲しない。containerをmal sourceで実装して現行runtimeと同じtrapを
-起こすには、[primitive `trap`](../primitive-trap.md)の導入を前提とする。
+pointerをcopyしても同じplaceへ到達し、どのaliasからのstoreとtakeも共有観測する。`IxPool`をcopyすると
+同じcoordinate空間へ到達する。同じpool identityとindexから得たpointerは同じplaceを指し、`grow`でphysical
+storageが移動しても変わらない。
+
+VacantとLiveはpointeeの状態であり、`Slot<A> = [Unit, A]`というsource valueを格納しない。runtimeはoccupancyを
+bitmapなどで保持してよいが、sourceから物理表現を観測させない。`load(p)`と`take(p)`はLiveをpreconditionとし、
+`store(p, value)`はVacantを初期化し、Liveを置換する。
+
+## surfaceの核
+
+```mal
+p := place(initial);
+value := load(p);
+store(p, replacement);
+
+storage := pool<A>();
+grow(storage, requested);
+element := load(storage.at(index));
+store(storage.at(index), replacement);
+```
+
+pointer自体は通常のvalueであり、binding、parameter、result、aggregate、storableなplaceへ置ける。評価位置へ
+現れただけではdereferenceしない。`load(p)`はAをShareして返し、`take(p)`はAをMoveしてVacantにする。
+`store(p, value)`はvalueをStoreし、旧pointeeがLiveならDropする。pointer用のexpression記号、implicit
+dereference、general lvalue、assignment operatorは導入しない。
 
 ## 文書の構成
 
-文書は読む目的ごとにdirectoryへ分ける。
-
-- `model/`：Poolが何を意味するか
-  - [位置付けと根本モデル](model/foundations.md)：authority、minimality、C/LLVM・Rust・Haskellとの比較、採択条件
-  - [Poolの意味論](model/semantics.md)：Pool state、place、source carrierの観測、operation law、最小核の導出
-  - [responsibilityの図](model/responsibility.md)：slotの状態遷移、responsibilityの動き、費用が違うoperation、ImPoolの更新
-  - [identity](model/identity.md)：handle保存、structural snapshot、`Storable`、lifecycle、extern admissionの境界
-- `api/`：primitive
-  - [Pool primitive](api/pool.md)：区分、IxPoolの核と周辺、ImPool、`freeze`と`thaw`、測定後の候補
-  - [BufferとVector](api/buffer-vector.md)：語彙の分担、BufferとVectorの対、extern runtime carrierとの境界
-- `runtime/`：trusted layerの契約と実装
-  - [runtime contract](runtime/contract.md)：authority boundary、semantic identityとallocation object、representation、responsibility、precondition
-  - [compilerとruntimeの実装](runtime/implementation.md)：compiler、LLVM、C runtimeの分担、検証の段階
-- `containers/`：Poolの上のcontainer
-  - [IxPool上のcontainer](containers/overview.md)：containerの比較、Bufferの前提を外すと変わること、IxPoolの輪郭
-  - [Buffer実装](containers/buffer.md)：BufferをIxPoolの上に書いた参照実装と、現行Bufferとの差分
-  - [列のcontainer](containers/sequences.md)：stack、Deque、binary heap、Vector
-  - [keyで引くcontainer](containers/keyed.md)：open addressing Map、SlotMap、木
-- [試作で確かめたこと](prototypes.md)：旧試作から残る知見、現行kernelで確認済みの範囲、再検証項目
+- `model/`
+  - [位置付けと根本モデル](model/foundations.md)：pointer、IxPool、containerのauthorityとminimality
+  - [意味論](model/semantics.md)：暗黙store、pointee state、IxPoolの到達性identity、operation law
+  - [responsibility](model/responsibility.md)：状態遷移とShare、Move、Drop
+  - [identityと型判定](model/identity.md)：alias、`Storable`、lifecycle、extern admission
+- `api/`
+  - [pointerとIxPool API](api/pool.md)：source syntax、operation、precondition
+  - [Bufferとsnapshot候補](api/buffer-vector.md)：既存機能を初回判断から分ける境界
+- `runtime/`
+  - [runtime contract](runtime/contract.md)：logical place、pool identity、backing allocation、lifecycle
+  - [compilerとruntimeの実装](runtime/implementation.md)：lowering、carrier、検証順序
+- `containers/`
+  - [container overview](containers/overview.md)：metadata pointerとIxPoolを使う共通形
+  - [Buffer相当](containers/buffer.md)：dense prefixを持つ参照構造
+  - [列のcontainer](containers/sequences.md)：stack、Deque、heap
+  - [keyで引くcontainer](containers/keyed.md)：Map、SlotMap、木
+- [試作から引き継ぐ証拠](prototypes.md)：旧Header/Slot kernelから残る証拠と再検証が必要な境界
 
 ## 推奨する最小採択単位
 
-最初のlanguage changeは`IxPool<Header, V>`だけに切る。共有identity、indexed place、occupancy、containerと同じidentityに属する
-Headerが、現行Bufferから分離する必要のある最小の意味である。`pool`、`grow`、`capacity`、`peek`、`swap`、`header`、
-`swapHeader`を核とし、Live/Vacantを仮定するoperationはmalで書く周辺に置く。本proposalでは型parameterとoperation名をこの
-`Header`語彙へ統一する。
+最初のlanguage changeは次に切る。
 
-Headerを別identityへ分ける案は採らない。malにはproductの一fieldだけを更新するoperationがなく、Bufferのcount、Dequeの両端、
-free-list headなどをslot storageとは別のshared identityに置くと、containerごとに二つのidentityのlifetimeと同期を規定することになる。
-常に値を持つHeader placeとVacantになり得るslot placeを一つのidentityへ含める方が、authorityとinvariantの境界を小さくする。
+```text
+pointer type                           *A
 
-最初の採択には次を含めない。
+vacant<A>()                           -> *A
+place<A>(A)                           -> *A
+isLive<A>(*A)                         -> Bool
+load<A>(*A)                           -> A
+take<A>(*A)                           -> A
+store<A>(*A, A)                       -> Unit
 
-- `ImPool`、`freeze`、`thaw`、およびpublic `Vector`。structural snapshotの意味は本proposalで維持するが、copy、storage transfer、
-  writable successorという独立したcost contractをIxPool導入の条件にしない。
-- `moveRange`、snapshotのrange operation、live slot iterator。核のloopで意味を検証し、実際のIxPool loweringで定数倍または
-  計算量が問題になるものだけを追加する。
-- allocator parameter、arena、runtime extensionによるkernel差し替え。C runtimeはbacking mechanismであり、source authorityではない。
-- IxPool、ImPool、Vectorのextern signature admission。初回採択ではPool carrierをgenerated C headerや`mal.h`へ公開せず、現行の
-  `Buffer`と`Symbol`をC連携の境界に使う。
+pool<A>()                             -> IxPool<A>
+grow<A>(IxPool<A>, USize)             -> Unit
+capacity<A>(IxPool<A>)                -> USize
+at<A>(IxPool<A>, USize)               -> *A
+```
 
-この切り方でもImPoolを破棄するわけではない。IxPool kernelでStorable handle、managed payload、growth、終了時走査、occupancy表現を
-検証した後、同じstate algebraへstructural snapshotを加える第二段階とする。Rust寄りのaffine responsibilityはcompiler内部の
-`Store`/`Consume`、Haskell寄りのsnapshotはImPoolのsource semanticsに属し、両方を一つの初回primitiveへ束ねない。
+constructor名はproposal内の作業名である。`load`と`take`はpointeeがLive、`at`はindexがcapacity未満で
+あることを未検査preconditionとする。`store`はVacantとLiveの両方で定義し、Liveなら旧値をDropする。`grow`は
+Vacantなplaceを末尾へ追加し、既存pointerの指すlogical placeを保存する。
 
-`IxPool`は現行Bufferと同じpredefined mechanismとして全fileから参照可能にする。専用の`builtin`宣言や組み込みmodule機構は
-IxPoolだけのためには追加しない。未検査preconditionを直接使う範囲は通常のAPI設計で狭め、file-local opaque型がcontainer invariantを
-閉じる。更新operationは`Unit`または古いcarrierを返し、同じhandleを返すImPool共通signatureには揃えない。
+`*A`と`IxPool<A>`は初回案では`Storable(A)`を要求する。これは現在のreference-counted回収で型から見えない
+owner back-edgeを導入しないための採択境界であり、pointerがexclusiveまたはborrowedであることを意味しない。
 
-## 後続段階で決める事項
+次の機構はこの最小surfaceだけから意味が決まらないため、初回採択では定義しない。この一覧は言語からの恒久的な
+除外を定めるものではなく、必要になった機構は固有のauthority、lifecycle、failureを持つ後続proposalとして判断する。
 
-- 周辺operationの公開名。周辺の意味のauthorityは通常のmal definitionに置き、backendの費用specializationは
-  as-if loweringとする。どの周辺をspecializeするかと、Liveを仮定する除去を`unreachable :: Unit -> []`のような言語の
-  primitiveへ寄せるかは、production kernelの生成物を測って決める。
-- [`Storable`の拡張](model/identity.md#storableの原理)のうち、Buffer handleは
-  [D096](../../history/decisions/active/D096.md)で、external opaque carrierは
-  [D097](../../history/decisions/active/D097.md)で先に採択した。IxPool admissionは最初のPool decisionに含め、ImPool admissionは
-  第二段階に残す。functionとempty sumは今回の範囲では除外する。
-- transitive snapshot、serialization、Map keyなどに共通するstability judgmentが実際に必要か。ImPoolのstructural snapshotと
-  handle nestingには不要なので、名称だけを先に追加しない。
-- 第二段階でImPoolをpublicにするか。採る場合はuniqueness検査、Ix/Im共通source、`freeze`/`thaw`のcopy gateを一緒に決める。
-- [測定後の候補](api/pool.md#測定後の候補)の`moveRange`とImPoolの範囲の写しを足すか。
-- Vectorの公開API、extern admission、`Symbol`との型関係は
-  [BufferとVectorの採択前に残る判断](api/buffer-vector.md#採択前に残る判断)を正とする。
-- live slot iterationをcoreに持つか、core外のextensionにするか、containerに任せるか。
-- IxPoolを直接使うcontainerが払う[占有tagの費用](runtime/implementation.md#占有tagの費用)。同じkernelのdirect Cとsafe Rustの
-  測定ではbitmapを初期表現に選んだが、managed payload、growth、終了時走査と実際のcontainerを含む再測定が要る。
-- opaque型のdiagnosticと、public APIがrepresentationを返せる範囲。
-- IxPool callbackを既存Buffer callback emitterから一般化するか、共通`Lifecycle`を消費する別のemitterとして置くか。
-- IxPool、ImPool、Vectorをextern signatureへ認めるか。認める場合はD098と同じruntime carrier、borrow/move、型別share/dropを使い、
-  `Address`やcanonical host representationを再導入しない。
-- runtime extensionの配布、version、artifact cache、runtime source選択はPool採択条件にしない。必要になった時点でD098のexact-match
-  build modelを拡張する別proposalが所有する。
+- pointer arithmetic、pointer ordering、pointer equality、integer/address conversion、明示的な`free`
+- pointee projection、pointerでguardされたrecursive type、weak pointer
+- immutable pool snapshot、`ImPool`、Vector、`freeze`、`thaw`
+- allocator parameter、arena、recoverable allocation failure
+- pointerまたはIxPoolのextern signature admission
+- range transfer、Live pointer iterator、checked APIとunchecked APIの二重化
+
+container metadataはIxPoolへ組み込まず、通常のplaceへ置く。例えばMapのfile-local opaque representationは
+`(*Count, IxPool<Entry>)`にも`*(Count, IxPool<Entry>)`にもできる。前者は二carrierを直接共有するためpool identityを
+固定し、後者は共有descriptorを通じてpool handle自体を交換できる。内部pointerを公開しない限り、このproposalは
+どちらをcontainer一般の表現としても固定しない。
+
+opaque containerが内部の`*Element`を返すと、利用者へ`load`だけでなく`store`と`take`のauthorityも渡り、container
+invariantを迂回できる。従って内部pointerは、意図してそのauthorityを公開するAPIでない限りopaque境界からescape
+させない。metadataとstorageを同じallocationへ置く最適化は可能だが、二つのlogical identityとそれぞれのlifecycleは
+保つ。
+
+## 既存prefix `*`との境界
+
+現行v0.7はexpression位置のprefix `*`をBuffer/Symbolのsnapshot変換として定めている。本proposalが追加する
+`*A`はtype位置だけのpointer constructorであり、pointer dereferenceには使わない。従って二つはgrammar contextで
+区別でき、Buffer/Symbol変換の移行をpointer coreの採択条件にはしない。
+
+## 後続判断
+
+- `*A` carrierをownerとcoordinateの二wordにするか、standalone pointerを別表現にするか。
+- pointerでguardされたrecursive opaque typeを認めるか。認める場合もstrong cycleの自動回収は要件とせず、
+  利用者が到達可能な間に`take`などでcycleを切る。
+- `*A`をfunctionを含む任意のruntime typeへ広げるか。
+- metadata placeとIxPoolがcontainerごとに払うallocationとretain/release costを許容できるか。
+- IxPool由来のpointerが残る場合にpool全体を保持するcostを許容できるか。
+- snapshotが必要になったとき、outstanding pointer aliasをcopy gateへどう数えるか。
+- pointerとIxPoolをextern signatureへ認める実需があるか。

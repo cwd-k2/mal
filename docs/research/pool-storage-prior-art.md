@@ -3,7 +3,7 @@
 Status: Research note
 
 この文書は[Pool proposal](../proposals/pool/README.md)のcore contractを定めず、C/LLVMのallocation object、Rustのallocatorと
-collection、Haskellのmutable/immutable array、optionalなwritable successor、key、persistent containerを判断するための外部事例を
+collection、Haskellのmutable array、将来のsnapshot、key、persistent containerを判断するための外部事例を
 整理する。これらの機構をmalへそのまま移すのではなく、raw storage、typed place、authority、container policyが各systemのどこに
 置かれるかを比較する。
 
@@ -15,8 +15,8 @@ collection、Haskellのmutable/immutable array、optionalなwritable successor�
 |---|---|---|---|---|
 | raw allocation | `malloc`、LLVM allocated object | `Allocator`と`Layout` | GC heap、array primop | C runtime内部のmechanism |
 | typed storage | C object、LLVM load/store | `RawVec<T>`、`MaybeUninit<T>` | `Array#`、`MutableArray# s` | runtime payloadとoccupancy |
-| mutation authority | pointerと外部contract | `&mut`、move、unsafe contract | `State# s`、`ST s`、`IO` | IxPool handleが指すidentity |
-| structural snapshot | conventionまたはcopy | owned container、共有handleを要素にできる | immutable arrayもreferenceを要素にできる | ImPool snapshot value |
+| mutation authority | pointerと外部contract | `&mut`、move、unsafe contract | `State# s`、`ST s`、`IO` | `*A`のshared placeとIxPool identity |
+| structural snapshot | conventionまたはcopy | owned container、共有handleを要素にできる | immutable arrayもreferenceを要素にできる | 初回案には含めない |
 | lifetime responsibility | callerの`free` | ownerと`Drop` | GC | compilerの`Share`、`Consume`、`Drop` |
 | container policy | library code | `Vec`、`HashMap` | array library、container library | malで書くopaque container |
 
@@ -33,7 +33,7 @@ provenance、size、lifetimeを持ち、認識されたobjectのsizeは後から
 
 したがってIxPoolのidentityをpayload allocationのpointer identityとしてlowerできない。stableなmanaged objectからcurrent backing
 allocationを指し、growth後にpointerを再取得する形なら、Pool identityとLLVM provenanceを分離できる。Live/Vacantもallocated objectの
-lifetimeではなく、Malの`Slot<V>`をoccupancyとpayloadへlowerした状態である。
+lifetimeではなく、Malのpointee stateをoccupancyとpayloadへlowerした状態である。
 
 ## RustのAllocator、初期化、collection
 
@@ -43,10 +43,12 @@ deallocateを扱う。blockがどのallocatorに由来するか、allocator equi
 
 `Vec<T>`は概念上、allocationとcapacityを持つ`RawVec<T>`に、初期化済みprefixのlengthを加える。未初期化storageを`T`として
 扱わない境界には`MaybeUninit<T>`やunsafeなpointer operationが使われる。Pool案はuninitializedな`V`をsourceへ持たず、
-`Slot<V> = [Unit, V]`をoccupancyとpayloadへlowerする。Bufferのdense prefixはPoolではなくBuffer invariantに残す。
+pointeeの`Vacant | Live(V)` stateをoccupancyとpayloadへlowerする。これをfirst-classな`Slot<V>`値としては公開しない。
+Bufferのdense prefixはPoolではなくBuffer invariantに残す。
 
-Rustのborrowはgrowthで無効になり得るinterior referenceを制約する。Poolはslot pointerをsourceへ出さず、coordinateをPool identityに
-相対的に解釈するため、growthとrelocationのためのsource-level borrow lifetimeを必要としない。
+Rustのborrowはgrowthで無効になり得るinterior referenceを制約する。IxPoolはrawなinterior addressをsourceへ出さず、
+owner identityとcoordinateから再解決できるmanaged `*A`を返すため、growthとrelocationのためのsource-level borrow lifetimeを
+必要としない。
 
 Rustのallocatorをcontainerの型parameterにできることは、Poolにもallocator parameterが必要であることを意味しない。allocator policy、
 recoverable failure、allocation regionをprogramが選ぶ要求がなければ、runtime detailとして閉じる方がcontractは少ない。
@@ -58,9 +60,9 @@ source valueである。`Box`のmove、borrow、`Drop`はexclusive owner、addre
 一つの型へ結び付ける。raw pointerへの変換ではcleanup responsibilityもcallerへ移る。
 
 Pool案はこの結合をsourceへ導入しない。一つのresponsibilityが一つのallocationを保持する状態は、compilerとruntimeでは
-Box-likeな実装事実として現れ得る。しかしIxPool valueはshared identityへのhandleであり、ImPool valueはstructural snapshotである。
-物理ownerが一つだからIxPoolをexclusiveと解釈したり、ImPoolを破壊的に変更したりしない。Poolに必要なのはsingle objectへのderefでも
-stable addressでもなく、有限個のtyped placeをcoordinateで選ぶことだからである。
+Box-likeな実装事実として現れ得る。しかし`*A`とIxPool valueはshared identityへのhandleである。物理ownerが一つだから
+exclusive authorityと解釈しない。Poolに必要なのはstable addressではなく、有限個のtyped placeを
+coordinateで選ぶことだからである。
 
 ## Haskellのarrayとstate
 
@@ -68,15 +70,16 @@ GHCはimmutableな`Array#`と`MutableArray# s`を分け、mutable operationを`S
 （[GHC primitive types](https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/primitives.html)）。`ST s`ではstate parameterにより
 mutable identityをscope外へ逃がさず、`IO`ではworld stateの中でidentityを扱う。
 
-IxPoolとImPoolはmutable/immutable arrayの対に似るが、IxPoolはaliasがscopeを越えて変更を共有観測できるため、`STArray`より
-`IOArray`に近い。malはstrict evaluationと既存Bufferのshared identityを持つので、Poolのために`State# s`に対応するsource valueを
-導入しない。operationの評価順とidentity authorityで変更を説明する。
+IxPoolはaliasがscopeを越えて変更を共有観測できるため、`STArray`より`IOArray`に近い。malはstrict evaluationと既存Bufferの
+shared identityを持つので、Poolのために`State# s`に対応するsource valueを導入しない。operationの評価順とidentity authorityで
+変更を説明する。
 
 HaskellのGCとmalのmanaged responsibilityは回収mechanismが異なる。どちらもarray valueの意味をphysical copyや解放時刻から
 分離できるが、mal backendはmanaged elementの`Share`、`Consume`、`Drop`を明示的に計画する。
 
 GHCの[Linear Types](https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/linear_types.html)はargumentの一回消費を型で表せる。
-Pool案はuniquenessをsource authorityにせず、ImPoolのobservable snapshot semanticsを保ったままstorageを再利用する実装条件に置く。
+Pool案はuniquenessをsource authorityにしない。将来snapshotを導入する場合も、storage再利用はobservable semanticsから独立した
+実装条件として扱う必要がある。
 
 ## value containerにhandleを保存する言語
 
@@ -91,7 +94,7 @@ Rustのpointerはfirst-class valueであり、data structureへ保存できる
 
 Rustの[`Freeze`](https://doc.rust-lang.org/stable/core/marker/trait.Freeze.html)は型の内部に`UnsafeCell`を含まないことを表す実験的な
 compiler traitだが、indirection先までは追わない。pointer carrierがFreezeでもreferentの変更不能性を意味しない。この境界は、
-ImPoolのsnapshotがslot carrierを保存してもhandle referentまで固定しないことの直接の比較になる。
+将来のsnapshotがpointerやIxPool handleを要素として許す場合に、carrierの固定とreferentの固定を分ける比較になる。
 
 Rustは`Rc<RefCell<T>>`などの組合せでreference cycleを構成でき、そのcycleは解放されないことを明示している
 （[Reference Cycles Can Leak Memory](https://doc.rust-lang.org/book/ch15-06-reference-cycles.html)）。これはhandleを保存できることと、
@@ -117,8 +120,8 @@ Arrayは変わらない一方、二つのArrayが同じclass instanceを指す�
 [Swift Language Guide](https://docs.swift.org/swift-book/LanguageGuide/ClassesAndStructures.html)も、structureとArrayをvalue type、classを
 reference typeとして区別する。
 
-これはshallow copyという実装上の妥協ではない。Array valueが保存するelement value自体がreferenceだからである。ImPoolも同様に、
-slot carrierの列をstructural snapshotとして保存し、carrierが持つauthorityをdeep copyしない。
+これはshallow copyという実装上の妥協ではない。Array valueが保存するelement value自体がreferenceだからである。malで将来
+structural snapshotを設計する場合も、保存するcarrierとcarrierから到達するreferentを分けて規則化する必要がある。
 
 ## RustとHaskellの間での分解
 
@@ -126,10 +129,9 @@ Rustではsource ownershipがmutation authorityとlifetime responsibilityの両�
 表し、GCがlifetime responsibilityを引き受ける。malはsource valueの再利用可能性を保ちながら、compilerが実行時responsibilityだけを
 affineに移す。Poolの型はauthority、compilerはresponsibility、runtimeはrepresentation uniquenessを受け持つ。
 
-この分解により、IxPoolで構築して`freeze`する経路はaliasがなければRustのmoveに近いO(1)のstorage transferになり、aliasがあれば
-slot carrierのstructural snapshotをcopyで保つ。handleをslotに含む場合もreferentをcloneしない。どちらになったかはprogramの
-意味へ現れない。coordinateも同様に、
-Rustのinterior borrowを公開せず、Haskellのarray indexのようにrelocationから独立している。
+この分解により、coordinateはRustのinterior borrowを公開せず、Haskellのarray indexのようにrelocationから独立している。
+一方、IxPoolから得たpointerが残る場合のsnapshotは、storage transferだけでは意味が決まらない。copy、copy-on-write、outstanding
+pointerの制限を別proposalで選ぶ必要がある。
 
 ## Copy-on-writeとuniqueness
 
@@ -143,15 +145,15 @@ library実装向けの
 [`isKnownUniquelyReferenced`](https://developer.apple.com/documentation/swift/isknownuniquelyreferenced%28_%3A%29-98zpp)は、strong referenceが
 一つと判明した場合だけtrueを返す。判明しない場合にcopyへfallbackできるため、uniqueness最適化とvalue semanticsを分離できる。
 
-malではruntime reference countをsource semanticsにせず、owned responsibilityを受け取ったwritable-successor operationだけが
-storage再利用を試みる。borrowed call、一時Share、別の回収方式では保守的にcopyしてよく、observableなArray valueは同じである。
+malでもruntime reference countをsource semanticsにはしない。将来writable successorを持つvalue typeを導入するなら、owned
+responsibilityを受け取ったoperationだけがstorage再利用を試み、保守的なcopyとobservableな意味を一致させる。
 
 ## Weak pointerとkey
 
 `Arc::make_mut`はstrong aliasがなくweak pointerだけが残る場合、inner valueをcloneせずweak pointerを元allocationから切り離す。
-これはCOWとnonowning identityを合成する際にも追加ruleが必要なことを示す。Poolのkeyがidentityやgenerationを持つ場合、
-storage再利用とcopyのどちらを選んだかがkeyの有効性へ現れてはならない。Pool案のImPoolはkeyを発行しないため、この合成を
-持たない（[ImPool](../proposals/pool/api/pool.md#impool)）。
+これはCOWとnonowning identityを合成する際にも追加ruleが必要なことを示す。IxPoolのcoordinate keyへgenerationを加える場合、
+physical relocationや将来のsnapshot戦略がkeyの有効性へ現れてはならない。現在案はpointer equalityとsnapshotを持たず、
+generationはSlotMapなどcontainer側が所有する。
 
 ## Persistent indexed sequence
 
