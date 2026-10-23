@@ -32,12 +32,12 @@ def "main check" [
     step "Tree-sitter corpus" { cd editors/tree-sitter-mal; tree-sitter test }
     step "Tree-sitter repository sources" {
         cd editors/tree-sitter-mal
-        tree-sitter parse --quiet ...(rg --files ../.. -g "*.mal" | lines)
+        tree-sitter parse --config-path tree-sitter-config.json --grammar-path . --quiet ...(rg --files ../.. -g "*.mal" | lines)
     }
     step "Tree-sitter queries" {
         cd editors/tree-sitter-mal
         for query in [highlights indents textobjects] {
-            tree-sitter query $"queries/($query).scm" ../../editors/vscode/test/highlight.mal | ignore
+            tree-sitter query --config-path tree-sitter-config.json --grammar-path . $"queries/($query).scm" ../../editors/vscode/test/highlight.mal | ignore
         }
     }
     if $fast { return }
@@ -180,7 +180,7 @@ def prepare_runtime []: nothing -> string {
     cd $grammar
     tree-sitter generate
     tree-sitter test
-    tree-sitter parse --quiet ...(rg --files $REPOSITORY_ROOT -g "*.mal" | lines)
+    tree-sitter parse --config-path tree-sitter-config.json --grammar-path . --quiet ...(rg --files $REPOSITORY_ROOT -g "*.mal" | lines)
     mkdir $root
     tree-sitter build --output $parser $grammar
 
